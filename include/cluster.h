@@ -31,6 +31,7 @@ struct spotData {
     QString mode;
     QString comment;
     QCPItemText* text = Q_NULLPTR;
+    int timeout; // timeout in seconds
     bool current = false;
 };
 

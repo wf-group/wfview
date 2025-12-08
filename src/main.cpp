@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #else
 #include <QApplication>
+#include <QGuiApplication>
 #include <QTranslator>
 #endif
 
@@ -98,8 +99,6 @@ int main(int argc, char *argv[])
 
 #ifdef BUILD_WFSERVER
     QCoreApplication a(argc, argv);
-    a.setOrganizationName("wfview");
-    a.setOrganizationDomain("wfview.org");
     a.setApplicationName("wfserver");
     keyboard* kb = new keyboard();
     kb->start();
@@ -108,10 +107,39 @@ int main(int argc, char *argv[])
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
     QApplication a(argc, argv);
-    a.setOrganizationName("wfview");
-    a.setOrganizationDomain("wfview.org");
+
+    QObject::connect(qApp, &QGuiApplication::focusWindowChanged,
+                     [](QWindow *w) {
+                         qInfo() << "[focusWindowChanged]" << w
+                                  << (w ? w->title() : QString());
+                     });
+
+    QTimer::singleShot(0, []() {
+        qInfo() << "Startup windows:";
+
+        const auto windows = QGuiApplication::allWindows();
+        for (QWindow *w : windows) {
+            qInfo() << "  -" << w << "title:" << w->title()
+            << "flags:" << w->flags()
+            << "visible:" << w->isVisible();
+        }
+    });
+
+    QTimer::singleShot(500, []() {
+        qInfo() << "Windows after 500ms:";
+        const auto windows = QGuiApplication::allWindows();
+        for (QWindow *w : windows) {
+            qInfo() << "  -" << w << "title:" << w->title()
+            << "visible:" << w->isVisible();
+        }
+    });
+
+
     a.setApplicationName("wfview");
 #endif
+
+    a.setOrganizationName("wfview");
+    a.setOrganizationDomain("wfview.org");
 
 #ifdef QT_DEBUG
     //debugMode = true;

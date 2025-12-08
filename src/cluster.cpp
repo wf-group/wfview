@@ -120,6 +120,7 @@ void dxClusterClient::udpDataReceived()
                 data->timestamp = QDateTime::fromString(spot.firstChildElement("timestamp").text(),"yyyy-MM-dd hh:mm:ss");
                 data->mode = spot.firstChildElement("mode").text();
                 data->comment = spot.firstChildElement("comment").text();
+                data->timeout = tcpTimeout;
 
 #ifdef USESQL
                 database db = database();
@@ -199,7 +200,7 @@ void dxClusterClient::tcpDataReceived()
                 data->dxcall = match.captured(3);
                 data->comment = match.captured(4).trimmed();
                 data->timestamp = QDateTime::currentDateTimeUtc();
-
+                data->timeout = tcpTimeout;
                 qInfo() << "Got spot:" << data->dxcall;
 
 #ifdef USESQL

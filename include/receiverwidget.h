@@ -2,6 +2,8 @@
 #define RECEIVERWIDGET_H
 
 #include <QWidget>
+#include <QQuickWidget>
+#include <QQmlContext>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QSplitter>
@@ -13,6 +15,10 @@
 #include <QSpacerItem>
 #include <QElapsedTimer>
 #include <QTimer>
+#include <QToolTip>
+#include <QDateTime>
+#include <QQuickWindow>
+
 #include <qcustomplot.h>
 #include "freqctrl.h"
 #include "cluster.h"
@@ -20,6 +26,9 @@
 #include "colorprefs.h"
 #include "rigidentities.h"
 #include "cachingqueue.h"
+
+#include "spectrumitem.h"
+#include "waterfallitem.h"
 
 enum scopeTypes {
     scopeSpectrum=0,
@@ -42,13 +51,12 @@ public:
     bool prepareWf(uint wfLength);
     void prepareScope(uint ampMap, uint spectWidth);
     void changeWfLength(uint wf);
-    bool updateScope(scopeData spectrum);
     void setRange(int floor, int ceiling);
-    void wfInterpolate(bool en) { colorMap->setInterpolate(en); }
-    void wfAntiAliased(bool en) { colorMap->setAntialiased(en); }
+    void wfInterpolate(bool en) { if (waterfall) waterfall->setSmooth(en); } ;
+    void wfAntiAliased(bool en) {} ;
     void wfTheme(int num);
     void setUnderlayMode(underlay_t un) { underlayMode = un; clearPeaks(); }
-    void overflow(bool en) {ovfIndicator->setVisible(en); }
+    void overflow(bool en) { if (spectrum) spectrum->setOverflow(en); }
     void resizePlasmaBuffer(int size );
     void colorPreset(colorPrefsType *p );
 
@@ -140,8 +148,11 @@ public:
     bandType getCurrentBand();
 
 public slots: // Can be called directly or updated via signal/slot
-    void receiveSpots(uchar receiver, QList<spotData> spots);
+    void receiveSpots(uchar receiver, QVector<spotData> spots);
     void memoryMode(bool en);
+    void updateScope(const scopeData &data);
+    void setFreqFromScope(double f);
+
 
 
 signals:    
@@ -179,6 +190,9 @@ private slots:
     void newFrequency(qint64 freq,uchar i=0);
     void receiveTrack(int f);
 
+    void onHoverSpotChanged(const spotData &spot, QPointF itemPos, bool active);
+    void onWheelTuneRequested(int steps, Qt::KeyboardModifiers mods);
+
 private:
     void clearPlasma();
     void computePlasma();
@@ -194,8 +208,8 @@ private:
     QMutex mutex;
     QWidget* originalParent = Q_NULLPTR;
     QLabel* windowLabel = Q_NULLPTR;
-    QCustomPlot* spectrum = Q_NULLPTR;
-    QCustomPlot* waterfall = Q_NULLPTR;
+    //QCustomPlot* spectrum = Q_NULLPTR;
+    //QCustomPlot* waterfall = Q_NULLPTR;
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
     QList <freqCtrl*> freqDisplay;
@@ -270,7 +284,7 @@ private:
     QPushButton* confButton;
     QSpacerItem* controlSpacer;
     QSpacerItem* midSpacer;
-    QCPColorGradient::GradientPreset currentTheme = QCPColorGradient::gpSpectrum;
+    WaterfallItem::Theme currentTheme = WaterfallItem::Theme::Spectrum;
     int currentRef = 0;
     uchar currentSpeed = 0;
     colorPrefsType colors;
@@ -360,6 +374,13 @@ private:
     double maxFreqMhz = 0.0;
     bool freqLock = false;
     bool scopeReceived = false;
+
+    QQuickWidget *scopeQuick = nullptr;
+    SpectrumItem *spectrum = nullptr;
+    WaterfallItem *waterfall = nullptr;
+    qint64 lastSpectrumNs  = 0;
+    qint64 lastWaterfallNs = 0;
+
 };
 
 #endif // RECEIVERWIDGET_H

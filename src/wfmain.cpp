@@ -34,10 +34,16 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     QGuiApplication::setApplicationName(QString("wfview"));
 
     setWindowIcon(QIcon( QString(":resources/wfview.png")));
+
     this->debugMode = debugMode;
     debugModeLogging = debugMode;
-    ui->setupUi(this);
+
+    qInfo() << "wfmain constructed" << this;
+
     setWindowTitle(QString("wfview"));
+
+    ui->setupUi(this);
+
 
     ui->monitorLabel->setText("<a href=\"#\" style=\"color:white; text-decoration:none;\">Mon</a>");
 
@@ -132,7 +138,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     qRegisterMetaType<const COMMAND*>();
     qRegisterMetaType<const USBDEVICE*>();
     qRegisterMetaType<QList<radio_cap_packet>>();
-    qRegisterMetaType<QList<spotData>>();
+    qRegisterMetaType<QVector<spotData>>();
     qRegisterMetaType<networkStatus>();
     qRegisterMetaType<networkAudioLevels>();
     qRegisterMetaType<codecType>();
@@ -144,7 +150,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     qRegisterMetaType<memoryTagType>();
     qRegisterMetaType<memorySplitType>();
     qRegisterMetaType<antennaInfo>();
-    qRegisterMetaType<scopeData>();
     qRegisterMetaType<queueItem>();
     qRegisterMetaType<cacheItem>();
     qRegisterMetaType<spectrumBounds>();
@@ -154,6 +159,10 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     qRegisterMetaType<yaesu_scope_data>();
     qRegisterMetaType<rigInfo>();
     qRegisterMetaType<lpfhpf>();
+
+    qRegisterMetaType<scopeData>();
+    qmlRegisterType<SpectrumItem>("RadioScope", 1, 0, "SpectrumItem");
+    qmlRegisterType<WaterfallItem>("RadioScope", 1, 0, "WaterfallItem");
 
     this->setObjectName("wfmain");
     queue = cachingQueue::getInstance(this);
@@ -368,6 +377,9 @@ void wfmain::popupScreenMenu(QPoint pos)
 
 wfmain::~wfmain()
 {
+
+    qInfo() << "wfmain destroyed" << this;
+
     if(rigThread != Q_NULLPTR) {
         rigThread->quit();
         rigThread->wait();
@@ -1080,6 +1092,7 @@ void wfmain::configureVFOs()
         receivers.clear();
     }
 
+
     for(uchar i=0;i<rigCaps->numReceiver;i++)
     {
         receiverWidget* receiver = new receiverWidget(rigCaps->hasSpectrum,i,rigCaps->numVFO,this);
@@ -1100,6 +1113,7 @@ void wfmain::configureVFOs()
         receiver->colorPreset(&p);
         receiver->setIdentity(i==0?"Main Band":"Sub Band");
         ui->vfoLayout->addWidget(receiver);
+        ui->vfoLayout->setStretchFactor(receiver, 1);
 
         // Hide any secondary receivers until we need them!
         receiver->selected(i==0?true:false);
@@ -1107,7 +1121,7 @@ void wfmain::configureVFOs()
 
         connect(receiver, SIGNAL(frequencyRange(uchar, double, double)), cluster, SLOT(freqRange(uchar, double, double)));
 
-        connect(cluster, SIGNAL(sendSpots(uchar, QList<spotData>)), receiver, SLOT(receiveSpots(uchar, QList<spotData>)));
+        connect(cluster, SIGNAL(sendSpots(uchar, QVector<spotData>)), receiver, SLOT(receiveSpots(uchar, QVector<spotData>)));
         connect(cluster, SIGNAL(sendOutput(QString)), this, SLOT(receiveClusterOutput(QString)));
         connect(receiver, SIGNAL(updateSettings(uchar,int,quint16,int,int)), this, SLOT(receiveScopeSettings(uchar,int,quint16,int,int)));
 
@@ -6041,7 +6055,15 @@ void wfmain::receiveValue(cacheItem val){
         break;
     // 0x27
     case funcScopeWaveData:
-        receivers[val.receiver]->updateScope(val.value.value<scopeData>());
+
+        QMetaObject::invokeMethod(
+            receivers[val.receiver],
+            "updateScope",
+            Qt::QueuedConnection,
+            Q_ARG(scopeData, val.value.value<scopeData>())
+        );
+
+        //receivers[val.receiver]->updateScope(val.value.value<scopeData>());
         break;
     case funcScopeOnOff:
         // confirming scope is on

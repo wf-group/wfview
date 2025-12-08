@@ -13,9 +13,9 @@ QT       += core gui serialport network multimedia xml
 DEFINES += USB_CONTROLLER
 
 # FTDI support requires the library from https://ftdichip.com/software-examples/ft4222h-software-examples/
-# DEFINES += FTDI_SUPPORT
+DEFINES += FTDI_SUPPORT
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickwidgets
 
 contains(DEFINES,USB_CONTROLLER){
     lessThan(QT_MAJOR_VERSION, 6): QT += gamepad
@@ -24,7 +24,7 @@ contains(DEFINES,USB_CONTROLLER){
 TARGET = wfview
 TEMPLATE = app
 
-DEFINES += WFVIEW_VERSION=\\\"2.11\\\"
+DEFINES += WFVIEW_VERSION=\\\"2.20\\\"
 
 DEFINES += BUILD_WFVIEW
 
@@ -375,13 +375,17 @@ SOURCES += \
     src/selectradio.cpp \
     src/settingswidget.cpp \
     src/sidebandchooser.cpp \
+    src/spectrumitem.cpp \
     src/tablewidget.cpp \
     src/tciserver.cpp \
     src/tcpserver.cpp \
     src/usbcontroller.cpp \
+    src/waterfallitem.cpp \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/spectrumitem.h \
+    include/waterfallitem.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
     src/audio/resampler/speex_resampler.h \

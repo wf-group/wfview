@@ -5,6 +5,7 @@
 #ifndef WFMAIN_H
 #define WFMAIN_H
 
+#include <QGuiApplication>
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QThread>
@@ -67,6 +68,9 @@
 #include "controllersetup.h"
 #include "rigcreator.h"
 #include "cachingqueue.h"
+
+#include "waterfallitem.h"
+#include "spectrumitem.h"
 
 #include <deque>
 #include <memory>

@@ -19,9 +19,8 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     mainLayout = new QHBoxLayout(this);
     layout = new QVBoxLayout();
     mainLayout->addLayout(layout);
-    splitter = new QSplitter(this);
-    layout->addWidget(splitter);
-    splitter->setOrientation(Qt::Vertical);
+
+
     originalParent = parent;
 
     displayLayout = new QHBoxLayout();
@@ -167,13 +166,10 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     detachButton->setCheckable(true);
     detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
     detachButton->setChecked(false);
-    //scopeModeLabel = new QLabel("Spectrum Mode:");
     scopeModeCombo = new QComboBox();
     scopeModeCombo->setAccessibleDescription(tr("Spectrum Mode"));
-    //spanLabel = new QLabel("Span:");
     spanCombo = new QComboBox();
     spanCombo->setAccessibleDescription(tr("Spectrum Span"));
-    //edgeLabel = new QLabel("Edge:");
     edgeCombo = new QComboBox();
     edgeCombo->setAccessibleDescription(tr("Spectrum Edge"));
     edgeButton = new QPushButton(tr("Custom Edge"));
@@ -240,24 +236,34 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     edgeButton->setVisible(false);
     toFixedButton->setVisible(false);
 
-    spectrum = new QCustomPlot();
-    spectrum->xAxis->axisRect()->setAutoMargins(QCP::MarginSide::msBottom);
-    spectrum->yAxis->axisRect()->setAutoMargins(QCP::MarginSide::msBottom);
-    spectrum->xAxis->setPadding(0);
-    spectrum->yAxis->setPadding(0);
 
-    waterfall = new QCustomPlot();
-    waterfall->xAxis->axisRect()->setAutoMargins(QCP::MarginSide::msNone);
-    waterfall->yAxis->axisRect()->setAutoMargins(QCP::MarginSide::msNone);
-    waterfall->xAxis->setPadding(0);
-    waterfall->yAxis->setPadding(0);
+    scopeQuick = new QQuickWidget(this);
+    scopeQuick->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    scopeQuick->setSource(QUrl(QStringLiteral("qrc:/resources/scope.qml")));
+    layout->addWidget(scopeQuick);
 
-    splitter->addWidget(spectrum);
-    splitter->addWidget(waterfall);
-    splitter->setHandleWidth(5);
+    QObject *root = scopeQuick->rootObject();
+    if (!root) {
+        qWarning() << "ScopeView root object is null";
+    } else {
+        qDebug() << "RX" << receiver << "root object" << root;
+        spectrum  = root->findChild<SpectrumItem*>("spectrum");
+        waterfall = root->findChild<WaterfallItem*>("waterfall");
+        if (!spectrum)
+            qWarning() << "SpectrumItem 'spectrum' not found in QML";
+        if (!waterfall)
+            qWarning() << "WaterfallItem 'waterfall' not found in QML";
+        connect(spectrum, &SpectrumItem::tuneRequested, this, &receiverWidget::setFreqFromScope);
+        connect(waterfall, &WaterfallItem::tuneRequested, this, &receiverWidget::setFreqFromScope);
+        connect(spectrum, &SpectrumItem::hoverSpotChanged,this, &receiverWidget::onHoverSpotChanged);
+        connect(spectrum, &SpectrumItem::wheelTuneRequested,this, &receiverWidget::onWheelTuneRequested);
+        connect(waterfall, &WaterfallItem::wheelTuneRequested,this, &receiverWidget::onWheelTuneRequested);
+        spectrum->setFloor(plotFloor);
+        spectrum->setCeiling(plotCeiling);
+        waterfall->setFloor(wfFloor);
+        waterfall->setCeiling(wfCeiling);
+    }
 
-    spectrum->axisRect()->setMargins(QMargins(30,0,0,0));
-    waterfall->axisRect()->setMargins(QMargins(30,0,0,0));
 
     layout->addLayout(displayLayout);
     layout->addLayout(controlLayout);
@@ -294,6 +300,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     }
 
     // Spectrum Plot setup
+    /*
     passbandIndicator = new QCPItemRect(spectrum);
     passbandIndicator->setAntialiased(true);
     passbandIndicator->setPen(QPen(Qt::red));
@@ -352,6 +359,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 #if QCUSTOMPLOT_VERSION < 0x020001
     this->addPlottable(colorMap);
 #endif
+    */
 
     // Config Screen
     rhsLayout = new QVBoxLayout();
@@ -412,18 +420,18 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     configTheme->setAccessibleName(tr("Waterfall display color theme"));
     configTheme->setAccessibleDescription(tr("Selects the color theme for the waterfall display"));
     configTheme->setToolTip(tr("Waterfall color theme"));
-    configTheme->addItem("Jet", QCPColorGradient::gpJet);
-    configTheme->addItem("Cold", QCPColorGradient::gpCold);
-    configTheme->addItem("Hot", QCPColorGradient::gpHot);
-    configTheme->addItem("Therm", QCPColorGradient::gpThermal);
-    configTheme->addItem("Night", QCPColorGradient::gpNight);
-    configTheme->addItem("Ion", QCPColorGradient::gpIon);
-    configTheme->addItem("Gray", QCPColorGradient::gpGrayscale);
-    configTheme->addItem("Geo", QCPColorGradient::gpGeography);
-    configTheme->addItem("Hues", QCPColorGradient::gpHues);
-    configTheme->addItem("Polar", QCPColorGradient::gpPolar);
-    configTheme->addItem("Spect", QCPColorGradient::gpSpectrum);
-    configTheme->addItem("Candy", QCPColorGradient::gpCandy);
+    configTheme->addItem("Jet", WaterfallItem::Theme::Jet);
+    configTheme->addItem("Cold", WaterfallItem::Theme::Cold);
+    configTheme->addItem("Hot", WaterfallItem::Theme::Hot);
+    configTheme->addItem("Therm", WaterfallItem::Theme::Thermal);
+    configTheme->addItem("Night", WaterfallItem::Theme::Night);
+    configTheme->addItem("Ion", WaterfallItem::Theme::Ion);
+    configTheme->addItem("Gray", WaterfallItem::Theme::Grayscale);
+    configTheme->addItem("Geo", WaterfallItem::Theme::Geography);
+    configTheme->addItem("Hues", WaterfallItem::Theme::Hues);
+    configTheme->addItem("Polar", WaterfallItem::Theme::Polar);
+    configTheme->addItem("Spect", WaterfallItem::Theme::Spectrum);
+    configTheme->addItem("Candy", WaterfallItem::Theme::Candy);
     configTheme->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     configLayout->addRow(tr("Theme"),configTheme);
 
@@ -464,7 +472,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     frequencyNotificationLockoutTimer->setSingleShot(true);
 
     connect(configLength, &QSlider::valueChanged, this, [=](const int &val) {
-        //prepareWf(val);
         changeWfLength(val);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
@@ -500,8 +507,8 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     connect(configTheme, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](const int &val) {
         Q_UNUSED(val)
-        currentTheme = configTheme->currentData().value<QCPColorGradient::GradientPreset>();
-        colorMap->setGradient(currentTheme);
+        currentTheme = configTheme->currentData().value<WaterfallItem::Theme>();
+        waterfall->setTheme(currentTheme);
         emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
     });
 
@@ -629,6 +636,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     connect(dataCombo,SIGNAL(currentIndexChanged(int)),this,SLOT(updatedMode(int)));
     connect(clearPeaksButton,SIGNAL(clicked()), this, SLOT(clearPeaks()));
 
+    /*
     connect(spectrum, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(doubleClick(QMouseEvent*)));
     connect(waterfall, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(doubleClick(QMouseEvent*)));
     connect(spectrum, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(scopeClick(QMouseEvent*)));
@@ -637,13 +645,14 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     connect(spectrum, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(scopeMouseMove(QMouseEvent *)));
     connect(waterfall, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(scroll(QWheelEvent*)));
     connect(spectrum, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(scroll(QWheelEvent*)));
+    */
 
     showHideControls(0);
     lastData.start();
 
 
     // Always on top!
-
+    /*
     oorIndicator = new QCPItemText(spectrum);
     oorIndicator->setVisible(false);
     oorIndicator->setAntialiased(true);
@@ -666,6 +675,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     ovfIndicator->setText(tr(" OVF "));
     ovfIndicator->position->setCoords(0.01f,0.1f);
 
+    */
 }
 
 
@@ -675,8 +685,8 @@ receiverWidget::~receiverWidget(){
     while (it.hasNext())
     {
         auto band = it.next();
-        spectrum->removeItem(band.line);
-        spectrum->removeItem(band.text);
+        //spectrum->removeItem(band.line);
+        //spectrum->removeItem(band.text);
         it.remove();
     }
 
@@ -684,7 +694,7 @@ receiverWidget::~receiverWidget(){
     while (sp.hasNext())
     {
         auto spot = sp.next();
-        spectrum->removeItem(spot.value()->text);
+        //spectrum->removeItem(spot.value()->text);
         delete spot.value();
         sp.remove();
     }
@@ -712,6 +722,8 @@ void receiverWidget::prepareScope(uint maxAmp, uint spectWidth)
 
 void receiverWidget::changeWfLength(uint wf)
 {
+    waterfall->setLength(wf);
+
     if(!scopePrepared)
         return;
 
@@ -719,6 +731,7 @@ void receiverWidget::changeWfLength(uint wf)
 
     this->wfLength = wf;
 
+    /*
     colorMap->data()->clear();
 
     colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
@@ -734,6 +747,7 @@ void receiverWidget::changeWfLength(uint wf)
 
     colorMap->setData(colorMapData,true); // Copy the colorMap so deleting it won't result in crash!
     waterfall->yAxis->setRange(0,wfLength - 1);
+    */
     //waterfall->replot();
 }
 
@@ -742,12 +756,19 @@ bool receiverWidget::prepareWf(uint wf)
     QMutexLocker locker(&mutex);
     bool ret=true;
 
+    return ret;
+
+
     this->wfLength = wf;
     configLength->blockSignals(true);
     configLength->setValue(this->wfLength);
     configLength->blockSignals(false);
 
     this->wfLengthMax = 1024;
+    waterfall->setLength(wf);
+
+
+    /*
 
     // Initialize before use!
     QByteArray empty((int)spectWidth, '\x01');
@@ -782,13 +803,13 @@ bool receiverWidget::prepareWf(uint wf)
 
     colorMap->setData(colorMapData,true); // Copy the colorMap so deleting it won't result in crash!
 
-    waterfall->yAxis->setRangeReversed(true);
-    waterfall->xAxis->setVisible(false);
+    //waterfall->yAxis->setRangeReversed(true);
+    //waterfall->xAxis->setVisible(false);
 
     clearPeaks();
     clearPlasma();
 
-
+    */
     scopePrepared = true;
     return ret;
 }
@@ -800,16 +821,29 @@ void receiverWidget::setRange(int floor, int ceiling)
     wfFloor = floor;
     wfCeiling = ceiling;
     maxAmp = ceiling;
-    if (spectrum != Q_NULLPTR)
-        spectrum->yAxis->setRange(QCPRange(floor, ceiling));
-    if (colorMap != Q_NULLPTR)
-        colorMap->setDataRange(QCPRange(floor,ceiling));
+    if (spectrum) {
+        spectrum->setFloor(plotFloor);
+        spectrum->setCeiling(plotCeiling);
+    }
+
+    if (waterfall){
+        waterfall->setFloor(wfFloor);
+        waterfall->setCeiling(wfCeiling);
+    }
+
     configBottom->blockSignals(true);
     configBottom->setValue(floor);
     configBottom->blockSignals(false);
     configTop->blockSignals(true);
     configTop->setValue(ceiling);
     configTop->blockSignals(false);
+
+    /*
+    if (spectrum != Q_NULLPTR)
+        spectrum->yAxis->setRange(QCPRange(floor, ceiling));
+    if (colorMap != Q_NULLPTR)
+        colorMap->setDataRange(QCPRange(floor,ceiling));
+
 
     // Redraw band lines and eventually memory markers!
     for (auto &b: bandIndicators)
@@ -818,16 +852,20 @@ void receiverWidget::setRange(int floor, int ceiling)
         b.line->end->setCoords(b.line->end->coords().x(), spectrum->yAxis->range().upper-5);
         b.text->position->setCoords(b.text->position->coords().x(), spectrum->yAxis->range().upper-10);
     }
+    */
 }
 
 void receiverWidget::colorPreset(colorPrefsType *cp)
 {
-    if (cp == Q_NULLPTR)
+    if (cp == Q_NULLPTR || !spectrum)
     {
         return;
     }
 
+    spectrum->setColors(*cp);
+
     colors = *cp;
+    /*
 
     spectrum->setBackground(cp->plotBackground);
 
@@ -873,7 +911,7 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
     if(cp->useUnderlayFillGradient) {
         underlayGradient.setStart(QPointF(0,1));
         underlayGradient.setFinalStop(QPointF(0,0));
-        underlayGradient.setCoordinateMode(QLinearGradient::StretchToDeviceMode);
+        underlayGradient.setCoordinateMode(QLinearGradient::StretchToDevifeMode);
         //underlayGradient.setColorAt(0, cp->underlayFillBot);
         underlayGradient.setColorAt(0.1, cp->underlayFillBot);
         underlayGradient.setColorAt(1, cp->underlayFillTop);
@@ -895,6 +933,7 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
 
     waterfall->setBackground(cp->wfBackground);
 
+    */
     holdButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
     splitButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
@@ -908,8 +947,116 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
 
 }
 
-bool receiverWidget::updateScope(scopeData data)
-{    
+void receiverWidget::updateScope(const scopeData &data)
+{
+
+    QElapsedTimer timer;
+
+    if (!data.valid || data.data.isEmpty() || !spectrum || !waterfall)
+        return;
+
+    if (spectrum) {
+        timer.start();
+        spectrum->updateScope(data);
+        emit spectrumTime(timer.nsecsElapsed()/1000000.0);
+    }
+    if (waterfall) {
+        timer.restart();
+        waterfall->updateScope(data);
+        emit waterfallTime(timer.nsecsElapsed()/1000000.0);
+    }
+
+    spectrum->setCenter(freq.MHzDouble);
+
+    double pbStart = 0.0;
+    double pbEnd = 0.0;
+
+    switch (mode.mk)
+    {
+    case modeLSB:
+    case modeRTTY_R:
+    case modePSK_R:
+        if (rigCaps->manufacturer == manufKenwood) {
+            pbStart = freq.MHzDouble-passbandWidth;
+            pbEnd = freq.MHzDouble;
+        } else {
+            pbStart = freq.MHzDouble - passbandCenterFrequency - (passbandWidth / 2);
+            pbEnd = freq.MHzDouble - passbandCenterFrequency + (passbandWidth / 2);
+        }
+        break;
+    case modeCW:
+        if (passbandWidth < 0.0006) {
+            pbStart = freq.MHzDouble - (passbandWidth / 2);
+            pbEnd = freq.MHzDouble + (passbandWidth / 2);
+        }
+        else {
+            pbStart = freq.MHzDouble + passbandCenterFrequency - passbandWidth;
+            pbEnd = freq.MHzDouble + passbandCenterFrequency;
+        }
+        break;
+    case modeCW_R:
+        if (passbandWidth < 0.0006) {
+            pbStart = freq.MHzDouble - (passbandWidth / 2);
+            pbEnd = freq.MHzDouble + (passbandWidth / 2);
+        }
+        else {
+            pbStart = freq.MHzDouble - passbandCenterFrequency;
+            pbEnd = freq.MHzDouble + passbandWidth - passbandCenterFrequency;
+        }
+        break;
+    default:
+        if (rigCaps->manufacturer == manufKenwood) {
+            pbStart = freq.MHzDouble;
+            pbEnd = freq.MHzDouble+passbandWidth;
+        } else {
+            pbStart = freq.MHzDouble + passbandCenterFrequency - (passbandWidth / 2);
+            pbEnd = freq.MHzDouble + passbandCenterFrequency + (passbandWidth / 2);
+        }
+        break;
+    }
+
+    spectrum->setPassbandLow(pbStart);
+    spectrum->setPassbandHigh(pbEnd);
+
+    if (data.startFreq != lowerFreq || data.endFreq != upperFreq)
+    {
+        //if(underlayMode == underlayPeakHold)
+        //{
+        //   // TODO: create non-button function to do this
+        //    // This will break if the button is ever moved or renamed.
+        //    clearPeaks();
+        //}
+        // Inform other threads (cluster) that the frequency range has changed.
+        emit frequencyRange(receiver, data.startFreq, data.endFreq);
+    }
+
+    lowerFreq = data.startFreq;
+    upperFreq = data.endFreq;
+
+    if (!scopeReceived)
+    {
+        queue->del(funcScopeOnOff,0); // Delete recurring on/off command
+        scopeReceived=true;
+    }
+
+    spectrum->setScopeOutOfRange(data.oor);
+
+    /*
+    if (lastData.elapsed() > (spectrum->replotTime(false)+waterfall->replotTime(false)))
+    {
+        spectrum->replot();
+        waterfall->replot();
+        lastData.restart();
+        redrawSpeed->setText(" ");
+    } else {
+        redrawSpeed->setText("*");
+    }
+
+    emit spectrumTime(spectrum->replotTime(false));
+    emit waterfallTime(waterfall->replotTime(false));
+    */
+
+    /*
     if (!scopePrepared )
     {
         return false;
@@ -1074,9 +1221,6 @@ bool receiverWidget::updateScope(scopeData data)
             pbtIndicator->setVisible(false);
         }
 
-        /*
-            pbtIndicator displays the intersection between PBTInner and PBTOuter
-        */
         if (mode.mk == modeLSB || mode.mk == modeCW || mode.mk == modeRTTY) {
             pbtIndicator->topLeft->setCoords(qMax(pbStart - (PBTInner / 2) + (pbtDefault / 2), pbStart - (PBTOuter / 2) + (pbtDefault / 2)), 0);
 
@@ -1161,14 +1305,6 @@ bool receiverWidget::updateScope(scopeData data)
 
 #if QCUSTOMPLOT_VERSION >= 0x020100
 
-    /*
-     * Hopefully temporary workaround for large scopes taking longer to replot than the time
-     * between scope data packets arriving from the radio, which were causing the UI to freeze
-     *
-     * Long term we should rewrite the scope/waterfall code to either use custom widgets, or
-     * convert to Qwt (or other suitable package) with better performance than QCP.
-     *
-     */
     if (lastData.elapsed() > (spectrum->replotTime(false)+waterfall->replotTime(false)))
     {
         spectrum->replot();
@@ -1189,7 +1325,9 @@ bool receiverWidget::updateScope(scopeData data)
 
     mutex.unlock();
     emit sendScopeImage(receiver);
-    return true;
+
+    */
+    return;
 }
 
 
@@ -1270,9 +1408,7 @@ void receiverWidget::showHideControls(uchar mode)
 
 
     if (!rigCaps->hasSpectrum) {
-        spectrum->hide();
-        waterfall->hide();
-        splitter->hide();
+        scopeQuick->hide();
         scopeModeCombo->hide();
         edgeCombo->hide();
         edgeButton->hide();
@@ -1283,9 +1419,7 @@ void receiverWidget::showHideControls(uchar mode)
     }
     else
     {
-        spectrum->show();
-        waterfall->show();
-        splitter->show();
+        scopeQuick->show();
         scopeModeCombo->show();
         clearPeaksButton->show();
 
@@ -1364,7 +1498,7 @@ void receiverWidget::showHideControls(uchar mode)
 
 void receiverWidget::displayScope(bool en)
 {
-    this->splitter->setVisible(en || rigCaps->hasCommand29);
+    //this->splitter->setVisible(en || rigCaps->hasCommand29);
     // Hide these controls if disabled
     if (!en) {
         this->edgeCombo->setVisible(en);
@@ -1562,6 +1696,7 @@ void receiverWidget::customSpanPressed()
 
 void receiverWidget::doubleClick(QMouseEvent *me)
 {
+    /*
     vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
     if (me->button() == Qt::LeftButton)
     {
@@ -1594,10 +1729,12 @@ void receiverWidget::doubleClick(QMouseEvent *me)
 
         }
     }
+    */
 }
 
 void receiverWidget::scopeClick(QMouseEvent* me)
 {
+    /*
     vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
 
     QCPAbstractItem* item = spectrum->itemAt(me->pos(), true);
@@ -1697,11 +1834,12 @@ void receiverWidget::scopeClick(QMouseEvent* me)
             this->mousePressFreq = spectrum->xAxis->pixelToCoord(cursor);
         }
     }
+    */
 }
 
 void receiverWidget::scopeMouseRelease(QMouseEvent* me)
 {
-
+    /*
     QCPAbstractItem* item = spectrum->itemAt(me->pos(), true);
     QCPItemText* textItem = dynamic_cast<QCPItemText*> (item);
 
@@ -1714,10 +1852,12 @@ void receiverWidget::scopeMouseRelease(QMouseEvent* me)
     if (passbandAction != passbandStatic) {
         passbandAction = passbandStatic;
     }
+    */
 }
 
 void receiverWidget::scopeMouseMove(QMouseEvent* me)
 {
+    /*
     QCPAbstractItem* item = spectrum->itemAt(me->pos(), true);
     QCPItemText* textItem = dynamic_cast<QCPItemText*> (item);
     QCPItemRect* rectItem = dynamic_cast<QCPItemRect*> (item);
@@ -1847,17 +1987,69 @@ void receiverWidget::scopeMouseMove(QMouseEvent* me)
     else {
         setCursor(Qt::ArrowCursor);
     }
-
+    */
 }
 
 void receiverWidget::waterfallClick(QMouseEvent *me)
 {
-        double x = spectrum->xAxis->pixelToCoord(me->pos().x());
-        emit showStatusBarText(QString("Selected %1 MHz").arg(x));
+       // double x = spectrum->xAxis->pixelToCoord(me->pos().x());
+       // emit showStatusBarText(QString("Selected %1 MHz").arg(x));
 }
 
+void receiverWidget::onWheelTuneRequested(int steps, Qt::KeyboardModifiers mods)
+{
+    qreal stepsToScroll = QApplication::wheelScrollLines() * steps;
+
+    // Did we change direction?
+    if( (scrollWheelOffsetAccumulated > 0) && (steps > 0) ) {
+        scrollWheelOffsetAccumulated += stepsToScroll;
+    } else if ((scrollWheelOffsetAccumulated < 0) && (steps < 0)) {
+        scrollWheelOffsetAccumulated += stepsToScroll;
+    } else {
+        // Changed direction, zap the old accumulation:
+        scrollWheelOffsetAccumulated = stepsToScroll;
+        //qInfo() << "Scroll changed direction";
+    }
+
+    int clicks = int(scrollWheelOffsetAccumulated);
+
+    if (!clicks) {
+        return;
+    }
+
+    // If we made it this far, it's time to scroll and to ultimately
+    // clear the scroll accumulator.
+
+    unsigned int stepsHz = stepSize;
+
+    if ((mods == Qt::ShiftModifier) && (stepsHz != 1))
+    {
+        stepsHz /= 10;
+    }
+    else if (mods == Qt::ControlModifier)
+    {
+        stepsHz *= 10;
+    }
+
+    if (!freqLock) {
+        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+        freqt f;
+        f.Hz = roundFrequency(freq.Hz, clicks, stepsHz);
+        f.MHzDouble = f.Hz / (double)1E6;
+
+        emit sendTrack(f.Hz-this->freq.Hz); // Where does this go? Nowhere currently!
+
+        setFrequencyLocally(f);
+        queue->add(priorityImmediate,queueItem(t.freqFunc,QVariant::fromValue<freqt>(f),false,receiver));
+        tempLockAcceptFreqData();
+        //qInfo() << "Moving to freq:" << f.Hz << "step" << stepsHz;
+    }
+    scrollWheelOffsetAccumulated = 0;
+
+}
 void receiverWidget::scroll(QWheelEvent *we)
 {
+    /*
     vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
 
     // angleDelta is supposed to be eights of a degree of mouse wheel rotation
@@ -1865,8 +2057,6 @@ void receiverWidget::scroll(QWheelEvent *we)
     int deltaX = we->angleDelta().x();
     int delta = (deltaX==0)?deltaY:deltaX;
 
-    //qreal offset = qreal(delta) / qreal((deltaX==0)?scrollYperClick:scrollXperClick);
-    //qreal offset = qreal(delta) / 120;
 
     qreal       numDegrees = delta / 8;
     qreal       offset = numDegrees / 15;
@@ -1927,6 +2117,7 @@ void receiverWidget::scroll(QWheelEvent *we)
         //qInfo() << "Moving to freq:" << f.Hz << "step" << stepsHz;
     }
     scrollWheelOffsetAccumulated = 0;
+*/
 }
 
 void receiverWidget::receiveMode(modeInfo m, uchar vfo)
@@ -2208,11 +2399,14 @@ void receiverWidget::setSpeed(uchar s)
 }
 
 
-void receiverWidget::receiveSpots(uchar receiver, QList<spotData> spots)
+void receiverWidget::receiveSpots(uchar receiver, QVector<spotData> spots)
 {
     if (receiver != this->receiver) {
         return;
     }
+
+    spectrum->setSpots(spots);
+
     //QElapsedTimer timer;
     //timer.start();
     bool current = false;
@@ -2234,7 +2428,7 @@ void receiverWidget::receiveSpots(uchar receiver, QList<spotData> spots)
 
         if (!found)
         {
-
+            /*
             QCPRange xrange=spectrum->xAxis->range();
             QCPRange yrange=spectrum->yAxis->range();
             double left = s.frequency;
@@ -2285,6 +2479,7 @@ void receiverWidget::receiveSpots(uchar receiver, QList<spotData> spots)
             sp->text->setVisible(true);
 
             clusterSpots.insert(sp->dxcall, sp);
+            */
         }
     }
 
@@ -2293,7 +2488,7 @@ void receiverWidget::receiveSpots(uchar receiver, QList<spotData> spots)
     {
         auto spot = sp.next();
         if (spot.value()->current == current) {
-            spectrum->removeItem(spot.value()->text);
+            //spectrum->removeItem(spot.value()->text);
             delete spot.value();
             sp.remove();
         }
@@ -2324,8 +2519,8 @@ void receiverWidget::tempLockAcceptFreqData() {
 
 void receiverWidget::wfTheme(int num)
 {
-    currentTheme = QCPColorGradient::GradientPreset(num);
-    colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(num));
+    currentTheme = WaterfallItem::Theme(num);
+    waterfall->setTheme(currentTheme);
     configTheme->setCurrentIndex(configTheme->findData(currentTheme));
 }
 
@@ -2470,6 +2665,20 @@ void receiverWidget::setFrequencyLocally(freqt f, uchar vfo) {
     }
 }
 
+void receiverWidget::setFreqFromScope(double f)
+{
+
+    if (!freqLock)
+    {
+        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+        freqt freqGo;
+        freqGo.Hz = f * 1E6;
+        freqGo.Hz = roundFrequency(freqGo.Hz, stepSize);
+        freqGo.MHzDouble = (float)freqGo.Hz / 1E6;
+        freqGo.VFO = selVFO_t::activeVFO;
+        queue->addUnique(priorityImmediate,queueItem(t.freqFunc,QVariant::fromValue<freqt>(freqGo),false,t.receiver));
+    }
+}
 
 void receiverWidget::setFrequency(freqt f, uchar vfo)
 {
@@ -2522,46 +2731,25 @@ void receiverWidget::showBandIndicators(bool en)
 
 void receiverWidget::setBandIndicators(bool show, QString region, std::vector<bandType>* bands)
 {
+
     this->currentRegion = region;
 
-    QMutableVectorIterator<bandIndicator> it(bandIndicators);
-    while (it.hasNext())
-    {
-        bandIndicator band = it.next();
-        spectrum->removeItem(band.line);
-        spectrum->removeItem(band.text);
-        it.remove();
-    }
+
+    spectrum->clearBands();
 
     // Step through the bands and add all indicators!
 
+    QVector<bandType> activeBands;
     if (show) {
         for (auto &band: *bands)
         {
             if (band.region == "" || band.region == region) {
                 // Add band line to current scope!
-                bandIndicator b;
-                b.line = new QCPItemLine(spectrum);
-                b.line->setHead(QCPLineEnding::esLineArrow);
-                b.line->setTail(QCPLineEnding::esLineArrow);
-                b.line->setVisible(false);
-                b.line->setPen(QPen(band.color));
-                b.line->start->setCoords(double(band.lowFreq/1000000.0), spectrum->yAxis->range().upper-5);
-                b.line->end->setCoords(double(band.highFreq/1000000.0), spectrum->yAxis->range().upper-5);
-
-                b.text = new QCPItemText(spectrum);
-                b.text->setVisible(false);
-                b.text->setAntialiased(true);
-                b.text->setColor(band.color);
-                b.text->setFont(QFont(font().family(), 8));
-                b.text->setPositionAlignment(Qt::AlignTop);
-                b.text->setText(band.name);
-                b.text->position->setCoords(double(band.lowFreq/1000000.0), spectrum->yAxis->range().upper-10);
-                bandIndicators.append(b);
+                activeBands.append(band);
             }
         }
+        spectrum->setBands(activeBands);
     }
-    bandIndicatorsVisible=false;
 }
 
 void receiverWidget::displaySettings(int numDigits, qint64 minf, qint64 maxf, int minStep,FctlUnit unit, std::vector<bandType>* bands)
@@ -2624,8 +2812,6 @@ void receiverWidget::detachScope(bool state)
         this->parentWidget()->resize(1,1);
         this->setParent(NULL);
 
-        //this->setWindowFlags(Qt::Window | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
-        //this->setWindowTitle(this->title());
         this->setWindowFlags(Qt::CustomizeWindowHint | Qt::WindowTitleHint );
 
         this->move(screen()->geometry().center() - frameGeometry().center());
@@ -2705,12 +2891,14 @@ void receiverWidget::memoryMode(bool en)
 QImage receiverWidget::getSpectrumImage()
 {
     QMutexLocker locker(&mutex);
-    return spectrum->toPixmap().toImage();
+    //return spectrum->toPixmap().toImage();
+    return QImage();
 }
 QImage receiverWidget::getWaterfallImage()
 {
     QMutexLocker locker(&mutex);
-    return waterfall->toPixmap().toImage();
+    //return waterfall->toPixmap().toImage();
+    return QImage();
 }
 
 void receiverWidget::vfoSwap()
@@ -2763,3 +2951,39 @@ void receiverWidget::updateInfo()
         queue->add(priorityImmediate,t.modeFunc,false,t.receiver);
     }
 }
+
+
+void receiverWidget::onHoverSpotChanged(const spotData &spot, QPointF itemPos, bool active)
+{
+    if (!scopeQuick)
+        return;
+
+    if (!active) {
+        QToolTip::hideText();
+        return;
+    }
+
+    // 1. Item coords → Scene coords
+    QPointF scenePos = spectrum->mapToScene(itemPos);
+
+    // 2. Scene coords → Global screen coords
+    QPoint globalPos = spectrum->window()->mapToGlobal(scenePos.toPoint());
+
+    // 3. Optional: convert global → widget-local (not strictly needed for QToolTip)
+    // QPoint widgetPos = scopeQuick->mapFromGlobal(globalPos);
+
+    // --- Build popup text ---
+    QString text;
+    text += QStringLiteral("<b>%1</b><br>").arg(spot.dxcall);
+    text += QStringLiteral("Freq: %1<br>").arg(spot.frequency, 0, 'f', 3);
+    text += QStringLiteral("Spotter: %1<br>").arg(spot.spottercall);
+    text += QStringLiteral("Mode: %1<br>").arg(spot.mode);
+    text += QStringLiteral("Time: %1<br>").arg(spot.timestamp.toString(Qt::ISODate));
+    if (!spot.comment.isEmpty())
+        text += QStringLiteral("Comment: %1").arg(spot.comment.toHtmlEscaped());
+
+    // Show tooltip at correct global position
+    QToolTip::showText(globalPos, text, scopeQuick);
+}
+
+
