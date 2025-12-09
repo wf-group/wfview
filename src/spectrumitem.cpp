@@ -393,7 +393,10 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     if (!root) {
         root = new QSGNode;
     } else {
-        root->removeAllChildNodes();
+        while (QSGNode *child = root->firstChild()) {
+            root->removeChildNode(child);
+            delete child;
+        }
     }
 
     const float w = float(width());
@@ -1108,10 +1111,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
             QRect rect(0, 0, wPx, hPx);
 
-            // red background
-            p.fillRect(rect, QColor(200, 0, 0, 220));
-
-            // white text, centered
+            p.fillRect(rect, QColor(200, 0, 0, 220));   // red background
             p.setPen(Qt::white);
             p.drawText(rect, Qt::AlignCenter, QStringLiteral("OVF"));
 
@@ -1128,6 +1128,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
             root->appendChildNode(node);
         }
+
 
         // --- SCOPE OUT OF RANGE (center) ---
         if (outOfRange && window()) {
@@ -1170,8 +1171,6 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
             root->appendChildNode(node);
         }
-
-
 
     }
     emit processingTimeNs(timer.nsecsElapsed());

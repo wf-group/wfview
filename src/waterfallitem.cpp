@@ -254,11 +254,18 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     timer.start();
 
     auto *node = static_cast<QSGSimpleTextureNode *>(oldNode);
+
     if (!node) {
         node = new QSGSimpleTextureNode;
+    } else {
+        while (QSGNode *child = node->firstChild()) {
+            node->removeChildNode(child);
+            delete child;
+        }
     }
 
     if (dirty) {
+
         QSGTexture *tex = window()->createTextureFromImage(img);
         // Filtering:
         tex->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);

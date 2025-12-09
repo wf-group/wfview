@@ -146,6 +146,7 @@ private:
     bool overflow = false;
     bool outOfRange = false;
 
+
 };
 
 #endif // SPECTRUMITEM_H
