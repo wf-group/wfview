@@ -211,11 +211,7 @@ void WaterfallItem::updateScope(const scopeData &data)
     QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(0));
 
 
-    const quint8 floorVal   = floor;    // 0..255
-    const quint8 ceilingVal = ceiling;  // 0..255
-
-    // avoid degenerate range
-    int span = int(ceilingVal) - int(floorVal);
+    int span = int(ceiling) - int(floor);
     if (span <= 0)
         span = 1;
 
@@ -224,12 +220,12 @@ void WaterfallItem::updateScope(const scopeData &data)
 
         int vInt = int(v);
 
-        if (vInt < int(floorVal))
-            vInt = int(floorVal);
-        else if (vInt > int(ceilingVal))
-            vInt = int(ceilingVal);
+        if (vInt < int(floor))
+            vInt = int(floor);
+        else if (vInt > int(ceiling))
+            vInt = int(ceiling);
 
-        int scaled = (vInt - int(floorVal)) * 255 / span;
+        int scaled = (vInt - int(floor)) * 255 / span;
 
         if (scaled < 0)   scaled = 0;
         if (scaled > 255) scaled = 255;

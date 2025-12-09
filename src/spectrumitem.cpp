@@ -344,28 +344,19 @@ void SpectrumItem::updateScope(const scopeData &data)
 
     const uchar *raw = reinterpret_cast<const uchar *>(data.data.constData());
 
-    const quint8 floorVal   = floor;    // 0..255
-    const quint8 ceilingVal = ceiling;  // 0..255
-
-    // avoid degenerate range
-    int span = int(ceilingVal) - int(floorVal);
+    int span = int(ceiling) - int(floor);
     if (span <= 0)
         span = 1;
 
     for (int i = 0; i < n; ++i) {
         quint8 v = raw[i];
-
-        // ---------- CORRECT FLOOR / CEILING MAPPING ----------
         int vInt = int(v);
+        if (vInt < int(floor))
+            vInt = int(floor);
+        else if (vInt > int(ceiling))
+            vInt = int(ceiling);
 
-        // clamp to [floor, ceiling]
-        if (vInt < int(floorVal))
-            vInt = int(floorVal);
-        else if (vInt > int(ceilingVal))
-            vInt = int(ceilingVal);
-
-        // map floor -> 0, ceiling -> 255
-        int scaled = (vInt - int(floorVal)) * 255 / span;
+        int scaled = (vInt - int(floor)) * 255 / span;
 
         if (scaled < 0)   scaled = 0;
         if (scaled > 255) scaled = 255;
@@ -375,7 +366,7 @@ void SpectrumItem::updateScope(const scopeData &data)
             peaks[i] = mags[i];
     }
 
-    update();   // triggers updatePaintNode()
+    update();
 }
 
 
@@ -429,12 +420,6 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         return float((1.0 - t) * plotH);
     };
 
-    auto yForSample = [&](quint8 v) -> float {
-        double t = double(v) / 255.0;
-        double db = floor + t * (ceiling - floor);
-        return yForDb(db);
-    };
-
     // --- helper: line for mags or peaks ---
     auto makeLine = [&](const QVector<quint8> &vals, const QColor &color) -> QSGGeometryNode * {
         auto *geom = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), n);
@@ -445,7 +430,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         for (int i = 0; i < n; ++i) {
             float xNorm = float(i) / denom;
             float x     = xNorm * w;
-            float y     = yForSample(vals[i]);
+            float y     = (1.0f - (float(vals[i]) / 255.0f)) * plotH;
             vtx[i].set(x, y);
         }
 
@@ -529,7 +514,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         for (int i = 0; i < n; ++i) {
             float xNorm = float(i) / denom;
             float x     = xNorm * w;
-            float yTop  = yForSample(mags[i]);
+            float yTop  = (1.0f - (float(mags[i]) / 255.0f)) * plotH;
             float yBot  = plotH;
 
             vtx[2 * i].set(x, yTop); // top on trace
@@ -552,23 +537,20 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             // Number of gradient bands – tweak to taste (16–32 looks smooth enough)
             const int bands = 24;
 
-            // Ensure we have usable colours
             QColor topCol = colors.spectrumFillTop;
             QColor botCol = colors.spectrumFillBot;
 
             // Precompute the trace Y for each X once
             QVector<float> yTrace(n);
             for (int i = 0; i < n; ++i) {
-                yTrace[i] = yForSample(mags[i]);  // top of fill at this column
+                yTrace[i] = (1.0f - (float(mags[i]) / 255.0f)) * plotH;
             }
 
             for (int band = 0; band < bands; ++band) {
-                // t0/t1 are 0..1 down from the trace towards the bottom
                 const float t0 = float(band) / float(bands);
                 const float t1 = float(band + 1) / float(bands);
-                const float tm = 0.5f * (t0 + t1);     // mid-point for colour interp
+                const float tm = 0.5f * (t0 + t1);
 
-                // Interpolate band colour between topCol and botCol
                 auto lerp = [](float a, float b, float t) {
                     return a + (b - a) * t;
                 };
@@ -580,9 +562,8 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
                 bandCol.setAlphaF(lerp(topCol.alphaF(), botCol.alphaF(), tm) );
 
                 if (bandCol.alpha() <= 0.0f)
-                    continue; // fully transparent; skip
+                    continue;
 
-                // Geometry: triangle strip, 2 vertices per x (top band edge, bottom band edge)
                 const int vertCount = n * 2;
                 auto *geom = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), vertCount);
                 geom->setDrawingMode(QSGGeometry::DrawTriangleStrip);
