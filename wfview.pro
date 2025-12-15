@@ -15,7 +15,7 @@ DEFINES += USB_CONTROLLER
 # FTDI support requires the library from https://ftdichip.com/software-examples/ft4222h-software-examples/
 DEFINES += FTDI_SUPPORT
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickwidgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickcontrols2 quickwidgets
 
 contains(DEFINES,USB_CONTROLLER){
     lessThan(QT_MAJOR_VERSION, 6): QT += gamepad
@@ -335,7 +335,7 @@ SOURCES += \
     src/database.cpp \
     src/debugwindow.cpp \
     src/firsttimesetup.cpp \
-    src/freqctrl.cpp \
+    src/freqctrlquick.cpp \
     src/freqmemory.cpp \
     src/frequencyinputwidget.cpp \
     src/ft4222handler.cpp \
@@ -384,7 +384,10 @@ SOURCES += \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/freqctrlquick.h \
+    include/paletteproxy.h \
     include/spectrumitem.h \
+    include/themebridge.h \
     include/waterfallitem.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
@@ -418,7 +421,6 @@ HEADERS  += \
     include/database.h \
     include/debugwindow.h \
     include/firsttimesetup.h \
-    include/freqctrl.h \
     include/freqmemory.h \
     include/frequencyinputwidget.h \
     include/ft4222handler.h \

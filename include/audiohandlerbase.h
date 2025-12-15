@@ -60,7 +60,7 @@ public slots:
     void setVolume(quint8 volumeIdx);
     void changeLatency(quint16 newLatencyMs);
     void stateChanged(QAudio::State state);
-    void clearUnderrun();
+    void clearUnderrun();    
 
 protected:
     virtual bool openDevice() noexcept = 0;

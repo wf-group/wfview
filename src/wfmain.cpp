@@ -161,8 +161,12 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     qRegisterMetaType<lpfhpf>();
 
     qRegisterMetaType<scopeData>();
+
+    QQuickStyle::setStyle("Fusion"); // Need to set the style early.
     qmlRegisterType<SpectrumItem>("RadioScope", 1, 0, "SpectrumItem");
     qmlRegisterType<WaterfallItem>("RadioScope", 1, 0, "WaterfallItem");
+    qmlRegisterType<FreqCtrlQuick>("RadioScope", 1, 0, "FreqCtrlQuick");
+
 
     this->setObjectName("wfmain");
     queue = cachingQueue::getInstance(this);
@@ -1098,13 +1102,13 @@ void wfmain::configureVFOs()
         receiverWidget* receiver = new receiverWidget(rigCaps->hasSpectrum,i,rigCaps->numVFO,this);
         receiver->prepareScope(rigCaps->spectAmpMax, rigCaps->spectLenMax);
         receiver->setSeparators(prefs.groupSeparator,prefs.decimalSeparator);
-        receiver->setUnderlayMode(prefs.underlayMode);
+        //receiver->setUnderlayMode(prefs.underlayMode);
         receiver->wfAntiAliased(prefs.wfAntiAlias);
         receiver->wfInterpolate(prefs.wfInterpolate);
         receiver->setScrollSpeedXY(prefs.scopeScrollX, prefs.scopeScrollY);
         receiver->prepareWf(i==0?prefs.mainWflength:prefs.subWflength);
         receiver->setRange(i==0?prefs.mainPlotFloor:prefs.subPlotFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
-        receiver->wfTheme(i==0?prefs.mainWfTheme:prefs.subWfTheme);
+        receiver->setTheme(WaterfallItem::Theme(i==0?prefs.mainWfTheme:prefs.subWfTheme));
         receiver->setClickDragTuning(prefs.clickDragTuningEnable);
         receiver->setTuningFloorZeros(prefs.niceTS);
         receiver->resizePlasmaBuffer(prefs.underlayBufferSize);
@@ -1336,7 +1340,7 @@ void wfmain::runShortcut(const QKeySequence k)
     else if (k==Qt::Key_Slash)
     {
         for (size_t i = 0; i < rigCaps->modes.size(); i++) {
-            if (rigCaps->modes[i].mk == receivers[currentReceiver]->currentMode().mk)
+            if (rigCaps->modes[i].mk == receivers[currentReceiver]->getMode().mk)
             {
                 if (i + 1 < rigCaps->modes.size()) {
                     changeMode(rigCaps->modes[i + 1].mk,false,currentReceiver);
@@ -1593,7 +1597,7 @@ void wfmain::buttonControl(const COMMAND* cmd)
             {
                 for (size_t i = 0; i < rigCaps->modes.size(); i++)
                 {
-                    if (rigCaps->modes[i].mk == receivers[cmd->suffix]->currentMode().mk)
+                    if (rigCaps->modes[i].mk == receivers[cmd->suffix]->getMode().mk)
                     {
                         if (i + 1 < rigCaps->modes.size())
                         {
@@ -1610,7 +1614,7 @@ void wfmain::buttonControl(const COMMAND* cmd)
             {
                 for (size_t i = 0; i < rigCaps->modes.size(); i++)
                 {
-                    if (rigCaps->modes[i].mk == receivers[cmd->suffix]->currentMode().mk)
+                    if (rigCaps->modes[i].mk == receivers[cmd->suffix]->getMode().mk)
                     {
                         if (i>0)
                         {
@@ -1645,7 +1649,7 @@ void wfmain::buttonControl(const COMMAND* cmd)
         break;
     case funcScopeSpan:
         if (cmd->suffix < receivers.size()) {
-            receivers[cmd->suffix]->changeSpan(cmd->value);
+            //receivers[cmd->suffix]->setScopeSpanUser(cmd->value);
         }
         break;
     case funcUnselectedFreq:
@@ -2590,7 +2594,7 @@ void wfmain::extChangedIfPref(prefIfItem i)
         break;
     case if_underlayMode:
         for (const auto& receiver: receivers) {
-            receiver->setUnderlayMode(prefs.underlayMode);
+            //receiver->setUnderlayMode(prefs.underlayMode);
         }
         break;
     case if_underlayBufferSize:
@@ -3767,10 +3771,10 @@ void wfmain:: getInitialRigState()
     if(rigCaps->hasSpectrum)
     {
         // Send commands to start scope immediately
-        if (receivers.size()>0 && receivers[0]->isScopeEnabled()) {
+        //if (receivers.size()>0 && receivers[0]->isScopeEnabled()) {
             queue->add(priorityHigh,queueItem(funcScopeOnOff,QVariant::fromValue(quint8(1)),true));
             queue->add(priorityHigh,queueItem(funcScopeDataOutput,QVariant::fromValue(quint8(1)),false));
-        }
+        //}
 
         // Find the scope ref limits
         auto mr = rigCaps->commands.find(funcScopeRef);
@@ -4153,13 +4157,13 @@ void wfmain::changeMode(rigMode_t mode, quint8 data, quint8 rx)
     {
         if (mi.mk == mode)
         {
-            if(receivers.size() > rx && mi.mk != receivers[rx]->currentMode().mk)
+            if(receivers.size() > rx && mi.mk != receivers[rx]->getMode().mk)
             {
                 modeInfo m;
                 m = modeInfo(mi);
                 m.data = data;
                 m.VFO=selVFO_t::activeVFO;
-                m.filter = receivers[rx]->currentFilter();
+                m.filter = receivers[rx]->getFilter();
                 qDebug(logRig()) << "changeMode:" << mode << "data" << data << "rx" << rx;
                 vfoCommandType t = queue->getVfoCommand(vfoA,rx,true);
                 queue->add(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(m),false,t.receiver));
@@ -5674,7 +5678,7 @@ void wfmain::receiveValue(cacheItem val){
                 queue->del(funcUnselectedMode,r->getReceiver());
                 queue->del(funcUnselectedFreq,r->getReceiver());
             }
-            r->setSatMode(val.value.value<bool>());
+            //r->setSatMode(val.value.value<bool>());
         }
         //qInfo(logRig()) << "Is radio currently in satellite mode?" << val.value.value<bool>();
         break;
@@ -5701,7 +5705,7 @@ void wfmain::receiveValue(cacheItem val){
     case funcSplitStatus:
         ui->splitBtn->setChecked(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
         rpt->receiveDuplexMode(val.value.value<duplexMode_t>());
-        receivers[val.receiver]->setSplit(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
+        //receivers[val.receiver]->setSplit(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
         break;
     case funcQuickSplit:
         rpt->receiveQuickSplit(val.value.value<bool>());
@@ -5865,13 +5869,13 @@ void wfmain::receiveValue(cacheItem val){
     case funcAudioPeakFilter:
         break;
     case funcFilterShape:
-        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->currentFilter() == val.value.value<uchar>() / 10)
+        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
         {
             receivers[val.receiver]->setFilterShape(val.value.value<uchar>() % 10);
         }
         break;
     case funcRoofingFilter:
-        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->currentFilter() == val.value.value<uchar>() / 10)
+        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
         {
             receivers[val.receiver]->setRoofing(val.value.value<uchar>() % 10);
         }
@@ -6102,10 +6106,10 @@ void wfmain::receiveValue(cacheItem val){
         receivers[val.receiver]->setScopeMode(val.value.value<uchar>());
         break;
     case funcScopeSpan:
-        receivers[val.receiver]->setSpan(val.value.value<centerSpanData>());
+        receivers[val.receiver]->setScopeSpan(val.value.value<centerSpanData>());
         break;
     case funcScopeEdge:
-        receivers[val.receiver]->setEdge(val.value.value<uchar>());
+        receivers[val.receiver]->setScopeEdge(val.value.value<uchar>());
         break;
     case funcScopeHold:
         receivers[val.receiver]->setHold(val.value.value<bool>());
@@ -6408,50 +6412,21 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
                 connect(receiver,SIGNAL(spectrumTime(double)),rig,SLOT(spectrumTime(double)));
                 connect(receiver,SIGNAL(waterfallTime(double)),rig,SLOT(waterfallTime(double)));
             }
-            // Setup various combo box up for each VFO:
-            receiver->clearMode();
-            for (auto &m: rigCaps->modes)
-            {
-                receiver->addMode(m.name,QVariant::fromValue(m));
-            }
-
-            receiver->clearFilter();
-            for (auto& f: rigCaps->filters)
-            {
-                receiver->addFilter(f.name,f.num);
-            }
-
-            receiver->clearRoofing();
-            for (auto& f: rigCaps->roofing)
-            {
-                receiver->addRoofing(f.name,f.num);
-            }
-
-            receiver->clearData();
-
-            receiver->addData("Data Off",0);
-
             if (rigCaps->commands.contains(funcDATA1Mod))
             {
                 setupui->updateModSourceList(1, rigCaps->inputs);
-                if (!rigCaps->commands.contains(funcDATA2Mod))
-                {
-                    receiver->addData("Data On", 2);
-                }
             }
 
             if (rigCaps->commands.contains(funcDATA2Mod))
             {
                 setupui->updateModSourceList(2, rigCaps->inputs);
-                receiver->addData("Data 1", 2);
-                receiver->addData("Data 2", 2);
             }
 
             if (rigCaps->commands.contains(funcDATA3Mod))
             {
                 setupui->updateModSourceList(3, rigCaps->inputs);
-                receiver->addData("Data 3", 3);
             }
+
             setupui->enableModSource(0,rigCaps->commands.contains(funcDATAOffMod));
             setupui->enableModSource(1,rigCaps->commands.contains(funcDATA1Mod));
             setupui->enableModSource(2,rigCaps->commands.contains(funcDATA2Mod));
@@ -6466,13 +6441,8 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
                 setupui->enableModSourceItem(3,r,(rigCaps->commands.contains(funcDATA3Mod) && r.reg > -1) ? true : false);
             }
 
-            receiver->clearSpans();
             if(rigCaps->hasSpectrum)
             {
-                for(unsigned int i=0; i < rigCaps->scopeCenterSpans.size(); i++)
-                {
-                    receiver->addSpan(rigCaps->scopeCenterSpans.at(i).name, QVariant::fromValue(rigCaps->scopeCenterSpans.at(i)));
-                }
                 receiver->setRange(prefs.mainPlotFloor, prefs.mainPlotCeiling);
             }
         }

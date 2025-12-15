@@ -6,8 +6,18 @@
 #include <QQuickItem>
 #include <QImage>
 #include <QMouseEvent>
+#include <QSGNode>
+#include <QSGSimpleTextureNode>
 #include <QElapsedTimer>
 #include "wfviewtypes.h"
+
+class WaterfallRootNode : public QSGNode
+{
+public:
+    QSGSimpleTextureNode *topNode    = nullptr;
+    QSGSimpleTextureNode *bottomNode = nullptr;
+};
+
 
 class WaterfallItem : public QQuickItem
 {
@@ -20,7 +30,7 @@ class WaterfallItem : public QQuickItem
 
 public:
     enum Theme {
-        Jet, Cold, Hot, Thermal, Night, Ion, Grayscale, Geography, Hues, Polar, Spectrum, Candy
+        Unknown, Jet, Cold, Hot, Thermal, Night, Ion, Grayscale, Geography, Hues, Polar, Spectrum, Candy
     };
     Q_ENUM(Theme)
 
@@ -52,7 +62,7 @@ signals:
     void scaleChanged();
     void tuneRequested(double freqMHz);
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
-    void processingTimeNs(quint64 ns);
+    void processingTimeNs(qint64 ns);
 
 
 protected:
@@ -67,13 +77,20 @@ private:
     double startFreq = 0.0;
     double endFreq   = 0.0;
     QImage img;
+    int ringIndex = 0;    // index of newest line in the image
     bool  dirty = false;
     bool smooth = false;
     Theme  theme = Jet;
+    Theme  previousTheme = Unknown;
     uchar floor = 0;
     uchar ceiling = 140;
-    QRgb colorForValue(quint8 v) const;  // 0..255 → colour
     double xToFreq(qreal x) const;
 
+    QRgb colorForValue(quint8 v) const;  // 0..255 → colour
+    QRgb valueLut[256];
+    bool lutValid = false;
+    int  lutFloor = 0;
+    int  lutCeil  = 255;
+    void rebuildLut();
 };
 #endif // WATERFALLITEM_H

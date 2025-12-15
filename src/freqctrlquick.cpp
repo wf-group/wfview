@@ -33,7 +33,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <QDebug>
-#include "freqctrl.h"
+#include "freqctrlquick.h"
 #include "logcategories.h"
 
 // Manual adjustment of Font size as percent of control height
@@ -48,13 +48,17 @@
 "Scroll or left-click to increase/decrease digit. " \
     "Right-click to clear digits."
 
-    freqCtrl::freqCtrl(QWidget *parent) :
-    QFrame(parent)
+FreqCtrlQuick::FreqCtrlQuick()
 {
-    setAutoFillBackground(false);
-    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setFocusPolicy(Qt::StrongFocus);
-    setMouseTracking(true);
+    setAcceptedMouseButtons(Qt::AllButtons);
+    setAcceptHoverEvents(true);
+    setFlag(ItemHasContents, true);
+    setFlag(ItemIsFocusScope, true);
+
+    //setAutoFillBackground(false);
+    //setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    //setFocusPolicy(Qt::StrongFocus);
+    //setMouseTracking(true);
     m_BkColor = QColor(0x1F, 0x1D, 0x1D, 0xFF);
     m_InactiveColor = QColor(0x43, 0x43, 0x43, 0xFF);
     m_DigitColor = QColor(0xFF, 0xFF, 0xFF, 0xFF);
@@ -76,24 +80,25 @@
     //m_UnitsFont = QFont("Arial", 12, QFont::Normal);
     //m_DigitFont = QFont("Arial", 12, QFont::Normal);
 
-    setStatusTip(tr(STATUS_TIP));
+    //setStatusTip(tr(STATUS_TIP));
 }
 
-freqCtrl::~freqCtrl()
+FreqCtrlQuick::~FreqCtrlQuick()
 {
 }
 
-QSize freqCtrl::minimumSizeHint() const
-{
-    return QSize(100, 20);
-}
-
-QSize freqCtrl::sizeHint() const
+/*
+QSize FreqCtrlQuick::minimumSizeHint() const
 {
     return QSize(100, 20);
 }
 
-bool freqCtrl::inRect(QRect &rect, QPointF &point)
+QSize FreqCtrlQuick::sizeHint() const
+{
+    return QSize(100, 20);
+}
+*/
+bool FreqCtrlQuick::inRect(QRect &rect, QPointF &point)
 {
     if ((point.x() < rect.right()) && (point.x() > rect.x()) &&
         (point.y() < rect.bottom()) && (point.y() > rect.y()))
@@ -102,7 +107,7 @@ bool freqCtrl::inRect(QRect &rect, QPointF &point)
         return false;
 }
 
-void freqCtrl::setActiveDigit(int idx)
+void FreqCtrlQuick::setActiveDigit(int idx)
 {
     for (int i = m_DigStart; i < m_NumDigits; i++)
     {
@@ -145,7 +150,7 @@ static int fmax_to_numdigits(qint64 fmax)
     return 12;
 }
 
-void freqCtrl::setup(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,
+void FreqCtrlQuick::setup(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,
                      FctlUnit unit, std::vector<bandType>* bands)
 {
     int       i;
@@ -222,7 +227,17 @@ void freqCtrl::setup(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,
     m_NumSeps = (m_NumDigits - 1) / 3 - m_DigStart / 3;
 }
 
-void freqCtrl::setFrequency(qint64 freq)
+void FreqCtrlQuick::setMinFrequency(qint64 freq)
+{
+    m_MinFreq = freq;
+}
+
+void FreqCtrlQuick::setMaxFrequency(qint64 freq)
+{
+    m_MaxFreq = freq;
+}
+
+void FreqCtrlQuick::setFrequency(qint64 freq)
 {
     int       i;
     qint64    acc = 0;
@@ -319,12 +334,12 @@ void freqCtrl::setFrequency(qint64 freq)
 
     // signal the new frequency to world
     m_Oldfreq = m_freq;
-    emit    newFrequency(m_freq);
+    emit  newFrequency(m_freq);
     updateCtrl(m_LastLeadZeroPos != m_LeadZeroPos);
     m_LastLeadZeroPos = m_LeadZeroPos;
 }
 
-void freqCtrl::setDigitColor(QColor col)
+void FreqCtrlQuick::setDigitColor(const QColor &col)
 {
     m_UpdateAll = true;
     m_DigitColor = col;
@@ -333,7 +348,7 @@ void freqCtrl::setDigitColor(QColor col)
     updateCtrl(true);
 }
 
-void freqCtrl::setUnit(FctlUnit unit)
+void FreqCtrlQuick::setUnit(FctlUnit unit)
 {
     m_NumDigitsForUnit = 2;
     switch (unit)
@@ -381,7 +396,7 @@ void freqCtrl::setUnit(FctlUnit unit)
     updateCtrl(true);
 }
 
-void freqCtrl::setBgColor(QColor col)
+void FreqCtrlQuick::setBgColor(const QColor& col)
 {
     m_UpdateAll = true;
     m_BkColor = col;
@@ -392,21 +407,21 @@ void freqCtrl::setBgColor(QColor col)
     updateCtrl(true);
 }
 
-void freqCtrl::setUnitsColor(QColor col)
+void FreqCtrlQuick::setUnitsColor(const QColor& col)
 {
     m_UpdateAll = true;
     m_UnitsColor = col;
     updateCtrl(true);
 }
 
-void freqCtrl::setHighlightColor(QColor col)
+void FreqCtrlQuick::setHighlightColor(const QColor& col)
 {
     m_UpdateAll = true;
     m_HighlightColor = col;
     updateCtrl(true);
 }
 
-void freqCtrl::updateCtrl(bool all)
+void FreqCtrlQuick::updateCtrl(bool all)
 {
     if (all)
     {
@@ -417,18 +432,38 @@ void freqCtrl::updateCtrl(bool all)
     update();
 }
 
-void freqCtrl::resizeEvent(QResizeEvent *)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void FreqCtrlQuick::geometryChange(const QRectF &newGeometry,
+                                   const QRectF &oldGeometry)
 {
-    // qDebug() <<rect.width() << rect.height();
-    qreal dpr = devicePixelRatioF();
-    m_Pixmap = QPixmap(width() * dpr, height() * dpr); // resize pixmap to current control size
+    QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
+
+    qreal dpr = window() ? window()->devicePixelRatio() : qreal(1.0);
+    m_Pixmap = QPixmap(int(newGeometry.width() * dpr),
+                       int(newGeometry.height() * dpr));
     m_Pixmap.setDevicePixelRatio(dpr);
     m_Pixmap.fill(m_BkColor);
     m_UpdateAll = true;
     updateCtrl(true);
 }
+#else
+void FreqCtrlQuick::geometryChanged(const QRectF &newGeometry,
+                                    const QRectF &oldGeometry)
+{
+    QQuickPaintedItem::geometryChanged(newGeometry, oldGeometry);
 
-void freqCtrl::leaveEvent(QEvent *)
+    qreal dpr = window() ? window()->devicePixelRatio() : qreal(1.0);
+    m_Pixmap = QPixmap(int(newGeometry.width() * dpr),
+                       int(newGeometry.height() * dpr));
+    m_Pixmap.setDevicePixelRatio(dpr);
+    m_Pixmap.fill(m_BkColor);
+    m_UpdateAll = true;
+    updateCtrl(true);
+}
+#endif
+
+
+void FreqCtrlQuick::hoverLeaveEvent(QHoverEvent *event)
 {
     // called when mouse cursor leaves this control so deactivate any highlights
     if (m_ActiveEditDigit >= 0)
@@ -441,70 +476,104 @@ void freqCtrl::leaveEvent(QEvent *)
             updateCtrl(false);
         }
     }
+
+    QQuickPaintedItem::hoverLeaveEvent(event);
 }
 
-void freqCtrl::paintEvent(QPaintEvent *)
+void FreqCtrlQuick::paint(QPainter *p)
 {
-    QPainter    painter(&m_Pixmap);
+    if (!p)
+        return;
+
+    // Draw into the offscreen pixmap as before
+    QPainter painter(&m_Pixmap);
 
     if (m_UpdateAll)           // if need to redraw everything
     {
         drawBkGround(painter);
         m_UpdateAll = false;
     }
-    // draw any modified digits to the m_MemDC
+
+    // draw any modified digits into the pixmap
     drawDigits(painter);
-    // now draw pixmap onto screen
-    QPainter    scrnpainter(this);
-    scrnpainter.drawPixmap(0, 0, m_Pixmap); // blt to the screen(flickers like a candle, why?)
+
+    // Now blit the pixmap into the Qt Quick scene
+    p->drawPixmap(0, 0, m_Pixmap);
 }
 
-void freqCtrl::mouseMoveEvent(QMouseEvent *event)
+
+void FreqCtrlQuick::hoverMoveEvent(QHoverEvent *event)
 {
+    event->setAccepted(true);
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    QPointF pt = event->localPos();
+    QPointF pt = event->posF();
 #else
     QPointF pt = event->position();
 #endif
-    // find which digit is to be edited
-    if (isActiveWindow())
-    {
-        if (!hasFocus())
-            setFocus(Qt::MouseFocusReason);
 
-        for (int i = m_DigStart; i < m_NumDigits; i++)
-        {
-            if (inRect(m_DigitInfo[i].dQRect, pt))
-            {
-                setActiveDigit(i);
-            }
+    // We don't need window()->isActive() here; just react whenever we get hover
+    if (!hasActiveFocus())
+        forceActiveFocus(Qt::MouseFocusReason);
+
+    for (int i = m_DigStart; i < m_NumDigits; ++i) {
+        if (inRect(m_DigitInfo[i].dQRect, pt)) {
+            setActiveDigit(i);
+            break;
         }
     }
+
 }
 
-void freqCtrl::mousePressEvent(QMouseEvent *event)
+void FreqCtrlQuick::mouseMoveEvent(QMouseEvent *event)
 {
+    event->setAccepted(true);
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QPointF pt = event->localPos();
 #else
     QPointF pt = event->position();
 #endif
+
+    // Optional: reuse same logic when dragging
+    for (int i = m_DigStart; i < m_NumDigits; ++i) {
+        if (inRect(m_DigitInfo[i].dQRect, pt)) {
+            setActiveDigit(i);
+            break;
+        }
+    }
+
+}
+
+void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
+{
+    qDebug() << "SpectrumItem press accepted before:" << event->isAccepted() << "pos" << event->position();
+    event->setAccepted(true);
+    qDebug() << "SpectrumItem press accepted after:" << event->isAccepted();
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QPointF pt = event->localPos();
+#else
+    QPointF pt = event->position();
+#endif
+
     if (event->button() == Qt::LeftButton)
     {
         for (int i = m_DigStart; i < m_NumDigits; i++)
         {
             if (inRect(m_DigitInfo[i].dQRect, pt)) // if in i'th digit
             {
-                if (m_LRMouseFreqSel)
+                if (inRect(m_DigitInfo[i].dQRect, pt)) // if in i'th digit
                 {
-                    incFreq();
-                }
-                else
-                {
-                    if (pt.y() < m_DigitInfo[i].dQRect.bottom() / 2) // top half?
+                    if (m_LRMouseFreqSel)
+                    {
                         incFreq();
+                    }
                     else
-                        decFreq();                                   // bottom half
+                    {
+                        if (pt.y() < m_DigitInfo[i].dQRect.bottom() / 2) // top half?
+                            incFreq();
+                        else
+                            decFreq();                                   // bottom half
+                    }
                 }
             }
         }
@@ -528,17 +597,17 @@ void freqCtrl::mousePressEvent(QMouseEvent *event)
     }
 }
 
-void freqCtrl::wheelEvent(QWheelEvent *event)
+void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
 {
+    event->setAccepted(true);
 #if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
     QPointF   pt = QPointF(event->pos());
 #else
     QPointF   pt = event->position();
 #endif
     int       delta = m_InvertScrolling ? -event->angleDelta().y() : event->angleDelta().y();
-    qreal       numDegrees = delta / 8;
-    qreal       offset = numDegrees / 15;
-
+    qreal     numDegrees = delta / 8;
+    qreal     offset = numDegrees / 15;
 
     qreal stepsToScroll = QApplication::wheelScrollLines() * offset;
 
@@ -549,16 +618,10 @@ void freqCtrl::wheelEvent(QWheelEvent *event)
     } else {
         // Changed direction, zap the old accumulation:
         scrollWheelOffsetAccumulated = stepsToScroll;
-        //qInfo() << "Scroll changed direction";
     }
 
-    int numSteps = int(scrollWheelOffsetAccumulated);
-
-    if(!numSteps) {
-        // we have not accumulated enough for a complete step.
-        // come back later.
-        return;
-    }
+    int numSteps = qRound(scrollWheelOffsetAccumulated);
+    scrollWheelOffsetAccumulated -= numSteps;
 
     for (int i = m_DigStart; i < m_NumDigits; i++)
     {
@@ -571,10 +634,12 @@ void freqCtrl::wheelEvent(QWheelEvent *event)
         }
     }
     scrollWheelOffsetAccumulated = 0;
+    event->setAccepted(true);
 }
 
-void freqCtrl::keyPressEvent(QKeyEvent *event)
+void FreqCtrlQuick::keyPressEvent(QKeyEvent *event)
 {
+    event->setAccepted(true);
     // call base class if dont over ride key
     bool      fSkipMsg = false;
     qint64    tmp;
@@ -648,10 +713,10 @@ void freqCtrl::keyPressEvent(QKeyEvent *event)
         break;
     }
     if (!fSkipMsg)
-        QFrame::keyPressEvent(event);
+        QQuickPaintedItem::keyPressEvent(event);
 }
 
-void freqCtrl::drawBkGround(QPainter &Painter)
+void FreqCtrlQuick::drawBkGround(QPainter &Painter)
 {
     QRect    rect(0, 0, width(), height());
 
@@ -730,7 +795,7 @@ void freqCtrl::drawBkGround(QPainter &Painter)
 }
 
 //  Draws just the Digits that have been modified
-void freqCtrl::drawDigits(QPainter &Painter)
+void FreqCtrlQuick::drawDigits(QPainter &Painter)
 {
     Painter.setFont(m_DigitFont);
     m_FirstEditableDigit = m_DigStart;
@@ -766,7 +831,7 @@ void freqCtrl::drawDigits(QPainter &Painter)
 }
 
 // Increment just the digit active in edit mode
-void freqCtrl::incDigit()
+void FreqCtrlQuick::incDigit()
 {
     /** FIXME: no longer used? */
     int       tmp;
@@ -811,7 +876,7 @@ void freqCtrl::incDigit()
 }
 
 // Increment the frequency by this digit active in edit mode
-void freqCtrl::incFreq()
+void FreqCtrlQuick::incFreq()
 {
     if (m_ActiveEditDigit >= 0)
     {
@@ -831,7 +896,7 @@ void freqCtrl::incFreq()
 }
 
 // Decrement the digit active in edit mode
-void freqCtrl::decDigit()
+void FreqCtrlQuick::decDigit()
 {
     /** FIXME: no longer used? */
     int       tmp;
@@ -876,7 +941,7 @@ void freqCtrl::decDigit()
 }
 
 // Decrement the frequency by this digit active in edit mode
-void freqCtrl::decFreq()
+void FreqCtrlQuick::decFreq()
 {
     if (m_ActiveEditDigit >= 0)
     {
@@ -897,7 +962,7 @@ void freqCtrl::decFreq()
 }
 
 // Clear the selected digit and the digits below (i.e. set them to 0)
-void freqCtrl::clearFreq()
+void FreqCtrlQuick::clearFreq()
 {
     if (m_ActiveEditDigit >= 0)
     {
@@ -916,7 +981,7 @@ void freqCtrl::clearFreq()
 }
 
 //  Cursor move routines for arrow key editing
-void freqCtrl::moveCursorLeft()
+void FreqCtrlQuick::moveCursorLeft()
 {
     if ((m_ActiveEditDigit >= 0) && (m_ActiveEditDigit < m_NumDigits - 1))
     {
@@ -924,7 +989,7 @@ void freqCtrl::moveCursorLeft()
     }
 }
 
-void freqCtrl::moveCursorRight()
+void FreqCtrlQuick::moveCursorRight()
 {
     if (m_ActiveEditDigit > m_FirstEditableDigit)
     {
@@ -932,7 +997,7 @@ void freqCtrl::moveCursorRight()
     }
 }
 
-void freqCtrl::cursorHome()
+void FreqCtrlQuick::cursorHome()
 {
     if (m_ActiveEditDigit >= 0)
     {
@@ -940,7 +1005,7 @@ void freqCtrl::cursorHome()
     }
 }
 
-void freqCtrl::cursorEnd()
+void FreqCtrlQuick::cursorEnd()
 {
     if (m_ActiveEditDigit > 0)
     {
@@ -948,7 +1013,7 @@ void freqCtrl::cursorEnd()
     }
 }
 
-void freqCtrl::setFrequencyFocus()
+void FreqCtrlQuick::setFrequencyFocus()
 {
     // Select last digit or 5th digit (100s of kHz), whatever is bigger.
     int position = std::max(int(log10(m_freq)), 5);

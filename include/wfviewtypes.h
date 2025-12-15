@@ -164,6 +164,18 @@ struct modeInfo {
     int bwMin;
     int bwMax;
     int pass;
+
+    // Only compare mode itself, filter/data are checked elsewhere.
+
+    bool operator==(const modeInfo& o) const noexcept
+    {
+        return (mk == o.mk && reg == o.reg);
+    }
+
+    bool operator!=(const modeInfo& o) const noexcept
+    {
+        return !(*this == o);
+    }
 };
 
 struct rigInfo {
@@ -201,6 +213,16 @@ struct toneInfo {
     bool tinv;
     bool rinv;
     bool useSecondaryVFO;
+
+    bool operator!=(const toneInfo& o) const noexcept
+    {
+        return (tone != o.tone);
+    }
+
+    bool operator==(const toneInfo& o) const noexcept
+    {
+        return (tone == o.tone);
+    }
 
 };
 

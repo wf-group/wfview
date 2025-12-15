@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QQuickWidget>
+#include <QQuickStyle>
 #include <QQmlContext>
 #include <QMutex>
 #include <QMutexLocker>
@@ -18,14 +19,15 @@
 #include <QToolTip>
 #include <QDateTime>
 #include <QQuickWindow>
-
+#include <QQmlEngine>
 #include <qcustomplot.h>
-#include "freqctrl.h"
+#include "freqctrlquick.h"
 #include "cluster.h"
 #include "wfviewtypes.h"
 #include "colorprefs.h"
 #include "rigidentities.h"
 #include "cachingqueue.h"
+#include "paletteproxy.h"
 
 #include "spectrumitem.h"
 #include "waterfallitem.h"
@@ -44,6 +46,18 @@ struct bandIndicator {
 class receiverWidget : public QGroupBox
 {
     Q_OBJECT
+    Q_PROPERTY(uchar scopeModeValue READ getScopeMode WRITE setScopeModeUser NOTIFY scopeModeValueChanged)
+    Q_PROPERTY(centerSpanData scopeSpanValue READ getScopeSpan WRITE setScopeSpanUser NOTIFY scopeSpanValueChanged)
+    Q_PROPERTY(uchar scopeEdgeValue READ getScopeEdge WRITE setScopeEdgeUser NOTIFY scopeEdgeValueChanged)
+    Q_PROPERTY(modeInfo modeValue READ getMode WRITE setModeUser NOTIFY modeValueChanged)
+    Q_PROPERTY(uchar dataModeValue READ getDataMode WRITE setDataModeUser NOTIFY dataModeValueChanged)
+    Q_PROPERTY(uchar filterValue READ getFilter WRITE setFilterUser NOTIFY filterValueChanged)
+    Q_PROPERTY(uchar filterShapeValue READ getFilterShape WRITE setFilterShapeUser NOTIFY filterShapeValueChanged)
+    Q_PROPERTY(uchar roofingValue READ getRoofing WRITE setRoofingUser NOTIFY roofingValueChanged)
+
+    Q_PROPERTY(uchar speedValue READ getSpeed WRITE setSpeedUser NOTIFY speedValueChanged)
+    Q_PROPERTY(WaterfallItem::Theme themeValue READ getTheme WRITE setThemeUser NOTIFY themeValueChanged)
+
 public:
     explicit receiverWidget(bool scope, uchar receiver = 0, uchar vfo = 1, QWidget *parent = nullptr);
     ~receiverWidget();
@@ -54,8 +68,8 @@ public:
     void setRange(int floor, int ceiling);
     void wfInterpolate(bool en) { if (waterfall) waterfall->setSmooth(en); } ;
     void wfAntiAliased(bool en) {} ;
-    void wfTheme(int num);
-    void setUnderlayMode(underlay_t un) { underlayMode = un; clearPeaks(); }
+    //void wfTheme(int num);
+    //void setUnderlayMode(underlay_t un) { underlayMode = un; clearPeaks(); }
     void overflow(bool en) { if (spectrum) spectrum->setOverflow(en); }
     void resizePlasmaBuffer(int size );
     void colorPreset(colorPrefsType *p );
@@ -64,7 +78,7 @@ public:
     double getCenterFreq () { return passbandCenterFrequency; }
 
     void setPassbandWidth(double hz) { passbandWidth = hz;}
-    double getPassbandWidth() { configFilterWidth->setValue(passbandWidth*1E6); return passbandWidth; }
+    //double getPassbandWidth() { configFilterWidth->setValue(passbandWidth*1E6); return passbandWidth; }
 
     void setIdentity(QString name) {this->setTitle(name); }
     uchar getReceiver() { return receiver; }
@@ -72,7 +86,7 @@ public:
     void setTuningFloorZeros(bool tf) {this->tuningFloorZeros = tf; }
     void setClickDragTuning(bool cg) { this->clickDragTuning = cg; }
 
-    void setSatMode(bool sm) { this->satMode = sm; satelliteButton->blockSignals(true); satelliteButton->setChecked(sm); satelliteButton->blockSignals(false); }
+    //void setSatMode(bool sm) { this->satMode = sm; satelliteButton->blockSignals(true); satelliteButton->setChecked(sm); satelliteButton->blockSignals(false); }
 
     void setScrollSpeedXY(int clicksX, int clicksY) { this->scrollXperClick = clicksX; this->scrollYperClick = clicksY;}
 
@@ -103,57 +117,97 @@ public:
 
     void setEdge(uchar index);
     void setHold(bool h);
-    void setSpeed(uchar s);
-    void setSpan(centerSpanData s);
-    void setScopeMode(uchar m);
-    void setSplit(bool en) { splitButton->blockSignals(true);splitButton->setChecked(en); splitButton->blockSignals(false);}
+
+    //void setSplit(bool en) { splitButton->blockSignals(true);splitButton->setChecked(en); splitButton->blockSignals(false);}
     void setTracking(bool en) { tracking=en; }
     void setRef(int ref);
     void setRefLimits(int lower, int upper);
     void setFreqLock( bool en) { freqLock = en; }
-    void setRoofing(uchar val);
-    void setFilterShape(uchar val);
-    void setScopeEnabled(bool en) { this->configScopeEnabled->setEnabled(en);};
+    //void setScopeEnabled(bool en) { this->configScopeEnabled->setEnabled(en);};
 
     void setBandIndicators(bool show, QString region, std::vector<bandType>* bands);
     void setUnit(FctlUnit unit);
     void setSeparators(QChar group, QChar decimal);
 
-    modeInfo currentMode() {return mode;}
-    uchar currentFilter() {return filterCombo->currentData().toInt();}
-    void clearSpans() { spanCombo->clear();}
-    void clearMode() { modeCombo->clear();}
-    void clearData() { dataCombo->clear();}
-    void clearFilter() { filterCombo->clear();}
-    void clearRoofing() { roofingCombo->clear();}
-
-    void addSpan(QString text, QVariant data) {spanCombo->blockSignals(true); spanCombo->addItem(text,data); spanCombo->blockSignals(false);}
-    void addMode(QString text, QVariant data) {modeCombo->blockSignals(true); modeCombo->addItem(text,data); modeCombo->blockSignals(false);}
-    void addData(QString text, QVariant data) {dataCombo->blockSignals(true); dataCombo->addItem(text,data); dataCombo->blockSignals(false);}
-    void addFilter(QString text, QVariant data) {filterCombo->blockSignals(true); filterCombo->addItem(text,data); filterCombo->blockSignals(false);}
-    void addRoofing(QString text, QVariant data) {roofingCombo->blockSignals(true); roofingCombo->addItem(text,data); roofingCombo->blockSignals(false);}
-
     void selected(bool);
     bool isSelected() {return isActive;}
-    void showScope(bool en) { this->splitter->setVisible(en); }
-    bool isScopeEnabled() { return this->configScopeEnabled->isEnabled();};
+    //void showScope(bool en) { this->splitter->setVisible(en); }
+    //bool isScopeEnabled() { return this->configScopeEnabled->isEnabled();};
 
     void displaySettings(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,FctlUnit unit,std::vector<bandType>* bands = Q_NULLPTR);
-    quint8 getDataMode() { return static_cast<quint8>(dataCombo->currentIndex()); }
 
-    void changeSpan(qint8 val);
     void updateBSR(std::vector<bandType>* bands);
     QImage getSpectrumImage();
     QImage getWaterfallImage();
     bandType getCurrentBand();
 
+    // Each combobox needs a setXxx function and a setXxxUser. setXxxUser is used for settings FROM the comboxbox.
+    void setScopeMode(uchar m);
+    void setScopeModeUser(uchar m);
+    void setScopeSpan(centerSpanData m);
+    void setScopeSpanUser(centerSpanData m);
+    void setScopeEdge(uchar m);
+    void setScopeEdgeUser(uchar m);
+    void setMode(modeInfo m);
+    void setModeUser(modeInfo m);
+    void setDataMode(uchar m);
+    void setDataModeUser(uchar m);
+    void setFilter(uchar m);
+    void setFilterUser(uchar m);
+    void setFilterShape(uchar m);
+    void setFilterShapeUser(uchar m);
+    void setRoofing(uchar m);
+    void setRoofingUser(uchar m);
+
+    void setSpeed(uchar m);
+    void setSpeedUser(uchar m);
+    void setTheme(WaterfallItem::Theme m);
+    void setThemeUser(WaterfallItem::Theme m);
+
+    uchar getScopeMode() { return currentScopeMode;}
+    centerSpanData getScopeSpan() { return currentScopeSpan;}
+    uchar getScopeEdge() { return currentScopeEdge;}
+    modeInfo getMode() { return currentMode;}
+    uchar getDataMode() { return currentMode.data;}
+    uchar getFilter() { return currentMode.filter;}
+    uchar getFilterShape() { return currentFilterShape;}
+    uchar getRoofing() { return currentRoofing;}
+
+    uchar getSpeed() { return currentSpeed;}
+    WaterfallItem::Theme getTheme() { return currentTheme;}
+
+    static void setSlider(QObject* root, const char* name, double mn, double mx, double v) {
+        if (auto* s = root->findChild<QObject*>(name)) {
+            s->setProperty("from", mn);
+            s->setProperty("to", mx);
+            s->setProperty("value", v);
+        }
+    }
+
+    /* Don't set a valid default as we should receive the necessary value from rig */
+    static void setCombo(QObject* root, const char* name, const QVariantList& model, int current = 0)
+    {
+        if (auto* c = root->findChild<QObject*>(name)) {
+            c->setProperty("model", model);
+            c->setProperty("currentIndex", current);
+        }
+    }
+
+    static void setProperty(QObject* root, const char* name, const char* prop, bool value)
+    {
+        if (auto* c = root->findChild<QObject*>(name)) {
+            c->setProperty(prop, value);
+        }
+    }
+
+
 public slots: // Can be called directly or updated via signal/slot
+    // public is required when being called from Qt Quick
     void receiveSpots(uchar receiver, QVector<spotData> spots);
     void memoryMode(bool en);
     void updateScope(const scopeData &data);
     void setFreqFromScope(double f);
-
-
+    void detachScopeFromQml(bool state);
 
 signals:    
     void frequencyRange(uchar receiver, double start, double end);
@@ -168,6 +222,21 @@ signals:
     void waterfallTime(double time);
     void sendScopeImage(uchar receiver);
     void sendTrack(int f);
+
+
+
+
+    void scopeModeValueChanged();
+    void scopeSpanValueChanged();
+    void scopeEdgeValueChanged();
+    void modeValueChanged();
+    void dataModeValueChanged();
+    void filterValueChanged();
+    void filterShapeValueChanged();
+    void roofingValueChanged();
+    void speedValueChanged();
+    void themeValueChanged();
+
 
 private slots:
     void detachScope(bool state);
@@ -210,9 +279,14 @@ private:
     QLabel* windowLabel = Q_NULLPTR;
     //QCustomPlot* spectrum = Q_NULLPTR;
     //QCustomPlot* waterfall = Q_NULLPTR;
+    QHBoxLayout* mainLayout;
+    QVBoxLayout* layout;
+    QVBoxLayout* rhsLayout;
+    QHBoxLayout* displayLayout;
+    QHBoxLayout* controlLayout;
+    /*
     QLinearGradient spectrumGradient;
     QLinearGradient underlayGradient;
-    QList <freqCtrl*> freqDisplay;
     QSpacerItem* displayLSpacer;
     QPushButton* vfoSelectButton;
     QSpacerItem* displayCSpacer;
@@ -225,11 +299,6 @@ private:
     QSpacerItem* displayRSpacer;
     QGroupBox* group;
     QSplitter* splitter;
-    QHBoxLayout* mainLayout;
-    QVBoxLayout* layout;
-    QVBoxLayout* rhsLayout;
-    QHBoxLayout* displayLayout;
-    QHBoxLayout* controlLayout;
     QPushButton* detachButton;
     QLabel* scopeModeLabel;
     QComboBox* scopeModeCombo;
@@ -269,7 +338,11 @@ private:
     QPushButton* configResetIf;
     QSlider* configFilterWidth;
     QCheckBox* configScopeEnabled;
-
+    QCheckBox* rxCheckBox;
+    QPushButton* confButton;
+    QSpacerItem* controlSpacer;
+    QSpacerItem* midSpacer;
+    */
 
     // These parameters relate to scroll wheel response:
     int scrollYperClick = 24;
@@ -279,14 +352,7 @@ private:
     bool allowAcceptFreqData = true;
     void tempLockAcceptFreqData();
 
-    QCheckBox* rxCheckBox;
-
-    QPushButton* confButton;
-    QSpacerItem* controlSpacer;
-    QSpacerItem* midSpacer;
-    WaterfallItem::Theme currentTheme = WaterfallItem::Theme::Spectrum;
     int currentRef = 0;
-    uchar currentSpeed = 0;
     colorPrefsType colors;
     freqt freq;
     modeInfo mode;
@@ -301,6 +367,7 @@ private:
     double lowerFreq=0.0;
     double upperFreq=0.0;
 
+    /*
     // Spectrum items;
     QCPItemLine * freqIndicatorLine;
     QCPItemRect* passbandIndicator;
@@ -318,6 +385,7 @@ private:
 
     underlay_t underlayMode = underlayNone;
     QMutex plasmaMutex;
+    */
 
     double plotFloor = 0;
     double plotCeiling = 160;
@@ -342,16 +410,25 @@ private:
     int refUpper=0;
 
     // Waterfall items;
+    /*
     QCPColorMap * colorMap = Q_NULLPTR;
     QCPColorMapData * colorMapData = Q_NULLPTR;
     QCPColorScale * colorScale = Q_NULLPTR;
     QVector <QByteArray> wfimage;
+    */
 
     cachingQueue* queue;
     uchar receiver=0;
     uchar rxcmd=0;
     double startFrequency;
     QMap<QString, spotData*> clusterSpots;
+
+    // Frequency display defaults
+    int freqDigits=4;
+    qint64 freqMin=0;
+    qint64 freqMax=0;
+    qint64 freqMinStep=0;
+    FctlUnit freqUnit = FctlUnit::FCTL_UNIT_NONE;
 
     // Assorted settings
     bool tuningFloorZeros=false;
@@ -361,7 +438,6 @@ private:
     uchar selectedVFO=0;
     bool hasScope=true;
     QString currentRegion="1";
-    uchar currentScopeMode=0xff;
     bool bandIndicatorsVisible=false;
     rigCapabilities* rigCaps=Q_NULLPTR;
     bandType currentBand;
@@ -375,11 +451,31 @@ private:
     bool freqLock = false;
     bool scopeReceived = false;
 
-    QQuickWidget *scopeQuick = nullptr;
+    QQuickWidget *scopeQuick = nullptr;   // the QQuickWidget hosting scope.qml
+    QWidget      *scopeOrigParent  = nullptr;  // original parent widget
+    QLayout      *scopeOrigLayout  = nullptr;  // original layout
+    int           scopeOrigIndex   = -1;       // index in that layout
+    QWidget      *scopeFloatWindow = nullptr;  // floating window when detached
+
     SpectrumItem *spectrum = nullptr;
     WaterfallItem *waterfall = nullptr;
+    FreqCtrlQuick *freqDisplayA = nullptr;
+    FreqCtrlQuick *freqDisplayB = nullptr;
+
     qint64 lastSpectrumNs  = 0;
     qint64 lastWaterfallNs = 0;
+    QVector<bandType> activeBands;
+
+    // Current combobox contents to detect changes.
+    uchar currentScopeMode=0xff;
+    centerSpanData currentScopeSpan = centerSpanData();
+    uchar currentScopeEdge=1;
+    modeInfo currentMode = modeInfo();
+    uchar currentFilterShape = 0xff;
+    uchar currentRoofing = 0xff;
+
+    uchar currentSpeed = 0;
+    WaterfallItem::Theme currentTheme = WaterfallItem::Theme::Spectrum;
 
 };
 

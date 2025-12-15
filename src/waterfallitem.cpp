@@ -154,7 +154,6 @@ void WaterfallItem::wheelEvent(QWheelEvent *event)
     }
 }
 
-
 void WaterfallItem::updateScope(const scopeData &data)
 {
     if (!data.valid || data.data.isEmpty())
@@ -170,69 +169,47 @@ void WaterfallItem::updateScope(const scopeData &data)
         endFreq   = data.endFreq;
     }
 
-    // Allocate or resize image if needed
-    if (img.isNull()) {
+    // Never allow a non-positive height
+    const int targetHeight = qMax(1, length);
+
+    // (Re)allocate image when width OR height changes
+    if (img.isNull() || imgWidth != w || img.height() != targetHeight) {
         imgWidth = w;
-        img = QImage(imgWidth, length, QImage::Format_RGB32);
+        img = QImage(imgWidth, targetHeight, QImage::Format_RGB32);
         img.fill(Qt::black);
+        ringIndex = 0;  // reset ring on size change
     }
 
-    if (img.height() != length) {
-        QImage newImg(imgWidth, length, QImage::Format_RGB32);
-        newImg.fill(Qt::black);
+    const int imgH = img.height();
+    if (imgH <= 0)
+        return;
 
-        const int oldH = img.height();
-        const int newH = length;
+    // ---- ring index: ALWAYS clamp to image height ----
+    if (ringIndex < 0 || ringIndex >= imgH)
+        ringIndex = 0;
 
-        for (int yNew = 0; yNew < newH; ++yNew) {
-            int yOld = (newH > 1 && oldH > 1) ? (yNew * (oldH - 1) / (newH - 1)) : 0;
-            if (yOld < 0)      yOld = 0;
-            if (yOld >= oldH)  yOld = oldH - 1;
+    // advance ring one line up
+    ringIndex = (ringIndex - 1 + imgH) % imgH;
 
-            const QRgb *srcRow = reinterpret_cast<const QRgb *>(img.constScanLine(yOld));
-            QRgb *dstRow       = reinterpret_cast<QRgb *>(newImg.scanLine(yNew));
-            memcpy(dstRow, srcRow, imgWidth * int(sizeof(QRgb)));
-        }
+    // destination row
+    QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(ringIndex));
 
-        img = std::move(newImg);
-    }
-
-    const int rowBytes = img.bytesPerLine();
-    const int H = length;
-
-    for (int y = H - 1; y > 0; --y) {
-        uchar *dst = img.scanLine(y);
-        const uchar *src = img.constScanLine(y - 1);
-        memmove(dst, src, rowBytes);
-    }
-
-    // ---- Write newest line at TOP (row 0)
+    // source values – MUST be bytes (0..255) for LUT indexing
     const uchar *src = reinterpret_cast<const uchar *>(data.data.constData());
-    QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(0));
 
-
-    int span = int(ceiling) - int(floor);
-    if (span <= 0)
-        span = 1;
+    // LUT is built for indices 0..255 only
+    rebuildLut();
+    const QRgb *lut = valueLut;
 
     for (int i = 0; i < imgWidth; ++i) {
-        quint8 v = src[i];
+        unsigned idx = src[i];      // uchar => 0..255
 
-        int vInt = int(v);
+        // belt & braces; basically free
+        if (idx > 255)
+            idx = 255;
 
-        if (vInt < int(floor))
-            vInt = int(floor);
-        else if (vInt > int(ceiling))
-            vInt = int(ceiling);
-
-        int scaled = (vInt - int(floor)) * 255 / span;
-
-        if (scaled < 0)   scaled = 0;
-        if (scaled > 255) scaled = 255;
-
-        dstRow[i] = colorForValue(quint8(scaled));
+        dstRow[i] = lut[idx];
     }
-
 
     dirty = true;
     update();
@@ -240,7 +217,7 @@ void WaterfallItem::updateScope(const scopeData &data)
 
 
 QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
-{    
+{
     if (width() <= 0 || height() <= 0 || img.isNull()) {
         delete oldNode;
         return nullptr;
@@ -249,36 +226,90 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     QElapsedTimer timer;
     timer.start();
 
-    auto *node = static_cast<QSGSimpleTextureNode *>(oldNode);
+    // IMPORTANT: discard any previous node tree completely
+    if (oldNode) {
+        delete oldNode;
+        oldNode = nullptr;
+    }
 
-    if (!node) {
-        node = new QSGSimpleTextureNode;
+    auto *root = static_cast<WaterfallRootNode *>(oldNode);
+    if (!root) {
+        root = new WaterfallRootNode;
+        root->topNode    = new QSGSimpleTextureNode;
+        root->bottomNode = new QSGSimpleTextureNode;
+        root->appendChildNode(root->topNode);
+        root->appendChildNode(root->bottomNode);
+    }
+
+    if (!window()) {
+        emit processingTimeNs(timer.nsecsElapsed());
+        return root;
+    }
+
+    // Create separate textures for top and bottom
+    QSGTexture *texTop = window()->createTextureFromImage(img);
+    texTop->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
+    texTop->setMipmapFiltering(QSGTexture::None);
+    texTop->setHorizontalWrapMode(QSGTexture::ClampToEdge);
+    texTop->setVerticalWrapMode(QSGTexture::ClampToEdge);
+
+    QSGTexture *texBottom = window()->createTextureFromImage(img);
+    texBottom->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
+    texBottom->setMipmapFiltering(QSGTexture::None);
+    texBottom->setHorizontalWrapMode(QSGTexture::ClampToEdge);
+    texBottom->setVerticalWrapMode(QSGTexture::ClampToEdge);
+
+    root->topNode->setTexture(texTop);
+    root->topNode->setOwnsTexture(true);
+
+    root->bottomNode->setTexture(texBottom);
+    root->bottomNode->setOwnsTexture(true);
+
+    const int texW = img.width();
+    const int texH = img.height();
+    if (texH <= 0) {
+        emit processingTimeNs(timer.nsecsElapsed());
+        return root;
+    }
+
+    const qreal itemW = width();
+    const qreal itemH = height();
+
+    // Clamp ringIndex defensively
+    int ring = ringIndex;
+    if (ring < 0)     ring = 0;
+    if (ring >= texH) ring = texH - 1;
+
+    const int topLines    = texH - ring; // ring .. texH-1
+    const int bottomLines = ring;        // 0 .. ring-1
+
+    // ----- Top segment -----
+    if (topLines > 0) {
+        const qreal topHeight = itemH * (qreal(topLines) / texH);
+
+        root->topNode->setRect(0, 0, itemW, topHeight);
+        root->topNode->setSourceRect(QRectF(0, ring, texW, topLines));
+        root->topNode->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
     } else {
-        while (QSGNode *child = node->firstChild()) {
-            node->removeChildNode(child);
-            delete child;
-        }
+        root->topNode->setRect(0, 0, 0, 0);
     }
 
-    if (dirty) {
+    // ----- Bottom segment -----
+    if (bottomLines > 0) {
+        const qreal topHeight    = itemH * (qreal(topLines) / texH);
+        const qreal bottomHeight = itemH - topHeight;
 
-        QSGTexture *tex = window()->createTextureFromImage(img);
-        // Filtering:
-        tex->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
-        tex->setMipmapFiltering(QSGTexture::None);
-        tex->setHorizontalWrapMode(QSGTexture::ClampToEdge);
-        tex->setVerticalWrapMode(QSGTexture::ClampToEdge);
-
-        node->setTexture(tex);
-        node->setOwnsTexture(true);
-        dirty = false;
+        root->bottomNode->setRect(0, topHeight, itemW, bottomHeight);
+        root->bottomNode->setSourceRect(QRectF(0, 0, texW, bottomLines));
+        root->bottomNode->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
+    } else {
+        root->bottomNode->setRect(0, 0, 0, 0);
     }
 
-    node->setRect(0, 0, width(), height());
     emit processingTimeNs(timer.nsecsElapsed());
-
-    return node;
+    return root;
 }
+
 
 
 QRgb WaterfallItem::colorForValue(quint8 v) const
@@ -467,9 +498,53 @@ QRgb WaterfallItem::colorForValue(quint8 v) const
             b = int(lerp(255, 255, (t - 0.50f) / 0.50f));
         }
         break;
+    default:
+        r=0;g=0;b=0;
+        break;
     }
 
     return qRgb(r, g, b);
+}
+
+
+void WaterfallItem::rebuildLut()
+{
+    // Quantize and clamp into byte domain
+    int floorI = int(std::floor(floor));
+    int ceilI  = int(std::ceil(ceiling));
+
+    if (ceilI <= floorI)
+        ceilI = floorI + 1;
+
+    floorI = qBound(0, floorI, 255);
+    ceilI  = qBound(0, ceilI, 255);
+
+    // Nothing changed? keep old LUT
+    if (lutValid &&
+        lutFloor == floorI &&
+        lutCeil  == ceilI &&
+        previousTheme == theme)
+        return;
+
+    lutFloor      = floorI;
+    lutCeil       = ceilI;
+    previousTheme = theme;
+
+    const int span = lutCeil - lutFloor;
+
+    for (int v = 0; v < 256; ++v) {
+        int vInt = v;
+        if (vInt < lutFloor)      vInt = lutFloor;
+        else if (vInt > lutCeil)  vInt = lutCeil;
+
+        int scaled = (vInt - lutFloor) * 255 / span;
+        if (scaled < 0)   scaled = 0;
+        if (scaled > 255) scaled = 255;
+
+        valueLut[v] = colorForValue(quint8(scaled));
+    }
+
+    lutValid = true;
 }
 
 

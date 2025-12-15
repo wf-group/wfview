@@ -20,6 +20,26 @@
 #include "cluster.h"
 #include "rigidentities.h"
 
+class SpectrumRootNode : public QSGNode
+{
+public:
+    QSGGeometryNode *background = nullptr;
+    QSGGeometryNode *gridLines = nullptr;
+    QSGGeometryNode *fillNode = nullptr;
+    QSGGeometryNode *gradientFill = nullptr;
+    QSGGeometryNode *peaksLine = nullptr;
+    QSGGeometryNode *peaksFill = nullptr;
+    QSGGeometryNode *peaksGradient = nullptr;
+    QSGGeometryNode *spectrumLine = nullptr;
+    QSGGeometryNode *frequencyLine = nullptr;
+    QSGGeometryNode *passband = nullptr;
+    QSGSimpleTextureNode *axisNode = nullptr;
+    QSGGeometryNode *bandShapes = nullptr;
+
+    QSGNode *dynamicRoot = nullptr;   // everything else (axis, bands, spots, overlays)
+};
+
+
 class SpectrumItem : public QQuickItem
 {
     Q_OBJECT
@@ -97,7 +117,7 @@ signals:
     void hoverSpotChanged(const spotData &spot, QPointF itemPos, bool active);
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
     void passbandResizeRequested(double lowFreq, double highFreq);
-    void processingTimeNs(quint64 ns);
+    void processingTimeNs(qint64 ns);
 
 protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
@@ -118,7 +138,8 @@ private:
 
     int maxSpotRows = 6;
 
-    bool     hoverActive = false;
+    bool hoverActive = false;
+    int hoverIndex = -1;
     spotData currentHoverSpot;
     QPointF  currentHoverPos;
 

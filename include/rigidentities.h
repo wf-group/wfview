@@ -82,6 +82,16 @@ struct rigInput {
     qint8 reg;
     QString name;
     uchar level;
+    bool operator!=(const rigInput& o) const noexcept
+    {
+        return (type != o.type || reg != o.reg);
+    }
+
+    bool operator==(const rigInput& o) const noexcept
+    {
+        return (type == o.type && reg == o.reg);
+    }
+
 };
 
 
@@ -141,11 +151,14 @@ struct centerSpanData {
     QString name;
     unsigned int freq;
 
-    centerSpanData &operator=(const centerSpanData &i) {
-        this->reg=i.reg;
-        this->name=i.name;
-        this->freq=i.freq;
-        return *this;
+    bool operator==(const centerSpanData& o) const noexcept
+    {
+        return (reg == o.reg && freq == o.freq);
+    }
+
+    bool operator!=(const centerSpanData& o) const noexcept
+    {
+        return !(*this == o);
     }
 };
 
@@ -170,22 +183,15 @@ struct bandType {
     QString name;
     qint64 newFreq=0;
     qint64 offset;
-    bandType &operator=(const bandType &i) {
-        this->region=i.region;
-        this->band=i.band;
-        this->bsr=i.bsr;
-        this->lowFreq=i.highFreq;
-        this->defaultMode=i.defaultMode;
-        this->range=i.range;
-        this->memGroup=i.memGroup;
-        this->bytes=i.bytes;
-        this->ants=i.ants;
-        this->power=i.power;
-        this->color=i.color;
-        this->name=i.name;
-        this->newFreq=i.newFreq;
-        this->offset=i.offset;
-        return *this;
+
+    bool operator==(const bandType& o) const noexcept
+    {
+        return (region == o.region && band == o.band && bsr == o.bsr);
+    }
+
+    bool operator!=(const bandType& o) const noexcept
+    {
+        return !(*this == o);
     }
 };
 
@@ -206,17 +212,15 @@ struct bandStackType {
     uchar sql;
     toneInfo tone;
     toneInfo tsql;
-    bandStackType &operator=(const bandStackType &i) {
-        this->band=i.band;
-        this->reg=i.reg;
-        this->freq=i.freq;
-        this->data=i.data;
-        this->mode=i.mode;
-        this->filter=i.filter;
-        this->sql=i.sql;
-        this->tone=i.tone;
-        this->tsql=i.tsql;
-        return *this;
+
+    bool operator==(const bandStackType& o) const noexcept
+    {
+        return (band == o.band && reg == o.reg);
+    }
+
+    bool operator!=(const bandStackType& o) const noexcept
+    {
+        return !(*this == o);
     }
 
 };
@@ -231,6 +235,18 @@ struct filterType {
     quint8 num;
     QString name;
     unsigned int modes;
+
+    bool operator==(const filterType& o) const noexcept
+    {
+        return (num == o.num);
+    }
+
+    bool operator!=(const filterType& o) const noexcept
+    {
+        return !(*this == o);
+    }
+
+
 };
 
 struct genericType {
@@ -240,6 +256,17 @@ struct genericType {
         num(num), name(name) {}
     quint8 num;
     QString name;
+
+    bool operator==(const genericType& o) const noexcept
+    {
+        return (num == o.num);
+    }
+
+    bool operator!=(const genericType& o) const noexcept
+    {
+        return !(*this == o);
+    }
+
 };
 
 
