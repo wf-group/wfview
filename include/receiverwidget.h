@@ -46,17 +46,28 @@ struct bandIndicator {
 class receiverWidget : public QGroupBox
 {
     Q_OBJECT
-    Q_PROPERTY(uchar scopeModeValue READ getScopeMode WRITE setScopeModeUser NOTIFY scopeModeValueChanged)
-    Q_PROPERTY(centerSpanData scopeSpanValue READ getScopeSpan WRITE setScopeSpanUser NOTIFY scopeSpanValueChanged)
-    Q_PROPERTY(uchar scopeEdgeValue READ getScopeEdge WRITE setScopeEdgeUser NOTIFY scopeEdgeValueChanged)
-    Q_PROPERTY(modeInfo modeValue READ getMode WRITE setModeUser NOTIFY modeValueChanged)
-    Q_PROPERTY(uchar dataModeValue READ getDataMode WRITE setDataModeUser NOTIFY dataModeValueChanged)
-    Q_PROPERTY(uchar filterValue READ getFilter WRITE setFilterUser NOTIFY filterValueChanged)
-    Q_PROPERTY(uchar filterShapeValue READ getFilterShape WRITE setFilterShapeUser NOTIFY filterShapeValueChanged)
-    Q_PROPERTY(uchar roofingValue READ getRoofing WRITE setRoofingUser NOTIFY roofingValueChanged)
+    Q_PROPERTY(uchar scopeModeValue READ getScopeMode WRITE setScopeMode NOTIFY scopeModeValueChanged)
+    Q_PROPERTY(centerSpanData scopeSpanValue READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanValueChanged)
+    Q_PROPERTY(uchar scopeEdgeValue READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeValueChanged)
+    Q_PROPERTY(uchar toFixed WRITE toFixedEdge)
+    Q_PROPERTY(modeInfo modeValue READ getMode WRITE setMode NOTIFY modeValueChanged)
+    Q_PROPERTY(uchar dataModeValue READ getDataMode WRITE setDataMode NOTIFY dataModeValueChanged)
+    Q_PROPERTY(uchar filterValue READ getFilter WRITE setFilter NOTIFY filterValueChanged)
+    Q_PROPERTY(uchar filterShapeValue READ getFilterShape WRITE setFilterShape NOTIFY filterShapeValueChanged)
+    Q_PROPERTY(uchar roofingValue READ getRoofing WRITE setRoofing NOTIFY roofingValueChanged)
 
-    Q_PROPERTY(uchar speedValue READ getSpeed WRITE setSpeedUser NOTIFY speedValueChanged)
-    Q_PROPERTY(WaterfallItem::Theme themeValue READ getTheme WRITE setThemeUser NOTIFY themeValueChanged)
+    Q_PROPERTY(uchar speedValue READ getSpeed WRITE setSpeed NOTIFY speedValueChanged)
+    Q_PROPERTY(WaterfallItem::Theme themeValue READ getTheme WRITE setTheme NOTIFY themeValueChanged)
+    Q_PROPERTY(bool hold READ getHold WRITE setHold NOTIFY holdChanged)
+
+    Q_PROPERTY(int refValue READ getRef WRITE setRef NOTIFY refValueChanged)
+    // Length and ceiling/floor update the scope directly
+    Q_PROPERTY(int pbtInnerValue READ getPbtInner WRITE setPbtInner NOTIFY pbtInnerValueChanged)
+    Q_PROPERTY(int pbtOuterValue READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterValueChanged)
+    Q_PROPERTY(int ifShiftValue READ getIfShift WRITE setIfShift NOTIFY ifShiftValueChanged)
+    Q_PROPERTY(int filterWidthValue READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthValueChanged)
+
+
 
 public:
     explicit receiverWidget(bool scope, uchar receiver = 0, uchar vfo = 1, QWidget *parent = nullptr);
@@ -116,12 +127,10 @@ public:
     void receiveMode (modeInfo m, uchar vfo=0);
 
     void setEdge(uchar index);
-    void setHold(bool h);
 
     //void setSplit(bool en) { splitButton->blockSignals(true);splitButton->setChecked(en); splitButton->blockSignals(false);}
     void setTracking(bool en) { tracking=en; }
-    void setRef(int ref);
-    void setRefLimits(int lower, int upper);
+
     void setFreqLock( bool en) { freqLock = en; }
     //void setScopeEnabled(bool en) { this->configScopeEnabled->setEnabled(en);};
 
@@ -141,47 +150,61 @@ public:
     QImage getWaterfallImage();
     bandType getCurrentBand();
 
-    // Each combobox needs a setXxx function and a setXxxUser. setXxxUser is used for settings FROM the comboxbox.
-    void setScopeMode(uchar m);
-    void setScopeModeUser(uchar m);
-    void setScopeSpan(centerSpanData m);
-    void setScopeSpanUser(centerSpanData m);
-    void setScopeEdge(uchar m);
-    void setScopeEdgeUser(uchar m);
-    void setMode(modeInfo m);
-    void setModeUser(modeInfo m);
-    void setDataMode(uchar m);
-    void setDataModeUser(uchar m);
-    void setFilter(uchar m);
-    void setFilterUser(uchar m);
-    void setFilterShape(uchar m);
-    void setFilterShapeUser(uchar m);
-    void setRoofing(uchar m);
-    void setRoofingUser(uchar m);
+    // Functions to allow updates of QML items. u=true by default (settings from elsewhere must set u=false)
+    void toFixedEdge(uchar val);
 
-    void setSpeed(uchar m);
-    void setSpeedUser(uchar m);
-    void setTheme(WaterfallItem::Theme m);
-    void setThemeUser(WaterfallItem::Theme m);
-
+    void setScopeMode(uchar m, bool u=true);
     uchar getScopeMode() { return currentScopeMode;}
+    void setScopeSpan(centerSpanData m, bool u=true);
     centerSpanData getScopeSpan() { return currentScopeSpan;}
+    void setScopeEdge(uchar m, bool u=true);
     uchar getScopeEdge() { return currentScopeEdge;}
+    void setMode(modeInfo m, bool u=true);
     modeInfo getMode() { return currentMode;}
+    void setDataMode(uchar m, bool u=true);
     uchar getDataMode() { return currentMode.data;}
+    void setFilter(uchar m, bool u=true);
     uchar getFilter() { return currentMode.filter;}
+    void setFilterShape(uchar m, bool u=true);
     uchar getFilterShape() { return currentFilterShape;}
+    void setRoofing(uchar m, bool u=true);
     uchar getRoofing() { return currentRoofing;}
 
+    void setSpeed(uchar m, bool u=true);
     uchar getSpeed() { return currentSpeed;}
+    void setTheme(WaterfallItem::Theme m, bool u=true);
     WaterfallItem::Theme getTheme() { return currentTheme;}
 
-    static void setSlider(QObject* root, const char* name, double mn, double mx, double v) {
-        if (auto* s = root->findChild<QObject*>(name)) {
-            s->setProperty("from", mn);
-            s->setProperty("to", mx);
-            s->setProperty("value", v);
+    void setHold(bool v, bool u=true);
+    bool getHold() {return currentHold;}
+
+    void setRef(int v, bool u=true);
+    int getRef() { return currentRef;}
+    void setPbtInner(int v, bool u=true);
+    int getPbtInner() { return currentPbtInner;}
+    void setPbtOuter(int v, bool u=true);
+    int getPbtOuter() { return currentPbtOuter;}
+    void setIfShift(int v, bool u=true);
+    int getIfShift() { return currentIfShift;}
+    void setFilterWidth(int v, bool u=true);
+    int getFilterWidth() { return currentFilterWidth;}
+
+    static void setSlider(QObject* root, const char* name, int mn, int mx, int ss, int v) {
+        if (!root) { qWarning() << "setSlider: root is null"; return; }
+
+        QObject* s = root->findChild<QObject*>(name, Qt::FindChildrenRecursively);
+        if (!s) {
+            qWarning() << "setSlider: not found:" << name << "(did you set objectName in QML?)";
+            return;
         }
+
+        // Slider props are real (double), not int
+        const bool ok1 = s->setProperty("from",     double(mn));
+        const bool ok2 = s->setProperty("to",       double(mx));
+        const bool ok3 = s->setProperty("stepSize", double(ss));
+        const bool ok4 = s->setProperty("value",    double(v));
+
+        qInfo() << "setSlider:" << name << "writes:" << ok1 << ok2 << ok3 << ok4;
     }
 
     /* Don't set a valid default as we should receive the necessary value from rig */
@@ -195,7 +218,12 @@ public:
 
     static void setProperty(QObject* root, const char* name, const char* prop, bool value)
     {
+        if (!root) { qWarning() << "setProperty: root is null"; return; }
         if (auto* c = root->findChild<QObject*>(name)) {
+            if (!c) {
+                qWarning() << "setProperty: not found:" << name << "(did you set objectName in QML?)";
+                return;
+            }
             c->setProperty(prop, value);
         }
     }
@@ -208,6 +236,8 @@ public slots: // Can be called directly or updated via signal/slot
     void updateScope(const scopeData &data);
     void setFreqFromScope(double f);
     void detachScopeFromQml(bool state);
+    QVariantMap customEdgeFreqDialogParams() const;
+    void setCustomEdgeFreqs(quint64 startKHz, quint64 endKHz);
 
 signals:    
     void frequencyRange(uchar receiver, double start, double end);
@@ -225,7 +255,7 @@ signals:
 
 
 
-
+    // Comboboxes
     void scopeModeValueChanged();
     void scopeSpanValueChanged();
     void scopeEdgeValueChanged();
@@ -237,11 +267,19 @@ signals:
     void speedValueChanged();
     void themeValueChanged();
 
+    // Buttons (checkable)
+    void holdChanged();
+
+    // Sliders
+    void refValueChanged();
+    void pbtInnerValueChanged();
+    void pbtOuterValueChanged();
+    void ifShiftValueChanged();
+    void filterWidthValueChanged();
 
 private slots:
     void detachScope(bool state);
     void updatedMode(int index);
-    void toFixedPressed();
     void customSpanPressed();
     void configPressed();
     void freqNoteLockTimerSlot();
@@ -352,7 +390,6 @@ private:
     bool allowAcceptFreqData = true;
     void tempLockAcceptFreqData();
 
-    int currentRef = 0;
     colorPrefsType colors;
     freqt freq;
     modeInfo mode;
@@ -466,7 +503,8 @@ private:
     qint64 lastWaterfallNs = 0;
     QVector<bandType> activeBands;
 
-    // Current combobox contents to detect changes.
+    // Current QML settings to allow us to detect any changes
+    // Comboboxes
     uchar currentScopeMode=0xff;
     centerSpanData currentScopeSpan = centerSpanData();
     uchar currentScopeEdge=1;
@@ -476,6 +514,16 @@ private:
 
     uchar currentSpeed = 0;
     WaterfallItem::Theme currentTheme = WaterfallItem::Theme::Spectrum;
+
+    // Buttons
+    bool currentHold = false;
+
+    // Sliders
+    int currentRef = 0;
+    int currentPbtInner = 0;
+    int currentPbtOuter = 0;
+    int currentIfShift = 0;
+    int currentFilterWidth = 0;
 
 };
 

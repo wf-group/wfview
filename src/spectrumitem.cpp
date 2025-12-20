@@ -70,11 +70,14 @@ void SpectrumItem::setPassbandHigh(double x)
 }
 
 // peak decay
-void SpectrumItem::setPeakDecay(float d)
+void SpectrumItem::setPeakDecay(int d)
 {
-    if (qFuzzyCompare(decay, d)) return;
-    decay = d;
-    emit peakDecayChanged();
+    if (decay != d)
+    {
+        decay = (d/8); // Try to make similar to widget.
+        decayCounter = 0;
+        emit peakDecayChanged();
+    }
 }
 
 void SpectrumItem::setOverflow(bool on)
@@ -334,15 +337,21 @@ void SpectrumItem::updateScope(const scopeData &data)
         peaks.fill(0);
     }
 
-    // decay existing peaks
-    if (!peaks.isEmpty() && decay > 0.0f) {
-        const int dec = int(decay);
-        for (int i = 0; i < peaks.size(); ++i) {
-            int p = peaks[i] - dec;
-            if (p < 0) p = 0;
-            peaks[i] = quint8(p);
+    if (!peaks.isEmpty() && decay > 0)
+    {
+        // Only decay once every N updates
+        if (++decayCounter >= decay)
+        {
+            decayCounter = 0;
+
+            for (int i = 0; i < peaks.size(); ++i) {
+                int p = peaks[i];
+                if (p > 0) --p;              // 1 step per 'decay' frames
+                peaks[i] = quint8(p);
+            }
         }
     }
+
 
     const uchar *raw = reinterpret_cast<const uchar *>(data.data.constData());
 
@@ -1539,4 +1548,10 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
     emit processingTimeNs(timer.nsecsElapsed());
     return root;
+}
+
+void SpectrumItem::clearPeaks()
+{
+    peaks.fill(0);
+    decayCounter = 0;
 }

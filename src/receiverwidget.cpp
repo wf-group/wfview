@@ -21,162 +21,15 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     layout = new QVBoxLayout();
     mainLayout->addLayout(layout);
 
+    mainLayout->setContentsMargins(0, 5, 0, 0); // Needs a small top margin
+    layout->setContentsMargins(0, 0, 0, 0);
 
     originalParent = parent;
 
-    /*
-    displayLayout = new QHBoxLayout();
-
-
-    vfoSelectButton=new QPushButton(tr("VFO A"),this);
-    vfoSelectButton->setHidden(true);
-    vfoSelectButton->setCheckable(true);
-    vfoSelectButton->setFocusPolicy(Qt::NoFocus);
-    connect(vfoSelectButton, &QPushButton::clicked, this, [=](bool en) {
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
-        queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(vfo_t(en)),false,t.receiver));
-        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
-        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
-        t = queue->getVfoCommand(vfoB,receiver,false);
-        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
-        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
-        if (en)
-            vfoSelectButton->setText(tr("VFO B"));
-        else
-            vfoSelectButton->setText(tr("VFO A"));
-        selectedVFO = uchar(en);
-    });
-
-    vfoSwapButton=new QPushButton(tr("A<>B"),this);
-    vfoSwapButton->setHidden(true);
-    vfoSwapButton->setFocusPolicy(Qt::NoFocus);
-    connect(vfoSwapButton, &QPushButton::clicked, this, [=]() {
-        vfoSwap();
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
-        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
-        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
-    });
-
-    vfoEqualsButton=new QPushButton(tr("A=B"),this);
-    vfoEqualsButton->setHidden(true);
-    vfoEqualsButton->setFocusPolicy(Qt::NoFocus);
-    connect(vfoEqualsButton, &QPushButton::clicked, this, [=]() {
-        vfoCommandType t = queue->getVfoCommand(vfoB,receiver,false);
-        queue->add(priorityImmediate,funcVFOEqualAB,false,0);
-        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
-        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
-    });
-
-    vfoMemoryButton=new QPushButton(tr("V/M"),this);
-    vfoMemoryButton->setHidden(true);
-    vfoMemoryButton->setCheckable(true);
-    vfoMemoryButton->setFocusPolicy(Qt::NoFocus);
-    connect(vfoMemoryButton, &QPushButton::clicked, this, [=](bool en) {
-        vfo_t v = vfoA;
-
-        if (en)
-            v = vfoMem;
-
-        vfoCommandType t = queue->getVfoCommand(v,receiver,false);
-        queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(v),false,t.receiver));
-        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
-        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
-    });
-
-    satelliteButton=new QPushButton(tr("SAT"),this);
-    satelliteButton->setHidden(true);
-    satelliteButton->setCheckable(true);
-    satelliteButton->setFocusPolicy(Qt::NoFocus);
-    connect(satelliteButton, &QPushButton::clicked, this, [=](bool en) {
-        queue->add(priorityImmediate,queueItem(funcSatelliteMode,QVariant::fromValue<bool>(en),false,0));
-    });
-
-    splitButton=new QPushButton(tr("SPLIT"),this);
-    splitButton->setHidden(true);
-    splitButton->setFocusPolicy(Qt::NoFocus);
-    splitButton->setCheckable(true);
-    connect(splitButton, &QPushButton::clicked, this, [=](bool en) {
-        queue->add(priorityImmediate,queueItem(funcSplitStatus,QVariant::fromValue<uchar>(en),false,0));
-    });
-
-
-    controlLayout = new QHBoxLayout();
-    detachButton = new QPushButton(tr("Detach"));
-    detachButton->setCheckable(true);
-    detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
-    detachButton->setChecked(false);
-    scopeModeCombo = new QComboBox();
-    scopeModeCombo->setAccessibleDescription(tr("Spectrum Mode"));
-    spanCombo = new QComboBox();
-    spanCombo->setAccessibleDescription(tr("Spectrum Span"));
-    edgeCombo = new QComboBox();
-    edgeCombo->setAccessibleDescription(tr("Spectrum Edge"));
-    edgeButton = new QPushButton(tr("Custom Edge"));
-    edgeButton->setToolTip(tr("Define a custom (fixed) scope edge"));
-    toFixedButton = new QPushButton(tr("To Fixed"));
-    toFixedButton->setToolTip(tr("&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press button to convert center mode spectrum to fixed mode, preserving the range. This allows you to tune without the spectrum moving, in the same currently-visible range that you see now. &lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;The currently-selected edge slot will be overridden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"));
-
-    holdButton = new QPushButton("HOLD");
-    holdButton->setCheckable(true);
-    holdButton->setFocusPolicy(Qt::NoFocus);
-
-    controlSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-    midSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-
-    clearPeaksButton = new QPushButton("Clear Peaks");
-
-    confButton = new QPushButton("<");
-    confButton->setAccessibleName(tr("Configure Scope"));
-    confButton->setAccessibleDescription(tr("Change various settings of the current Scope"));
-    confButton->setToolTip(tr("Configure Scope"));
-    confButton->setFocusPolicy(Qt::NoFocus);
-
-    modeCombo = new QComboBox();
-    modeCombo->setToolTip(tr("Select current radio mode"));
-    modeCombo->setAccessibleDescription(tr("Change the current radio mode for this receiver"));
-
-    dataCombo = new QComboBox();
-    dataCombo->setToolTip(tr("Select data mode (if supported)"));
-    dataCombo->setAccessibleDescription(tr("Change the current data mode (if supported)"));
-
-    filterCombo = new QComboBox();
-    filterCombo->setToolTip(tr("Select current filter"));
-    dataCombo->setAccessibleDescription(tr("Change the current filter"));
-
-    filterShapeCombo = new QComboBox();
-    filterShapeCombo->setToolTip(tr("Select current filter shape"));
-    filterShapeCombo->setAccessibleDescription(tr("Change the current filter shape"));
-    if (!rigCaps->commands.contains(funcFilterShape))
-    {
-        filterShapeCombo->hide();
-    }
-    else
-    {
-        filterShapeCombo->addItem("Sharp",0);
-        if (rigCaps->manufacturer == manufKenwood)
-        {
-            filterShapeCombo->addItem("Medium",1);
-            filterShapeCombo->addItem("Soft",2);
-
-        }
-        else
-        {
-            filterShapeCombo->addItem("Soft",1);
-        }
-    }
-    roofingCombo = new QComboBox();
-    roofingCombo->setToolTip(tr("Select roofing filter"));
-    roofingCombo->setAccessibleDescription(tr("Change the current selected roofing filter"));
-    if (!rigCaps->commands.contains(funcRoofingFilter))
-        roofingCombo->hide();
-
-    spanCombo->setVisible(false);
-    edgeCombo->setVisible(false);
-    edgeButton->setVisible(false);
-    toFixedButton->setVisible(false);
-    */
     scopeQuick = new QQuickWidget(this);
     scopeQuick->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    scopeQuick->setMinimumHeight(200); // Force a sensible minimum
+    scopeQuick->setContentsMargins(0,0,0,0);
     auto theme = new ThemeBridge(this);
 
     QWidget *styled = qobject_cast<QWidget*>(parent);
@@ -192,9 +45,8 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     QQmlEngine *engine = scopeQuick->engine();
     engine->rootContext()->setContextProperty("receiver",this);
 
-    scopeQuick->setSource(QUrl(QStringLiteral("qrc:/resources/scope.qml")));
+    scopeQuick->setSource(QUrl(QStringLiteral("qrc:/resources/Receiver.qml")));
     layout->addWidget(scopeQuick);
-    layout->setContentsMargins(0, 0, 0, 0);
 
     scopeOrigParent = scopeQuick->parentWidget();
     if (scopeOrigParent)
@@ -250,6 +102,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
         }
 
+        // These controls should only be displayed if there is a second VFO (not a second receiver)
         if (freqDisplayB && numVFO > 1)
         {
             freqDisplayB->setProperty("visible", true);
@@ -257,69 +110,16 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             connect(freqDisplayB, &FreqCtrlQuick::newFrequency, this, [=](const qint64 &freq) {
                 this->newFrequency(freq,1);
             });
-            /*
-            vfoSelectButton->setHidden(false);
-            displayLayout->addWidget(vfoSelectButton);
 
-            displayLSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-            displayLayout->addSpacerItem(displayLSpacer);
-            if (!receiver) {
-                if (rigCaps->commands.contains(funcVFOEqualAB))
-                {
-                    vfoSwapButton->setHidden(false);
-                    displayLayout->addWidget(vfoSwapButton);
-                }
-
-                if (rigCaps->commands.contains(funcVFOEqualAB))
-                {
-                    vfoEqualsButton->setHidden(false);
-                    displayLayout->addWidget(vfoEqualsButton);
-                }
-                if(rigCaps->commands.contains(funcMemoryMode)) {
-                    vfoMemoryButton->setHidden(false);
-                    displayLayout->addWidget(vfoMemoryButton);
-                }
-                if(rigCaps->commands.contains(funcSatelliteMode)) {
-                    satelliteButton->setHidden(false);
-                    displayLayout->addWidget(satelliteButton);
-                }
-                displayMSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-                displayLayout->addSpacerItem(displayMSpacer);
-                if (rigCaps->commands.contains(funcSplitStatus)) {
-                    splitButton->setHidden(false);
-                    displayLayout->addWidget(splitButton);
-                }
-            }
-            */
+            setProperty(scopeQuick->rootObject(),"vfoButton", "visible", true);
+            setProperty(scopeQuick->rootObject(),"swapABButton", "visible", rigCaps->commands.contains(funcVFOSwapAB));
+            setProperty(scopeQuick->rootObject(),"equalsABButton", "visible", rigCaps->commands.contains(funcVFOEqualAB));
+            setProperty(scopeQuick->rootObject(),"vmButton", "visible", rigCaps->commands.contains(funcMemoryMode));
+            setProperty(scopeQuick->rootObject(),"satButton", "visible", rigCaps->commands.contains(funcSatelliteMode));
+            setProperty(scopeQuick->rootObject(),"splitButton", "visible", rigCaps->commands.contains(funcSplitStatus));
         }
-
-
-        //displayRSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
-        //displayLayout->addSpacerItem(displayRSpacer);
-
-
     }
 
-
-    //layout->addLayout(displayLayout);
-    //layout->addLayout(controlLayout);
-    /*controlLayout->addWidget(detachButton);
-    controlLayout->addWidget(scopeModeCombo);
-    controlLayout->addWidget(spanCombo);
-    controlLayout->addWidget(edgeCombo);
-    controlLayout->addWidget(edgeButton);
-    controlLayout->addWidget(toFixedButton);
-    controlLayout->addWidget(holdButton);
-    controlLayout->addSpacerItem(controlSpacer);
-    controlLayout->addWidget(modeCombo);
-    controlLayout->addWidget(dataCombo);
-    controlLayout->addWidget(filterCombo);
-    controlLayout->addWidget(filterShapeCombo);
-    controlLayout->addWidget(roofingCombo);
-    controlLayout->addSpacerItem(midSpacer);
-    controlLayout->addWidget(clearPeaksButton);
-    controlLayout->addWidget(confButton);
-    */
     this->layout->setContentsMargins(0,0,0,0);
 
     QVariantList values;
@@ -470,19 +270,42 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     if (rigCaps->commands.contains(funcScopeRef))
     {
         auto v = rigCaps->commands.find(funcScopeRef);
-        setSlider(root,"refSlider",v.value().minVal, v.value().maxVal,v.value().maxVal);
+        setSlider(scopeQuick->rootObject(),"ref",v.value().minVal, v.value().maxVal,5,v.value().minVal);
+    } else {
+        setProperty(scopeQuick->rootObject(),"ref","enabled",false);
     }
 
     if (rigCaps->commands.contains(funcPBTInner))
     {
         auto v = rigCaps->commands.find(funcPBTInner);
-        setSlider(root,"pbtInnerSlider",v.value().minVal, v.value().maxVal,0);
+        setSlider(scopeQuick->rootObject(),"pbtInner",v.value().minVal, v.value().maxVal,10,v.value().minVal);
+    } else {
+        setProperty(scopeQuick->rootObject(),"pbtInner","enabled",false);
     }
 
     if (rigCaps->commands.contains(funcPBTOuter))
     {
         auto v = rigCaps->commands.find(funcPBTOuter);
-        setSlider(root,"pbtOuterSlider",v.value().minVal, v.value().maxVal,0);
+        setSlider(scopeQuick->rootObject(),"pbtOuter",v.value().minVal, v.value().maxVal,10,v.value().minVal);
+    } else {
+        setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
+    }
+
+    if (rigCaps->commands.contains(funcIFShift))
+    {
+        auto v = rigCaps->commands.find(funcIFShift);
+        setSlider(scopeQuick->rootObject(),"ifShift",v.value().minVal, v.value().maxVal,10,v.value().minVal);
+    } else {
+        setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
+    }
+
+
+    if (rigCaps->commands.contains(funcFilterWidth))
+    {
+        auto v = rigCaps->commands.find(funcFilterWidth);
+        setSlider(scopeQuick->rootObject(),"filterWidth",v.value().minVal, v.value().maxVal,10,v.value().minVal);
+    } else {
+        setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
     }
 
     frequencyNotificationLockoutTimer = new QTimer();
@@ -490,13 +313,8 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     frequencyNotificationLockoutTimer->setInterval(200);
     frequencyNotificationLockoutTimer->setSingleShot(true);
 
-    // Spectrum Plot setup
-    /*
-    passbandIndicator = new QCPItemRect(spectrum);
-    passbandIndicator->setAntialiased(true);
-    passbandIndicator->setPen(QPen(Qt::red));
-    passbandIndicator->setBrush(QBrush(Qt::red));
-    passbandIndicator->setSelectable(true);
+/*
+ *  This code is still needed to be converted
 
     pbtIndicator = new QCPItemRect(spectrum);
     pbtIndicator->setAntialiased(true);
@@ -505,217 +323,10 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     pbtIndicator->setSelectable(true);
     pbtIndicator->setVisible(false);
 
-    freqIndicatorLine = new QCPItemLine(spectrum);
-    freqIndicatorLine->setAntialiased(true);
-    freqIndicatorLine->setPen(QPen(Qt::blue));
-
-    redrawSpeed = new QCPItemText(spectrum);
-    redrawSpeed->setVisible(true);
-    redrawSpeed->setColor(Qt::gray);
-    redrawSpeed->setFont(QFont(font().family(), 8));
-    redrawSpeed->setPositionAlignment(Qt::AlignRight | Qt::AlignTop);
-    redrawSpeed->position->setType(QCPItemPosition::ptAxisRectRatio);
-    redrawSpeed->setText("");
-    redrawSpeed->position->setCoords(1.0f,0.0f);
-
-    spectrum->addGraph(); // primary
-    spectrum->addGraph(0, 0); // secondary, peaks, same axis as first.
-    spectrum->addLayer( "Top Layer", spectrum->layer("main"));
-    spectrum->graph(0)->setLayer("Top Layer");
-
-    spectrumPlasma.resize(spectrumPlasmaSizeMax);
-    for(unsigned int p=0; p < spectrumPlasmaSizeMax; p++) {
-        spectrumPlasma[p] = 0;
-    }
-
-    QColor color(20+200/4.0*1,70*(1.6-1/4.0), 150, 150);
-    spectrum->graph(1)->setLineStyle(QCPGraph::lsLine);
-    spectrum->graph(1)->setPen(QPen(color.lighter(200)));
-    spectrum->graph(1)->setBrush(QBrush(color));
-
-    freqIndicatorLine->start->setCoords(0.5, 0);
-    freqIndicatorLine->end->setCoords(0.5, 160);
-
-    passbandIndicator->topLeft->setCoords(0.5, 0);
-    passbandIndicator->bottomRight->setCoords(0.5, 160);
-
     pbtIndicator->topLeft->setCoords(0.5, 0);
     pbtIndicator->bottomRight->setCoords(0.5, 160);
 
-    // Waterfall setup
-    waterfall->addGraph();
-    colorMap = new QCPColorMap(waterfall->xAxis, waterfall->yAxis);
-    colorMapData = NULL;
 
-#if QCUSTOMPLOT_VERSION < 0x020001
-    this->addPlottable(colorMap);
-#endif
-    // Config Screen
-    rhsLayout = new QVBoxLayout();
-    rhsTopSpacer = new QSpacerItem(0,0,QSizePolicy::Fixed,QSizePolicy::Expanding);
-    rhsLayout->addSpacerItem(rhsTopSpacer);
-    configGroup = new QGroupBox();
-    rhsLayout->addWidget(configGroup);
-    configLayout = new QFormLayout();
-    configLayout->setHorizontalSpacing(0);
-    configGroup->setLayout(configLayout);
-    mainLayout->addLayout(rhsLayout);
-    rhsBottomSpacer = new QSpacerItem(0,0,QSizePolicy::Fixed,QSizePolicy::Expanding);
-    rhsLayout->addSpacerItem(rhsBottomSpacer);
-
-    QFont font = configGroup->font();
-    configGroup->setStyleSheet(QString("QGroupBox{border:1px solid gray;} *{padding: 0px 0px 0px 0px; margin: 0px 0px 0px 0px; font-size: %0px;}").arg(font.pointSize()-1));
-    configGroup->setMaximumWidth(240);
-    configRef = new QSlider(Qt::Orientation::Horizontal);
-    configRef->setTickInterval(50);
-    configRef->setSingleStep(20);
-    configRef->setValue(0);
-    configRef->setAccessibleName(tr("Scope display reference"));
-    configRef->setAccessibleDescription(tr("Selects the display reference for the Scope display"));
-    configRef->setToolTip(tr("Select display reference of scope"));
-    configLayout->addRow(tr("Ref"),configRef);
-
-    configLength = new QSlider(Qt::Orientation::Horizontal);
-    configLength->setRange(100,1024);
-    configLayout->addRow(tr("Length"),configLength);
-
-    configTop = new QSlider(Qt::Orientation::Horizontal);
-    configTop->setRange(0,rigCaps->spectAmpMax+10);
-    configTop->setValue(plotCeiling);
-    configTop->setAccessibleName(tr("Scope display ceiling"));
-    configTop->setAccessibleDescription(tr("Selects the display ceiling for the Scope display"));
-    configTop->setToolTip(tr("Select display ceiling of scope"));
-    configLayout->addRow(tr("Ceiling"),configTop);
-
-    configBottom = new QSlider(Qt::Orientation::Horizontal);
-    configBottom->setRange(0,rigCaps->spectAmpMax+10);
-    configBottom->setValue(plotFloor);
-    configBottom->setAccessibleName(tr("Scope display floor"));
-    configBottom->setAccessibleDescription(tr("Selects the display floor for the Scope display"));
-    configBottom->setToolTip(tr("Select display floor of scope"));
-    configLayout->addRow(tr("Floor"),configBottom);
-
-    configSpeed = new QComboBox();
-    configSpeed->addItem(tr("Speed Fast"),QVariant::fromValue(uchar(0)));
-    configSpeed->addItem(tr("Speed Mid"),QVariant::fromValue(uchar(1)));
-    configSpeed->addItem(tr("Speed Slow"),QVariant::fromValue(uchar(2)));
-    configSpeed->setCurrentIndex(configSpeed->findData(currentSpeed));
-    configSpeed->setAccessibleName(tr("Waterfall display speed"));
-    configSpeed->setAccessibleDescription(tr("Selects the speed for the waterfall display"));
-    configSpeed->setToolTip(tr("Waterfall Speed"));
-    configLayout->addRow(tr("Speed"),configSpeed);
-
-    configTheme = new QComboBox();
-    configTheme->setAccessibleName(tr("Waterfall display color theme"));
-    configTheme->setAccessibleDescription(tr("Selects the color theme for the waterfall display"));
-    configTheme->setToolTip(tr("Waterfall color theme"));
-    configTheme->addItem("Jet", WaterfallItem::Theme::Jet);
-    configTheme->addItem("Cold", WaterfallItem::Theme::Cold);
-    configTheme->addItem("Hot", WaterfallItem::Theme::Hot);
-    configTheme->addItem("Therm", WaterfallItem::Theme::Thermal);
-    configTheme->addItem("Night", WaterfallItem::Theme::Night);
-    configTheme->addItem("Ion", WaterfallItem::Theme::Ion);
-    configTheme->addItem("Gray", WaterfallItem::Theme::Grayscale);
-    configTheme->addItem("Geo", WaterfallItem::Theme::Geography);
-    configTheme->addItem("Hues", WaterfallItem::Theme::Hues);
-    configTheme->addItem("Polar", WaterfallItem::Theme::Polar);
-    configTheme->addItem("Spect", WaterfallItem::Theme::Spectrum);
-    configTheme->addItem("Candy", WaterfallItem::Theme::Candy);
-    configTheme->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    configLayout->addRow(tr("Theme"),configTheme);
-
-    configPbtInner = new QSlider(Qt::Orientation::Horizontal);
-
-    configPbtInner->setRange(0,255);
-    configLayout->addRow(tr("PBT Inner"),configPbtInner);
-
-    configPbtOuter = new QSlider(Qt::Orientation::Horizontal);
-    configPbtOuter->setRange(0,255);
-    configLayout->addRow(tr("PBT Outer"),configPbtOuter);
-
-    configIfLayout = new QHBoxLayout();
-    configIfShift = new QSlider(Qt::Orientation::Horizontal);
-    configIfShift->setRange(0,255);
-    if (rigCaps != Q_NULLPTR && !rigCaps->commands.contains(funcIFShift)){
-        configIfShift->setEnabled(true);
-        configIfShift->setValue(128);
-    } else {
-        configIfShift->setEnabled(false);
-    }
-    configResetIf = new QPushButton("R");
-    configIfLayout->addWidget(configIfShift);
-    configIfLayout->addWidget(configResetIf);
-    configLayout->addRow(tr("IF Shift"),configIfLayout);
-
-    configFilterWidth = new QSlider(Qt::Orientation::Horizontal);
-    configFilterWidth->setRange(0,10000);
-    configLayout->addRow(tr("Fill Width"),configFilterWidth);
-
-    configScopeEnabled = new QCheckBox(tr("Scope Enabled"));
-    configScopeEnabled->setChecked(true);
-    configLayout->addRow(configScopeEnabled);
-
-
-    connect(configLength, &QSlider::valueChanged, this, [=](const int &val) {
-        changeWfLength(val);
-        emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
-    });
-    connect(configBottom, &QSlider::valueChanged, this, [=](const int &val) {
-        this->plotFloor = val;
-        this->wfFloor = val;
-        this->setRange(plotFloor,plotCeiling);
-        emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
-    });
-    connect(configTop, &QSlider::valueChanged, this, [=](const int &val) {
-        this->plotCeiling = val;
-        this->wfCeiling = val;
-        this->setRange(plotFloor,plotCeiling);
-        emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
-    });
-
-    if (rigCaps->commands.contains(funcScopeRef))
-    {
-        auto v = rigCaps->commands.find(funcScopeRef);
-        configRef->setRange(v.value().minVal,v.value().maxVal);
-        connect(configRef, &QSlider::valueChanged, this, [=](const int &val) {
-            currentRef = (val/5) * 5; // rounded to "nearest 5"
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(funcScopeRef,QVariant::fromValue(currentRef),false,t.receiver));
-        });
-    }
-
-
-    connect(configSpeed, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](const int &val) {
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue(configSpeed->itemData(val)),false,t.receiver));
-    });
-
-    connect(configTheme, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](const int &val) {
-        Q_UNUSED(val)
-        currentTheme = configTheme->currentData().value<WaterfallItem::Theme>();
-        if (waterfall) waterfall->setTheme(currentTheme);
-        emit updateSettings(receiver,currentTheme,wfLength,plotFloor,plotCeiling);
-    });
-
-    if (rigCaps->commands.contains(funcPBTInner))
-    {
-        auto v = rigCaps->commands.find(funcPBTInner);
-        configPbtInner->setRange(v.value().minVal,v.value().maxVal);
-        connect(configPbtInner, &QSlider::valueChanged, this, [=](const int &val) {
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(funcPBTInner,QVariant::fromValue<ushort>(val),false,t.receiver));
-        });
-    }
-
-    if (rigCaps->commands.contains(funcPBTOuter))
-    {
-        auto v = rigCaps->commands.find(funcPBTOuter);
-        configPbtOuter->setRange(v.value().minVal,v.value().maxVal);
-        connect(configPbtOuter, &QSlider::valueChanged, this, [=](const int &val) {
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(funcPBTOuter,QVariant::fromValue<ushort>(val),false,t.receiver));
-        });
-    }
 
     connect(configIfShift, &QSlider::valueChanged, this, [=](const int &val) {
         if (rigCaps != Q_NULLPTR && rigCaps->commands.contains(funcIFShift)) {
@@ -735,7 +346,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         }
     });
 
-
     connect(configResetIf, &QPushButton::clicked, this, [=](const bool &val) {
         Q_UNUSED(val)
         double pbFreq = (pbtDefault / passbandWidth) * 127.0;
@@ -748,13 +358,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         configIfShift->blockSignals(false);
     });
 
-    if (rigCaps->commands.contains(funcFilterWidth))
-    {
-        connect(configFilterWidth, &QSlider::valueChanged, this, [=](const int &val) {
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(funcFilterWidth,QVariant::fromValue<ushort>(val),false,t.receiver));
-        });
-    }
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,7,0))
     connect(configScopeEnabled, &QCheckBox::stateChanged, this, [=](const int &val) {
@@ -765,135 +368,36 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
         queue->addUnique(priorityHighest,queueItem(funcScopeOnOff,QVariant::fromValue<bool>(val),false,t.receiver));
         qInfo() << "Queueing command to set scope to:" << bool(val);
     });
-
-    configGroup->setVisible(false);
-
-    // Connections
-    connect(detachButton,SIGNAL(toggled(bool)), this, SLOT(detachScope(bool)));
-
-    connect(this, &receiverWidget::scopeModeValueChanged, this, [=](){
-        qInfo() << "Scope Mode Changed!";
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue(currentScopeMode),false,t.receiver));
-        //showHideControls(scopeModeValue);
-        //currentScopeMode = scopeModeValue;
-    });
-
-
-    connect(confButton,SIGNAL(clicked()), this, SLOT(configPressed()),Qt::QueuedConnection);
-
-    connect(toFixedButton,SIGNAL(clicked()), this, SLOT(toFixedPressed()));
-
-    connect(edgeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int val){
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeEdge,edgeCombo->itemData(val),false,t.receiver));
-    });
-
-    connect(edgeButton,SIGNAL(clicked()), this, SLOT(customSpanPressed()));
-
-    connect(holdButton, &QPushButton::toggled, this, [=](const bool &val) {
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->add(priorityImmediate,queueItem(funcScopeHold,QVariant::fromValue<bool>(val),false,t.receiver));
-    });
-
-    connect(modeCombo,SIGNAL(currentIndexChanged(int)),this,SLOT(updatedMode(int)));
-    connect(filterCombo,SIGNAL(currentIndexChanged(int)),this,SLOT(updatedMode(int)));
-
-    connect(filterShapeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int val){
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        uchar f = uchar(filterShapeCombo->itemData(val).toInt() + (filterCombo->currentData().toInt() * 10));
-        queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
-    });
-
-
-    connect(roofingCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int val){
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        uchar f = uchar(roofingCombo->itemData(val).toInt() + (filterCombo->currentData().toInt() * 10));
-        queue->addUnique(priorityImmediate,queueItem(funcRoofingFilter,QVariant::fromValue<uchar>(f),false,t.receiver));
-    });
-
-
-    connect(dataCombo,SIGNAL(currentIndexChanged(int)),this,SLOT(updatedMode(int)));
-    connect(clearPeaksButton,SIGNAL(clicked()), this, SLOT(clearPeaks()));
-    connect(spectrum, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(doubleClick(QMouseEvent*)));
-    connect(waterfall, SIGNAL(mouseDoubleClick(QMouseEvent*)), this, SLOT(doubleClick(QMouseEvent*)));
-    connect(spectrum, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(scopeClick(QMouseEvent*)));
-    connect(waterfall, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(waterfallClick(QMouseEvent*)));
-    connect(spectrum, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(scopeMouseRelease(QMouseEvent*)));
-    connect(spectrum, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(scopeMouseMove(QMouseEvent *)));
-    connect(waterfall, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(scroll(QWheelEvent*)));
-    connect(spectrum, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(scroll(QWheelEvent*)));
-
-    showHideControls(0);
 */
+
     lastData.start();
 
-
-    // Always on top!
-    /*
-    oorIndicator = new QCPItemText(spectrum);
-    oorIndicator->setVisible(false);
-    oorIndicator->setAntialiased(true);
-    oorIndicator->setPen(QPen(Qt::red));
-    oorIndicator->setBrush(QBrush(Qt::red));
-    oorIndicator->setFont(QFont(this->fontInfo().family(), 14));
-    oorIndicator->setPositionAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
-    oorIndicator->position->setType(QCPItemPosition::ptAxisRectRatio); // Positioned relative to the current plot rect
-    oorIndicator->setText(tr("SCOPE OUT OF RANGE"));
-    oorIndicator->position->setCoords(0.5f,0.5f);
-
-    ovfIndicator = new QCPItemText(spectrum);
-    ovfIndicator->setVisible(false);
-    ovfIndicator->setAntialiased(true);
-    ovfIndicator->setPen(QPen(Qt::red));
-    ovfIndicator->setColor(Qt::red);
-    ovfIndicator->setFont(QFont(this->fontInfo().family(), 10));
-    ovfIndicator->setPositionAlignment(Qt::AlignLeft | Qt::AlignTop);
-    ovfIndicator->position->setType(QCPItemPosition::ptAxisRectRatio); // Positioned relative to the current plot rect
-    ovfIndicator->setText(tr(" OVF "));
-    ovfIndicator->position->setCoords(0.01f,0.1f);
-
-    */
 }
 
 
 receiverWidget::~receiverWidget(){
 
     /*
-    QMutableVectorIterator<bandIndicator> it(bandIndicators);
-    while (it.hasNext())
+    // This stops the property warnings in the log on disconnect, but causes wfview to crash on exit if connected to a radio.
+    // Maybe we should simply tell receiver it is closing on disconnect?
+    if (scopeQuick)
     {
-        auto band = it.next();
-        //spectrum->removeItem(band.line);
-        //spectrum->removeItem(band.text);
-        it.remove();
+        scopeQuick->setSource(QUrl());
+        QCoreApplication::processEvents();
+        auto *ctx = scopeQuick->engine()->rootContext();
+        ctx->setContextProperty("receiver", nullptr);
+        scopeQuick->engine()->clearComponentCache();
+        scopeQuick->deleteLater();
     }
-
-    QMutableMapIterator<QString, spotData *> sp(clusterSpots);
-    while (sp.hasNext())
-    {
-        auto spot = sp.next();
-        //spectrum->removeItem(spot.value()->text);
-        delete spot.value();
-        sp.remove();
-    }
-
-    if(colorMapData != Q_NULLPTR)
-    {
-        delete colorMapData;
-    }
-    */
+*/
 }
 
 void receiverWidget::setSeparators(QChar gsep, QChar dsep)
 {
-    /*
-    for (const auto &disp : freqDisplay)
-    {
-        qDebug(logRig()) << "Configuring separators:" << gsep << "and" << dsep;
-        disp->setSeparators(gsep,dsep);
-    }
-*/
+    if (freqDisplayA)
+        freqDisplayA->setSeparators(gsep,dsep);
+    if (freqDisplayB)
+        freqDisplayB->setSeparators(gsep,dsep);
 }
 
 void receiverWidget::prepareScope(uint maxAmp, uint spectWidth)
@@ -912,25 +416,6 @@ void receiverWidget::changeWfLength(uint wf)
     QMutexLocker locker(&mutex);
 
     this->wfLength = wf;
-
-    /*
-    colorMap->data()->clear();
-
-    colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
-    colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
-    colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
-
-    if(colorMapData != Q_NULLPTR)
-    {
-        delete colorMapData;
-    }
-    colorMapData = new QCPColorMapData(spectWidth, wfLength, QCPRange(0, spectWidth-1), QCPRange(0, wfLength-1));
-
-    colorMap->setData(colorMapData,true); // Copy the colorMap so deleting it won't result in crash!
-    waterfall->yAxis->setRange(0,wfLength - 1);
-    */
-    //waterfall->replot();
 }
 
 bool receiverWidget::prepareWf(uint wf)
@@ -942,56 +427,9 @@ bool receiverWidget::prepareWf(uint wf)
 
 
     this->wfLength = wf;
-    //configLength->blockSignals(true);
-    //configLength->setValue(this->wfLength);
-    //configLength->blockSignals(false);
-
     this->wfLengthMax = 1024;
     waterfall->setLength(wf);
 
-
-    /*
-
-    // Initialize before use!
-    QByteArray empty((int)spectWidth, '\x01');
-    spectrumPeaks = QByteArray( (int)spectWidth, '\x01' );
-
-    //unsigned int oldSize = wfimage.size();
-    if (!wfimage.empty() && wfimage.first().size() != spectWidth)
-    {
-        // Width of waterfall has changed!
-        wfimage.clear();
-    }
-
-    for(unsigned int i = wfimage.size(); i < wfLengthMax; i++)
-    {
-        wfimage.append(empty);
-    }
-    //wfimage.remove(wfLength, wfimage.size()-wfLength);
-    wfimage.squeeze();
-
-    colorMap->data()->clear();
-
-    colorMap->data()->setValueRange(QCPRange(0, wfLength-1));
-    colorMap->data()->setKeyRange(QCPRange(0, spectWidth-1));
-    colorMap->setDataRange(QCPRange(plotFloor, plotCeiling));
-    colorMap->setGradient(static_cast<QCPColorGradient::GradientPreset>(currentTheme));
-
-    if(colorMapData != Q_NULLPTR)
-    {
-        delete colorMapData;
-    }
-    colorMapData = new QCPColorMapData(spectWidth, wfLength, QCPRange(0, spectWidth-1), QCPRange(0, wfLength-1));
-
-    colorMap->setData(colorMapData,true); // Copy the colorMap so deleting it won't result in crash!
-
-    //waterfall->yAxis->setRangeReversed(true);
-    //waterfall->xAxis->setVisible(false);
-
-    clearPeaks();
-    clearPlasma();
-
-    */
     scopePrepared = true;
     return ret;
 }
@@ -1012,29 +450,6 @@ void receiverWidget::setRange(int floor, int ceiling)
         waterfall->setFloor(wfFloor);
         waterfall->setCeiling(wfCeiling);
     }
-
-    //configBottom->blockSignals(true);
-    //configBottom->setValue(floor);
-    //configBottom->blockSignals(false);
-    //configTop->blockSignals(true);
-    //configTop->setValue(ceiling);
-    //configTop->blockSignals(false);
-
-    /*
-    if (spectrum != Q_NULLPTR)
-        spectrum->yAxis->setRange(QCPRange(floor, ceiling));
-    if (colorMap != Q_NULLPTR)
-        colorMap->setDataRange(QCPRange(floor,ceiling));
-
-
-    // Redraw band lines and eventually memory markers!
-    for (auto &b: bandIndicators)
-    {
-        b.line->start->setCoords(b.line->start->coords().x(), spectrum->yAxis->range().upper-5);
-        b.line->end->setCoords(b.line->end->coords().x(), spectrum->yAxis->range().upper-5);
-        b.text->position->setCoords(b.text->position->coords().x(), spectrum->yAxis->range().upper-10);
-    }
-    */
 }
 
 void receiverWidget::colorPreset(colorPrefsType *cp)
@@ -1049,71 +464,8 @@ void receiverWidget::colorPreset(colorPrefsType *cp)
     colors = *cp;
     /*
 
-    spectrum->setBackground(cp->plotBackground);
-
-    spectrum->xAxis->grid()->setPen(cp->gridColor);
-    spectrum->yAxis->grid()->setPen(cp->gridColor);
-
-    spectrum->legend->setTextColor(cp->textColor);
-    spectrum->legend->setBorderPen(cp->gridColor);
-    spectrum->legend->setBrush(cp->gridColor);
-
-    spectrum->xAxis->setTickLabelColor(cp->textColor);
-    spectrum->xAxis->setLabelColor(cp->gridColor);
-    spectrum->yAxis->setTickLabelColor(cp->textColor);
-    spectrum->yAxis->setLabelColor(cp->gridColor);
-
-    spectrum->xAxis->setBasePen(cp->axisColor);
-    spectrum->xAxis->setTickPen(cp->axisColor);
-    spectrum->yAxis->setBasePen(cp->axisColor);
-    spectrum->yAxis->setTickPen(cp->axisColor);
-
-    freqIndicatorLine->setPen(QPen(cp->tuningLine));
-
-    passbandIndicator->setPen(QPen(cp->passband));
-    passbandIndicator->setBrush(QBrush(cp->passband));
-
     pbtIndicator->setPen(QPen(cp->pbt));
     pbtIndicator->setBrush(QBrush(cp->pbt));
-
-    spectrum->graph(0)->setPen(QPen(cp->spectrumLine));
-    if(cp->useSpectrumFillGradient) {
-        spectrumGradient.setStart(QPointF(0,1));
-        spectrumGradient.setFinalStop(QPointF(0,0));
-        spectrumGradient.setCoordinateMode(QLinearGradient::StretchToDeviceMode);
-        //spectrumGradient.setColorAt(0, cp->spectrumFillBot);
-        spectrumGradient.setColorAt(0.1, cp->spectrumFillBot);
-        spectrumGradient.setColorAt(1, cp->spectrumFillTop);
-        spectrum->graph(0)->setBrush(QBrush(spectrumGradient));
-    } else {
-        spectrum->graph(0)->setBrush(QBrush(cp->spectrumFill));
-    }
-
-    spectrum->graph(1)->setPen(QPen(cp->underlayLine));
-    if(cp->useUnderlayFillGradient) {
-        underlayGradient.setStart(QPointF(0,1));
-        underlayGradient.setFinalStop(QPointF(0,0));
-        underlayGradient.setCoordinateMode(QLinearGradient::StretchToDevifeMode);
-        //underlayGradient.setColorAt(0, cp->underlayFillBot);
-        underlayGradient.setColorAt(0.1, cp->underlayFillBot);
-        underlayGradient.setColorAt(1, cp->underlayFillTop);
-        spectrum->graph(1)->setBrush(QBrush(underlayGradient));
-    } else {
-        spectrum->graph(1)->setBrush(QBrush(cp->underlayFill));
-    }
-
-    waterfall->yAxis->setBasePen(cp->wfAxis);
-    waterfall->yAxis->setTickPen(cp->wfAxis);
-    waterfall->xAxis->setBasePen(cp->wfAxis);
-    waterfall->xAxis->setTickPen(cp->wfAxis);
-
-    waterfall->xAxis->setLabelColor(cp->wfGrid);
-    waterfall->yAxis->setLabelColor(cp->wfGrid);
-
-    waterfall->xAxis->setTickLabelColor(cp->wfText);
-    waterfall->yAxis->setTickLabelColor(cp->wfText);
-
-    waterfall->setBackground(cp->wfBackground);
 
     holdButton->setStyleSheet(QString("QPushButton {background-color: %0;} QPushButton:checked {background-color: %1;border:1px solid;}")
                                   .arg(cp->buttonOff.name(QColor::HexArgb),cp->buttonOn.name(QColor::HexArgb)));
@@ -1515,14 +867,15 @@ void receiverWidget::resizePlasmaBuffer(int size) {
     // QMutexLocker locker(&plasmaMutex);
     //qDebug() << "Resizing plasma buffer via parameter, from oldsize " << spectrumPlasmaSizeCurrent << " to new size: " << size;
     //spectrumPlasmaSizeCurrent = size;
+    if (spectrum) spectrum->setPeakDecay(size);
+
     return;
 }
 
 void receiverWidget::clearPeaks()
 {
-    // Clear the spectrum peaks as well as the plasma buffer
-    //spectrumPeaks = QByteArray( (int)spectWidth, '\x01' );
-    //clearPlasma();
+    if (spectrum)
+        spectrum->clearPeaks();
 }
 
 void receiverWidget::clearPlasma()
@@ -1727,9 +1080,9 @@ void receiverWidget::setEdge(uchar index)
     //edgeCombo->blockSignals(false);
 }
 
+/*
 void receiverWidget::toFixedPressed()
 {
-    /*
     int currentEdge = edgeCombo->currentIndex();
     bool dialogOk = false;
     bool numOk = false;
@@ -1751,8 +1104,8 @@ void receiverWidget::toFixedPressed()
             queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue<uchar>(1),false,receiver));
         }
     }
-*/
 }
+*/
 
 void receiverWidget::customSpanPressed()
 {
@@ -1879,7 +1232,7 @@ void receiverWidget::doubleClick(QMouseEvent *me)
 
         }
     }
-    */
+*/
 }
 
 void receiverWidget::scopeClick(QMouseEvent* me)
@@ -2283,28 +1636,28 @@ void receiverWidget::receiveMode(modeInfo m, uchar vfo)
 
     if (m.filter != 0xff && this->mode.filter != m.filter)
     {
-        setFilter(m.filter);
+        setFilter(m.filter,false);
     }
 
     if (m.data != 0xff && this->mode.data != m.data)
     {
         emit dataChanged(m); // Signal wfmain that the data mode has been changed.
-        setDataMode(m.data);
+        setDataMode(m.data,false);
     }
 
     if (m.mk != modeUnknown && mode.mk != m.mk) {
         qInfo(logSystem()) << __func__ << QString("Received new mode for %0 (%1): %2 (%3) filter:%4 data:%5")
         .arg((receiver?"Sub":"Main")).arg(QString::number(m.mk)).arg(m.reg).arg(m.name).arg(m.filter).arg(m.data) ;
 
-        setMode(m);
-        /*
+        setMode(m,false);
+
         if (m.mk == modeCW || m.mk == modeCW_R || m.mk == modeRTTY || m.mk == modeRTTY_R || m.mk == modePSK || m.mk == modePSK_R)
         {
-            dataCombo->setEnabled(false);
+            setProperty(scopeQuick->rootObject(),"dataMode","enabled",false);
         } else {
-            dataCombo->setEnabled(true);
+            setProperty(scopeQuick->rootObject(),"dataMode","enabled",true);
         }
-        */
+
         if (m.mk != mode.mk) {
             // We have changed mode so "may" need to change regular commands
 
@@ -2315,10 +1668,7 @@ void receiverWidget::receiveMode(modeInfo m, uchar vfo)
             // Make sure the filterWidth range is within limits.
 
             // If new mode doesn't allow bandwidth control, disable filterwidth and pbt.
-            //configFilterWidth->blockSignals(true);
-            //configFilterWidth->setRange(m.bwMin,m.bwMax);
-            //configFilterWidth->setValue(m.bwMax);
-            //configFilterWidth->blockSignals(false);
+            if (scopeQuick) setSlider(scopeQuick->rootObject(),"filterWidth",m.bwMin, m.bwMax,10,m.bwMax);
 
             if (m.bwMin > 0 || m.bwMax > 0) {
                 // Set config specific options)
@@ -2328,44 +1678,44 @@ void receiverWidget::receiveMode(modeInfo m, uchar vfo)
                         queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
                         queue->del(funcPBTInner,t.receiver);
                         queue->del(funcPBTOuter,t.receiver);
-                        //configPbtInner->setEnabled(false);
-                        //configPbtOuter->setEnabled(false);
-                        //configIfShift->setEnabled(false);
-                        //configFilterWidth->setEnabled(true);
+                        setProperty(scopeQuick->rootObject(),"pbtInner","enabled",false);
+                        setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
+                        setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
+                        setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
                     }
                     else if (m.mk == modeAM || m.mk == modeFM) {
                         queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
                         queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
                         queue->del(funcFilterWidth,t.receiver);
-                        //configPbtInner->setEnabled(true && rigCaps->commands.contains(funcPBTInner));
-                        //configPbtOuter->setEnabled(true && rigCaps->commands.contains(funcPBTOuter));
-                        //configIfShift->setEnabled(true && (rigCaps->commands.contains(funcIFShift) || rigCaps->commands.contains(funcPBTInner)));
-                        //configFilterWidth->setEnabled(false);
+                        setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true && rigCaps->commands.contains(funcPBTInner));
+                        setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true && rigCaps->commands.contains(funcPBTOuter));
+                        setProperty(scopeQuick->rootObject(),"ifShift","enabled",true && (rigCaps->commands.contains(funcIFShift) || rigCaps->commands.contains(funcPBTInner)));
+                        setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
                     } else {
                         queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
                         queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
                         queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
-                        //configPbtInner->setEnabled(true);
-                        //configPbtOuter->setEnabled(true);
-                        //configFilterWidth->setEnabled(true);
+                        setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true);
+                        setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true);
+                        setProperty(scopeQuick->rootObject(),"filterWidth","enabled",true);
                     }
                 } else
                 {
                     queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
                     queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
                     queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
-                    //configPbtInner->setEnabled(true);
-                    //configPbtOuter->setEnabled(true);
-                    //configFilterWidth->setEnabled(true);
+                    setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true);
+                    setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true);
+                    setProperty(scopeQuick->rootObject(),"filterWidth","enabled",true);
                 }
             } else{
                 queue->del(funcPBTInner,t.receiver);
                 queue->del(funcPBTOuter,t.receiver);
                 queue->del(funcFilterWidth,t.receiver);
-                //configPbtInner->setEnabled(false);
-                //configPbtOuter->setEnabled(false);
-                //configIfShift->setEnabled(false);
-                //configFilterWidth->setEnabled(false);
+                setProperty(scopeQuick->rootObject(),"pbtInner","enabled",false);
+                setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
+                setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
+                setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
                 passbandWidth = double(m.pass/1000000.0);
             }
 
@@ -2490,9 +1840,7 @@ void receiverWidget::receivePassband(quint16 pass)
         //trxadj->updatePassband(pass);
         qDebug(logSystem()) << QString("%0 Received new IF Filter/Passband %1 Hz").arg(receiver?"Sub":"Main").arg(pass);
         emit showStatusBarText(QString("%0 IF filter width %1 Hz (%2 MHz)").arg(receiver?"Sub":"Main").arg(pass).arg(passbandWidth));
-        //configFilterWidth->blockSignals(true);
-        //configFilterWidth->setValue(pass);
-        //configFilterWidth->blockSignals(false);
+        setFilterWidth(pass,false);
     }
 }
 
@@ -2515,13 +1863,6 @@ void receiverWidget::selected(bool en)
     {
         this->setStyleSheet(defaultStyleSheet);
     }
-}
-
-void receiverWidget::setHold(bool h)
-{
-    //this->holdButton->blockSignals(true);
-    //this->holdButton->setChecked(h);
-    //this->holdButton->blockSignals(false);
 }
 
 void receiverWidget::receiveSpots(uchar receiver, QVector<spotData> spots)
@@ -2893,8 +2234,8 @@ void receiverWidget::setUnit(FctlUnit unit)
 {
     this->freqUnit = unit;
     if (freqDisplayA)
-        freqDisplayB->setUnit(unit);
-    if (freqDisplayA)
+        freqDisplayA->setUnit(unit);
+    if (freqDisplayB)
         freqDisplayB->setUnit(unit);
 }
 
@@ -2913,16 +2254,6 @@ void receiverWidget::newFrequency(qint64 freq,uchar vfo)
         tempLockAcceptFreqData();
         //qInfo() << "Setting new frequency for rx:" << receiver << "vfo:" << vfo << "freq:" << f.Hz << "using:" << funcString[t.freqFunc];
     }
-}
-
-void receiverWidget::setRef(int ref)
-{
-    //configRef->setValue(ref);
-}
-
-void receiverWidget::setRefLimits(int lower, int upper)
-{
-    //configRef->setRange(lower,upper);
 }
 
 void receiverWidget::detachScopeFromQml(bool state)
@@ -3143,218 +2474,460 @@ void receiverWidget::onHoverSpotChanged(const spotData &spot, QPointF itemPos, b
 
 // QT Quick ComboBoxes
 
-void receiverWidget::setScopeMode(uchar m)
+void receiverWidget::setScopeMode(uchar m, bool u)
 {
     if (scopeQuick && m != currentScopeMode) {
         currentScopeMode = m;
-        emit scopeModeValueChanged();
-    }
-}
-void receiverWidget::setScopeModeUser(uchar m)
-{
-    if (scopeQuick && m != currentScopeMode) {
-        currentScopeMode = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue(currentScopeMode),false,t.receiver));
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue(currentScopeMode),false,t.receiver));
+        } else {
+            emit scopeModeValueChanged();
+        }
     }
 }
 
-void receiverWidget::setScopeSpan(centerSpanData m)
+void receiverWidget::setScopeSpan(centerSpanData m, bool u)
 {
     if (currentScopeSpan != m)
     {
         currentScopeSpan = m;
-        qInfo() << "Changing scope span";
-        emit scopeSpanValueChanged();
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcScopeSpan,QVariant::fromValue(currentScopeSpan),false,t.receiver));
+        } else {
+            emit scopeSpanValueChanged();
+        }
     }
 }
 
-void receiverWidget::setScopeSpanUser(centerSpanData m)
+void receiverWidget::setScopeEdge(uchar m, bool u)
 {
-    if (currentScopeSpan != m)
+    if (currentScopeEdge != m)
     {
-        currentScopeSpan = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeSpan,QVariant::fromValue(currentScopeSpan),false,t.receiver));
+        currentScopeEdge = m;
+        if (u) {
+            // Code to set scope edge to be added
+        }else {
+            emit scopeEdgeValueChanged();
+        }
     }
 }
 
-void receiverWidget::setScopeEdge(uchar m)
-{
 
-}
-
-void receiverWidget::setScopeEdgeUser(uchar m)
-{
-
-}
-
-void receiverWidget::setMode(modeInfo m)
-{
-    if (currentMode != m)
-    {
-        qInfo(logRig()) << "Got new mode into receiver" << m.name;
-        currentMode = m;
-        emit modeValueChanged();
-    }
-
-}
-
-void receiverWidget::setModeUser(modeInfo m)
+void receiverWidget::setMode(modeInfo m, bool u)
 {
     if (currentMode != m)
     {
         m.data = currentMode.data;
         m.filter = currentMode.filter;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+        currentMode = m;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
 
-        queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(m),false,t.receiver));
-        if (t.modeFunc == funcModeSet) {
-            queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(m),false,t.receiver));
+            queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(m),false,t.receiver));
+            if (t.modeFunc == funcModeSet) {
+                queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(m),false,t.receiver));
+            }
+            // Request current filtershape/roofing
+            if (rigCaps->manufacturer == manufIcom)
+            {
+                queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
+                queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
+            }
+        }else {
+            emit modeValueChanged();
         }
-        // Request current filtershape/roofing
-        if (rigCaps->manufacturer == manufIcom)
-        {
-            queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-            queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
-        }
-
     }
+
 }
 
-void receiverWidget::setDataMode(uchar m)
+
+void receiverWidget::setDataMode(uchar m, bool u)
 {
     if (currentMode.data != m)
     {
         currentMode.data = m;
-        emit dataModeValueChanged();
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(currentMode),false,t.receiver));
+            if (t.modeFunc == funcModeSet) {
+                queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(currentMode),false,t.receiver));
+            }
+            // Request current filtershape/roofing
+            if (rigCaps->manufacturer == manufIcom)
+            {
+                queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
+                queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
+            }
+        }else {
+            emit dataModeValueChanged();
+        }
     }
 }
 
-void receiverWidget::setDataModeUser(uchar m)
-{
-    if (currentMode.data != m) {
-        currentMode.data = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(currentMode),false,t.receiver));
-        if (t.modeFunc == funcModeSet) {
-            queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(currentMode),false,t.receiver));
-        }
-        // Request current filtershape/roofing
-        if (rigCaps->manufacturer == manufIcom)
-        {
-            queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-            queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
-        }
-    }
 
-}
-
-void receiverWidget::setFilter(uchar m)
+void receiverWidget::setFilter(uchar m, bool u)
 {
     if (currentMode.filter != m)
     {
         currentMode.filter = m;
-        emit filterValueChanged();
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(currentMode),false,t.receiver));
+            if (t.modeFunc == funcModeSet) {
+                queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(currentMode),false,t.receiver));
+            }
+            // Request current filtershape/roofing
+            if (rigCaps->manufacturer == manufIcom)
+            {
+                queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
+                queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
+            }
+        }else {
+            emit filterValueChanged();
+        }
     }
 }
 
-void receiverWidget::setFilterUser(uchar m)
+void receiverWidget::setFilterShape(uchar m, bool u)
 {
-    if (currentMode.filter != m) {
-        currentMode.filter = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(currentMode),false,t.receiver));
-        if (t.modeFunc == funcModeSet) {
-            queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(currentMode),false,t.receiver));
+    if (currentFilterShape != m)
+    {
+        currentFilterShape = m;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            uchar f = uchar(m + (currentMode.filter * 10));
+            queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
+        }else {
+            emit filterShapeValueChanged();
         }
-        // Request current filtershape/roofing
-        if (rigCaps->manufacturer == manufIcom)
+    }
+}
+void receiverWidget::setRoofing(uchar m, bool u)
+{
+    if (currentRoofing != m)
+    {
+        currentRoofing = m;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            uchar f = uchar(m + (currentMode.filter * 10));
+            queue->addUnique(priorityImmediate,queueItem(funcRoofingFilter,QVariant::fromValue<uchar>(f),false,t.receiver));
+        }else {
+            emit roofingValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setSpeed(uchar m, bool u)
+{
+    if (currentSpeed != m)
+    {
+        currentSpeed = m;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue(m),false,t.receiver));
+        }else {
+            emit speedValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setTheme(WaterfallItem::Theme m, bool u)
+{
+
+    if (currentTheme != m)
+    {
+        currentTheme = m;
+
+        if (!u) {
+            emit themeValueChanged();
+        }
+
+        if (waterfall)
+            waterfall->setTheme(currentTheme);
+    }
+}
+
+void receiverWidget::setHold(bool v, bool u)
+{
+    if (currentHold != v)
+    {
+        currentHold = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->add(priorityImmediate,queueItem(funcScopeHold,QVariant::fromValue<bool>(v),false,t.receiver));
+        } else {
+            emit holdChanged();
+        }
+    }
+}
+
+void receiverWidget::setRef(int v, bool u)
+{
+    if (currentRef != v)
+    {
+        currentRef = v; // Step size is 5 so no need to round up/down.
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcScopeRef,QVariant::fromValue(v),false,t.receiver));
+        } else {
+            emit refValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setPbtInner(int v, bool u)
+{
+    if (currentPbtInner != v)
+    {
+        currentPbtInner = v; // Step size is 5 so no need to round up/down.
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcPBTInner,QVariant::fromValue<ushort>(v),false,t.receiver));
+        } else {
+            emit pbtInnerValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setPbtOuter(int v, bool u)
+{
+    if (currentPbtOuter != v)
+    {
+        currentPbtOuter = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcPBTOuter,QVariant::fromValue<ushort>(v),false,t.receiver));
+        } else {
+            emit pbtOuterValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setIfShift(int v, bool u)
+{
+    if (currentIfShift != v)
+    {
+        currentIfShift = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcIFShift,QVariant::fromValue<ushort>(v),false,t.receiver));
+        } else {
+            emit ifShiftValueChanged();
+        }
+    }
+}
+
+void receiverWidget::setFilterWidth(int v, bool u)
+{
+    qInfo() << "*** FILTER WIDTH" << v << "user" <<u;
+    if (currentFilterWidth != v)
+    {
+        currentFilterWidth = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcFilterWidth,QVariant::fromValue<ushort>(v),false,t.receiver));
+        } else {
+            emit filterWidthValueChanged();
+        }
+    }
+}
+
+void receiverWidget::toFixedEdge(uchar val)
+{
+    qInfo() << "Setting new fixed edge:" << val;
+    vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+    queue->addUnique(priorityImmediate,queueItem(funcScopeFixedEdgeFreq,QVariant::fromValue(spectrumBounds(lowerFreq, upperFreq, val)),false,t.receiver));
+    queue->addUnique(priorityImmediate,queueItem(funcScopeEdge,QVariant::fromValue<uchar>(val),false,t.receiver));
+    queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue<uchar>(1),false,t.receiver));
+}
+
+
+QVariantMap receiverWidget::customEdgeFreqDialogParams() const
+{
+
+
+    int maxSpan = 0;
+    int minSpan = 1;
+    for (const auto &span: rigCaps->scopeCenterSpans)
+    {
+        if (int(span.freq / 1000) > maxSpan)
+            maxSpan = int(span.freq / 1000);
+        if (int(span.freq / 1000) < minSpan)
+            minSpan = int(span.freq / 1000);
+    }
+    maxSpan = maxSpan * 2;
+    minSpan = minSpan * 2;
+
+    return {
+        {"minKHz", quint64(minFreqMhz*1000)},
+        {"maxKHz", quint64(maxFreqMhz*1000)},
+        {"startKHz", quint64(lowerFreq*1000)},
+        {"endKHz", quint64(upperFreq*1000)},
+        {"minSpan", minSpan},
+        {"maxSpan", maxSpan}
+    };
+}
+
+
+void receiverWidget::setCustomEdgeFreqs(quint64 startKHz, quint64 endKHz)
+{
+    qDebug(logGui()) << "setting edge to: " << startKHz << ", " << endKHz << ", edge num: " << currentScopeEdge;
+    queue->addUnique(priorityImmediate,queueItem(funcScopeFixedEdgeFreq,QVariant::fromValue(spectrumBounds(double(startKHz/1000.0), double(endKHz/1000.0), currentScopeEdge)),false,receiver));
+}
+
+
+
+
+/*
+    displayLayout = new QHBoxLayout();
+
+
+    vfoSelectButton=new QPushButton(tr("VFO A"),this);
+    vfoSelectButton->setHidden(true);
+    vfoSelectButton->setCheckable(true);
+    vfoSelectButton->setFocusPolicy(Qt::NoFocus);
+    connect(vfoSelectButton, &QPushButton::clicked, this, [=](bool en) {
+        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
+        queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(vfo_t(en)),false,t.receiver));
+        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
+        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
+        t = queue->getVfoCommand(vfoB,receiver,false);
+        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
+        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
+        if (en)
+            vfoSelectButton->setText(tr("VFO B"));
+        else
+            vfoSelectButton->setText(tr("VFO A"));
+        selectedVFO = uchar(en);
+    });
+
+    vfoSwapButton=new QPushButton(tr("A<>B"),this);
+    vfoSwapButton->setHidden(true);
+    vfoSwapButton->setFocusPolicy(Qt::NoFocus);
+    connect(vfoSwapButton, &QPushButton::clicked, this, [=]() {
+        vfoSwap();
+        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
+        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
+        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
+    });
+
+    vfoEqualsButton=new QPushButton(tr("A=B"),this);
+    vfoEqualsButton->setHidden(true);
+    vfoEqualsButton->setFocusPolicy(Qt::NoFocus);
+    connect(vfoEqualsButton, &QPushButton::clicked, this, [=]() {
+        vfoCommandType t = queue->getVfoCommand(vfoB,receiver,false);
+        queue->add(priorityImmediate,funcVFOEqualAB,false,0);
+        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
+        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
+    });
+
+    vfoMemoryButton=new QPushButton(tr("V/M"),this);
+    vfoMemoryButton->setHidden(true);
+    vfoMemoryButton->setCheckable(true);
+    vfoMemoryButton->setFocusPolicy(Qt::NoFocus);
+    connect(vfoMemoryButton, &QPushButton::clicked, this, [=](bool en) {
+        vfo_t v = vfoA;
+
+        if (en)
+            v = vfoMem;
+
+        vfoCommandType t = queue->getVfoCommand(v,receiver,false);
+        queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(v),false,t.receiver));
+        queue->add(priorityHighest,t.freqFunc,false,t.receiver);
+        queue->add(priorityHighest,t.modeFunc,false,t.receiver);
+    });
+
+    satelliteButton=new QPushButton(tr("SAT"),this);
+    satelliteButton->setHidden(true);
+    satelliteButton->setCheckable(true);
+    satelliteButton->setFocusPolicy(Qt::NoFocus);
+    connect(satelliteButton, &QPushButton::clicked, this, [=](bool en) {
+        queue->add(priorityImmediate,queueItem(funcSatelliteMode,QVariant::fromValue<bool>(en),false,0));
+    });
+
+    splitButton=new QPushButton(tr("SPLIT"),this);
+    splitButton->setHidden(true);
+    splitButton->setFocusPolicy(Qt::NoFocus);
+    splitButton->setCheckable(true);
+    connect(splitButton, &QPushButton::clicked, this, [=](bool en) {
+        queue->add(priorityImmediate,queueItem(funcSplitStatus,QVariant::fromValue<uchar>(en),false,0));
+    });
+
+
+    controlLayout = new QHBoxLayout();
+    detachButton = new QPushButton(tr("Detach"));
+    detachButton->setCheckable(true);
+    detachButton->setToolTip(tr("Detach/re-attach scope from main window"));
+    detachButton->setChecked(false);
+    scopeModeCombo = new QComboBox();
+    scopeModeCombo->setAccessibleDescription(tr("Spectrum Mode"));
+    spanCombo = new QComboBox();
+    spanCombo->setAccessibleDescription(tr("Spectrum Span"));
+    edgeCombo = new QComboBox();
+    edgeCombo->setAccessibleDescription(tr("Spectrum Edge"));
+    edgeButton = new QPushButton(tr("Custom Edge"));
+    edgeButton->setToolTip(tr("Define a custom (fixed) scope edge"));
+    toFixedButton = new QPushButton(tr("To Fixed"));
+    toFixedButton->setToolTip(tr("&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press button to convert center mode spectrum to fixed mode, preserving the range. This allows you to tune without the spectrum moving, in the same currently-visible range that you see now. &lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;The currently-selected edge slot will be overridden.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"));
+
+    holdButton = new QPushButton("HOLD");
+    holdButton->setCheckable(true);
+    holdButton->setFocusPolicy(Qt::NoFocus);
+
+    controlSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
+    midSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
+
+    clearPeaksButton = new QPushButton("Clear Peaks");
+
+    confButton = new QPushButton("<");
+    confButton->setAccessibleName(tr("Configure Scope"));
+    confButton->setAccessibleDescription(tr("Change various settings of the current Scope"));
+    confButton->setToolTip(tr("Configure Scope"));
+    confButton->setFocusPolicy(Qt::NoFocus);
+
+    modeCombo = new QComboBox();
+    modeCombo->setToolTip(tr("Select current radio mode"));
+    modeCombo->setAccessibleDescription(tr("Change the current radio mode for this receiver"));
+
+    dataCombo = new QComboBox();
+    dataCombo->setToolTip(tr("Select data mode (if supported)"));
+    dataCombo->setAccessibleDescription(tr("Change the current data mode (if supported)"));
+
+    filterCombo = new QComboBox();
+    filterCombo->setToolTip(tr("Select current filter"));
+    dataCombo->setAccessibleDescription(tr("Change the current filter"));
+
+    filterShapeCombo = new QComboBox();
+    filterShapeCombo->setToolTip(tr("Select current filter shape"));
+    filterShapeCombo->setAccessibleDescription(tr("Change the current filter shape"));
+    if (!rigCaps->commands.contains(funcFilterShape))
+    {
+        filterShapeCombo->hide();
+    }
+    else
+    {
+        filterShapeCombo->addItem("Sharp",0);
+        if (rigCaps->manufacturer == manufKenwood)
         {
-            queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-            queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
+            filterShapeCombo->addItem("Medium",1);
+            filterShapeCombo->addItem("Soft",2);
+
+        }
+        else
+        {
+            filterShapeCombo->addItem("Soft",1);
         }
     }
-}
+    roofingCombo = new QComboBox();
+    roofingCombo->setToolTip(tr("Select roofing filter"));
+    roofingCombo->setAccessibleDescription(tr("Change the current selected roofing filter"));
+    if (!rigCaps->commands.contains(funcRoofingFilter))
+        roofingCombo->hide();
 
-void receiverWidget::setFilterShape(uchar m)
-{
-    if (currentFilterShape != m)
-    {
-        currentFilterShape = m;
-        emit filterShapeValueChanged();
-    }
-}
-
-void receiverWidget::setFilterShapeUser(uchar m)
-{
-    if (currentFilterShape != m)
-    {
-        currentFilterShape = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        uchar f = uchar(m + (currentMode.filter * 10));
-        queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
-    }
-}
-
-void receiverWidget::setRoofing(uchar m)
-{
-    if (currentRoofing != m)
-    {
-        currentRoofing = m;
-        emit roofingValueChanged();
-    }
-}
-
-void receiverWidget::setRoofingUser(uchar m)
-{
-    if (currentRoofing != m)
-    {
-        currentRoofing = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        uchar f = uchar(m + (currentMode.filter * 10));
-        queue->addUnique(priorityImmediate,queueItem(funcRoofingFilter,QVariant::fromValue<uchar>(f),false,t.receiver));
-    }
-}
-
-
-void receiverWidget::setSpeed(uchar m)
-{
-    if (currentSpeed != m)
-    {
-        currentSpeed = m;
-        emit speedValueChanged();
-    }
-}
-void receiverWidget::setSpeedUser(uchar m)
-{
-
-    if (currentSpeed != m)
-    {
-        currentSpeed = m;
-        vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-        queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue(m),false,t.receiver));
-    }
-}
-
-void receiverWidget::setTheme(WaterfallItem::Theme m)
-{
-
-    if (currentTheme != m)
-    {
-        currentTheme = m;
-        if (waterfall)
-            waterfall->setTheme(currentTheme);
-        emit themeValueChanged();
-    }
-}
-
-void receiverWidget::setThemeUser(WaterfallItem::Theme m)
-{
-    if (currentTheme != m)
-    {
-        currentTheme = m;
-        if (waterfall)
-            waterfall->setTheme(currentTheme);
-    }
-}
+    spanCombo->setVisible(false);
+    edgeCombo->setVisible(false);
+    edgeButton->setVisible(false);
+    toFixedButton->setVisible(false);
+    */

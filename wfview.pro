@@ -309,6 +309,7 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/resampler
 
 SOURCES += \
+    src/RigCreatorController.cpp \
     src/aboutbox.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
@@ -365,7 +366,6 @@ SOURCES += \
     src/receiverwidget.cpp \
     src/repeatersetup.cpp \
     src/rigcommander.cpp \
-    src/rigcreator.cpp \
     src/rigctld.cpp \
     src/rigidentities.cpp \
     src/rigserver.cpp \
@@ -384,6 +384,7 @@ SOURCES += \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/RigCreatorController.h \
     include/freqctrlquick.h \
     include/paletteproxy.h \
     include/spectrumitem.h \
@@ -446,7 +447,6 @@ HEADERS  += \
     include/repeaterattributes.h \
     include/repeatersetup.h \
     include/rigcommander.h \
-    include/rigcreator.h \
     include/rigctld.h \
     include/rigidentities.h \
     include/rigserver.h \

@@ -3,6 +3,10 @@
 #include "keyboard.h"
 #else
 #include <QApplication>
+#include <QMainWindow>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickStyle>
 #include <QGuiApplication>
 #include <QTranslator>
 #endif
@@ -108,6 +112,17 @@ int main(int argc, char *argv[])
 #endif
     QApplication a(argc, argv);
 
+    QQuickStyle::setStyle("Fusion"); // MUST be before loading any QML that imports Controls
+
+    qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");
+    qmlRegisterType<WaterfallItem>("WFVIEW", 1, 0, "WaterfallItem");
+    qmlRegisterType<FreqCtrlQuick>("WFVIEW", 1, 0, "FreqCtrlQuick");
+    qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
+    qmlRegisterType<IniTableModel>("WFVIEW", 1, 0, "IniTableModel");
+    qmlRegisterSingletonType<ClipboardProxy>("WFVIEW", 1, 0, "Clipboard",
+                                             [](QQmlEngine*, QJSEngine*) -> QObject* { return new ClipboardProxy; });
+
+
     QObject::connect(qApp, &QGuiApplication::focusWindowChanged,
                      [](QWindow *w) {
                          qInfo() << "[focusWindowChanged]" << w
@@ -134,6 +149,11 @@ int main(int argc, char *argv[])
         }
     });
 
+    QQmlApplicationEngine engine;
+    //engine.rootContext()->setContextProperty("rig", backend); // shared backend name in QML
+    engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
+    if (engine.rootObjects().isEmpty())
+        return -1;
 
     a.setApplicationName("wfview");
 #endif

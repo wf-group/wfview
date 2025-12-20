@@ -1,19 +1,39 @@
 #include <QDebug>
 #include "logcategories.h"
 
-#include "rigcreator.h"
+#include "RigCreatorController.h"
 #include "ui_rigcreator.h"
+#include "themebridge.h"
 
-rigCreator::rigCreator(QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::rigCreator)
+// Access main Qt theme from QML.
+
+RigCreatorController::RigCreatorController(QObject *parent) :
+    QObject(parent)
 {
+
+    qInfo() << "Creating instance of RigCreatorController()";
+
+    m_store    = new IniStore(this);
+    m_settings = new SettingsMap(this);
+    m_settings->setStore(m_store);
+
+    connect(m_store, &IniStore::dirtyChanged, this, &RigCreatorController::dirtyChanged);
+
+
+    for (int i=0;i<funcLastFunc;i++)
+        m_commandTypeChoices << QVariantMap{{"text",funcString[i]}, {"value",funcString[i]}};
+    emit commandTypeChoicesChanged();
+
+    //ui->manufacturer->addItem("FlexRadio",manufFlexRadio);
+
+    /*
     ui->setupUi(this);
     Qt::WindowFlags flags = Qt::Window | Qt::WindowSystemMenuHint
                             | Qt::WindowMinimizeButtonHint
                             | Qt::WindowMaximizeButtonHint
                             | Qt::WindowCloseButtonHint;
     this->setWindowFlags(flags);
+
 
     qInfo() << "Creating instance of rigCreator()";
     commandsList = new tableCombobox(createModel(funcLastFunc, commandsModel, funcString),false,ui->commands);
@@ -41,12 +61,6 @@ rigCreator::rigCreator(QWidget *parent) :
 
     //ui->meters->setColumnWidth(0,85);
 
-    /*
-    ui->commands->setColumnWidth(1,100);
-    ui->commands->setColumnWidth(2,50);
-    ui->commands->setColumnWidth(3,50);
-    ui->commands->setColumnWidth(4,40);
-    */
     connect(ui->commands,SIGNAL(rowAdded(int)),this,SLOT(commandRowAdded(int)));
     connect(ui->bands,SIGNAL(rowAdded(int)),this,SLOT(bandRowAdded(int)));
     connect(ui->meters,SIGNAL(rowAdded(int)),this,SLOT(meterRowAdded(int)));
@@ -58,10 +72,12 @@ rigCreator::rigCreator(QWidget *parent) :
     ui->manufacturer->addItem("Yaesu",manufYaesu);
     //ui->manufacturer->addItem("FlexRadio",manufFlexRadio);
     ui->manufacturer->setCurrentIndex(0);
+    */
 }
 
-void rigCreator::commandRowAdded(int row)
+void RigCreatorController::commandRowAdded(int row)
 {
+    /*
     // Create a widget that will contain a checkbox
     QWidget *padrWidget = new QWidget();
     QCheckBox *padrCheckBox = new QCheckBox();      // We declare and initialize the checkbox
@@ -103,13 +119,13 @@ void rigCreator::commandRowAdded(int row)
     layoutAdmin->setAlignment(Qt::AlignCenter);  // Center the checkbox
     layoutAdmin->setContentsMargins(0,0,0,0);    // Set the zero padding
     ui->commands->setCellWidget(row,8, adminWidget);
-
+    */
 
 }
 
-void rigCreator::bandRowAdded(int row)
+void RigCreatorController::bandRowAdded(int row)
 {
-
+    /*
     QWidget *checkBoxWidget = new QWidget();
     QCheckBox *checkBox = new QCheckBox();      // We declare and initialize the checkbox
     checkBox->setObjectName("ants");
@@ -130,10 +146,12 @@ void rigCreator::bandRowAdded(int row)
         }
     });
     ui->bands->setCellWidget(row,12, color);
+    */
 }
 
-void rigCreator::meterRowAdded(int row)
+void RigCreatorController::meterRowAdded(int row)
 {
+    /*
     QWidget *checkBoxWidget = new QWidget();
     QCheckBox *checkBox = new QCheckBox();      // We declare and initialize the checkbox
     checkBox->setObjectName("line");
@@ -142,16 +160,16 @@ void rigCreator::meterRowAdded(int row)
     layoutCheckBox->setAlignment(Qt::AlignCenter);  // Center the checkbox
     layoutCheckBox->setContentsMargins(0,0,0,0);    // Set the zero padding
     ui->meters->setCellWidget(row,3, checkBoxWidget);
+*/
 }
 
 
-rigCreator::~rigCreator()
+RigCreatorController::~RigCreatorController()
 {
-    qInfo() << "Deleting instance of rigCreator()";
-    delete ui;
+    qInfo() << "Deleting instance of RigCreatorController()";
 }
 
-void rigCreator::on_defaultRigs_clicked(bool clicked)
+void RigCreatorController::on_defaultRigs_clicked(bool clicked)
 {
     Q_UNUSED(clicked)
 
@@ -166,69 +184,49 @@ void rigCreator::on_defaultRigs_clicked(bool clicked)
      QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)",nullptr,QFileDialog::DontUseNativeDialog);
 #else
      appdata +="/rigs";
-     QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)");
+     //QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)");
 #endif
 
-    if (!file.isEmpty())
-    {
-        loadRigFile(file);
-    }
+    //if (!file.isEmpty())
+    //{
+    //    loadRigFile(file);
+   // }
 }
 
 
-void rigCreator::on_loadFile_clicked(bool clicked)
+
+bool RigCreatorController::loadFile(QString file)
 {
-    Q_UNUSED(clicked)
-    QString appdata = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir dir(appdata);
-    if (!dir.exists()) {
-        dir.mkpath(appdata);
+
+    const QUrl url(file);
+    if (url.isValid() && url.isLocalFile()) {
+        file = url.toLocalFile();          // handles file:///, %20, Windows paths, etc.
     }
 
-    if (!dir.exists("rigs")) {
-        dir.mkdir("rigs");
-    }
+    qInfo() << "Loading file: " << file;
 
-#ifndef Q_OS_WIN
-    QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata+"/rigs","Rig Files (*.rig)",nullptr,QFileDialog::DontUseNativeDialog);
-#else
-    QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata+"/rigs","Rig Files (*.rig)");
-#endif
+    if (file.isEmpty() || !QFileInfo::exists(file))
+        return false;
 
-    if (!file.isEmpty())
-    {
-        loadRigFile(file);
-    }
+    setLoading(true);
+
+    const bool ok = m_store->load(file);
+
+    setLoading(false);
+
+    return ok;
+
+    /*
+    m_settings->setIniPath(file);
+    m_settings->reload();
+    QMetaObject::invokeMethod(this, [this]{
+        m_settings->reload();   // still blocks
+        setLoading(false);
+    }, Qt::QueuedConnection);
+*/
 }
+/*
 
-
-void rigCreator::loadRigFile(QString file)
-{
-
-    ui->loadFile->setEnabled(false);
-    ui->defaultRigs->setEnabled(false);
-    this->currentFile = file;
-    QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
-
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    settings->setIniCodec("UTF-8");
-#endif
-
-    if (!settings->childGroups().contains("Rig"))
-    {
-        QFileInfo info(file);
-        QMessageBox msgBox;
-        msgBox.setText(tr("Not a rig definition"));
-        msgBox.setInformativeText(QString(tr("File %0 does not appear to be a valid Rig definition file")).arg(info.fileName()));
-        msgBox.setStandardButtons(QMessageBox::Ok);
-        msgBox.exec();
-        delete settings;
-        return;
-    }
-
-    settings->beginGroup("Rig");
-    int manuf=ui->manufacturer->findData(settings->value("Manufacturer",manufIcom).value<manufacturersType_t>());
-    ui->manufacturer->setCurrentIndex(manuf);
     ui->model->setText(settings->value("Model","").toString());
     if (ui->manufacturer->currentData() == manufIcom)
         ui->civAddress->setText(QString("%1").arg(settings->value("CIVAddress",0).toInt(),4,16));
@@ -832,43 +830,31 @@ void rigCreator::loadRigFile(QString file)
 
     settingsChanged = false;
 }
+*/
 
-void rigCreator::changed()
+void RigCreatorController::changed()
 {
     settingsChanged = true;
 }
 
-void rigCreator::on_saveFile_clicked(bool clicked)
+bool RigCreatorController::saveFile(QString file)
 {
-    Q_UNUSED(clicked)
+    qInfo() << "Saving file: " << file;
 
-    QString appdata = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    const QUrl url(file);
+    if (url.isValid() && url.isLocalFile())
+        file = url.toLocalFile();
 
-    QDir dir(appdata);
-    if (!dir.exists()) {
-        dir.mkpath(appdata);
-    }
+    if (file.isEmpty())
+        return false;
 
-    if (!dir.exists("rigs")) {
-        dir.mkdir("rigs");
-    }
+    // Optional: enforce extension
+    if (!file.endsWith(".rig", Qt::CaseInsensitive))
+        file += ".rig";
 
-    QFileInfo fileInfo(currentFile);
-#ifndef Q_OS_WIN
-    QString file = QFileDialog::getSaveFileName(this,tr("Select Rig Filename"),appdata+"/rigs/"+fileInfo.fileName(),"Rig Files (*.rig)",nullptr,QFileDialog::DontUseNativeDialog);
-#else
-    QString file = QFileDialog::getSaveFileName(this,tr("Select Rig Filename"),appdata+"/rigs/"+fileInfo.fileName(),"Rig Files (*.rig)");
-#endif
+    return m_store->saveAs(file);
 
-    if (!file.isEmpty())
-    {
-        saveRigFile(file);
-    }
-}
-
-void rigCreator::saveRigFile(QString file)
-{
-
+/*
     QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
 
     settings->setValue("Version", QString(WFVIEW_VERSION));
@@ -1167,16 +1153,16 @@ void rigCreator::saveRigFile(QString file)
     delete settings;
 
     settingsChanged = false;
-
+*/
 }
 
 
 
 // Create model for comboBox, takes un-initialized model object and populates it.
 // This will be deleted by the comboBox on destruction.
+/*
 QStandardItemModel* rigCreator::createModel(int num,QStandardItemModel* model, QString strings[])
 {
-
     model = new QStandardItemModel();
 
     for (int i=0; i < num;i++)
@@ -1211,7 +1197,9 @@ QStandardItemModel* rigCreator::createModel(int num,QStandardItemModel* model, Q
 
     return model;
 }
+*/
 
+/*
 QStandardItemModel* rigCreator::createModel(QStandardItemModel* model, QStringList strings)
 {
     model = new QStandardItemModel();
@@ -1229,24 +1217,29 @@ QStandardItemModel* rigCreator::createModel(QStandardItemModel* model, QStringLi
 
     return model;
 }
+*/
 
-void rigCreator::on_hasCommand29_toggled(bool checked)
+void RigCreatorController::on_hasCommand29_toggled(bool checked)
 {
-    ui->commands->setColumnHidden(5,!checked);
+
+    //ui->commands->setColumnHidden(5,!checked);
+
 }
 
 
-void rigCreator::closeEvent(QCloseEvent *event)
+
+void RigCreatorController::closeEvent(QCloseEvent *event)
 {
 
     if (settingsChanged)
     {
         // Settings have changed since last save
         qInfo() << "Settings have changed since last save";
-        int reply = QMessageBox::question(this,tr("rig creator"),tr("Changes will be lost!"),QMessageBox::Cancel |QMessageBox::Ok);
-        if (reply == QMessageBox::Cancel)
-        {
-            event->ignore();
-        }
+        //int reply = QMessageBox::question(this,tr("rig creator"),tr("Changes will be lost!"),QMessageBox::Cancel |QMessageBox::Ok);
+        //if (reply == QMessageBox::Cancel)
+        //{
+        //    event->ignore();
+       // }
     }
 }
+

@@ -20,6 +20,11 @@ ApplicationWindow {
         }
     }
 
+    Component {
+            id: rigCreatorComponent
+            RigCreator { }
+        }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 6
@@ -37,10 +42,10 @@ ApplicationWindow {
 
                 // This corresponds to your vfoLayout (currently empty in .ui)
                 // Drop your converted receiver controls in here:
-                ReceiverControls {   // <- your QML component name
-                    Layout.fillWidth: true
-                    // Layout.preferredHeight: ...
-                }
+                //ReceiverControls {   // <- your QML component name
+                //    Layout.fillWidth: true
+                //    // Layout.preferredHeight: ...
+                //}
 
                 // If you also have scope/waterfall above/below, place it here too
                 // ScopePanel { Layout.fillWidth: true; Layout.fillHeight: true }
@@ -67,9 +72,9 @@ ApplicationWindow {
                         spacing: 0
 
                         // Replace these with your QML meter items (you had a custom QWidget 'meter')
-                        MeterItem { id: meter1; Layout.fillWidth: true; Layout.preferredHeight: 30 }
-                        MeterItem { id: meter2; Layout.fillWidth: true; Layout.preferredHeight: 30 }
-                        MeterItem { id: meter3; Layout.fillWidth: true; Layout.preferredHeight: 30 }
+                        //MeterItem { id: meter1; Layout.fillWidth: true; Layout.preferredHeight: 30 }
+                        //MeterItem { id: meter2; Layout.fillWidth: true; Layout.preferredHeight: 30 }
+                        //MeterItem { id: meter3; Layout.fillWidth: true; Layout.preferredHeight: 30 }
                     }
 
                     RowLayout {
@@ -270,7 +275,13 @@ ApplicationWindow {
                 Button { text: "Log" }
                 Button { text: "Bands" }
                 Button { text: "Frequency" }
-                Button { text: "Rig Creator" }
+                Button {
+                    text: "Rig Creator"
+                    onClicked: {
+                        const w = rigCreatorComponent.createObject(null)
+                        if (w) w.show()
+                    }
+                }
 
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_32)
 

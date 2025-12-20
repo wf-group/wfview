@@ -66,7 +66,7 @@
 #include <qserialportinfo.h>
 #include "usbcontroller.h"
 #include "controllersetup.h"
-#include "rigcreator.h"
+#include "RigCreatorController.h"
 #include "cachingqueue.h"
 
 #include "waterfallitem.h"
@@ -666,7 +666,7 @@ private:
     aboutbox *abtBox = Q_NULLPTR;
     selectRadio *selRad = Q_NULLPTR;
     loggingWindow *logWindow = Q_NULLPTR;
-    rigCreator *creator = Q_NULLPTR;
+    //rigCreator *creator = Q_NULLPTR;
     bandbuttons* bandbtns;
     frequencyinputwidget* finputbtns;
     settingswidget* setupui;

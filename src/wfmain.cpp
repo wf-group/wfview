@@ -162,12 +162,6 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     qRegisterMetaType<scopeData>();
 
-    QQuickStyle::setStyle("Fusion"); // Need to set the style early.
-    qmlRegisterType<SpectrumItem>("RadioScope", 1, 0, "SpectrumItem");
-    qmlRegisterType<WaterfallItem>("RadioScope", 1, 0, "WaterfallItem");
-    qmlRegisterType<FreqCtrlQuick>("RadioScope", 1, 0, "FreqCtrlQuick");
-
-
     this->setObjectName("wfmain");
     queue = cachingQueue::getInstance(this);
 
@@ -1108,7 +1102,7 @@ void wfmain::configureVFOs()
         receiver->setScrollSpeedXY(prefs.scopeScrollX, prefs.scopeScrollY);
         receiver->prepareWf(i==0?prefs.mainWflength:prefs.subWflength);
         receiver->setRange(i==0?prefs.mainPlotFloor:prefs.subPlotFloor,i==0?prefs.mainPlotCeiling:prefs.subPlotCeiling);
-        receiver->setTheme(WaterfallItem::Theme(i==0?prefs.mainWfTheme:prefs.subWfTheme));
+        receiver->setTheme(WaterfallItem::Theme(i==0?prefs.mainWfTheme:prefs.subWfTheme),false);
         receiver->setClickDragTuning(prefs.clickDragTuningEnable);
         receiver->setTuningFloorZeros(prefs.niceTS);
         receiver->resizePlasmaBuffer(prefs.underlayBufferSize);
@@ -3781,7 +3775,6 @@ void wfmain:: getInitialRigState()
         if (mr != rigCaps->commands.end())
         {
             for (uchar f = 0; f<receivers.size();f++) {
-                receivers[f]->setRefLimits(mr.value().minVal,mr.value().maxVal);
                 queue->add(priorityMediumHigh,funcScopeRef,false,f);
             }
         }
@@ -3799,7 +3792,7 @@ void wfmain:: getInitialRigState()
         }
     }
 
-    for (const auto& receiver: receivers)
+    for (const auto& receiver: std::as_const(receivers))
     {
         //qInfo(logSystem()) << "Display Settings start:" << start << "end:" << end;
         receiver->displaySettings(0, start, end, 1,(FctlUnit)prefs.frequencyUnits, &rigCaps->bands);
@@ -5550,9 +5543,9 @@ void wfmain::on_memoriesBtn_clicked()
 
 void wfmain::on_rigCreatorBtn_clicked()
 {
-    rigCreator* create = new rigCreator();
-    create->setAttribute(Qt::WA_DeleteOnClose);
-    create->show();
+    //rigCreator* create = new rigCreator();
+    //create->setAttribute(Qt::WA_DeleteOnClose);
+    //create->show();
 }
 void wfmain::receiveValue(cacheItem val){
 
@@ -5724,15 +5717,15 @@ void wfmain::receiveValue(cacheItem val){
         break;
     case funcPBTOuter:
 
-        receivers[val.receiver]->setPBTOuter(val.value.value<uchar>());
+        receivers[val.receiver]->setPbtOuter(val.value.value<uchar>(),false);
         break;
     case funcPBTInner:
     {
-        receivers[val.receiver]->setPBTInner(val.value.value<uchar>());
+        receivers[val.receiver]->setPbtInner(val.value.value<uchar>(),false);
         break;
     }
     case funcIFShift:
-        receivers[val.receiver]->setIFShift(val.value.value<uchar>());
+        receivers[val.receiver]->setIfShift(val.value.value<uchar>(),false);
         break;
         /*
     connect(this->rig, &rigCommander::haveDashRatio,
@@ -5871,13 +5864,13 @@ void wfmain::receiveValue(cacheItem val){
     case funcFilterShape:
         if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
         {
-            receivers[val.receiver]->setFilterShape(val.value.value<uchar>() % 10);
+            receivers[val.receiver]->setFilterShape(val.value.value<uchar>() % 10, false);
         }
         break;
     case funcRoofingFilter:
         if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
         {
-            receivers[val.receiver]->setRoofing(val.value.value<uchar>() % 10);
+            receivers[val.receiver]->setRoofing(val.value.value<uchar>() % 10, false);
         }
         break;
     case funcNoiseReduction:
@@ -6092,7 +6085,7 @@ void wfmain::receiveValue(cacheItem val){
                 ui->scopeDualBtn->blockSignals(true);
                 ui->scopeDualBtn->setChecked(val.value.value<bool>());
                 ui->scopeDualBtn->blockSignals(false);
-                for (const auto& rx: receivers) {
+                for (const auto& rx: std::as_const(receivers)) {
                     if (!rx->isSelected()) {
                         rx->setVisible(val.value.value<bool>());
                     }
@@ -6103,22 +6096,22 @@ void wfmain::receiveValue(cacheItem val){
     }
     case funcScopeMode:
         //qDebug() << "Got new scope mode for receiver" << val.receiver << "mode" << val.value.value<uchar>();
-        receivers[val.receiver]->setScopeMode(val.value.value<uchar>());
+        receivers[val.receiver]->setScopeMode(val.value.value<uchar>(),false);
         break;
     case funcScopeSpan:
-        receivers[val.receiver]->setScopeSpan(val.value.value<centerSpanData>());
+        receivers[val.receiver]->setScopeSpan(val.value.value<centerSpanData>(),false);
         break;
     case funcScopeEdge:
-        receivers[val.receiver]->setScopeEdge(val.value.value<uchar>());
+        receivers[val.receiver]->setScopeEdge(val.value.value<uchar>(),false);
         break;
     case funcScopeHold:
-        receivers[val.receiver]->setHold(val.value.value<bool>());
+        receivers[val.receiver]->setHold(val.value.value<bool>(), false);
         break;
     case funcScopeRef:
-        receivers[val.receiver]->setRef(val.value.value<int>());
+        receivers[val.receiver]->setRef(val.value.value<int>(),false);
         break;
     case funcScopeSpeed:
-        receivers[val.receiver]->setSpeed(val.value.value<uchar>());
+        receivers[val.receiver]->setSpeed(val.value.value<uchar>(),false);
         break;
     case funcScopeDuringTX:
     case funcScopeCenterType:

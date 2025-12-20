@@ -86,7 +86,7 @@ public:
     void  setPassbandHigh(qreal x);
 
     float getPeakDecay() const { return decay; }
-    void  setPeakDecay(float d);
+    void  setPeakDecay(int d);
 
     int getMaxSpotRows() const { return maxSpotRows; }
     void setMaxSpotRows(int rows);
@@ -103,6 +103,7 @@ public slots:
     void updateScope(const scopeData &data);
     void setSpots(const QVector<spotData> &newSpots);
     void clearSpots();
+    void clearPeaks();
 
 signals:
     void freqRangeChanged();
@@ -155,7 +156,8 @@ private:
     double passbandLow  = 0.0;
     double passbandHigh = 0.0;
 
-    float decay = 2.0f;
+    int decay = 4;
+    int decayCounter = 0;
 
     int axis = 20;
     int ticks  = 7;

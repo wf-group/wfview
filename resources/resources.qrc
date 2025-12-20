@@ -16,6 +16,8 @@
         <file>mirabox293s.png</file>
         <file>miraboxn3.png</file>
         <file>frequency.ttf</file>
-		<file>scope.qml</file>
+		<file>MainWindow.qml</file>
+		<file>Receiver.qml</file>
+		<file>RigCreator.qml</file>
     </qresource>
 </RCC>

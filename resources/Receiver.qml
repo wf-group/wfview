@@ -2,7 +2,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import RadioScope 1.0
+import WFVIEW 1.0
 
 Control {
 
@@ -19,6 +19,8 @@ Control {
     palette.buttonText: Theme.buttonText
     palette.highlight: Theme.highlight
     palette.highlightedText: Theme.highlightedText
+
+    property var rigCreatorWindow: null
 
     background: Rectangle {
         border.width: 0
@@ -49,15 +51,15 @@ Control {
         SpectrumItem {
             id: spectrum
             objectName: "spectrum"
-            SplitView.minimumHeight: 60
-            SplitView.preferredHeight: root.height * 0.5
+            //SplitView.minimumHeight: 60
+            SplitView.preferredHeight: (splitView.height * 0.5) + 15
         }
 
         WaterfallItem {
             id: waterfall
             objectName: "waterfall"
-            SplitView.minimumHeight: 60
-            SplitView.preferredHeight: root.height * 0.5
+            //SplitView.minimumHeight: 60
+            SplitView.preferredHeight: (splitView.height * 0.5) - 15
             length: 128
         }
     }
@@ -70,7 +72,7 @@ Control {
             bottom: parent.bottom
         }
         // enough height for both rows
-        height: 72
+        height: freqColumn.implicitHeight
 
         Rectangle {
             color: "transparent"
@@ -98,9 +100,37 @@ Control {
                         visible: false              // C++ can still toggle this
                     }
 
-                    // Spacer to push right control over
+                    Button { id: vfoButton; text: "VFOA"; visible:false }
+
                     Item {
+                        id: centerStrip
                         Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        Row {
+                            id: midButtons
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Button { id: swapABButton;text: "A↔B"; visible:false }
+                            Button { id: equalsABButton; text: "A=B"; visible:false }
+                            Button { id: vmButton; text: "V/M"; visible:false }
+                            Button { id: satButton; text: "SAT"; visible:false }
+                            Button { id: splitButton; text: "SPLIT"; visible:false }
+                            Button {
+                                id: test;
+                                text: "Test";
+                                onClicked: {
+                                    if (!rigCreatorWindow) {
+                                        rigCreatorWindow =
+                                            Qt.createComponent("RigCreator.qml").createObject(null)
+                                    }
+                                    rigCreatorWindow.visible = true
+                                    rigCreatorWindow.raise()
+                                    rigCreatorWindow.requestActivate()
+                                }
+                            }
+                        }
                     }
 
                     // Right freq control
@@ -172,6 +202,7 @@ Control {
                         objectName: "customEdge"
                         visible: scopeModeCombo.currentValue > 0;
                         text: "Custom Edge"
+                        onClicked: customEdgeDialog.open()
                         Layout.preferredWidth: 90
                     }
 
@@ -189,6 +220,9 @@ Control {
                         objectName: "hold"
                         text: "Hold"
                         checkable: true
+                        checked: receiver.hold
+                        onClicked: receiver.hold = checked
+                        highlighted: checked
                         Layout.preferredWidth: 50
                     }
 
@@ -254,6 +288,7 @@ Control {
                         id: clearPeaksButton
                         objectName: "clearPeaks"
                         text: "Clear Peaks"
+                        onClicked: spectrum.clearPeaks()
                         Layout.preferredWidth: 80
 
                     }
@@ -272,8 +307,6 @@ Control {
         x: (parent ? parent.width  - width  : 0) / 2
         y: (parent ? parent.height - height : 0) / 2
 
-        property int edgeValue: 0
-
         contentItem: ColumnLayout {
 
             spacing: 8
@@ -290,13 +323,98 @@ Control {
         }
 
         onAccepted: {
-            var v = parseInt(edgeField.text)
+            var v = parseInt(edgeField.currentText, 10)
             if (!isNaN(v))
-                edgeValue = v
-
-            // TODO: wire edgeValue into your C++/QML logic as needed
+                receiver.toFixed = v
         }
     }
+
+    // Small dialog for entering a custom edge
+    Dialog {
+        id: customEdgeDialog
+        modal: true
+
+        // constraints (filled from C++)
+        property int minKHz: 0
+        property int maxKHz: 0
+        property int minSpan: 1
+        property int maxSpan: 999999
+
+        onOpened: {
+            const p = receiver.customEdgeFreqDialogParams()
+
+            // copy into dialog-scoped properties so isValid() can see them
+            minKHz   = p.minKHz
+            maxKHz   = p.maxKHz
+            minSpan  = p.minSpan
+            maxSpan  = p.maxSpan
+
+            startEdgeFreq.from     = minKHz
+            startEdgeFreq.to       = maxKHz
+            startEdgeFreq.stepSize = minSpan
+            startEdgeFreq.value    = p.startKHz
+
+            endEdgeFreq.from       = minKHz
+            endEdgeFreq.to         = maxKHz
+            endEdgeFreq.stepSize   = minSpan
+            endEdgeFreq.value      = p.endKHz
+
+            // (re)bind OK enabled after values/constraints are set
+            const okBtn = standardButton(Dialog.Ok)
+            if (okBtn)
+                okBtn.enabled = Qt.binding(() => customEdgeDialog.isValid())
+        }
+
+        function isValid() {
+            return (endEdgeFreq.value - startEdgeFreq.value >= minSpan &&
+                    endEdgeFreq.value - startEdgeFreq.value <= maxSpan)
+        }
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        x: (parent ? parent.width  - width  : 0) / 2
+        y: (parent ? parent.height - height : 0) / 2
+
+        contentItem: ColumnLayout {
+            spacing: 8
+
+            Label {
+                text: "Start frequency (kHz):"
+            }
+
+            SpinBox {
+                id: startEdgeFreq
+                editable: true
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: "End frequency (kHz):"
+            }
+
+            SpinBox {
+                id: endEdgeFreq
+                editable: true
+                Layout.fillWidth: true
+            }
+
+            Label {
+                text: "Invalid span size"
+                color: "red"
+                visible: !customEdgeDialog.isValid()
+            }
+        }
+        Component.onCompleted: {
+            const okBtn = standardButton(Dialog.Ok)
+            okBtn.enabled = Qt.binding(() => customEdgeDialog.isValid())
+        }
+        onAccepted: {
+            // safe: this will only fire when valid
+            receiver.setCustomEdgeFreqs(startEdgeFreq.value,endEdgeFreq.value)
+        }
+
+    }
+
 
     // Drawer stays as-is, still anchored to root
     Drawer {
@@ -326,9 +444,8 @@ Control {
         // --- Header bar ---
         Rectangle {
             Layout.fillWidth: true
-            height: 40
-            color: Qt.darker(Theme.window, 1.1)
-
+            height: 30
+            color: Theme.window
             ToolButton {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -375,8 +492,10 @@ Control {
                     }
                     Slider {
                         id: refSlider
+                        objectName: "ref"
                         Layout.preferredWidth: 120
-                        // onValueChanged: spectrum.refLevel = value
+                        value: receiver.refValue
+                        onMoved: receiver.refValue = value
                     }
 
                     // === Length slider ===
@@ -401,11 +520,14 @@ Control {
                     }
                     Slider {
                         id: ceilingSlider
-                        from: -160
-                        to: 0
-                        value: -20
+                        from: 0
+                        to: 255
+                        value: waterfall.ceiling
                         Layout.preferredWidth: 120
-                        // onValueChanged: spectrum.ceiling = value
+                        onValueChanged:  {
+                            waterfall.ceiling = value;
+                            spectrum.ceiling = value;
+                        }
                     }
 
                     // === Floor slider ===
@@ -415,11 +537,14 @@ Control {
                     }
                     Slider {
                         id: floorSlider
-                        from: -200
-                        to: 0
-                        value: -100
+                        from: 0
+                        to: 255
+                        value: waterfall.floor
                         Layout.preferredWidth: 120
-                        // onValueChanged: spectrum.floor = value
+                        onValueChanged:  {
+                            waterfall.floor = value;
+                            spectrum.floor = value;
+                        }
                     }
 
                     // === Speed combobox ===
@@ -459,10 +584,9 @@ Control {
                     }
                     Slider {
                         id: pbtInnerSlider
-                        from: -3000
-                        to: 3000
-                        stepSize: 10
-                        value: 0
+                        objectName: "pbtInner"
+                        value: receiver.pbtInnerValue
+                        onMoved: receiver.pbtInnerValue = value
                         Layout.preferredWidth: 120
                         // onValueChanged: backend.pbtInner = value
                     }
@@ -474,10 +598,9 @@ Control {
                     }
                     Slider {
                         id: pbtOuterSlider
-                        from: -3000
-                        to: 3000
-                        stepSize: 10
-                        value: 0
+                        objectName: "pbtOuter"
+                        value: receiver.pbtOuterValue
+                        onMoved: receiver.pbtOuterValue = value
                         Layout.preferredWidth: 120
                         // onValueChanged: backend.pbtOuter = value
                     }
@@ -493,10 +616,9 @@ Control {
 
                         Slider {
                             id: ifShiftSlider
-                            from: -5000
-                            to: 5000
-                            stepSize: 10
-                            value: 0
+                            objectName: "ifShift"
+                            value: receiver.ifShiftValue
+                            onMoved: receiver.ifShiftValue = value
                             Layout.fillWidth: true
                             // onValueChanged: backend.ifShift = value
                         }
@@ -515,10 +637,9 @@ Control {
                     }
                     Slider {
                         id: filterWidthSlider
-                        from: 100
-                        to: 12000
-                        stepSize: 50
-                        value: 2400
+                        objectName: "filterWidth"
+                        value: receiver.filterWidthValue
+                        onMoved: receiver.filterWidthValue = value
                         Layout.preferredWidth: 120
                         // onValueChanged: backend.filterWidth = value
                     }
