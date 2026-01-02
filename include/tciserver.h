@@ -103,7 +103,7 @@ private:
     QByteArray rxAudioData;
     QByteArray txAudioData;
     QByteArray txChrono;
-    rigCapabilities* rigCaps = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
     QString tciMode(modeInfo m);
     modeInfo rigMode(QString);
     int dBmConversion = 73;

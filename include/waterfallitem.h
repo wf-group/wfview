@@ -4,12 +4,15 @@
 #pragma once
 
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QImage>
 #include <QMouseEvent>
 #include <QSGNode>
 #include <QSGSimpleTextureNode>
 #include <QElapsedTimer>
 #include "wfviewtypes.h"
+
+class ReceiverController; // forward declare
 
 class WaterfallRootNode : public QSGNode
 {
@@ -22,6 +25,7 @@ public:
 class WaterfallItem : public QQuickItem
 {
     Q_OBJECT
+    Q_PROPERTY(QObject* controller READ getController WRITE setController NOTIFY controllerChanged)
     Q_PROPERTY(int length READ getLength WRITE setLength NOTIFY lengthChanged)
     Q_PROPERTY(Theme theme READ getTheme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(bool smooth READ getSmooth WRITE setSmooth NOTIFY smoothChanged)
@@ -36,26 +40,25 @@ public:
 
     WaterfallItem();
 
+    QObject* getController() {return m_controller;}
     int getLength() const { return length; }
-    void setLength(int d);
-
     Theme getTheme() const { return theme; }
-    void setTheme(Theme t);
-
     bool getSmooth() const { return smooth; }
-    void setSmooth(bool s);
-
     uchar getFloor()   const { return floor; }
     uchar getCeiling() const { return ceiling; }
 
-    void setFloor(uchar v);
-    void setCeiling(uchar v);
 
 public slots:
     void updateScope(const scopeData &data);
-
+    void setController(QObject* c);
+    void setLength(int d);
+    void setTheme(Theme t);
+    void setSmooth(bool s);
+    void setFloor(uchar v);
+    void setCeiling(uchar v);
 
 signals:
+    void controllerChanged();
     void lengthChanged();
     void themeChanged();
     void smoothChanged();
@@ -70,8 +73,14 @@ protected:
     virtual void mousePressEvent(QMouseEvent *event) override;
     virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
     virtual void wheelEvent(QWheelEvent *event) override;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void geometryChange(const QRectF &newG, const QRectF &oldG) override;
+#else
+    void geometryChanged(const QRectF &newG, const QRectF &oldG) override;
+#endif
 
 private:
+    QPointer<QObject> m_controller;
     int imgWidth = 0;
     int length = 128;
     double startFreq = 0.0;

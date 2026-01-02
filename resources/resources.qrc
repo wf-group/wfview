@@ -16,8 +16,10 @@
         <file>mirabox293s.png</file>
         <file>miraboxn3.png</file>
         <file>frequency.ttf</file>
-		<file>MainWindow.qml</file>
-		<file>Receiver.qml</file>
-		<file>RigCreator.qml</file>
+        <file>MainWindow.qml</file>
+        <file>Receiver.qml</file>
+        <file>RigCreator.qml</file>
+        <file>LoggingWindow.qml</file>
+        <file>Settings.qml</file>
     </qresource>
 </RCC>

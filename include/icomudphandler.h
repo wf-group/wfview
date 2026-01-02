@@ -42,8 +42,8 @@ public:
 
 	bool streamOpened = false;
 
-	icomUdpCivData* civ = Q_NULLPTR;
-	icomUdpAudio* audio = Q_NULLPTR;
+	icomUdpCivData* civ = nullptr;
+	icomUdpAudio* audio = nullptr;
 
 	quint8 numRadios;
 	QList<radio_cap_packet> radios;
@@ -114,8 +114,8 @@ private:
 	QByteArray usernameEncoded;
 	QByteArray passwordEncoded;
 
-	QTimer* tokenTimer = Q_NULLPTR;
-	QTimer* areYouThereTimer = Q_NULLPTR;
+	QTimer* tokenTimer = nullptr;
+	QTimer* areYouThereTimer = nullptr;
 
 	bool highBandwidthConnection = false;
 	quint8 civId = 0;

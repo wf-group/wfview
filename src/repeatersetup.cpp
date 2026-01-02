@@ -702,7 +702,7 @@ void repeaterSetup::receiveRigCaps(rigCapabilities* rig)
 {
     qInfo() << "Receiving rigcaps into repeater setup.";
     this->rigCaps = rig;
-    if (rig != Q_NULLPTR)
+    if (rig != nullptr)
     {
         qInfo() << "repeaterSetup got rigcaps for:" << rig->modelName;
 

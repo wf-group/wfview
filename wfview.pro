@@ -24,7 +24,7 @@ contains(DEFINES,USB_CONTROLLER){
 TARGET = wfview
 TEMPLATE = app
 
-DEFINES += WFVIEW_VERSION=\\\"2.20\\\"
+DEFINES += WFVIEW_VERSION=\\\"3.00\\\"
 
 DEFINES += BUILD_WFVIEW
 
@@ -309,6 +309,10 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/resampler
 
 SOURCES += \
+    src/LogModel.cpp \
+    src/LoggingController.cpp \
+    src/MainController.cpp \
+    src/ReceiverController.cpp \
     src/RigCreatorController.cpp \
     src/aboutbox.cpp \
     src/audio/adpcm/adpcm-dns.c \
@@ -348,6 +352,7 @@ SOURCES += \
     src/meter.cpp \
     src/pttyhandler.cpp \
     src/qledlabel.cpp \
+    src/radio/SettingsController.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
@@ -384,7 +389,12 @@ SOURCES += \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/LogModel.h \
+    include/LoggingController.h \
+    include/MainController.h \
+    include/ReceiverController.h \
     include/RigCreatorController.h \
+    include/SettingsController.h \
     include/freqctrlquick.h \
     include/paletteproxy.h \
     include/spectrumitem.h \

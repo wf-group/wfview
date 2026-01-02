@@ -15,7 +15,7 @@ bandbuttons::bandbuttons(QWidget *parent) :
     queue = cachingQueue::getInstance();
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
     connect(queue,SIGNAL(cacheUpdated(cacheItem)),this,SLOT(receiveCache(cacheItem)));
-    if (rigCaps != Q_NULLPTR) {
+    if (rigCaps != nullptr) {
         ui->subBandCheck->setEnabled(rigCaps->numReceiver>1);
     }
 }
@@ -106,7 +106,7 @@ void bandbuttons::receiveRigCaps(rigCapabilities* rc)
     this->rigCaps = rc;
     qDebug(logGui()) << "Accepting new rigcaps into band buttons.";
 
-    if (rc != Q_NULLPTR) {
+    if (rc != nullptr) {
         ui->subBandCheck->setEnabled(rigCaps->numReceiver>1);
 
         qDebug(logGui()) << "Bands in this rigcaps: ";
@@ -155,7 +155,7 @@ void bandbuttons::setUIToRig()
     hideButton(ui->band2200mbtn);
     hideButton(ui->bandGenbtn);
 
-    if (rigCaps != Q_NULLPTR) {
+    if (rigCaps != nullptr) {
         for (auto &band: rigCaps->bands)
         {
             switch(band.band)
@@ -249,7 +249,7 @@ void bandbuttons::hideButton(QPushButton *b)
 
 void bandbuttons::bandStackBtnClick(availableBands band)
 {
-    if(rigCaps != Q_NULLPTR)
+    if(rigCaps != nullptr)
     {
         for (auto &b: rigCaps->bands)
         {
@@ -275,7 +275,7 @@ void bandbuttons::bandStackBtnClick(availableBands band)
 void bandbuttons::jumpToBandWithoutBSR(availableBands band)
 {
     // Sometimes we do not have a BSR for these bands:
-    if (rigCaps != Q_NULLPTR)
+    if (rigCaps != nullptr)
     {
         for (auto &b: rigCaps->bands)
         {
@@ -410,7 +410,7 @@ void bandbuttons::on_bandGenbtn_clicked()
 
 void bandbuttons::on_bandSetBtn_clicked()
 {
-    if(rigCaps != Q_NULLPTR)
+    if(rigCaps != nullptr)
     {
         qInfo() << "Setting BSR to current freq/mode, first find band that contains frequency:" << currentFrequency.MHzDouble;
         // First find which band we are in

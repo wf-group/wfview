@@ -43,6 +43,8 @@ public:
 
 public slots:
     void setText(const QString &t) {
+        qInfo() << "Clipboard set:" << t;
+
         if (auto cb = QGuiApplication::clipboard()) {
             if (cb->text() == t) return;
             cb->setText(t);
@@ -150,7 +152,11 @@ private:
     }
 
     static QVariant normalize(const QVariant &v) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         if (v.typeId() == QMetaType::QString) {
+#else
+        if (v.type() == QMetaType::QString) {
+#endif
             const QString s = v.toString().trimmed().toLower();
             if (s == "true")  return true;
             if (s == "false") return false;
@@ -159,8 +165,13 @@ private:
     }
 
     static QVariant denormalize(const QVariant &v) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         if (v.typeId() == QMetaType::Bool)
             return v.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+#else
+        if (v.type() == QMetaType::Bool)
+            return v.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+#endif
         return v;
     }
 

@@ -31,7 +31,7 @@ void dxClusterClient::enableUdp(bool enable)
     udpEnable = enable;
     if (enable)
     {
-        if (udpSocket == Q_NULLPTR)
+        if (udpSocket == nullptr)
         {
             udpSocket = new QUdpSocket(this);
             bool result = udpSocket->bind(QHostAddress::AnyIPv4, udpPort);
@@ -41,13 +41,13 @@ void dxClusterClient::enableUdp(bool enable)
         }
     }
     else {
-        if (udpSocket != Q_NULLPTR)
+        if (udpSocket != nullptr)
         {
             qInfo(logCluster()) << "Stopping udpSocket() on:" << udpPort;
 
             udpSocket->disconnect();
             delete udpSocket;
-            udpSocket = Q_NULLPTR;
+            udpSocket = nullptr;
         }
     }
 }
@@ -61,7 +61,7 @@ void dxClusterClient::enableTcp(bool enable)
         tcpRegex = QRegularExpression("^DX de ([A-Z|0-9|\\/\\-#]{3,}): +(\\d*.\\d{1,2}) +([A-Z|0-9|\\/]{3,}) +(.{1,})? +(\\d{4})Z");
         tcpRegex.setPatternOptions(QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
 
-        if (tcpSocket == Q_NULLPTR)
+        if (tcpSocket == nullptr)
         {
             tcpSocket = new QTcpSocket(this);
             tcpSocket->connectToHost(tcpServerName, tcpPort);
@@ -79,20 +79,20 @@ void dxClusterClient::enableTcp(bool enable)
         }
     }
     else {
-        if (tcpSocket != Q_NULLPTR)
+        if (tcpSocket != nullptr)
         {
             sendTcpData(QString("bye\n"));
             qInfo(logCluster()) << "Disconnecting tcpSocket() on:" << tcpPort;
             emit sendOutput(QString("\nDisconnecting from %0 %1\n").arg(tcpServerName).arg(tcpPort));
-            if (tcpCleanupTimer != Q_NULLPTR)
+            if (tcpCleanupTimer != nullptr)
             {
                 tcpCleanupTimer->stop();
                 delete tcpCleanupTimer;
-                tcpCleanupTimer = Q_NULLPTR;
+                tcpCleanupTimer = nullptr;
             }
             tcpSocket->disconnect();
             delete tcpSocket;
-            tcpSocket = Q_NULLPTR;
+            tcpSocket = nullptr;
         }
     }
 }
@@ -230,7 +230,7 @@ void dxClusterClient::tcpDataReceived()
 void dxClusterClient::sendTcpData(QString data)
 {
     qInfo(logCluster()) << "Sending:" << data;
-    if (tcpSocket != Q_NULLPTR && tcpSocket->isValid() && tcpSocket->isOpen())
+    if (tcpSocket != nullptr && tcpSocket->isValid() && tcpSocket->isOpen())
     {
         tcpSocket->write(data.toLatin1());
     }

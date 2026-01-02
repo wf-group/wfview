@@ -36,7 +36,7 @@ public:
 
 private:
     Ui::debugWindow *ui;
-    cachingQueue* queue = Q_NULLPTR;
+    cachingQueue* queue = nullptr;
     QMultiMap <queuePriority,queueItem> queueItems;
     QMap<funcs,cacheItem> cacheItems;
     QString getValue(QVariant val);

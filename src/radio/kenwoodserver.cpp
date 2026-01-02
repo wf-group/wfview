@@ -33,11 +33,11 @@ kenwoodServer::~kenwoodServer()
     qInfo(logRigServer()) << "Stopping audio streaming";
     foreach (RIGCONFIG* radio, config->rigs)
     {
-        if (radio->rtpThread != Q_NULLPTR) {
+        if (radio->rtpThread != nullptr) {
             radio->rtpThread->quit();
             radio->rtpThread->wait();
-            radio->rtp = Q_NULLPTR;
-            radio->rtpThread = Q_NULLPTR;
+            radio->rtp = nullptr;
+            radio->rtpThread = nullptr;
         }
     }
 
@@ -49,7 +49,7 @@ kenwoodServer::~kenwoodServer()
         delete it.value();
     }
 
-    if (server != Q_NULLPTR)
+    if (server != nullptr)
     {
         server->close();
     }
@@ -62,7 +62,7 @@ void kenwoodServer::dataForServer(QByteArray d)
 {
     kenwoodCommander* sender = qobject_cast<kenwoodCommander*>(QObject::sender());
 
-    if (sender == Q_NULLPTR)
+    if (sender == nullptr)
     {
         qInfo(logRigServer()) << "Object type didn't match!";
         //return;
@@ -74,7 +74,7 @@ void kenwoodServer::dataForServer(QByteArray d)
     {
         QTcpSocket* socket = it.key();
         CLIENT* client = it.value();
-        if (socket != Q_NULLPTR && client != Q_NULLPTR && socket->isOpen() && client->connected && client->authenticated)
+        if (socket != nullptr && client != nullptr && socket->isOpen() && client->connected && client->authenticated)
         {
             socket->write(d);
         }
@@ -88,7 +88,7 @@ void kenwoodServer::receiveAudioData(const audioPacket& d)
 {
     rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
     quint8 guid[GUIDLEN];
-    if (sender != Q_NULLPTR)
+    if (sender != nullptr)
     {
         memcpy(guid, sender->getGUID(), GUIDLEN);
     }
@@ -123,11 +123,11 @@ void kenwoodServer::disconnected(QTcpSocket* socket)
     clients.remove(socket);
     foreach (RIGCONFIG* radio, config->rigs)
     {
-        if (radio->rtpThread != Q_NULLPTR) {
+        if (radio->rtpThread != nullptr) {
             radio->rtpThread->quit();
             radio->rtpThread->wait();
-            radio->rtp = Q_NULLPTR;
-            radio->rtpThread = Q_NULLPTR;
+            radio->rtp = nullptr;
+            radio->rtpThread = nullptr;
         }
     }
 }
@@ -231,7 +231,7 @@ void kenwoodServer::readyRead(QTcpSocket* socket)
                 uchar vp = uchar(d.mid(4,1).toUShort());
                 foreach (RIGCONFIG* radio, config->rigs)
                 {
-                    if ((!memcmp(radio->guid, c->guid, GUIDLEN) || config->rigs.size()==1) && radio->rtp == Q_NULLPTR && !config->lan)
+                    if ((!memcmp(radio->guid, c->guid, GUIDLEN) || config->rigs.size()==1) && radio->rtp == nullptr && !config->lan)
                     {
                         if (!c->isStreaming && vp)
                         {
@@ -288,11 +288,11 @@ void kenwoodServer::readyRead(QTcpSocket* socket)
                         else
                         {
                             qInfo(logRigServer()) << "Stopping audio streaming";
-                            if (radio->rtpThread != Q_NULLPTR) {
+                            if (radio->rtpThread != nullptr) {
                                 radio->rtpThread->quit();
                                 radio->rtpThread->wait();
-                                radio->rtp = Q_NULLPTR;
-                                radio->rtpThread = Q_NULLPTR;
+                                radio->rtp = nullptr;
+                                radio->rtpThread = nullptr;
                             }
                             c->isStreaming=false;
                         }

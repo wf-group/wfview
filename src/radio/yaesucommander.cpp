@@ -29,42 +29,42 @@ yaesuCommander::~yaesuCommander()
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
-    queue->setRigCaps(Q_NULLPTR); // Remove access to rigCaps
+    queue->setRigCaps(nullptr); // Remove access to rigCaps
 
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         if (port->isOpen())
         {
             port->close();
         }
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
 
     qDebug(logRig()) << "Closing rig comms";
 
-    if (ft4222 != Q_NULLPTR)
+    if (ft4222 != nullptr)
     {
         ft4222->stop();
         ft4222->exit();
         ft4222->wait();
     }
 
-    if (controlThread != Q_NULLPTR)
+    if (controlThread != nullptr)
     {
         controlThread->quit();
         controlThread->wait();
     }
-    if (catThread != Q_NULLPTR)
+    if (catThread != nullptr)
     {
         catThread->quit();
         catThread->wait();
     }
-    if (audioThread != Q_NULLPTR)
+    if (audioThread != nullptr)
     {
         audioThread->quit();
         audioThread->wait();
     }
-    if (scopeThread != Q_NULLPTR)
+    if (scopeThread != nullptr)
     {
         scopeThread->quit();
         scopeThread->wait();
@@ -72,7 +72,7 @@ yaesuCommander::~yaesuCommander()
 
 }
 
-void yaesuCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
 {
     // constructor for serial connected rigs
     // As the serial connection is quite simple, no need to use a dedicated class.
@@ -86,11 +86,11 @@ void yaesuCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAdd
 
     usingNativeLAN = false;
 
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         if (port->isOpen())
             port->close();
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
 
     port = new QSerialPort();
@@ -294,7 +294,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
 
 }
 
-void yaesuCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
 {
     // constructor for network (LAN) connected rigs
     this->rigList = rigList;
@@ -425,12 +425,12 @@ void yaesuCommander::lanDisconnected()
 void yaesuCommander::closeComm()
 {
     qInfo(logRig()) << "Closing rig comms";
-    if (port != Q_NULLPTR && portConnected)
+    if (port != nullptr && portConnected)
     {
         if (port->isOpen())
             port->close();
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
     portConnected=false;
 }
@@ -1053,7 +1053,7 @@ void yaesuCommander::parseData(QByteArray data)
 #endif
         }
 
-        if (value.isValid() && queue != Q_NULLPTR) {
+        if (value.isValid() && queue != nullptr) {
             queue->receiveValue(func,value,receiver);
         }
     }

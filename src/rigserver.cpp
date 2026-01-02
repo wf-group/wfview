@@ -22,7 +22,7 @@ void rigServer::init()
 
 void rigServer::receiveRigCaps(rigCapabilities* caps)
 {
-    if (caps == Q_NULLPTR)
+    if (caps == nullptr)
         return;
 
     foreach (RIGCONFIG* rig, config->rigs) {

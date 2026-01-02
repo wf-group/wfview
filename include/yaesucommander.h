@@ -28,8 +28,8 @@ public:
 
 public slots:
     void process() override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
 
     void lanConnected();
     void lanDisconnected();
@@ -81,22 +81,22 @@ private:
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
     mutable QMutex serialMutex;
-    QIODevice *port=Q_NULLPTR;
+    QIODevice *port=nullptr;
     bool portConnected=false;
     bool isTransmitting = false;
     QByteArray lastSentCommand;
 
-    pttyHandler* ptty = Q_NULLPTR;
-    tcpServer* tcp = Q_NULLPTR;
+    pttyHandler* ptty = nullptr;
+    tcpServer* tcp = nullptr;
 
-    yaesuUdpControl* control = Q_NULLPTR;
-    QThread* controlThread = Q_NULLPTR;
-    yaesuUdpCat* cat = Q_NULLPTR;
-    QThread* catThread = Q_NULLPTR;
-    yaesuUdpAudio* audio = Q_NULLPTR;
-    QThread* audioThread = Q_NULLPTR;
-    yaesuUdpScope* scope = Q_NULLPTR;
-    QThread* scopeThread = Q_NULLPTR;
+    yaesuUdpControl* control = nullptr;
+    QThread* controlThread = nullptr;
+    yaesuUdpCat* cat = nullptr;
+    QThread* catThread = nullptr;
+    yaesuUdpAudio* audio = nullptr;
+    QThread* audioThread = nullptr;
+    yaesuUdpScope* scope = nullptr;
+    QThread* scopeThread = nullptr;
 
     QHash<quint16,rigInfo> rigList;
     quint16 rigCivAddr;
@@ -122,7 +122,7 @@ private:
 
     genericType scopeMode;
     centerSpanData scopeSpan;
-    ft4222Handler* ft4222 = Q_NULLPTR;
+    ft4222Handler* ft4222 = nullptr;
 };
 
 

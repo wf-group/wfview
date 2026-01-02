@@ -41,17 +41,17 @@ struct RIGCONFIG {
 	};
 #pragma pack(pop)
 	bool rigAvailable=false;
-    rigCapabilities* rigCaps = Q_NULLPTR;
-	rigCommander* rig = Q_NULLPTR;
-	QThread* rigThread = Q_NULLPTR;
-    audioHandlerBase* rxaudio = Q_NULLPTR;
-	QThread* rxAudioThread = Q_NULLPTR;
-    audioHandlerBase* txaudio = Q_NULLPTR;
-	QThread* txAudioThread = Q_NULLPTR;
-	QTimer* rxAudioTimer = Q_NULLPTR;
-	QTimer* connectTimer = Q_NULLPTR;
-    rtpAudio* rtp = Q_NULLPTR;
-    QThread* rtpThread = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
+	rigCommander* rig = nullptr;
+	QThread* rigThread = nullptr;
+    audioHandlerBase* rxaudio = nullptr;
+	QThread* rxAudioThread = nullptr;
+    audioHandlerBase* txaudio = nullptr;
+	QThread* txAudioThread = nullptr;
+	QTimer* rxAudioTimer = nullptr;
+	QTimer* connectTimer = nullptr;
+    rtpAudio* rtp = nullptr;
+    QThread* rtpThread = nullptr;
     quint8 waterfallFormat;
      quint64 queueInterval=1000;
 };

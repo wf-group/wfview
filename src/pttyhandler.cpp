@@ -229,7 +229,7 @@ void pttyHandler::receiveDataIn(int fd) {
                 qInfo(logSerial()) << "pty remote CI-V changed:" << QString("0x%1").arg((quint8)civId,0,16);
             }
             // filter C-IV transceive command before forwarding on.
-            if (rigCaps != Q_NULLPTR && rigCaps->commands.contains(funcCIVTransceive) && inPortData.contains(rigCaps->commands.find(funcCIVTransceive).value().data))
+            if (rigCaps != nullptr && rigCaps->commands.contains(funcCIVTransceive) && inPortData.contains(rigCaps->commands.find(funcCIVTransceive).value().data))
             {
                 //qInfo(logSerial()) << "Filtered transceive command";
                 //printHex(inPortData, false, true);
@@ -284,7 +284,7 @@ void pttyHandler::receiveDataIn(int fd) {
 void pttyHandler::closePort()
 {
 #ifdef Q_OS_WIN
-    if (port != Q_NULLPTR)
+    if (port != nullptr)
     {
         port->close();
         delete port;
@@ -348,7 +348,7 @@ void pttyHandler::printHex(const QByteArray& pdata, bool printVert, bool printHo
 
 void pttyHandler::receiveRigCaps(rigCapabilities* caps)
 {
-    if (caps != Q_NULLPTR) {
+    if (caps != nullptr) {
         qInfo(logSerial()) << "Got rigcaps for:" << caps->modelName;
     }
     this->rigCaps = caps;

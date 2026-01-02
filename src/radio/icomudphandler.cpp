@@ -88,14 +88,14 @@ void icomUdpHandler::init()
 icomUdpHandler::~icomUdpHandler()
 {
     if (streamOpened) {
-        if (audio != Q_NULLPTR) {
+        if (audio != nullptr) {
             delete audio;
-            audio = Q_NULLPTR;
+            audio = nullptr;
         }
 
-        if (civ != Q_NULLPTR) {
+        if (civ != nullptr) {
             delete civ;
-            civ = Q_NULLPTR;
+            civ = nullptr;
         }
 
         qInfo(logUdp()) << "Sending token removal packet";
@@ -126,7 +126,7 @@ void icomUdpHandler::receiveAudioData(const audioPacket &data)
 
 void icomUdpHandler::receiveDataFromUserToRig(QByteArray data)
 {
-    if (civ != Q_NULLPTR)
+    if (civ != nullptr)
     {
         civ->send(data);
     }
@@ -240,11 +240,11 @@ void icomUdpHandler::dataReceived()
                     status.networkLatency /= 2;
                     status.packetsSent = packetsSent;
                     status.packetsLost = packetsLost;
-                    if (audio != Q_NULLPTR) {
+                    if (audio != nullptr) {
                         status.packetsSent = status.packetsSent + audio->packetsSent;
                         status.packetsLost = status.packetsLost + audio->packetsLost;
                     }
-                    if (civ != Q_NULLPTR) {
+                    if (civ != nullptr) {
                         status.packetsSent = status.packetsSent + civ->packetsSent;
                         status.packetsLost = status.packetsLost + civ->packetsLost;
                     }
@@ -323,14 +323,14 @@ void icomUdpHandler::dataReceived()
                         qInfo(logUdp()) << this->metaObject()->className() << ": Got radio disconnected.";
                         if (streamOpened) {
                             // Close stream connections but keep connection open to the radio.
-                            if (audio != Q_NULLPTR) {
+                            if (audio != nullptr) {
                                 delete audio;
-                                audio = Q_NULLPTR;
+                                audio = nullptr;
                             }
 
-                            if (civ != Q_NULLPTR) {
+                            if (civ != nullptr) {
                                 delete civ;
-                                civ = Q_NULLPTR;
+                                civ = nullptr;
                             }
 
                             streamOpened = false;
@@ -351,7 +351,7 @@ void icomUdpHandler::dataReceived()
                             }
                             streamOpened = true;
                         }
-                        if (audio == Q_NULLPTR) {
+                        if (audio == nullptr) {
                             audio = new icomUdpAudio(localIP, radioIP, audioPort, audioLocalPort, rxSetup, txSetup);
 
                             QObject::connect(audio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
@@ -528,14 +528,14 @@ void icomUdpHandler::dataReceived()
 void icomUdpHandler::setCurrentRadio(quint8 radio) {
 
     // If we are currently connected to a different radio, disconnect first
-    if (audio != Q_NULLPTR) {
+    if (audio != nullptr) {
         delete audio;
-        audio = Q_NULLPTR;
+        audio = nullptr;
     }
 
-    if (civ != Q_NULLPTR) {
+    if (civ != nullptr) {
         delete civ;
-        civ = Q_NULLPTR;
+        civ = nullptr;
     }
 
     streamOpened = false;

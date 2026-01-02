@@ -113,8 +113,8 @@ private:
     freqt currentOffset;
     bool usedPlusSplit = false;
     bool amTransmitting = false;
-    cachingQueue* queue = Q_NULLPTR;
-    rigCapabilities* rigCaps = Q_NULLPTR;
+    cachingQueue* queue = nullptr;
+    rigCapabilities* rigCaps = nullptr;
 };
 
 #endif // REPEATERSETUP_H

@@ -11,13 +11,13 @@ yaesuUdpAudio::yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 po
 
 yaesuUdpAudio::~yaesuUdpAudio()
 {
-    if (rxAudioThread != Q_NULLPTR) {
+    if (rxAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping rxaudio thread";
         rxAudioThread->quit();
         rxAudioThread->wait();
     }
 
-    if (txAudioThread != Q_NULLPTR) {
+    if (txAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping txaudio thread";
         txAudioThread->quit();
         txAudioThread->wait();
@@ -80,7 +80,7 @@ void yaesuUdpAudio::init()
 #endif
     else
     {
-        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
+        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!" << rxSetup.type;
         return;
     }
 
@@ -115,7 +115,7 @@ void yaesuUdpAudio::init()
 #endif
     else
     {
-        qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";
+        qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
         return;
     }
 
@@ -324,7 +324,7 @@ quint8 yaesuUdpAudio::findMax(quint8 *data)
 
 void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
     // I really can't see how this could be possible but a quick sanity check!
-    if (txaudio == Q_NULLPTR) {
+    if (txaudio == nullptr) {
         return;
     }
     if (audio.data.length() > 0) {

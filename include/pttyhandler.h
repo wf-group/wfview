@@ -58,7 +58,7 @@ private:
     quint8 buffer[256];
 
     QString portName;
-    QSerialPort* port = Q_NULLPTR;
+    QSerialPort* port = nullptr;
     qint32 baudRate;
     quint8 stopBits;
     bool rolledBack;
@@ -72,10 +72,10 @@ private:
     mutable QMutex mutex;
     void printHex(const QByteArray& pdata, bool printVert, bool printHoriz);
     bool disableTransceive = false;
-    QSocketNotifier *ptReader = Q_NULLPTR;
+    QSocketNotifier *ptReader = nullptr;
     quint16 civId=0;
-    rigCapabilities* rigCaps = Q_NULLPTR;
-    cachingQueue* queue = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
+    cachingQueue* queue = nullptr;
 };
 
 #endif // PTTYHANDLER_H

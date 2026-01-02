@@ -8,7 +8,7 @@
 
 struct colorPrefsType{
     int presetNum = -1;
-    QString *presetName = Q_NULLPTR;
+    QString *presetName = nullptr;
 
     // Spectrum line plot:
     QColor gridColor;

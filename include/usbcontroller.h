@@ -141,8 +141,8 @@ struct USBDEVICE {
     QLabel *message;
     int pages;
     int currentPage;
-    QGraphicsScene* scene = Q_NULLPTR;
-    QSpinBox* pageSpin = Q_NULLPTR;
+    QGraphicsScene* scene = nullptr;
+    QSpinBox* pageSpin = nullptr;
     QImage image;
     quint8 ledStatus;
 };
@@ -179,23 +179,23 @@ struct BUTTON {
         dev(dev), num(-1), name(name), pos(pos), textColour(textColour), onCommand(on), offCommand(off), on(onCommand->text), off(offCommand->text) {}
 
     usbDeviceType dev;
-    USBDEVICE* parent = Q_NULLPTR;
+    USBDEVICE* parent = nullptr;
     int page=1;
     int num;
     QString name;
     QRect pos;
     QColor textColour;
-    const COMMAND* onCommand = Q_NULLPTR;
-    const COMMAND* offCommand = Q_NULLPTR;
-    QGraphicsRectItem* bgRect = Q_NULLPTR;
-    QGraphicsTextItem* text = Q_NULLPTR;
+    const COMMAND* onCommand = nullptr;
+    const COMMAND* offCommand = nullptr;
+    QGraphicsRectItem* bgRect = nullptr;
+    QGraphicsTextItem* text = nullptr;
     QString on;
     QString off;
     QString path;
     QColor backgroundOn = Qt::lightGray;
     QColor backgroundOff = Qt::blue;
     QString iconName = "";
-    QImage* icon = Q_NULLPTR;
+    QImage* icon = nullptr;
     bool toggle = false;
     bool isOn = false;
     bool graphics = false;
@@ -210,14 +210,14 @@ struct KNOB {
         dev(dev), num(num), name(""), pos(pos), textColour(textColour), command(command), cmd(command->text) {}
 
     usbDeviceType dev;
-    USBDEVICE* parent = Q_NULLPTR;
+    USBDEVICE* parent = nullptr;
     int page=1;
     int num;
     QString name;
     QRect pos;
     QColor textColour;
-    const COMMAND* command = Q_NULLPTR;
-    QGraphicsTextItem* text = Q_NULLPTR;
+    const COMMAND* command = nullptr;
+    QGraphicsTextItem* text = nullptr;
     QString cmd;
     QString path;
     int value=0;
@@ -245,7 +245,7 @@ public slots:
     void programPages(USBDEVICE* dev, int pages);
     void programDisable(USBDEVICE* dev, bool disabled);
 
-    void sendRequest(USBDEVICE *dev, usbFeatureType feature, int val=0, QString text="", QImage* img=Q_NULLPTR, QColor* color=Q_NULLPTR);
+    void sendRequest(USBDEVICE *dev, usbFeatureType feature, int val=0, QString text="", QImage* img=nullptr, QColor* color=nullptr);
     void sendToLCD(QImage *img);
     void backupController(USBDEVICE* dev, QString file);
     void restoreController(USBDEVICE* dev, QString file);
@@ -294,19 +294,19 @@ private:
     usbDevMap* devices;
 
     cachingQueue *queue;
-    rigCapabilities* rigCaps = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    QGamepad* gamepad=Q_NULLPTR;
+    QGamepad* gamepad=nullptr;
 #endif
     void buttonState(QString but, bool val);
     void buttonState(QString but, double val);
     QColor currentColour;
 
-    QMutex* mutex=Q_NULLPTR;
+    QMutex* mutex=nullptr;
     COMMAND sendCommand;
 
-    QTimer* dataTimer = Q_NULLPTR;
+    QTimer* dataTimer = nullptr;
 protected:
 };
 

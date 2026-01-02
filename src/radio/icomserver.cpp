@@ -119,15 +119,15 @@ icomServer::~icomServer()
     }
 
     // Now all connections are deleted, close and delete the sockets
-    if (udpControl != Q_NULLPTR) {
+    if (udpControl != nullptr) {
         udpControl->close();
         delete udpControl;
     }
-    if (udpCiv != Q_NULLPTR) {
+    if (udpCiv != nullptr) {
         udpCiv->close();
         delete udpCiv;
     }
-    if (icomUdpAudio != Q_NULLPTR) {
+    if (icomUdpAudio != nullptr) {
         icomUdpAudio->close();
         delete icomUdpAudio;
     }
@@ -141,13 +141,13 @@ void icomServer::controlReceived()
     while (udpControl->hasPendingDatagrams()) {
         QNetworkDatagram datagram = udpControl->receiveDatagram();
         QByteArray r = datagram.data();
-        CLIENT* current = Q_NULLPTR;
+        CLIENT* current = nullptr;
         if (datagram.senderAddress().isNull() || datagram.senderPort() == 65535 || datagram.senderPort() == 0)
             return;
 
         foreach(CLIENT * client, controlClients)
         {
-            if (client != Q_NULLPTR)
+            if (client != nullptr)
             {
                 if (client->ipAddress == datagram.senderAddress() && client->port == datagram.senderPort())
                 {
@@ -155,7 +155,7 @@ void icomServer::controlReceived()
                 }
             }
         }
-        if (current == Q_NULLPTR)
+        if (current == nullptr)
         {
             current = new CLIENT();
             current->type = "Control";
@@ -217,10 +217,10 @@ void icomServer::controlReceived()
                 qInfo(logRigServer()) << current->ipAddress.toString() << ": Received 'disconnect' request";
                 sendControl(current, 0x00, in->seq);
 
-                if (current->audioClient != Q_NULLPTR) {
+                if (current->audioClient != nullptr) {
                     deleteConnection(&audioClients, current->audioClient);
                 }
-                if (current->civClient != Q_NULLPTR) {
+                if (current->civClient != nullptr) {
                     deleteConnection(&civClients, current->civClient);
                 }
                 deleteConnection(&controlClients, current);
@@ -359,7 +359,7 @@ void icomServer::controlReceived()
             audioSetup setup;
             setup.resampleQuality = config->resampleQuality;
             foreach (RIGCONFIG* radio, config->rigs) {
-                if ((!memcmp(radio->guid, current->guid, GUIDLEN) || config->rigs.size()==1) && radio->txaudio == Q_NULLPTR && !config->lan)
+                if ((!memcmp(radio->guid, current->guid, GUIDLEN) || config->rigs.size()==1) && radio->txaudio == nullptr && !config->lan)
                 {
                     radio->txAudioSetup.codec = current->txCodec;
                     radio->txAudioSetup.sampleRate=current->txSampleRate;
@@ -384,7 +384,7 @@ void icomServer::controlReceived()
                     }
 
 
-                    if (radio->txaudio != Q_NULLPTR) {
+                    if (radio->txaudio != nullptr) {
                         radio->txAudioThread = new QThread(this);
                         radio->txAudioThread->setObjectName("txAudio()");
 
@@ -410,7 +410,7 @@ void icomServer::controlReceived()
                         connect(this, SIGNAL(haveAudioData(audioPacket)), radio->txaudio, SLOT(incomingAudio(audioPacket)));
                     }
                 }
-                if ((!memcmp(radio->guid, current->guid, GUIDLEN) || config->rigs.size() == 1) && radio->rxaudio == Q_NULLPTR && !config->lan)
+                if ((!memcmp(radio->guid, current->guid, GUIDLEN) || config->rigs.size() == 1) && radio->rxaudio == nullptr && !config->lan)
                 {
                     radio->rxAudioSetup.codec = current->rxCodec;
                     radio->rxAudioSetup.sampleRate=current->rxSampleRate;
@@ -432,7 +432,7 @@ void icomServer::controlReceived()
                         qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
                     }
 
-                    if (radio->rxaudio != Q_NULLPTR)
+                    if (radio->rxaudio != nullptr)
                     {
                         // This is the first client, so stop running the queue.
                         radio->queueInterval = queue->interval();
@@ -473,7 +473,7 @@ void icomServer::controlReceived()
         }
 
         // Connection "may" have been deleted so check before calling common function.
-        if (current != Q_NULLPTR) {
+        if (current != nullptr) {
             commonReceived(&controlClients, current, r);
         }
     }
@@ -486,7 +486,7 @@ void icomServer::civReceived()
         QNetworkDatagram datagram = udpCiv->receiveDatagram();
         QByteArray r = datagram.data();
 
-        CLIENT* current = Q_NULLPTR;
+        CLIENT* current = nullptr;
 
         if (datagram.senderAddress().isNull() || datagram.senderPort() == 65535 || datagram.senderPort() == 0)
             return;
@@ -495,7 +495,7 @@ void icomServer::civReceived()
 
         foreach(CLIENT * client, civClients)
         {
-            if (client != Q_NULLPTR)
+            if (client != nullptr)
             {
                 if (client->ipAddress == datagram.senderAddress() && client->port == datagram.senderPort())
                 {
@@ -504,14 +504,14 @@ void icomServer::civReceived()
             }
         }
 
-        if (current == Q_NULLPTR)
+        if (current == nullptr)
         {
             current = new CLIENT();
             foreach(CLIENT* client, controlClients)
             {
-                if (client != Q_NULLPTR)
+                if (client != nullptr)
                 {
-                    if (client->ipAddress == datagram.senderAddress() && client->isAuthenticated && client->civClient == Q_NULLPTR)
+                    if (client->ipAddress == datagram.senderAddress() && client->isAuthenticated && client->civClient == nullptr)
                     {
                         current->controlClient = client;
                         client->civClient = current;
@@ -520,7 +520,7 @@ void icomServer::civReceived()
                 }
             }
 
-            if (current->controlClient == Q_NULLPTR || !current->controlClient->isAuthenticated)
+            if (current->controlClient == nullptr || !current->controlClient->isAuthenticated)
             {
                 // There is no current controlClient that matches this civClient 
                 delete current;
@@ -653,7 +653,7 @@ void icomServer::civReceived()
             //break;
         }
         }
-        if (current != Q_NULLPTR) {
+        if (current != nullptr) {
             icomServer::commonReceived(&civClients, current, r);
         }
 
@@ -665,7 +665,7 @@ void icomServer::audioReceived()
     while (icomUdpAudio->hasPendingDatagrams()) {
         QNetworkDatagram datagram = icomUdpAudio->receiveDatagram();
         QByteArray r = datagram.data();
-        CLIENT* current = Q_NULLPTR;
+        CLIENT* current = nullptr;
 
         if (datagram.senderAddress().isNull() || datagram.senderPort() == 65535 || datagram.senderPort() == 0)
             return;
@@ -674,7 +674,7 @@ void icomServer::audioReceived()
 
         foreach(CLIENT * client, audioClients)
         {
-            if (client != Q_NULLPTR)
+            if (client != nullptr)
             {
                 if (client->ipAddress == datagram.senderAddress() && client->port == datagram.senderPort())
                 {
@@ -682,14 +682,14 @@ void icomServer::audioReceived()
                 }
             }
         }
-        if (current == Q_NULLPTR)
+        if (current == nullptr)
         {
             current = new CLIENT();
             foreach(CLIENT* client, controlClients)
             {
-                if (client != Q_NULLPTR)
+                if (client != nullptr)
                 {
-                    if (client->ipAddress == datagram.senderAddress() && client->isAuthenticated && client->audioClient == Q_NULLPTR)
+                    if (client->ipAddress == datagram.senderAddress() && client->isAuthenticated && client->audioClient == nullptr)
                     {
                         current->controlClient = client;
                         client->audioClient = current;
@@ -698,7 +698,7 @@ void icomServer::audioReceived()
                 }
             }
 
-            if (current->controlClient == Q_NULLPTR || !current->controlClient->isAuthenticated)
+            if (current->controlClient == nullptr || !current->controlClient->isAuthenticated)
             {
                 // There is no current controlClient that matches this audioClient 
                 delete current;
@@ -808,7 +808,7 @@ void icomServer::audioReceived()
         }
 
         }
-        if (current != Q_NULLPTR) {
+        if (current != nullptr) {
             icomServer::commonReceived(&audioClients, current, r);
         }
     }
@@ -818,7 +818,7 @@ void icomServer::audioReceived()
 void icomServer::commonReceived(QList<CLIENT*>* l, CLIENT* current, QByteArray r)
 {
     Q_UNUSED(l); // We might need it later!
-    if (current == Q_NULLPTR || r.isNull()) {
+    if (current == nullptr || r.isNull()) {
         return;
     }
     current->lastHeard = QDateTime::currentDateTime();
@@ -844,7 +844,7 @@ void icomServer::commonReceived(QList<CLIENT*>* l, CLIENT* current, QByteArray r
             qInfo(logRigServer()) << current->ipAddress.toString() << "(" << current->type << "): Received 'Are you ready'";
             current->remoteId = in->sentid;
             sendControl(current, 0x06, in->seq);
-            if (current->idleTimer != Q_NULLPTR && !current->idleTimer->isActive()) {
+            if (current->idleTimer != nullptr && !current->idleTimer->isActive()) {
                 current->idleTimer->start(100);
             }
         } // This is a single packet retransmit request
@@ -1175,11 +1175,11 @@ void icomServer::sendLoginResponse(CLIENT* c, bool allowed)
 
     if (!allowed) {
         p.error = 0xFEFFFFFF;
-        if (c->idleTimer != Q_NULLPTR)
+        if (c->idleTimer != nullptr)
             c->idleTimer->stop();
-        if (c->pingTimer != Q_NULLPTR)
+        if (c->pingTimer != nullptr)
             c->pingTimer->stop();
-        if (c->retransmitTimer != Q_NULLPTR)
+        if (c->retransmitTimer != nullptr)
             c->retransmitTimer->stop();
     }
     else {
@@ -1222,7 +1222,7 @@ void icomServer::sendLoginResponse(CLIENT* c, bool allowed)
         qInfo(logRigServer()) << "Unable to lock udpMutex()";
     }
 
-    if (c->idleTimer != Q_NULLPTR)
+    if (c->idleTimer != nullptr)
         c->idleTimer->start(100);
 
     return;
@@ -1276,7 +1276,7 @@ void icomServer::sendCapabilities(CLIENT* c)
             0x02 = 16K only
             0x01 = 8K only
         */
-        if (rig->rxaudio == Q_NULLPTR) {
+        if (rig->rxaudio == nullptr) {
             r.rxsample = 0x8b01; // all rx sample frequencies supported
         }
         else {
@@ -1297,7 +1297,7 @@ void icomServer::sendCapabilities(CLIENT* c)
             }
         }
 
-        if (rig->txaudio == Q_NULLPTR) {
+        if (rig->txaudio == nullptr) {
             r.txsample = 0x8b01; // all tx sample frequencies supported
             r.enablea = 0x01; // 0x01 enables TX 24K mode?
             qInfo(logRigServer()) << c->ipAddress.toString() << "(" << c->type << "): Client will have TX audio";
@@ -1347,7 +1347,7 @@ void icomServer::sendCapabilities(CLIENT* c)
     }
 
 
-    if (c->idleTimer != Q_NULLPTR)
+    if (c->idleTimer != nullptr)
         c->idleTimer->start(100);
 
     return;
@@ -1439,7 +1439,7 @@ void icomServer::sendConnectionInfo(CLIENT* c, quint8 guid[GUIDLEN])
 
         }
     }
-    if (c->idleTimer != Q_NULLPTR)
+    if (c->idleTimer != nullptr)
         c->idleTimer->start(100);
 
     return;
@@ -1499,7 +1499,7 @@ void icomServer::sendTokenResponse(CLIENT* c, quint8 type)
     }
 
 
-    if (c->idleTimer != Q_NULLPTR)
+    if (c->idleTimer != nullptr)
         c->idleTimer->start(100);
 
     return;
@@ -1511,7 +1511,7 @@ void icomServer::watchdog()
 
     foreach(CLIENT * client, audioClients)
     {
-        if (client != Q_NULLPTR)
+        if (client != nullptr)
         {
             if (client->lastHeard.secsTo(now) > STALE_CONNECTION)
             {
@@ -1526,7 +1526,7 @@ void icomServer::watchdog()
 
     foreach(CLIENT* client, civClients)
     {
-        if (client != Q_NULLPTR)
+        if (client != nullptr)
         {
             if (client->lastHeard.secsTo(now) > STALE_CONNECTION)
             {
@@ -1541,7 +1541,7 @@ void icomServer::watchdog()
 
     foreach(CLIENT* client, controlClients)
     {
-        if (client != Q_NULLPTR)
+        if (client != nullptr)
         {
             if (client->lastHeard.secsTo(now) > STALE_CONNECTION)
             {
@@ -1626,14 +1626,14 @@ void icomServer::dataForServer(QByteArray d)
     rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
 
     //qInfo(logRigServer()) << "Received data for server clients";
-    if (sender == Q_NULLPTR)
+    if (sender == nullptr)
     {
         return;
     }
 
     foreach (CLIENT* client, civClients)
     {
-        if (client == Q_NULLPTR || !client->connected)
+        if (client == nullptr || !client->connected)
         {
             continue;
         }
@@ -1708,7 +1708,7 @@ void icomServer::receiveAudioData(const audioPacket& d)
 {
     rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
     quint8 guid[GUIDLEN];
-    if (sender != Q_NULLPTR)
+    if (sender != nullptr)
     {
         memcpy(guid, sender->getGUID(), GUIDLEN);
     }
@@ -1723,7 +1723,7 @@ void icomServer::receiveAudioData(const audioPacket& d)
             QByteArray partial;
             partial = d.data.mid(len, 1364);
             len = len + partial.length();
-            if (client != Q_NULLPTR && client->connected && (!memcmp(client->guid, guid, GUIDLEN) || config->rigs.size()== 1)) {
+            if (client != nullptr && client->connected && (!memcmp(client->guid, guid, GUIDLEN) || config->rigs.size()== 1)) {
                 audio_packet p;
                 memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
                 p.len = (quint32)sizeof(p) + partial.length();
@@ -1896,16 +1896,16 @@ void icomServer::deleteConnection(QList<CLIENT*>* l, CLIENT* c)
     memcpy(guid, c->guid, GUIDLEN);
 
     qInfo(logRigServer()) << "Deleting" << c->type << "connection to: " << c->ipAddress.toString() << ":" << QString::number(c->port);
-    if (c->idleTimer != Q_NULLPTR) {
+    if (c->idleTimer != nullptr) {
         c->idleTimer->stop();
         delete c->idleTimer;
     }
-    if (c->pingTimer != Q_NULLPTR) {
+    if (c->pingTimer != nullptr) {
         c->pingTimer->stop();
         delete c->pingTimer;
     }
 
-    if (c->retransmitTimer != Q_NULLPTR) {
+    if (c->retransmitTimer != nullptr) {
         c->retransmitTimer->stop();
         delete c->retransmitTimer;
     }
@@ -1945,7 +1945,7 @@ void icomServer::deleteConnection(QList<CLIENT*>* l, CLIENT* c)
         QList<CLIENT*>::iterator it = l->begin();
         while (it != l->end()) {
             CLIENT* client = *it;
-            if (client != Q_NULLPTR && client == c) {
+            if (client != nullptr && client == c) {
                 qInfo(logRigServer()) << "Found" << client->type << "connection to: " << client->ipAddress.toString() << ":" << QString::number(client->port);
                 it = l->erase(it);
             }
@@ -1954,7 +1954,7 @@ void icomServer::deleteConnection(QList<CLIENT*>* l, CLIENT* c)
             }
         }
         delete c; // Is this needed or will the erase have done it?
-        c = Q_NULLPTR;
+        c = nullptr;
         qInfo(logRigServer()) << "Current Number of clients connected: " << l->length();
         connMutex.unlock();
     }
@@ -1968,18 +1968,18 @@ void icomServer::deleteConnection(QList<CLIENT*>* l, CLIENT* c)
             if (!memcmp(radio->guid, guid, GUIDLEN) || config->rigs.size() == 1)
             {
                 queue->interval(radio->queueInterval);
-                if (radio->rxAudioThread != Q_NULLPTR) {
+                if (radio->rxAudioThread != nullptr) {
                     radio->rxAudioThread->quit();
                     radio->rxAudioThread->wait();
-                    radio->rxaudio = Q_NULLPTR;
-                    radio->rxAudioThread = Q_NULLPTR;
+                    radio->rxaudio = nullptr;
+                    radio->rxAudioThread = nullptr;
                 }
 
-                if (radio->txAudioThread != Q_NULLPTR) {
+                if (radio->txAudioThread != nullptr) {
                     radio->txAudioThread->quit();
                     radio->txAudioThread->wait();
-                    radio->txaudio = Q_NULLPTR;
-                    radio->txAudioThread = Q_NULLPTR;
+                    radio->txaudio = nullptr;
+                    radio->txAudioThread = nullptr;
                 }
             }
         }

@@ -91,7 +91,6 @@ enum prefRsItem {
 };
 
 enum prefRaItem {
-
     ra_radioCIVAddr = 1 << 0,
     ra_CIVisRadioModel = 1 << 1,
     ra_pttType = 1 << 2,
@@ -117,7 +116,6 @@ enum prefCtItem {
 };
 
 enum prefLanItem {
-
     l_enableLAN = 1 << 0,
     l_enableRigCtlD = 1 << 1,
     l_rigCtlPort = 1 << 2,
@@ -165,7 +163,7 @@ enum prefUDPItem {
     u_all = 1 << 19
 };
 
-
+/* All below will be deprecated M0VSE */
 
 struct preferences {
     // Program:

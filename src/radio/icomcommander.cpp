@@ -40,25 +40,25 @@ icomCommander::~icomCommander()
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
-    queue->setRigCaps(Q_NULLPTR); // Remove access to rigCaps
+    queue->setRigCaps(nullptr); // Remove access to rigCaps
 
     qDebug(logRig()) << "Closing rig comms";
-    if (comm != Q_NULLPTR) {
+    if (comm != nullptr) {
         delete comm;
     }
 
-    if (udpHandlerThread != Q_NULLPTR) {
+    if (udpHandlerThread != nullptr) {
         udpHandlerThread->quit();
         udpHandlerThread->wait();
     }
 
-    if (ptty != Q_NULLPTR) {
+    if (ptty != nullptr) {
         delete ptty;
     }
 }
 
 
-void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
 {
     // construct
 
@@ -106,7 +106,7 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
     commonSetup();
 }
 
-void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
 {
     // construct
     // TODO: Bring this parameter and the comm port from the UI.
@@ -117,7 +117,7 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
     civAddr = rigCivAddr; // address of the radio
     usingNativeLAN = true;
 
-    if (udp != Q_NULLPTR) {
+    if (udp != nullptr) {
         closeComm();
     }
 
@@ -180,21 +180,21 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
 void icomCommander::closeComm()
 {
     qDebug(logRig()) << "Closing rig comms";
-    if (comm != Q_NULLPTR) {
+    if (comm != nullptr) {
         delete comm;
     }
-    comm = Q_NULLPTR;
+    comm = nullptr;
 
-    if (udpHandlerThread != Q_NULLPTR) {
+    if (udpHandlerThread != nullptr) {
         udpHandlerThread->quit();
         udpHandlerThread->wait();
     }
-    udp = Q_NULLPTR;
+    udp = nullptr;
 
-    if (ptty != Q_NULLPTR) {
+    if (ptty != nullptr) {
         delete ptty;
     }
-    ptty = Q_NULLPTR;
+    ptty = nullptr;
 }
 
 void icomCommander::commonSetup()
@@ -231,7 +231,7 @@ void icomCommander::commonSetup()
 void icomCommander::process()
 {
     // new thread enters here. Do nothing but do check for errors.
-    if(comm!=Q_NULLPTR && comm->serialError)
+    if(comm!=nullptr && comm->serialError)
     {
         emit havePortError(errorType(rigSerialPort, QString("Error from commhandler. Check serial port.")));
     }
@@ -248,7 +248,7 @@ void icomCommander::setPTTType(pttType_t ptt)
     qDebug(logRig()) << "Received request to set PTT Type to:" << ptt;
     if(!usingNativeLAN)
     {
-        if(comm != Q_NULLPTR)
+        if(comm != nullptr)
         {
             comm->setPTTType(ptt);
         }
@@ -893,7 +893,7 @@ void icomCommander::parseCommand()
     // Register 14 (levels) starts here:
     }
     case funcAfGain:        
-        if (udp == Q_NULLPTR) {
+        if (udp == nullptr) {
             value.setValue(bcdHexToUChar(payloadIn.at(0),payloadIn.at(1)));
         }
         else
@@ -1470,7 +1470,7 @@ void icomCommander::parseCommand()
     }
 #endif
 
-    if (value.isValid() && queue != Q_NULLPTR) {
+    if (value.isValid() && queue != nullptr) {
         queue->receiveValue(func,value,receiver);
     }
 
@@ -2850,7 +2850,7 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         }
     }
 
-    if (func == funcAfGain && value.isValid() && udp != Q_NULLPTR) {
+    if (func == funcAfGain && value.isValid() && udp != nullptr) {
         // Ignore the AF Gain command, just queue it for processing
         emit haveSetVolume(static_cast<uchar>(value.toInt()));
         queue->receiveValue(func,value,false);

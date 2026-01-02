@@ -17,7 +17,7 @@ class tcpServer : public QTcpServer
     Q_OBJECT
 
 public:
-    explicit tcpServer(QObject* parent = Q_NULLPTR);
+    explicit tcpServer(QObject* parent = nullptr);
     ~tcpServer();
     int startServer(qint16 port);
     void stopServer();
@@ -35,7 +35,7 @@ signals:
 
 private:
     QTcpServer* server;
-    QTcpSocket* socket = Q_NULLPTR;
+    QTcpSocket* socket = nullptr;
 };
 
 class tcpServerClient : public QObject 
@@ -43,7 +43,7 @@ class tcpServerClient : public QObject
     Q_OBJECT
 
 public: 
-    explicit tcpServerClient(int socket, tcpServer* parent = Q_NULLPTR);
+    explicit tcpServerClient(int socket, tcpServer* parent = nullptr);
 public slots:
     void socketReadyRead();
     void socketDisconnected();
@@ -54,7 +54,7 @@ signals:
     void sendDataFromClient(QByteArray data);
 protected:
     int sessionId;
-    QTcpSocket* socket = Q_NULLPTR;
+    QTcpSocket* socket = nullptr;
 
 private:
     tcpServer* parent;

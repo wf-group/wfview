@@ -22,8 +22,8 @@ public:
 
 public slots:
     void process() override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
 
     void lanConnected();
     void lanDisconnected();
@@ -68,15 +68,15 @@ private:
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
     mutable QMutex serialMutex;
-    QIODevice *port=Q_NULLPTR;
+    QIODevice *port=nullptr;
     bool portConnected=false;
     bool isTransmitting = false;
     QByteArray lastSentCommand;
 
-    pttyHandler* ptty = Q_NULLPTR;
-    tcpServer* tcp = Q_NULLPTR;
-    rtpAudio* rtp = Q_NULLPTR;
-    QThread* rtpThread = Q_NULLPTR;
+    pttyHandler* ptty = nullptr;
+    tcpServer* tcp = nullptr;
+    rtpAudio* rtp = nullptr;
+    QThread* rtpThread = nullptr;
 
     QHash<quint16,rigInfo> rigList;
     quint8 rigCivAddr;

@@ -71,13 +71,13 @@ private:
 
 	uint16_t sendAudioSeq = 0;
 
-    audioHandlerBase* rxaudio = Q_NULLPTR;
-    QThread* rxAudioThread = Q_NULLPTR;
+    audioHandlerBase* rxaudio = nullptr;
+    QThread* rxAudioThread = nullptr;
 
-    audioHandlerBase* txaudio = Q_NULLPTR;
-    QThread* txAudioThread = Q_NULLPTR;
+    audioHandlerBase* txaudio = nullptr;
+    QThread* txAudioThread = nullptr;
 
-    QTimer* txAudioTimer = Q_NULLPTR;
+    QTimer* txAudioTimer = nullptr;
 	bool enableTx = true;
 
 	QMutex audioMutex;

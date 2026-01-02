@@ -364,7 +364,7 @@ private:
     bool haveClusterList = false;
     bool updatingUIFromPrefs = false;
     bool connectedStatus = false;
-    audioDevices* audioDev = Q_NULLPTR;
+    audioDevices* audioDev = nullptr;
 
 };
 

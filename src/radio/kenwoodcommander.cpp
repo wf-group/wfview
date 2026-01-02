@@ -27,7 +27,7 @@ kenwoodCommander::~kenwoodCommander()
 {
     qInfo(logRig()) << "closing instance of kenwoodCommander()";
 
-    if (rtpThread != Q_NULLPTR) {
+    if (rtpThread != nullptr) {
         //if (port->isOpen()) {
         //    receiveCommand(funcVOIP,QVariant::fromValue<uchar>(0),0);
         //}
@@ -38,21 +38,21 @@ kenwoodCommander::~kenwoodCommander()
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
-    queue->setRigCaps(Q_NULLPTR); // Remove access to rigCaps
+    queue->setRigCaps(nullptr); // Remove access to rigCaps
 
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         if (port->isOpen())
         {
             port->close();
         }
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
     qDebug(logRig()) << "Closing rig comms";
 }
 
 
-void kenwoodCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void kenwoodCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
 {
     // constructor for serial connected rigs
     // As the serial connection is quite simple, no need to use a dedicated class.
@@ -66,11 +66,11 @@ void kenwoodCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivA
 
     usingNativeLAN = false;
 
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         if (port->isOpen())
             port->close();
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
 
     port = new QSerialPort();
@@ -86,7 +86,7 @@ void kenwoodCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivA
     commonSetup();
 }
 
-void kenwoodCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void kenwoodCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
 {
     // constructor for network (LAN) connected rigs
     this->rigList = rigList;
@@ -128,12 +128,12 @@ void kenwoodCommander::lanDisconnected()
 void kenwoodCommander::closeComm()
 {
     qInfo(logRig()) << "Closing rig comms";
-    if (port != Q_NULLPTR && portConnected)
+    if (port != nullptr && portConnected)
     {
         if (port->isOpen())
             port->close();
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
     }
     portConnected=false;
 }
@@ -849,7 +849,7 @@ void kenwoodCommander::parseData(QByteArray data)
             break;
         case funcVOIP:
             qInfo(logRig()) << "Recieved VOIP response:" << d.toInt();
-            if (d.toInt() && rtpThread == Q_NULLPTR) {
+            if (d.toInt() && rtpThread == nullptr) {
                 rtp = new rtpAudio(prefs.ipAddress,quint16(prefs.audioLANPort),this->rxSetup, this->txSetup);
                 rtpThread = new QThread(this);
                 rtpThread->setObjectName("RTP()");
@@ -900,7 +900,7 @@ void kenwoodCommander::parseData(QByteArray data)
 #endif
         }
 
-        if (value.isValid() && queue != Q_NULLPTR) {
+        if (value.isValid() && queue != nullptr) {
             queue->receiveValue(func,value,receiver);
         }
     }

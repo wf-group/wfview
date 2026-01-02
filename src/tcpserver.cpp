@@ -88,7 +88,7 @@ void tcpServerClient::closeSocket()
 
 void tcpServerClient::receiveDataToClient(QByteArray data) {
 
-    if (socket != Q_NULLPTR && socket->isValid() && socket->isOpen())
+    if (socket != nullptr && socket->isValid() && socket->isOpen())
     {
         socket->write(data);
     }

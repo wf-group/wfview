@@ -149,7 +149,7 @@ void tableCombobox::setData(int val)
 {
     Q_UNUSED(val)
 
-    if (combo != Q_NULLPTR) {
+    if (combo != nullptr) {
         emit commitData(combo);
     }
 }

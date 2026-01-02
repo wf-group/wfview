@@ -69,7 +69,7 @@ private:
     int currentFilter = 1;
     void checkFreqSel();
     cachingQueue* queue;
-    rigCapabilities* rigCaps=Q_NULLPTR;
+    rigCapabilities* rigCaps=nullptr;
 
 };
 

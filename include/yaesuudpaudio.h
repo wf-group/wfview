@@ -77,11 +77,11 @@ private:
     quint8 audioChannels = 2;
     quint16 seqPrefix = 0;
 
-    audioHandlerBase* rxaudio = Q_NULLPTR;
-    QThread* rxAudioThread = Q_NULLPTR;
+    audioHandlerBase* rxaudio = nullptr;
+    QThread* rxAudioThread = nullptr;
 
-    audioHandlerBase* txaudio = Q_NULLPTR;
-    QThread* txAudioThread = Q_NULLPTR;
+    audioHandlerBase* txaudio = nullptr;
+    QThread* txAudioThread = nullptr;
 
     quint8 audioLevelsTxPeak[audioLevelBufferSize];
     quint8 audioLevelsRxPeak[audioLevelBufferSize];

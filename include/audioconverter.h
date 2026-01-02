@@ -70,7 +70,7 @@ struct audioSetup {
     quint8 localAFgain;
     quint16 blockSize = 20; // Each 'block' of audio is 20ms long by default.
     quint8 guid[GUIDLEN];
-    void* tci = Q_NULLPTR;
+    void* tci = nullptr;
 };
 
 class audioConverter : public QObject
@@ -92,16 +92,16 @@ signals:
 protected:
     QAudioFormat inFormat;
     QAudioFormat outFormat;
-    OpusEncoder* opusEncoder = Q_NULLPTR;
-    OpusDecoder* opusDecoder = Q_NULLPTR;
-    SpeexResamplerState* resampler = Q_NULLPTR;
+    OpusEncoder* opusEncoder = nullptr;
+    OpusDecoder* opusDecoder = nullptr;
+    SpeexResamplerState* resampler = nullptr;
     quint8 opusComplexity;
     quint8 resampleQuality = 4;
     double resampleRatio=1.0; // Default resample ratio is 1:1
     quint32 lastAudioSequence;
     codecType       inCodec;
     codecType       outCodec;
-    void * adpcmContext = Q_NULLPTR;
+    void * adpcmContext = nullptr;
     QByteArray scratchIn;
     QByteArray scratchOut;
     Eigen::VectorXf scratchF;

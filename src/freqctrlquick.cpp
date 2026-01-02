@@ -239,6 +239,12 @@ void FreqCtrlQuick::setMaxFrequency(qint64 freq)
 
 void FreqCtrlQuick::setFrequency(qint64 freq)
 {
+    setFrequencyExt(freq);
+    emit  newFrequency(m_freq);
+}
+
+void FreqCtrlQuick::setFrequencyExt(qint64 freq)
+{
     int       i;
     qint64    acc = 0;
     qint64    rem;
@@ -250,7 +256,7 @@ void FreqCtrlQuick::setFrequency(qint64 freq)
         return;
 /*
  * This needs working on, to restrict to only valid bands!
-    if (m_Bands != Q_NULLPTR) {
+    if (m_Bands != nullptr) {
         // We have bands so make sure the frequency is within at least one of them!
         for (int i=0;i<m_Bands->size();i++)
         {
@@ -334,7 +340,6 @@ void FreqCtrlQuick::setFrequency(qint64 freq)
 
     // signal the new frequency to world
     m_Oldfreq = m_freq;
-    emit  newFrequency(m_freq);
     updateCtrl(m_LastLeadZeroPos != m_LeadZeroPos);
     m_LastLeadZeroPos = m_LeadZeroPos;
 }
@@ -394,6 +399,7 @@ void FreqCtrlQuick::setUnit(FctlUnit unit)
     m_Unit = unit;
     m_UpdateAll = true;
     updateCtrl(true);
+    emit unitChanged();
 }
 
 void FreqCtrlQuick::setBgColor(const QColor& col)
@@ -405,6 +411,7 @@ void FreqCtrlQuick::setBgColor(const QColor& col)
         m_DigitInfo[i].modified = true;
 
     updateCtrl(true);
+    emit colorsChanged();
 }
 
 void FreqCtrlQuick::setUnitsColor(const QColor& col)
@@ -412,6 +419,7 @@ void FreqCtrlQuick::setUnitsColor(const QColor& col)
     m_UpdateAll = true;
     m_UnitsColor = col;
     updateCtrl(true);
+    emit unitChanged();
 }
 
 void FreqCtrlQuick::setHighlightColor(const QColor& col)
@@ -419,6 +427,7 @@ void FreqCtrlQuick::setHighlightColor(const QColor& col)
     m_UpdateAll = true;
     m_HighlightColor = col;
     updateCtrl(true);
+    emit colorsChanged();
 }
 
 void FreqCtrlQuick::updateCtrl(bool all)

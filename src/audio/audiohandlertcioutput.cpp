@@ -11,7 +11,7 @@ bool audioHandlerTciOutput::openDevice() noexcept
     connect(this, &audioHandlerBase::sendToConverter, converter, &audioConverter::convert);
     connect(converter, SIGNAL(converted(audioPacket)), this, SLOT(onConverted(audioPacket)));
 
-    if (setupData.tci != Q_NULLPTR) {
+    if (setupData.tci != nullptr) {
         connect(this,SIGNAL(sendTCIAudio(audioPacket)), (tciServer*)setupData.tci, SLOT(receiveTCIAudio(audioPacket)));
     } else {
         qCritical(logAudio()) << "***** TCI NOT FOUND *****";

@@ -22,7 +22,7 @@ memories::memories(bool isAdmin, bool slowLoad, QWidget *parent) :
     this->setObjectName("memories");
     queue = cachingQueue::getInstance();
     rigCaps = queue->getRigCaps();
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
     {
         qInfo() << "We have no rigCaps, so cannot continue";
         return;
@@ -1008,7 +1008,7 @@ void memories::on_group_currentIndexChanged(int index)
             disableCommands = true;
             break;
         case 'b':
-            if (numEditor != Q_NULLPTR)
+            if (numEditor != nullptr)
                 delete numEditor;
             numEditor = new tableEditor("999",ui->table);
             ui->table->setItemDelegateForColumn(columnNum, numEditor);
@@ -1020,7 +1020,7 @@ void memories::on_group_currentIndexChanged(int index)
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
         case 'C':
-            if (skipList != Q_NULLPTR)
+            if (skipList != nullptr)
                 delete skipList;
             skipList = new tableCombobox(createModel(skipModel, skip),false,ui->table);
             ui->table->setItemDelegateForColumn(columnSkip, skipList);
@@ -1030,7 +1030,7 @@ void memories::on_group_currentIndexChanged(int index)
             scan.clear();
             scan << "OFF" << "*1" << "*2" << "*3" << "*4" << "*5" << "*6" << "*7" << "*8" << "*9";
         case 'c':
-            if (scanList != Q_NULLPTR)
+            if (scanList != nullptr)
                 delete scanList;
             scanList = new tableCombobox(createModel(scanModel, scan),false,ui->table);
             ui->table->setItemDelegateForColumn(columnScan, scanList);
@@ -1042,12 +1042,12 @@ void memories::on_group_currentIndexChanged(int index)
 #pragma GCC diagnostic pop
 #endif
         case 'd':
-            if (splitList != Q_NULLPTR)
+            if (splitList != nullptr)
                 delete splitList;
             splitList = new tableCombobox(createModel(splitModel, split),false,ui->table);
             ui->table->setItemDelegateForColumn(columnSplit, splitList);
 
-            if (scanList != Q_NULLPTR)
+            if (scanList != nullptr)
                 delete scanList;
             scanList = new tableCombobox(createModel(scanModel, scan),false,ui->table);
             ui->table->setItemDelegateForColumn(columnScan, scanList);
@@ -1059,7 +1059,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'D': // Duplex only added for IC-R8600 (most rigs use j for duplex+tone)
-            if (duplexList != Q_NULLPTR)
+            if (duplexList != nullptr)
                 delete duplexList;
             duplexList = new tableCombobox(createModel(duplexModel, duplexModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDuplex, duplexList);
@@ -1067,7 +1067,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'e':
-            if (vfoList != Q_NULLPTR)
+            if (vfoList != nullptr)
                 delete vfoList;
             vfoList = new tableCombobox(createModel(vfoModel, vfos),false,ui->table);
             ui->table->setItemDelegateForColumn(columnVFO, vfoList);
@@ -1076,7 +1076,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'E':
-            if (vfoListB != Q_NULLPTR)
+            if (vfoListB != nullptr)
                 delete vfoListB;
             vfoListB = new tableCombobox(createModel(vfoModelB, vfos),false,ui->table);
             ui->table->setItemDelegateForColumn(columnVFOB, vfoListB);
@@ -1085,7 +1085,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'f':
-            if (freqEditor != Q_NULLPTR)
+            if (freqEditor != nullptr)
                 delete freqEditor;
             freqEditor = new tableEditor("00000.00000",ui->table);
             ui->table->setItemDelegateForColumn(columnFrequency, freqEditor);
@@ -1094,7 +1094,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'F':
-            if (freqEditorB != Q_NULLPTR)
+            if (freqEditorB != nullptr)
                 delete freqEditorB;
             freqEditorB = new tableEditor("00000.00000",ui->table);
             ui->table->setItemDelegateForColumn(columnFrequencyB, freqEditorB);
@@ -1103,7 +1103,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'g':
-            if (modesList != Q_NULLPTR)
+            if (modesList != nullptr)
                 delete modesList;
             modesList = new tableCombobox(createModel(modesModel, modes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnMode, modesList);
@@ -1112,7 +1112,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'G':
-            if (modesListB != Q_NULLPTR)
+            if (modesListB != nullptr)
                 delete modesListB;
             modesListB = new tableCombobox(createModel(modesModelB, modes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnModeB, modesListB);
@@ -1121,7 +1121,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'h':
-            if (filterList != Q_NULLPTR)
+            if (filterList != nullptr)
                 delete filterList;
             filterList = new tableCombobox(createModel(filterModel, filters),false,ui->table);
             ui->table->setItemDelegateForColumn(columnFilter, filterList);
@@ -1130,7 +1130,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'H':
-            if (filterListB != Q_NULLPTR)
+            if (filterListB != nullptr)
                 delete filterListB;
             filterListB = new tableCombobox(createModel(filterModelB, filters),false,ui->table);
             ui->table->setItemDelegateForColumn(columnFilterB, filterListB);
@@ -1139,7 +1139,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'i':
-            if (dataList != Q_NULLPTR)
+            if (dataList != nullptr)
                 delete dataList;
             dataList = new tableCombobox(createModel(dataModel, dataModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnData, dataList);
@@ -1148,7 +1148,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'I':
-            if (dataListB != Q_NULLPTR)
+            if (dataListB != nullptr)
                 delete dataListB;
             dataListB = new tableCombobox(createModel(dataModelB, dataModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDataB, dataListB);
@@ -1157,12 +1157,12 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'j':
-            if (duplexList != Q_NULLPTR)
+            if (duplexList != nullptr)
                 delete duplexList;
             duplexList = new tableCombobox(createModel(duplexModel, duplexModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDuplex, duplexList);
 
-            if (toneModesList != Q_NULLPTR)
+            if (toneModesList != nullptr)
                 delete toneModesList;
             toneModesList = new tableCombobox(createModel(toneModesModel, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneMode, toneModesList);
@@ -1173,12 +1173,12 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'J':
-            if (duplexListB != Q_NULLPTR)
+            if (duplexListB != nullptr)
                 delete duplexListB;
             duplexListB = new tableCombobox(createModel(duplexModelB, duplexModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDuplexB, duplexListB);
 
-            if (toneModesListB != Q_NULLPTR)
+            if (toneModesListB != nullptr)
                 delete toneModesListB;
             toneModesListB = new tableCombobox(createModel(toneModesModelB, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneModeB, toneModesListB);
@@ -1189,12 +1189,12 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'k':
-            if (dataList != Q_NULLPTR)
+            if (dataList != nullptr)
                 delete dataList;
             dataList = new tableCombobox(createModel(dataModel, dataModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnData, dataList);
 
-            if (toneModesList != Q_NULLPTR)
+            if (toneModesList != nullptr)
                 delete toneModesList;
             toneModesList = new tableCombobox(createModel(toneModesModel, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneMode, toneModesList);
@@ -1205,12 +1205,12 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'K':
-            if (dataListB != Q_NULLPTR)
+            if (dataListB != nullptr)
                 delete dataListB;
             dataListB = new tableCombobox(createModel(dataModelB, dataModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDataB, dataListB);
 
-            if (toneModesListB != Q_NULLPTR)
+            if (toneModesListB != nullptr)
                 delete toneModesListB;
             toneModesListB = new tableCombobox(createModel(toneModesModelB, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneModeB, toneModesListB);
@@ -1221,7 +1221,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'l':
-            if (toneModesList != Q_NULLPTR)
+            if (toneModesList != nullptr)
                 delete toneModesList;
             toneModesList = new tableCombobox(createModel(toneModesModel, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneMode, toneModesList);
@@ -1230,7 +1230,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'L':
-            if (toneModesListB != Q_NULLPTR)
+            if (toneModesListB != nullptr)
                 delete toneModesListB;
             toneModesListB = new tableCombobox(createModel(toneModesModelB, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneModeB, toneModesListB);
@@ -1239,7 +1239,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'm':
-            if (dsqlList != Q_NULLPTR)
+            if (dsqlList != nullptr)
                 delete dsqlList;
             dsqlList = new tableCombobox(createModel(dsqlModel, dsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDSQL, dsqlList);
@@ -1248,7 +1248,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'M':
-            if (dsqlListB != Q_NULLPTR)
+            if (dsqlListB != nullptr)
                 delete dsqlListB;
             dsqlListB = new tableCombobox(createModel(dsqlModelB, dsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDSQLB, dsqlListB);
@@ -1257,7 +1257,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'n':
-            if (tonesList != Q_NULLPTR)
+            if (tonesList != nullptr)
                 delete tonesList;
             tonesList = new tableCombobox(createModel(tonesModel, tones),false,ui->table);
             ui->table->setItemDelegateForColumn(columnTone, tonesList);
@@ -1266,7 +1266,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'N':
-            if (tonesListB != Q_NULLPTR)
+            if (tonesListB != nullptr)
                 delete tonesListB;
             tonesListB = new tableCombobox(createModel(tonesModelB, tones),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneB, tonesListB);
@@ -1275,7 +1275,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'o':
-            if (tsqlList != Q_NULLPTR)
+            if (tsqlList != nullptr)
                 delete tsqlList;
             tsqlList = new tableCombobox(createModel(tsqlModel, tones),false,ui->table);
             ui->table->setItemDelegateForColumn(columnTSQL, tsqlList);
@@ -1284,7 +1284,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'O':
-            if (tsqlListB != Q_NULLPTR)
+            if (tsqlListB != nullptr)
                 delete tsqlListB;
             tsqlListB = new tableCombobox(createModel(tsqlModelB, tones),false,ui->table);
             ui->table->setItemDelegateForColumn(columnTSQLB, tsqlListB);
@@ -1293,7 +1293,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'p':
-            if (dtcspList != Q_NULLPTR)
+            if (dtcspList != nullptr)
                 delete dtcspList;
             dtcspList = new tableCombobox(createModel(dtcspModel, dtcsp),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCSPolarity, dtcspList);
@@ -1302,7 +1302,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'P':
-            if (dtcspListB != Q_NULLPTR)
+            if (dtcspListB != nullptr)
                 delete dtcspListB;
             dtcspListB = new tableCombobox(createModel(dtcspModelB, dtcsp),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCSPolarityB, dtcspListB);
@@ -1311,7 +1311,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'q':
-            if (dtcsList != Q_NULLPTR)
+            if (dtcsList != nullptr)
                 delete dtcsList;
             dtcsList = new tableCombobox(createModel(dtcsModel, dtcs),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCS, dtcsList);
@@ -1320,7 +1320,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'Q':
-            if (dtcsListB != Q_NULLPTR)
+            if (dtcsListB != nullptr)
                 delete dtcsListB;
             dtcsListB = new tableCombobox(createModel(dtcsModel, dtcs),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCSB, dtcsList);
@@ -1329,7 +1329,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'r':
-            if (dvsqlList != Q_NULLPTR)
+            if (dvsqlList != nullptr)
                 delete dvsqlList;
             dvsqlList = new tableCombobox(createModel(dvsqlModel, dvsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDVSquelch, dvsqlList);
@@ -1337,7 +1337,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'R':
-            if (dvsqlListB != Q_NULLPTR)
+            if (dvsqlListB != nullptr)
                 delete dvsqlListB;
             dvsqlListB = new tableCombobox(createModel(dvsqlModelB, dvsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDVSquelchB, dvsqlListB);
@@ -1345,7 +1345,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 's':
-            if (offsetEditor != Q_NULLPTR)
+            if (offsetEditor != nullptr)
                 delete offsetEditor;
             offsetEditor = new tableEditor("00.000000",ui->table);
             ui->table->setItemDelegateForColumn(columnOffset, offsetEditor);
@@ -1354,7 +1354,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'S':
-            if (offsetEditorB != Q_NULLPTR)
+            if (offsetEditorB != nullptr)
                 delete offsetEditorB;
             offsetEditorB = new tableEditor("00.000000",ui->table);
             ui->table->setItemDelegateForColumn(columnOffsetB, offsetEditorB);
@@ -1363,7 +1363,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 't':
-            if (urEditor != Q_NULLPTR)
+            if (urEditor != nullptr)
                 delete urEditor;
             urEditor = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnUR, urEditor);
@@ -1372,7 +1372,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'T':
-            if (urEditorB != Q_NULLPTR)
+            if (urEditorB != nullptr)
                 delete urEditorB;
             urEditorB = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnURB, urEditorB);
@@ -1381,7 +1381,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'u':
-            if (r1Editor != Q_NULLPTR)
+            if (r1Editor != nullptr)
                 delete r1Editor;
             r1Editor = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnR1, r1Editor);
@@ -1390,7 +1390,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'U':
-            if (r1EditorB != Q_NULLPTR)
+            if (r1EditorB != nullptr)
                 delete r1EditorB;
             r1EditorB = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnR1B, r1EditorB);
@@ -1399,7 +1399,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'v':
-            if (r2Editor != Q_NULLPTR)
+            if (r2Editor != nullptr)
                 delete r2Editor;
             r2Editor = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnR2, r2Editor);
@@ -1408,7 +1408,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'V':
-            if (r2EditorB != Q_NULLPTR)
+            if (r2EditorB != nullptr)
                 delete r2EditorB;
             r2EditorB = new tableEditor(">xxxxxxxx;_",ui->table);
             ui->table->setItemDelegateForColumn(columnR2B, r2EditorB);
@@ -1417,7 +1417,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'W':
-            if (clarEditor != Q_NULLPTR)
+            if (clarEditor != nullptr)
             {
                 delete clarEditor;
             }
@@ -1427,7 +1427,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'X':
-            if (clarRXList == Q_NULLPTR)
+            if (clarRXList == nullptr)
             {
                 clarRXList = new tableCombobox(createModel(clarRXModel, clar),false,ui->table);
             }
@@ -1436,7 +1436,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'Y':
-            if (clarTXList == Q_NULLPTR)
+            if (clarTXList == nullptr)
             {
                 clarTXList = new tableCombobox(createModel(clarTXModel, clar),false,ui->table);
             }
@@ -1445,14 +1445,14 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'w':
-            if (tuningStepsList != Q_NULLPTR)
+            if (tuningStepsList != nullptr)
                 delete tuningStepsList;
             tuningStepsList = new tableCombobox(createModel(tuningStepsModel, tuningSteps),false,ui->table);
             ui->table->setItemDelegateForColumn(columnTuningStep, tuningStepsList);
             ui->table->showColumn(columnTuningStep);
             visibleColumns++;
 
-            if (tuningStepEditor != Q_NULLPTR)
+            if (tuningStepEditor != nullptr)
                 delete tuningStepEditor;
             tuningStepEditor = new tableEditor("0000",ui->table);
             ui->table->setItemDelegateForColumn(columnCustomTuningStep, tuningStepEditor);
@@ -1461,14 +1461,14 @@ void memories::on_group_currentIndexChanged(int index)
 
             break;
         case 'x':
-            if (attenuatorsList != Q_NULLPTR)
+            if (attenuatorsList != nullptr)
                 delete attenuatorsList;
             attenuatorsList = new tableCombobox(createModel(attenuatorsModel, attenuators),false,ui->table);
             ui->table->setItemDelegateForColumn(columnAttenuator, attenuatorsList);
             ui->table->showColumn(columnAttenuator);
             visibleColumns++;
 
-            if (preampsList != Q_NULLPTR)
+            if (preampsList != nullptr)
                 delete preampsList;
             preampsList = new tableCombobox(createModel(preampsModel, preamps),false,ui->table);
             ui->table->setItemDelegateForColumn(columnPreamplifier, preampsList);
@@ -1476,7 +1476,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'y':
-            if (antennasList != Q_NULLPTR)
+            if (antennasList != nullptr)
                 delete antennasList;
             antennasList = new tableCombobox(createModel(antennasModel, antennas),false,ui->table);
             ui->table->setItemDelegateForColumn(columnAntenna, antennasList);
@@ -1484,7 +1484,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case '+':
-            if (ipplusList != Q_NULLPTR)
+            if (ipplusList != nullptr)
                 delete ipplusList;
             ipplusList = new tableCombobox(createModel(ipplusModel, ipplus),false,ui->table);
             ui->table->setItemDelegateForColumn(columnIPPlus, ipplusList);
@@ -1492,7 +1492,7 @@ void memories::on_group_currentIndexChanged(int index)
             visibleColumns++;
             break;
         case 'z':
-            if (nameEditor != Q_NULLPTR)
+            if (nameEditor != nullptr)
                 delete nameEditor;
             nameEditor = new tableEditor(QString("%0;_").arg("",parse.len,'x'),ui->table);
             ui->table->setItemDelegateForColumn(columnName, nameEditor);
@@ -1502,7 +1502,7 @@ void memories::on_group_currentIndexChanged(int index)
             break;
         case 'Z':
             extendedView = true;
-            if (toneModesList != Q_NULLPTR)
+            if (toneModesList != nullptr)
                 delete toneModesList;
             toneModesList = new tableCombobox(createModel(toneModesModel, toneModes),false,ui->table);
             ui->table->setItemDelegateForColumn(columnToneMode, toneModesList);
@@ -1510,35 +1510,35 @@ void memories::on_group_currentIndexChanged(int index)
             ui->table->showColumn(columnToneMode);
             //visibleColumns++;
 
-            if (tsqlList != Q_NULLPTR)
+            if (tsqlList != nullptr)
                 delete tsqlList;
             tsqlList = new tableCombobox(createModel(tsqlModel, tones),false,ui->table);
             ui->table->setItemDelegateForColumn(columnTSQL, tsqlList);
             ui->table->showColumn(columnTSQL);
             //visibleColumns++;
 
-            if (dtcsList != Q_NULLPTR)
+            if (dtcsList != nullptr)
                 delete dtcsList;
             dtcsList = new tableCombobox(createModel(dtcsModel, dtcs),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCS, dtcsList);
             ui->table->showColumn(columnDTCS);
             //visibleColumns++;
 
-            if (dtcspList != Q_NULLPTR)
+            if (dtcspList != nullptr)
                 delete dtcspList;
             dtcspList = new tableCombobox(createModel(dtcspModel, dtcsp),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDTCSPolarity, dtcspList);
             ui->table->showColumn(columnDTCSPolarity);
             //visibleColumns++;
 
-            if (dsqlList != Q_NULLPTR)
+            if (dsqlList != nullptr)
                 delete dsqlList;
             dsqlList = new tableCombobox(createModel(dsqlModel, dsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDSQL, dsqlList);
             ui->table->showColumn(columnDSQL);
             //visibleColumns++;
 
-            if (dvsqlList != Q_NULLPTR)
+            if (dvsqlList != nullptr)
                 delete dvsqlList;
             dvsqlList = new tableCombobox(createModel(dvsqlModel, dvsql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDVSquelch, dvsqlList);
@@ -1546,14 +1546,14 @@ void memories::on_group_currentIndexChanged(int index)
             //visibleColumns++;
 
             /* P25 */
-            if (p25SqlList != Q_NULLPTR)
+            if (p25SqlList != nullptr)
                 delete p25SqlList;
             p25SqlList = new tableCombobox(createModel(p25SqlModel, p25Sql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnP25Sql, p25SqlList);
             ui->table->showColumn(columnP25Sql);
             //visibleColumns++;
 
-            if (p25NacEditor != Q_NULLPTR)
+            if (p25NacEditor != nullptr)
                 delete p25NacEditor;
             p25NacEditor = new tableEditor("HHH",ui->table);
             ui->table->setItemDelegateForColumn(columnP25Nac, p25NacEditor);
@@ -1561,35 +1561,35 @@ void memories::on_group_currentIndexChanged(int index)
             //visibleColumns++;
 
             /* dPMR */
-            if (dPmrSqlList != Q_NULLPTR)
+            if (dPmrSqlList != nullptr)
                 delete dPmrSqlList;
             dPmrSqlList = new tableCombobox(createModel(dPmrSqlModel, dPmrSql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDPmrSql, dPmrSqlList);
             ui->table->showColumn(columnDPmrSql);
             //visibleColumns++;
 
-            if (dPmrComIdEditor != Q_NULLPTR)
+            if (dPmrComIdEditor != nullptr)
                 delete dPmrComIdEditor;
             dPmrComIdEditor = new tableEditor("999",ui->table);
             ui->table->setItemDelegateForColumn(columnDPmrComid, dPmrComIdEditor);
             ui->table->showColumn(columnDPmrComid);
             //visibleColumns++;
 
-            if (dPmrCcEditor != Q_NULLPTR)
+            if (dPmrCcEditor != nullptr)
                 delete dPmrCcEditor;
             dPmrCcEditor = new tableEditor("99",ui->table);
             ui->table->setItemDelegateForColumn(columnDPmrCc, dPmrCcEditor);
             ui->table->showColumn(columnDPmrCc);
             //visibleColumns++;
 
-            if (dPmrSCRMList != Q_NULLPTR)
+            if (dPmrSCRMList != nullptr)
                 delete dPmrSCRMList;
             dPmrSCRMList = new tableCombobox(createModel(dPmrSCRMModel, dPmrSCRM),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDPmrSCRM, dPmrSCRMList);
             ui->table->showColumn(columnDPmrSCRM);
             //visibleColumns++;
 
-            if (dPmrKeyEditor != Q_NULLPTR)
+            if (dPmrKeyEditor != nullptr)
                 delete dPmrKeyEditor;
             dPmrKeyEditor = new tableEditor("99999",ui->table);
             ui->table->setItemDelegateForColumn(columnDPmrKey, dPmrKeyEditor);
@@ -1598,28 +1598,28 @@ void memories::on_group_currentIndexChanged(int index)
 
 
             /* NXDN */
-            if (nxdnSqlList != Q_NULLPTR)
+            if (nxdnSqlList != nullptr)
                 delete nxdnSqlList;
             nxdnSqlList = new tableCombobox(createModel(nxdnSqlModel, nxdnSql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnNxdnSql, nxdnSqlList);
             ui->table->showColumn(columnNxdnSql);
             //visibleColumns++;
 
-            if (nxdnRanEditor != Q_NULLPTR)
+            if (nxdnRanEditor != nullptr)
                 delete nxdnRanEditor;
             nxdnRanEditor = new tableEditor("99",ui->table);
             ui->table->setItemDelegateForColumn(columnNxdnRan, nxdnRanEditor);
             ui->table->showColumn(columnNxdnRan);
             //visibleColumns++;
 
-            if (nxdnEncList != Q_NULLPTR)
+            if (nxdnEncList != nullptr)
                 delete nxdnEncList;
             nxdnEncList = new tableCombobox(createModel(nxdnEncModel, nxdnEnc),false,ui->table);
             ui->table->setItemDelegateForColumn(columnNxdnEnc, nxdnEncList);
             ui->table->showColumn(columnNxdnEnc);
             //visibleColumns++;
 
-            if (nxdnKeyEditor != Q_NULLPTR)
+            if (nxdnKeyEditor != nullptr)
                 delete nxdnKeyEditor;
             nxdnKeyEditor = new tableEditor("99999",ui->table);
             ui->table->setItemDelegateForColumn(columnNxdnKey, nxdnKeyEditor);
@@ -1627,28 +1627,28 @@ void memories::on_group_currentIndexChanged(int index)
             //visibleColumns++;
 
             /* DCR */
-            if (dcrSqlList != Q_NULLPTR)
+            if (dcrSqlList != nullptr)
                 delete dcrSqlList;
             dcrSqlList = new tableCombobox(createModel(dcrSqlModel, dcrSql),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDcrSql, dcrSqlList);
             ui->table->showColumn(columnDcrSql);
             //visibleColumns++;
 
-            if (dcrUcEditor != Q_NULLPTR)
+            if (dcrUcEditor != nullptr)
                 delete dcrUcEditor;
             dcrUcEditor = new tableEditor("999",ui->table);
             ui->table->setItemDelegateForColumn(columnDcrUc, dcrUcEditor);
             ui->table->showColumn(columnDcrUc);
             //visibleColumns++;
 
-            if (dcrEncList != Q_NULLPTR)
+            if (dcrEncList != nullptr)
                 delete dcrEncList;
             dcrEncList = new tableCombobox(createModel(dcrEncModel, dcrEnc),false,ui->table);
             ui->table->setItemDelegateForColumn(columnDcrEnc, dcrEncList);
             ui->table->showColumn(columnDcrEnc);
             //visibleColumns++;
 
-            if (dcrKeyEditor != Q_NULLPTR)
+            if (dcrKeyEditor != nullptr)
                 delete dcrKeyEditor;
             dcrKeyEditor = new tableEditor("99999",ui->table);
             ui->table->setItemDelegateForColumn(columnDcrKey, dcrKeyEditor);
@@ -1663,7 +1663,7 @@ void memories::on_group_currentIndexChanged(int index)
     // Yaesu description is separate!
     if ((rigCaps->commands.contains(funcMemoryTag) || rigCaps->commands.contains(funcMemoryTagB)) && ui->table->isColumnHidden(columnName))
     {
-        if (nameEditor != Q_NULLPTR)
+        if (nameEditor != nullptr)
             delete nameEditor;
         nameEditor = new tableEditor(QString("%0;_").arg("",12,'x'),ui->table);
         ui->table->setItemDelegateForColumn(columnName, nameEditor);
@@ -1674,7 +1674,7 @@ void memories::on_group_currentIndexChanged(int index)
 
     if (rigCaps->commands.contains(funcSplitMemory) && ui->table->isColumnHidden(columnFrequencyB))
     {
-        if (freqEditorB != Q_NULLPTR)
+        if (freqEditorB != nullptr)
             delete freqEditorB;
         freqEditorB = new tableEditor("00000.00000",ui->table);
         ui->table->setItemDelegateForColumn(columnFrequencyB, freqEditorB);

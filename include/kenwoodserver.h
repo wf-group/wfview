@@ -76,11 +76,11 @@ private:
 	};
 
 
-    QTcpServer* server = Q_NULLPTR;
+    QTcpServer* server = nullptr;
     QMap <QTcpSocket*, CLIENT*> clients;
 
-    rtpAudio* rtp = Q_NULLPTR;
-    QThread* rtpThread = Q_NULLPTR;
+    rtpAudio* rtp = nullptr;
+    QThread* rtpThread = nullptr;
 
     audioSetup outAudio;
     audioSetup inAudio;

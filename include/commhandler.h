@@ -67,7 +67,7 @@ private:
     quint8 buffer[256];
 
     QString portName;
-    QSerialPort *port=Q_NULLPTR;
+    QSerialPort *port=nullptr;
     qint32 baudrate;
     quint8 stopbits;
     bool rolledBack;

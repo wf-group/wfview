@@ -23,8 +23,8 @@ public:
 
 public slots:
     void process() override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
 
@@ -100,11 +100,11 @@ private:
 
     centerSpanData createScopeCenter(uchar s, QString name);
 
-    commHandler* comm = Q_NULLPTR;
-    pttyHandler* ptty = Q_NULLPTR;
-    tcpServer* tcp = Q_NULLPTR;
-    icomUdpHandler* udp=Q_NULLPTR;
-    QThread* udpHandlerThread = Q_NULLPTR;
+    commHandler* comm = nullptr;
+    pttyHandler* ptty = nullptr;
+    tcpServer* tcp = nullptr;
+    icomUdpHandler* udp=nullptr;
+    QThread* udpHandlerThread = nullptr;
 
     void determineRigCaps();
     QByteArray payloadIn;

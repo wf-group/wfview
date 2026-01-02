@@ -1,13 +1,16 @@
 // WaterfallItem.cpp
 #include "waterfallitem.h"
-#include <QSGSimpleTextureNode>
-#include <QQuickWindow>
+
+#include "ReceiverController.h"
 
 WaterfallItem::WaterfallItem()
 {
     setFlag(ItemHasContents, true);
     setAcceptedMouseButtons(Qt::LeftButton);
     setAcceptHoverEvents(true);
+    setFlag(QQuickItem::ItemHasContents, true);
+    qInfo() << "Creating new WaterfallItem()";
+
 }
 
 
@@ -547,6 +550,36 @@ void WaterfallItem::rebuildLut()
     lutValid = true;
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void WaterfallItem::geometryChange(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChange(n, o);
+    if (n.size() != o.size()) update();
+}
+#else
+void WaterfallItem::geometryChanged(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChanged(n, o);
+    if (n.size() != o.size()) update();
+}
+#endif
+
+void WaterfallItem::setController(QObject* c)
+{
+    if (m_controller == c) return;
+    if (m_controller) disconnect(m_controller, nullptr, this, nullptr);
+
+    m_controller = c;
+
+    auto *rx = qobject_cast<ReceiverController*>(c);
+    if (rx) {
+        connect(rx, &ReceiverController::scopeUpdated,
+                this, &WaterfallItem::updateScope,
+                Qt::DirectConnection);          // same thread (GUI)
+    }
 
 
+    emit controllerChanged();
+    update();
+}
 

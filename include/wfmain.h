@@ -6,6 +6,9 @@
 #define WFMAIN_H
 
 #include <QGuiApplication>
+#include <QApplication>
+#include <QQmlApplicationEngine>
+
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QThread>
@@ -66,6 +69,9 @@
 #include <qserialportinfo.h>
 #include "usbcontroller.h"
 #include "controllersetup.h"
+
+#include "MainController.h"
+#include "ReceiverController.h"
 #include "RigCreatorController.h"
 #include "cachingqueue.h"
 
@@ -125,7 +131,7 @@ signals:
     void setRigID(quint16 rigID);
     void setPTTType(pttType_t enabled);
 
-    
+
     void sendPowerOn();
     void sendPowerOff();
 
@@ -287,8 +293,8 @@ signals:
     void sayFrequency();
     void sayMode();
     void sayAll();
-    void sendCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
-    void sendCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendSerialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
+    void sendNetworkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
     void sendCloseComm();
     void sendChangeLatency(quint16 latency);
     void initServer();
@@ -306,7 +312,7 @@ signals:
     void setClusterTimeout(int timeout);
     void setClusterSkimmerSpots(bool enable);
     void setFrequencyRange(double low, double high);
-    void sendControllerRequest(USBDEVICE* dev, usbFeatureType request, int val=0, QString text="", QImage* img=Q_NULLPTR, QColor* color=Q_NULLPTR);
+    void sendControllerRequest(USBDEVICE* dev, usbFeatureType request, int val=0, QString text="", QImage* img=nullptr, QColor* color=nullptr);
     void tciInit(quint16 port);
 
     // Signals to forward incoming data onto other areas
@@ -480,14 +486,14 @@ private slots:
     void popupScreenMenu(QPoint pos);
 
 private:
-    QMenu* screenMenu = Q_NULLPTR;
+    QMenu* screenMenu = nullptr;
     Ui::wfmain *ui; // Main UI
     QVector<receiverWidget*>receivers;   // Spectrum Scope items.
     void closeEvent(QCloseEvent *event);
     QString logFilename;
     bool debugMode;
     QString version;
-    QSettings *settings=Q_NULLPTR;
+    QSettings *settings=nullptr;
     void loadSettings();
     void saveSettings();
     void connectSettingsWidget();
@@ -510,7 +516,7 @@ private:
     void showButton(QPushButton *btn);
     void hideButton(QPushButton *btn);
 
-    FirstTimeSetup *fts = Q_NULLPTR;
+    FirstTimeSetup *fts = nullptr;
     void openRig();
     void powerRigOff();
     void powerRigOn();
@@ -519,8 +525,8 @@ private:
 
     QList<QShortcut *> shortcuts;
 
-    rigCommander * rig=Q_NULLPTR;
-    QThread* rigThread = Q_NULLPTR;
+    rigCommander * rig=nullptr;
+    QThread* rigThread = nullptr;
     QCPColorMap * colorMap;
     QCPColorMapData * colorMapData;
     QCPColorScale * colorScale;
@@ -594,8 +600,8 @@ private:
     colorPrefsType colorPreset[numColorPresetsTotal];
 
     preferences prefs;
-    preferences defPrefs;
     udpPreferences udpPrefs;
+    preferences defPrefs;
     udpPreferences udpDefPrefs;
 
     void setDefaultColors(int presetNumber); // populate with default values
@@ -644,7 +650,7 @@ private:
     int oldFreqDialVal;
 
     QHash<quint16,rigInfo> rigList;
-    rigCapabilities* rigCaps = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
 
     rigInput currentModSrc[4];
 
@@ -657,26 +663,26 @@ private:
     quint8 usingDataMode = 99; // Set to invalid value initially
 
     // Widgets and Special Windows:
-    calibrationWindow *cal = Q_NULLPTR;
-    repeaterSetup *rpt = Q_NULLPTR;
-    satelliteSetup *sat = Q_NULLPTR;
-    //transceiverAdjustments *trxadj = Q_NULLPTR;
-    cwSender *cw = Q_NULLPTR;
-    controllerSetup* usbWindow = Q_NULLPTR;
-    aboutbox *abtBox = Q_NULLPTR;
-    selectRadio *selRad = Q_NULLPTR;
-    loggingWindow *logWindow = Q_NULLPTR;
-    //rigCreator *creator = Q_NULLPTR;
+    calibrationWindow *cal = nullptr;
+    repeaterSetup *rpt = nullptr;
+    satelliteSetup *sat = nullptr;
+    //transceiverAdjustments *trxadj = nullptr;
+    cwSender *cw = nullptr;
+    controllerSetup* usbWindow = nullptr;
+    aboutbox *abtBox = nullptr;
+    selectRadio *selRad = nullptr;
+    loggingWindow *logWindow = nullptr;
+    //rigCreator *creator = nullptr;
     bandbuttons* bandbtns;
     frequencyinputwidget* finputbtns;
     settingswidget* setupui;
 
 
-    rigServer* server = Q_NULLPTR;
-    QThread* serverThread = Q_NULLPTR;
-    rigCtlD* rigCtl = Q_NULLPTR;
-    tciServer* tci = Q_NULLPTR;
-    QThread* tciThread = Q_NULLPTR;
+    rigServer* server = nullptr;
+    QThread* serverThread = nullptr;
+    rigCtlD* rigCtl = nullptr;
+    tciServer* tci = nullptr;
+    QThread* tciThread = nullptr;
 
     void bandStackBtnClick();
     bool waitingForBandStackRtn;
@@ -715,14 +721,14 @@ private:
 
     quint64 mainElapsed=0;
     quint64 subElapsed=0;
-    colorPrefsType* colorPrefs=Q_NULLPTR;
+    colorPrefsType* colorPrefs=nullptr;
 
     QString currentRegion = "1";
     funcType getInputTypeCommand(inputTypes input);
 
 #if defined (USB_CONTROLLER)
-    usbController *usbControllerDev = Q_NULLPTR;
-    QThread *usbControllerThread = Q_NULLPTR;
+    usbController *usbControllerDev = nullptr;
+    QThread *usbControllerThread = nullptr;
     QString typeName;
     QVector<BUTTON> usbButtons;
     QVector<KNOB> usbKnobs;
@@ -736,15 +742,15 @@ private:
         QSocketNotifier* uDevNotifier = nullptr;
     #endif
 #endif
-    memories* memWindow = Q_NULLPTR;
-    dxClusterClient* cluster = Q_NULLPTR;
-    QThread* clusterThread = Q_NULLPTR;
+    memories* memWindow = nullptr;
+    dxClusterClient* cluster = nullptr;
+    QThread* clusterThread = nullptr;
     QMap<QString, spotData*> clusterSpots;
     QTimer clusterTimer;
-    QCPItemText* text=Q_NULLPTR;
+    QCPItemText* text=nullptr;
     QMutex clusterMutex;
     QColor clusterColor;
-    audioDevices* audioDev = Q_NULLPTR;
+    audioDevices* audioDev = nullptr;
     QImage lcdImage;
     connectionStatus_t connStatus = connDisconnected;
     uchar currentReceiver = 0;

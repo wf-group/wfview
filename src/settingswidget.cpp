@@ -32,7 +32,7 @@ settingswidget::~settingswidget()
 {
     delete ui;
 
-    if (audioDev != Q_NULLPTR) {
+    if (audioDev != nullptr) {
         delete audioDev;
     }
 
@@ -247,7 +247,7 @@ void settingswidget::acceptUdpPreferencesPtr(udpPreferences *upptr)
     }
     // New we have prefs, we get audio information
 
-    if (audioDev == Q_NULLPTR) {
+    if (audioDev == nullptr) {
         audioDev = new audioDevices(prefs->audioSystem, QFontMetrics(ui->audioSystemCombo->font()));
         connect(audioDev, SIGNAL(updated()), this, SLOT(setAudioDevicesUI()));
         audioDev->enumerate();
@@ -560,7 +560,7 @@ void settingswidget::updateIfPref(prefIfItem pif)
             for(int pn=0; pn < numColorPresetsTotal; pn++)
             {
                 p = colorPreset[pn];
-                if(p.presetName != Q_NULLPTR)
+                if(p.presetName != nullptr)
                     ui->colorPresetCombo->setItemText(pn, *p.presetName);
             }
             ui->colorPresetCombo->setCurrentIndex(prefs->currentColorPresetNumber);
@@ -2479,15 +2479,15 @@ void settingswidget::setColorElement(QColor color,
                              QLabel *label,
                              QLineEdit *lineText)
 {
-    if(led != Q_NULLPTR)
+    if(led != nullptr)
     {
         led->setColor(color, true);
     }
-    if(label != Q_NULLPTR)
+    if(label != nullptr)
     {
         label->setText(color.name(QColor::HexArgb));
     }
-    if(lineText != Q_NULLPTR)
+    if(lineText != nullptr)
     {
         lineText->setText(color.name(QColor::HexArgb));
     }
@@ -2495,12 +2495,12 @@ void settingswidget::setColorElement(QColor color,
 
 void settingswidget::setColorElement(QColor color, QLedLabel *led, QLabel *label)
 {
-    setColorElement(color, led, label, Q_NULLPTR);
+    setColorElement(color, led, label, nullptr);
 }
 
 void settingswidget::setColorElement(QColor color, QLedLabel *led, QLineEdit *lineText)
 {
-    setColorElement(color, led, Q_NULLPTR, lineText);
+    setColorElement(color, led, nullptr, lineText);
 }
 
 QColor settingswidget::getColorFromPicker(QColor initialColor)
@@ -2548,7 +2548,7 @@ void settingswidget::getSetColor(QLedLabel *led, QLineEdit *line)
 
 QString settingswidget::setColorFromString(QString colorstr, QLedLabel *led)
 {
-    if(led==Q_NULLPTR)
+    if(led==nullptr)
         return "ERROR";
 
     if(!colorstr.startsWith("#"))
@@ -2570,7 +2570,7 @@ void settingswidget::setColorButtonOperations(QColor *colorStore,
     // Call this function with a pointer into the colorPreset color you
     // wish to edit.
 
-    if(colorStore==Q_NULLPTR)
+    if(colorStore==nullptr)
     {
         qInfo(logSystem()) << "ERROR, invalid pointer to color received.";
         return;
@@ -2590,7 +2590,7 @@ void settingswidget::setColorLineEditOperations(QColor *colorStore,
 {
     // Call this function with a pointer into the colorPreset color you
     // wish to edit.
-    if(colorStore==Q_NULLPTR)
+    if(colorStore==nullptr)
     {
         qInfo(logSystem()) << "ERROR, invalid pointer to color received.";
         return;
@@ -2609,13 +2609,13 @@ void settingswidget::setColorLineEditOperations(QColor *colorStore,
 void settingswidget::setEditAndLedFromColor(QColor c, QLineEdit *e, QLedLabel *d)
 {
     bool blockSignals = true;
-    if(e != Q_NULLPTR)
+    if(e != nullptr)
     {
         e->blockSignals(blockSignals);
         e->setText(c.name(QColor::HexArgb));
         e->blockSignals(false);
     }
-    if(d != Q_NULLPTR)
+    if(d != nullptr)
     {
         d->setColor(c);
     }

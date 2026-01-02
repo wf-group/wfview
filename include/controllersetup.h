@@ -37,7 +37,7 @@
 class controllerScene : public QGraphicsScene
 {
     Q_OBJECT
-        //QGraphicsLineItem* item = Q_NULLPTR;
+        //QGraphicsLineItem* item = nullptr;
 
 signals:
         void showMenu(controllerScene* scene, QPoint p);
@@ -89,8 +89,8 @@ struct tabContent {
     QLabel* sensLabel;
     QSlider* sens;
     QImage* image;
-    QGraphicsItem* bgImage = Q_NULLPTR;
-    controllerScene* scene = Q_NULLPTR;
+    QGraphicsItem* bgImage = nullptr;
+    controllerScene* scene = nullptr;
     QGridLayout* grid;
     QLabel* brightLabel;
     QComboBox* brightness;
@@ -123,7 +123,7 @@ public:
 
 signals:
     void started();
-    void sendRequest(USBDEVICE* dev, usbFeatureType request, int val=0, QString text="", QImage* img=Q_NULLPTR, QColor* color=Q_NULLPTR);
+    void sendRequest(USBDEVICE* dev, usbFeatureType request, int val=0, QString text="", QImage* img=nullptr, QColor* color=nullptr);
     void programDisable(USBDEVICE* dev, bool disable);
     void programPages(USBDEVICE* dev, int pages);
     void backup(USBDEVICE* dev, QString path);
@@ -170,11 +170,11 @@ private:
     QVector<COMMAND>* commands;
     usbDevMap* devices;
 
-    BUTTON* currentButton = Q_NULLPTR;
-    KNOB* currentKnob = Q_NULLPTR;
+    BUTTON* currentButton = nullptr;
+    KNOB* currentKnob = nullptr;
 
     // Update Dialog
-    QDialog * updateDialog = Q_NULLPTR;
+    QDialog * updateDialog = nullptr;
     QComboBox* onEvent;
     QComboBox* offEvent;
     QComboBox* knobEvent;

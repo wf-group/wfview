@@ -143,7 +143,7 @@ public:
     //void showScope(bool en) { this->splitter->setVisible(en); }
     //bool isScopeEnabled() { return this->configScopeEnabled->isEnabled();};
 
-    void displaySettings(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,FctlUnit unit,std::vector<bandType>* bands = Q_NULLPTR);
+    void displaySettings(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,FctlUnit unit,std::vector<bandType>* bands = nullptr);
 
     void updateBSR(std::vector<bandType>* bands);
     QImage getSpectrumImage();
@@ -313,10 +313,10 @@ private:
     QString defaultStyleSheet;
 
     QMutex mutex;
-    QWidget* originalParent = Q_NULLPTR;
-    QLabel* windowLabel = Q_NULLPTR;
-    //QCustomPlot* spectrum = Q_NULLPTR;
-    //QCustomPlot* waterfall = Q_NULLPTR;
+    QWidget* originalParent = nullptr;
+    QLabel* windowLabel = nullptr;
+    //QCustomPlot* spectrum = nullptr;
+    //QCustomPlot* waterfall = nullptr;
     QHBoxLayout* mainLayout;
     QVBoxLayout* layout;
     QVBoxLayout* rhsLayout;
@@ -448,9 +448,9 @@ private:
 
     // Waterfall items;
     /*
-    QCPColorMap * colorMap = Q_NULLPTR;
-    QCPColorMapData * colorMapData = Q_NULLPTR;
-    QCPColorScale * colorScale = Q_NULLPTR;
+    QCPColorMap * colorMap = nullptr;
+    QCPColorMapData * colorMapData = nullptr;
+    QCPColorScale * colorScale = nullptr;
     QVector <QByteArray> wfimage;
     */
 
@@ -476,7 +476,7 @@ private:
     bool hasScope=true;
     QString currentRegion="1";
     bool bandIndicatorsVisible=false;
-    rigCapabilities* rigCaps=Q_NULLPTR;
+    rigCapabilities* rigCaps=nullptr;
     bandType currentBand;
     QElapsedTimer lastData;
     bool satMode = false;

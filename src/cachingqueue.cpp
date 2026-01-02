@@ -13,31 +13,34 @@
 cachingQueue* cachingQueue::instance{};
 QMutex cachingQueue::instanceMutex;
 
+std::atomic<qint64> queueItem::nextId{1};
+
 cachingQueue *cachingQueue::getInstance(QObject* parent)
 {
     QMutexLocker locker(&instanceMutex);
-    if (instance == Q_NULLPTR)
+    if (instance == nullptr)
     {
-        instance = new cachingQueue(parent);
+        // Bind to qApp (parent only used for logging)
+        instance = new cachingQueue(qApp);
         instance->setObjectName(("cachingQueue()"));
         connect (instance, SIGNAL(finished()),instance, SLOT(deleteLater()));
         instance->start(QThread::TimeCriticalPriority);
     }
-    qDebug() << "Returning instance of cachingQueue() to calling process:" << ((parent != Q_NULLPTR) ? parent->objectName(): "<unknown>");
+    qDebug() << "Returning instance of cachingQueue() to calling process:" << ((parent != nullptr) ? parent->objectName(): "<unknown>");
     return instance;
 }
 
 cachingQueue::~cachingQueue()
 {
-    aborted = true;
-    if (mutex.tryLock(CACHE_LOCK_TIME)) {
-        mutex.unlock();
-        waiting.wakeOne(); // wake the thread and signal it to exit.
-    }
-    else {
-        qWarning(logRig()) << "Failed to delete cachingQueue() after" << CACHE_LOCK_TIME << "ms, mutex locked";
-    }
-    qInfo() << "Destroying caching queue (parent closing)";
+    qInfo() << "Destroying caching queue (app closing)";
+
+    {
+        QMutexLocker locker(&mutex);
+        aborted = true;
+        waiting.wakeAll();        // wake the thread so it can see aborted and exit
+    } // <- mutex MUST be released before wait()
+
+    wait();
 }
 
 void cachingQueue::run()
@@ -80,38 +83,54 @@ void cachingQueue::run()
             }
             counter++;
 
-            //auto it = queue.upperBound(prio);
-            //it--; //upperBound returns the item immediately following the last key.
-            //if (it != queue.end() && it.key() == prio)
-            auto it = queue.find(prio);
-            if (it != queue.end()) {
-                while (it != queue.end() && it.key() == prio)
-                {
-                    it++;
-                }
-                it--;
-                auto item = it.value();
-                emit haveCommand(item.command,item.param,item.receiver);
-                it=queue.erase(it);
-                //queue.remove(prio,it.value()); // Will remove ALL matching commands which breaks some things (memory bulk write)
+            queueItem item;
+            bool haveItem = false;
 
-                // If this is a recurring command, add it back into the queue.
-                if (item.recurring && prio != priorityImmediate) {
-                    queue.insert(prio,item);
-                }
+            auto first = queue.lowerBound(prio);
+            auto last  = queue.upperBound(prio);
 
-                // Immediate will be updated by the add command, any other commands should update the cache
+            if (first != last) {
+                auto it = last;
+                --it;
+
+                item = it.value();
+                queue.erase(it);
+
+                haveItem = true;
+
+                // Immediate commands update the cache on insert to make sure there is no delay
                 if (prio != priorityImmediate) {
-                    updateCache(false,item.command,item.param,item.receiver);
+                    updateCache(false, item.command, item.param, item.receiver);
+                }
+
+                // Requeue recurring while locked (also make sure that immediate can't be recurring)
+                if (item.recurring && prio != priorityImmediate) {
+                    queue.insert(prio, item);
                 }
             }
+
+            if (haveItem) {
+                locker.unlock();
+                if (!aborted)
+                    emit haveCommand(item.command, item.param, item.receiver);
+                locker.relock();  // restore original "mutex held" assumption
+            }
+
 #ifdef Q_OS_MACOS
-            while (!items.isEmpty()) {
-                emit sendValue(items.dequeue());
-            }
-            while (!messages.isEmpty()) {
-                emit sendMessage(messages.dequeue());
-            }
+            QQueue<cacheItem> valuesToSend;
+            QStringList msgsToSend;
+
+            while (!items.isEmpty())
+                valuesToSend.enqueue(items.dequeue());
+            while (!messages.isEmpty())
+                msgsToSend.append(messages.dequeue());
+
+            locker.unlock();
+            while (!valuesToSend.isEmpty())
+                emit sendValue(valuesToSend.dequeue());
+            for (const auto& m : msgsToSend)
+                emit sendMessage(m);
+            locker.relock();
 #else
             QCoreApplication::processEvents();
 #endif
@@ -119,13 +138,26 @@ void cachingQueue::run()
 
         }
         else if (!aborted) {
-            // Mutex is locked
-            while (!items.isEmpty()) {
-                emit sendValue(items.dequeue());
+            // Copy current values/messages before emitting them so that we can unlock before emit
+            QQueue<cacheItem> valuesToSend;
+            QStringList msgsToSend;
+
+            while (!items.isEmpty())
+                valuesToSend.enqueue(items.dequeue());
+            while (!messages.isEmpty())
+                msgsToSend.append(messages.dequeue());
+
+            locker.unlock();
+            // Just to make sure we haven't aborted while we were building the commands.
+            if (!aborted)
+            {
+                while (!valuesToSend.isEmpty())
+                    emit sendValue(valuesToSend.dequeue());
+                for (const auto& m : msgsToSend)
+                    emit sendMessage(m);
             }
-            while (!messages.isEmpty()) {
-                emit sendMessage(messages.dequeue());
-            }
+            locker.relock();
+
             if (queueInterval != -1 && deadline.isForever())
                 deadline.setRemainingTime(queueInterval); // reset the deadline to the poll frequency
         }
@@ -146,7 +178,7 @@ void cachingQueue::interval(qint64 val)
 funcs cachingQueue::checkCommandAvailable(funcs cmd,bool set)
 {
     Q_UNUSED(set)
-    if (rigCaps != Q_NULLPTR && cmd != funcNone && cmd != funcSelectVFO && !rigCaps->commands.contains(cmd)) {
+    if (rigCaps != nullptr && cmd != funcNone && cmd != funcSelectVFO && !rigCaps->commands.contains(cmd)) {
         // We don't have the requested command!
         return funcNone;
     }
@@ -217,7 +249,7 @@ vfoCommandType cachingQueue::getVfoCommand(vfo_t vfo,uchar rx, bool set)
     vfoCommandType cmd;
     cmd.receiver = rx;
     cmd.vfo = vfo;
-    if (rigCaps != Q_NULLPTR) {
+    if (rigCaps != nullptr) {
         QMutexLocker locker(&mutex);
 
         if (set) {

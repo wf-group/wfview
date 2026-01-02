@@ -1,5 +1,6 @@
 // SpectrumItem.cpp
 #include "spectrumitem.h"
+#include "ReceiverController.h"
 
 SpectrumItem::SpectrumItem()
 {
@@ -8,6 +9,8 @@ SpectrumItem::SpectrumItem()
     // allow mouse events
     setAcceptedMouseButtons(Qt::LeftButton);
     setAcceptHoverEvents(true);
+    setFlag(QQuickItem::ItemHasContents, true);
+    qInfo() << "Creating new SpectrumItem()";
 }
 
 void SpectrumItem::setColors(const colorPrefsType &c)
@@ -15,7 +18,7 @@ void SpectrumItem::setColors(const colorPrefsType &c)
 
     qInfo() << "Setting new color preset to spectrum" << c.presetNum << c.presetName;
     colors = c;
-    update();  // redraw with new colours
+    emit colorsChanged();
 }
 
 // grid/scale configuration
@@ -44,10 +47,11 @@ void SpectrumItem::setGridStep(uchar v)
 }
 
 // center marker
-void SpectrumItem::setCenter(double x)
+void SpectrumItem::setCenter(quint64 x)
 {
-    if (qFuzzyCompare(center, x)) return;
-    center = x;
+    double v = double(x / 1000000.0);
+    if (qFuzzyCompare(center, v)) return;
+    center = v;
     emit centerChanged();
     update();
 }
@@ -300,17 +304,9 @@ void SpectrumItem::clearSpots()
 void SpectrumItem::setBands(const QVector<bandType> &newBands)
 {
     bands = newBands;
+    emit bandsChanged();
     update();
 }
-
-void SpectrumItem::clearBands()
-{
-    if (bands.isEmpty())
-        return;
-    bands.clear();
-    update();
-}
-
 
 void SpectrumItem::updateScope(const scopeData &data)
 {
@@ -1554,4 +1550,37 @@ void SpectrumItem::clearPeaks()
 {
     peaks.fill(0);
     decayCounter = 0;
+}
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void SpectrumItem::geometryChange(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChange(n, o);
+    if (n.size() != o.size()) update();
+}
+#else
+void SpectrumItem::geometryChanged(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChanged(n, o);
+    if (n.size() != o.size()) update();
+}
+#endif
+
+void SpectrumItem::setController(QObject *c)
+{
+    if (m_controller == c) return;
+    if (m_controller) disconnect(m_controller, nullptr, this, nullptr);
+
+    m_controller = c;
+
+    auto *rx = qobject_cast<ReceiverController*>(c);
+    if (rx) {
+        connect(rx, &ReceiverController::scopeUpdated,
+                this, &SpectrumItem::updateScope,
+                Qt::DirectConnection);          // same thread (GUI)
+    }
+
+    emit controllerChanged();
+    update();
+
 }

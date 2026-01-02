@@ -160,7 +160,7 @@ void tciServer::onNewConnection()
     QWebSocket *pSocket = server->nextPendingConnection();
     vfoCommandType t = queue->getVfoCommand(vfoA,false,false);
 
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
     {
         qWarning(logTCIServer()) << "No current rig connection, denying connection request.";
         pSocket->abort();

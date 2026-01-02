@@ -2,9 +2,6 @@
 #include <QtCore/QCoreApplication>
 #include "keyboard.h"
 #else
-#include <QApplication>
-#include <QMainWindow>
-#include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QGuiApplication>
@@ -24,14 +21,22 @@
 #include "wfmain.h"
 
 #include "logcategories.h"
+#include "LoggingController.h"
 
 bool debugMode=false;
+
+struct QtMsgHandlerGuard {
+    LoggingController* log = nullptr;
+    ~QtMsgHandlerGuard() {
+        if (log) log->uninstallQtMessageHandler();
+    }
+};
 
 #ifdef BUILD_WFSERVER
 // Smart pointer to log file
 QScopedPointer<QFile>   m_logFile;
 QMutex logMutex;
-servermain* w=Q_NULLPTR;
+servermain* w=nullptr;
 
 #ifdef Q_OS_WIN
 bool __stdcall cleanup(DWORD sig)
@@ -47,7 +52,7 @@ static void cleanup(int sig)
 #endif
     case SIGTERM:
         qInfo() << "terminate signal caught";
-        if (w!=Q_NULLPTR) w->deleteLater();
+        if (w!=nullptr) w->deleteLater();
         QCoreApplication::quit();
         break;
     default:
@@ -112,17 +117,8 @@ int main(int argc, char *argv[])
 #endif
     QApplication a(argc, argv);
 
-    QQuickStyle::setStyle("Fusion"); // MUST be before loading any QML that imports Controls
-
-    qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");
-    qmlRegisterType<WaterfallItem>("WFVIEW", 1, 0, "WaterfallItem");
-    qmlRegisterType<FreqCtrlQuick>("WFVIEW", 1, 0, "FreqCtrlQuick");
-    qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
-    qmlRegisterType<IniTableModel>("WFVIEW", 1, 0, "IniTableModel");
-    qmlRegisterSingletonType<ClipboardProxy>("WFVIEW", 1, 0, "Clipboard",
-                                             [](QQmlEngine*, QJSEngine*) -> QObject* { return new ClipboardProxy; });
-
-
+/*
+ * // This code will log current window behaviour
     QObject::connect(qApp, &QGuiApplication::focusWindowChanged,
                      [](QWindow *w) {
                          qInfo() << "[focusWindowChanged]" << w
@@ -149,13 +145,10 @@ int main(int argc, char *argv[])
         }
     });
 
-    QQmlApplicationEngine engine;
-    //engine.rootContext()->setContextProperty("rig", backend); // shared backend name in QML
-    engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
-    if (engine.rootObjects().isEmpty())
-        return -1;
+*/
 
     a.setApplicationName("wfview");
+
 #endif
 
     a.setOrganizationName("wfview");
@@ -291,7 +284,6 @@ int main(int argc, char *argv[])
     }
 
 #ifdef BUILD_WFSERVER
-
     // Set the logging file before doing anything else.
     m_logFile.reset(new QFile(logFilename));
     // Open the file logging
@@ -301,9 +293,6 @@ int main(int argc, char *argv[])
 
     qInfo(logSystem()) << version;
 
-#endif
-
-#ifdef BUILD_WFSERVER
  #ifdef Q_OS_WIN
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)cleanup, TRUE);
  #else
@@ -313,9 +302,110 @@ int main(int argc, char *argv[])
  #endif
     w = new servermain(settingsFile);
 #else
+
+    // Load logging window and install message handler as early as possible
+    // Install capture BEFORE engine.load so QML warnings also get captured
+    auto g_log = std::make_unique<LoggingController>(&a);
+    g_log->setLogFilePath(logFilename);
+    g_log->installQtMessageHandler();
+
+    // Log initial program information
+    qInfo(logSystem()).noquote() << QString("wfview version: %1 (Git:%2 on %3 at %4 by %5@%6)")
+                                        .arg(QString(WFVIEW_VERSION),GITSHORT,__DATE__,__TIME__,UNAME,HOST);
+
+    qInfo(logSystem()).noquote() << QString("Operating System: %0 (%1)").arg(QSysInfo::prettyProductName(),QSysInfo::buildCpuArchitecture());
+    qInfo(logSystem()).noquote() << "Looking for External Dependencies:";
+    qInfo(logSystem()).noquote() << QString("QT Runtime Version: %0").arg(qVersion());
+    if (strncmp(QT_VERSION_STR, qVersion(),sizeof(QT_VERSION_STR)))
+    {
+        qWarning(logSystem()).noquote() << QString("QT Build Version Mismatch: %0").arg(QT_VERSION_STR);
+    }
+
+    qInfo(logSystem()).noquote()  << QString("OPUS Version: %0").arg(opus_get_version_string());
+
+#ifdef HID_API_VERSION_MAJOR
+    qInfo(logSystem()).noquote() << QString("HIDAPI Version: %0.%1.%2")
+                                        .arg(HID_API_VERSION_MAJOR)
+                                        .arg(HID_API_VERSION_MINOR)
+                                        .arg(HID_API_VERSION_PATCH);
+
+    if (HID_API_VERSION != HID_API_MAKE_VERSION(hid_version()->major, hid_version()->minor, hid_version()->patch)) {
+        qWarning(logSystem()).noquote() << QString("HIDAPI Version mismatch: %0.%1.%2")
+        .arg(hid_version()->major)
+            .arg(hid_version()->minor)
+            .arg(hid_version()->patch);
+    }
+#endif
+
+#ifdef EIGEN_WORLD_VERSION
+    qInfo(logSystem()).noquote() << QString("EIGEN Version: %0.%1.%2").arg(EIGEN_WORLD_VERSION).arg(EIGEN_MAJOR_VERSION).arg(EIGEN_MINOR_VERSION);
+#endif
+
+#ifdef RTAUDIO_VERSION
+    qInfo(logSystem()).noquote() << QString("RTAUDIO Version: %0").arg(RTAUDIO_VERSION);
+    if (RTAUDIO_VERSION != RtAudio::getVersion())
+    {
+        qWarning(logSystem()).noquote() << QString("RTAUDIO Version Mismatch: %0").arg(RtAudio::getVersion().c_str());
+    }
+#endif
+
+    qInfo(logSystem()).noquote() << QString("PORTAUDIO Version: %0").arg(Pa_GetVersionText());
+
+
     a.setWheelScrollLines(1); // one line per wheel click
-    wfmain w(settingsFile, logFilename, debugMode);
-    w.show();
+
+    // Create MainWindow here
+    qDebug(logSystem()) << "Opening MainWindow()";
+
+    //engine.rootContext()->setContextProperty("rig", backend); // shared backend name in QML
+
+    QQuickStyle::setStyle("Fusion"); // MUST be before loading any QML that imports Controls
+    QQmlApplicationEngine engine;
+
+    auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, &a);
+    QObject::connect(&a, &QCoreApplication::aboutToQuit, g_mwc.get(), &MainController::shutdown);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    qmlRegisterSingletonInstance("WFVIEW", 1, 0, "MainController", g_mwc.get());
+    qmlRegisterSingletonInstance("WFVIEW", 1, 0, "Logging", g_log.get());
+#else
+    qmlRegisterSingletonType<MainController>("WFVIEW", 1, 0, "MainController",
+                                             [](QQmlEngine*, QJSEngine*) -> QObject* { return g_mwc.get(); });
+
+    qmlRegisterSingletonType<LoggingController>("WFVIEW", 1, 0, "Logging",
+                                                [](QQmlEngine*, QJSEngine*) -> QObject* { return g_log.get(); });
+#endif
+
+    // Guard ensures handler removed before engine/app destructors run
+    QtMsgHandlerGuard handlerGuard{ g_log.get() };
+
+    QObject::connect(&a, &QCoreApplication::aboutToQuit,
+                     g_log.get(), &LoggingController::uninstallQtMessageHandler,
+                     Qt::DirectConnection);
+
+    qmlRegisterSingletonInstance("WFVIEW", 1, 0, "MainController", g_mwc.get());
+
+    qmlRegisterType<ReceiverController>("WFVIEW", 1, 0, "ReceiverController");
+    qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
+
+
+    // Members of ReceiverController
+    qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");
+    qmlRegisterType<WaterfallItem>("WFVIEW", 1, 0, "WaterfallItem");
+    qmlRegisterType<FreqCtrlQuick>("WFVIEW", 1, 0, "FreqCtrlQuick");
+
+    // Helpers
+    qmlRegisterType<IniTableModel>("WFVIEW", 1, 0, "IniTableModel");
+    qmlRegisterSingletonType<ClipboardProxy>("WFVIEW", 1, 0, "Clipboard",
+                                             [](QQmlEngine*, QJSEngine*) -> QObject* { return new ClipboardProxy; });
+
+    engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
+    if (engine.rootObjects().isEmpty())
+        return -1;
+
+    // This needs to be removed eventually
+    //wfmain w(settingsFile, logFilename, debugMode);
+    //w.show();
 
 #endif
     return a.exec();

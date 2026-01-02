@@ -20,20 +20,20 @@ rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inS
 
 rtpAudio::~rtpAudio()
 {
-    if (udp != Q_NULLPTR)
+    if (udp != nullptr)
     {
         qDebug(logUdp()) << "Closing RTP connection";
         udp->close();
         delete udp;
-        udp = Q_NULLPTR;
+        udp = nullptr;
     }
-    if (outAudioThread != Q_NULLPTR) {
+    if (outAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping outaudio thread";
         outAudioThread->quit();
         outAudioThread->wait();
     }
 
-    if (inAudioThread != Q_NULLPTR) {
+    if (inAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping inaudio thread";
         inAudioThread->quit();
         inAudioThread->wait();
@@ -179,7 +179,7 @@ void rtpAudio::getInLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 
 void rtpAudio::receiveAudioData(audioPacket audio)
 {
     // I really can't see how this could be possible but a quick sanity check!
-    if (inaudio == Q_NULLPTR) {
+    if (inaudio == nullptr) {
         return;
     }
     if (audio.data.length() > 0) {

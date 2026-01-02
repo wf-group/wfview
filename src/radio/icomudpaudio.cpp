@@ -36,13 +36,13 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
 
 icomUdpAudio::~icomUdpAudio()
 {
-    if (rxAudioThread != Q_NULLPTR) {
+    if (rxAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping rxaudio thread";
         rxAudioThread->quit();
         rxAudioThread->wait();
     }
 
-    if (txAudioThread != Q_NULLPTR) {
+    if (txAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping txaudio thread";
         txAudioThread->quit();
         txAudioThread->wait();
@@ -61,20 +61,20 @@ void icomUdpAudio::watchdog()
 
             qInfo(logUdp()) << " Audio Watchdog: no audio data received for 30s, restart required? last:" << lastReceived  ;
             alerted = true;
-            if (rxAudioThread != Q_NULLPTR) {
+            if (rxAudioThread != nullptr) {
                 qDebug(logUdp()) << "Stopping rxaudio thread";
                 rxAudioThread->quit();
                 rxAudioThread->wait();
-                rxAudioThread = Q_NULLPTR;
-                rxaudio = Q_NULLPTR;
+                rxAudioThread = nullptr;
+                rxaudio = nullptr;
             }
 
-            if (txAudioThread != Q_NULLPTR) {
+            if (txAudioThread != nullptr) {
                 qDebug(logUdp()) << "Stopping txaudio thread";
                 txAudioThread->quit();
                 txAudioThread->wait();
-                txAudioThread = Q_NULLPTR;
-                txaudio = Q_NULLPTR;
+                txAudioThread = nullptr;
+                txaudio = nullptr;
             }            
         }
     }
@@ -87,7 +87,7 @@ void icomUdpAudio::watchdog()
 
 void icomUdpAudio::sendTxAudio()
 {
-    if (txaudio == Q_NULLPTR) {
+    if (txaudio == nullptr) {
         return;
     }
 
@@ -95,7 +95,7 @@ void icomUdpAudio::sendTxAudio()
 
 void icomUdpAudio::receiveAudioData(audioPacket audio) {
     // I really can't see how this could be possible but a quick sanity check!
-    if (txaudio == Q_NULLPTR) {
+    if (txaudio == nullptr) {
         return;
     }
     if (audio.data.length() > 0) {
@@ -177,7 +177,7 @@ void icomUdpAudio::dataReceived()
                     seqPrefix++;
                 }
 
-                if (rxAudioThread == Q_NULLPTR)
+                if (rxAudioThread == nullptr)
                     startAudio();
 
                 const int excess = pingLatenessMs - (pingBaselineMs + rxSetup.latency);
@@ -233,7 +233,7 @@ void icomUdpAudio::startAudio() {
 #endif
     else
     {
-        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
+        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!" << rxSetup.type;
         return;
     }
 
@@ -278,7 +278,7 @@ void icomUdpAudio::startAudio() {
 #endif
         else
         {
-            qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";
+            qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
             return;
         }
 

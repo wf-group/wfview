@@ -44,9 +44,9 @@ commHandler::commHandler(QString portName, quint32 baudRate, quint8 wfFormat, QO
 
 void commHandler::init()
 {
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
         isConnected = false;
     }
 

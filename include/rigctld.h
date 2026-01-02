@@ -160,7 +160,7 @@ class rigCtlClient : public QObject
 
 public:
 
-    explicit rigCtlClient(int socket, rigCtlD* parent = Q_NULLPTR);
+    explicit rigCtlClient(int socket, rigCtlD* parent = nullptr);
     int getSocketId();
 
 
@@ -173,12 +173,12 @@ public slots:
 
 protected:
     int sessionId;
-    QTcpSocket* socket = Q_NULLPTR;
+    QTcpSocket* socket = nullptr;
     QByteArray commandBuffer;
 
 private:
     cachingQueue* queue;
-    rigCapabilities* rigCaps=Q_NULLPTR;
+    rigCapabilities* rigCaps=nullptr;
     rigCtlD* parent;
     bool chkVfoEecuted=false;
     unsigned long crcTable[256];

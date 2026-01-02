@@ -43,7 +43,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     // This should make all signals come back to receiverWidget.
 
     QQmlEngine *engine = scopeQuick->engine();
-    engine->rootContext()->setContextProperty("receiver",this);
+    engine->rootContext()->setContextProperty("controller",this);
 
     scopeQuick->setSource(QUrl(QStringLiteral("qrc:/resources/Receiver.qml")));
     layout->addWidget(scopeQuick);
@@ -90,6 +90,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
             emit waterfallTime(time/1000000.0);
         });
 
+        freqDisplayA = root->findChild<FreqCtrlQuick*>("leftFreq");
         if (freqDisplayA)
         {
             // Setup the main frequency display
@@ -121,150 +122,6 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     }
 
     this->layout->setContentsMargins(0,0,0,0);
-
-    QVariantList values;
-    values.clear();
-    for (auto &sm : rigCaps->scopeModes) {
-        values.append(QVariantMap{
-            {"text",  sm.name},
-            {"value", sm.num}
-        });
-    }
-    if (!values.empty())
-        setCombo(root,"scopeMode", values);
-    else
-        setProperty(root,"scopeMode","visible",false);
-
-
-    values.clear();
-    for (auto &cs : rigCaps->scopeCenterSpans) {
-        values.append(QVariantMap{
-            {"text",  cs.name},
-            {"value", QVariant::fromValue(cs)}
-        });
-    }
-    if (!values.empty())
-        setCombo(root,"scopeSpan", values);
-    else
-        setProperty(root,"scopeSpan","visible",false);
-
-
-    auto it = rigCaps->commands.find(funcScopeEdge);
-    values.clear();
-    if (it != rigCaps->commands.end())
-    {
-        for (int i=it->minVal; i<=it->maxVal; i++) {
-            values.append(QVariantMap{
-                {"text",  QString("Fixed Edge %0").arg(i)},
-                {"value", QVariant::fromValue<uchar>(i)}
-            });
-        }
-    }
-    if (!values.empty())
-        setCombo(root,"scopeEdge", values);
-    else
-        setProperty(root,"scopeEdge","visible",false);
-
-    values.clear();
-    for (auto &m : rigCaps->modes) {
-        values.append(QVariantMap{
-            {"text",  m.name},
-            {"value", QVariant::fromValue(m)}
-        });
-    }
-    if (!values.empty())
-        setCombo(root,"modes", values);
-    else
-        setProperty(root,"modes","visible",false);
-
-    values.clear();
-    auto addDataMode = [&](QString text, int value) {
-        values.append(QVariantMap{{"text", text}, {"value", value}});
-    };
-    addDataMode("Data Off", 0);
-    if (rigCaps->commands.contains(funcDATA2Mod)) {
-        addDataMode("Data 1", 1);
-        addDataMode("Data 2", 2);
-    } else if (rigCaps->commands.contains(funcDATA1Mod)) {
-        addDataMode("Data On", 1);
-    }
-    if (rigCaps->commands.contains(funcDATA3Mod)) {
-        addDataMode("Data 3", 3);
-    }
-    if (!values.empty())
-        setCombo(root,"dataMode", values);
-    else
-        setProperty(root,"dataMode","visible",false);
-
-    values.clear();
-    for (auto &f : rigCaps->filters) {
-        values.append(QVariantMap{
-            {"text",  f.name},
-            {"value", f.num}
-        });
-    }
-    if (!values.empty())
-        setCombo(root,"filters", values);
-    else
-        setProperty(root,"filters","visible",false);
-
-    values.clear();
-    for (auto &r : rigCaps->roofing) {
-       values.append(QVariantMap{
-            {"text",  r.name},
-            {"value", r.num}
-        });
-    }
-    if (!values.empty())
-        setCombo(root,"roofing", values);
-    else
-        setProperty(root,"roofing","visible",false);
-
-    values.clear();
-    if (rigCaps->commands.contains(funcFilterShape))
-    {
-        auto addFilterShape = [&](QString text, uchar value) {
-            values.append(QVariantMap{{"text", text}, {"value", value}});
-        };
-        addFilterShape("Sharp",0);
-        if (rigCaps->manufacturer == manufKenwood)
-        {
-            addFilterShape("Medium",1);
-            addFilterShape("Soft",2);
-
-        } else {
-            addFilterShape("Soft",1);
-        }
-    }
-    if (!values.empty())
-        setCombo(root,"filterShape", values);
-    else
-        setProperty(root,"filterShape","visible",false);
-
-
-    values.clear();
-    values.append(QVariantMap{{"text", "Fast"}, {"value", uchar(0)}});
-    values.append(QVariantMap{{"text", "Mid"}, {"value", uchar(1)}});
-    values.append(QVariantMap{{"text", "Slow"}, {"value", uchar(2)}});
-    setCombo(root,"speed", values);
-
-    values.clear();
-    auto addTheme = [&](QString text, WaterfallItem::Theme value) {
-        values.append(QVariantMap{{"text", text}, {"value", value}});
-    };
-    addTheme("Jet", WaterfallItem::Theme::Jet);
-    addTheme("Cold", WaterfallItem::Theme::Cold);
-    addTheme("Hot", WaterfallItem::Theme::Hot);
-    addTheme("Therm", WaterfallItem::Theme::Thermal);
-    addTheme("Night", WaterfallItem::Theme::Night);
-    addTheme("Ion", WaterfallItem::Theme::Ion);
-    addTheme("Gray", WaterfallItem::Theme::Grayscale);
-    addTheme("Geo", WaterfallItem::Theme::Geography);
-    addTheme("Hues", WaterfallItem::Theme::Hues);
-    addTheme("Polar", WaterfallItem::Theme::Polar);
-    addTheme("Spect", WaterfallItem::Theme::Spectrum);
-    addTheme("Candy", WaterfallItem::Theme::Candy);
-    setCombo(root,"theme", values);
 
 
     if (rigCaps->commands.contains(funcScopeRef))
@@ -329,7 +186,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
 
     connect(configIfShift, &QSlider::valueChanged, this, [=](const int &val) {
-        if (rigCaps != Q_NULLPTR && rigCaps->commands.contains(funcIFShift)) {
+        if (rigCaps != nullptr && rigCaps->commands.contains(funcIFShift)) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcIFShift,QVariant::fromValue<ushort>(val),false,t.receiver));
         } else {
@@ -454,7 +311,7 @@ void receiverWidget::setRange(int floor, int ceiling)
 
 void receiverWidget::colorPreset(colorPrefsType *cp)
 {
-    if (cp == Q_NULLPTR || !spectrum)
+    if (cp == nullptr || !spectrum)
     {
         return;
     }
@@ -1232,7 +1089,7 @@ void receiverWidget::doubleClick(QMouseEvent *me)
 
         }
     }
-*/
+    */
 }
 
 void receiverWidget::scopeClick(QMouseEvent* me)
@@ -2196,8 +2053,6 @@ void receiverWidget::setBandIndicators(bool show, QString region, std::vector<ba
 
     this->currentRegion = region;
 
-    if (spectrum)
-        spectrum->clearBands();
 
     // Step through the bands and add all indicators!
     activeBands.clear();
@@ -2209,8 +2064,8 @@ void receiverWidget::setBandIndicators(bool show, QString region, std::vector<ba
                 activeBands.append(band);
             }
         }
-        if (spectrum)
-            spectrum->setBands(activeBands);
+        //if (spectrum)
+        //    spectrum->setBands(activeBands);
     }
 }
 

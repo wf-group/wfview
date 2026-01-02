@@ -24,7 +24,7 @@ void yaesuServer::dataForServer(QByteArray d)
     rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
 
     //qInfo(logRigServer()) << "Received data for server clients";
-    if (sender == Q_NULLPTR)
+    if (sender == nullptr)
     {
         return;
     }
@@ -38,7 +38,7 @@ void yaesuServer::receiveAudioData(const audioPacket& d)
 {
     rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
     quint8 guid[GUIDLEN];
-    if (sender != Q_NULLPTR)
+    if (sender != nullptr)
     {
         memcpy(guid, sender->getGUID(), GUIDLEN);
     }

@@ -108,9 +108,9 @@ private:
 
 		quint8 civId;
 		bool isAuthenticated;
-		CLIENT* controlClient = Q_NULLPTR;
-		CLIENT* civClient = Q_NULLPTR;
-		CLIENT* audioClient = Q_NULLPTR;
+		CLIENT* controlClient = nullptr;
+		CLIENT* civClient = nullptr;
+		CLIENT* audioClient = nullptr;
         quint8 guid[GUIDLEN];
 
         qint64 startTime;
@@ -135,9 +135,9 @@ private:
 	void watchdog();
 	void deleteConnection(QList<CLIENT*> *l, CLIENT* c);
 
-	QUdpSocket* udpControl = Q_NULLPTR;
-	QUdpSocket* udpCiv = Q_NULLPTR;
-	QUdpSocket* icomUdpAudio = Q_NULLPTR;
+	QUdpSocket* udpControl = nullptr;
+	QUdpSocket* udpCiv = nullptr;
+	QUdpSocket* icomUdpAudio = nullptr;
 	QHostAddress localIP;
 	quint8 macAddress[6];
 	

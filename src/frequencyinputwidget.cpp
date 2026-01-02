@@ -185,7 +185,7 @@ void frequencyinputwidget::on_fBackbtn_clicked()
 
 void frequencyinputwidget::on_goFreqBtn_clicked()
 {
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
     {
         return;
     }

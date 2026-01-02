@@ -312,7 +312,7 @@ void rigCtlD::stopServer()
 
 void rigCtlClient::receiveRigCaps(rigCapabilities* caps)
 {
-    if (caps != Q_NULLPTR) {
+    if (caps != nullptr) {
         qInfo(logRigCtlD()) << "Got rigcaps for:" << caps->modelName;
     } else
     {
@@ -344,7 +344,7 @@ rigCtlClient::rigCtlClient(int socketId, rigCtlD* parent) : QObject(parent)
     qInfo(logRigCtlD()) << " session connected: " << sessionId;
 
     // Find what VFOs we have:
-    if (rigCaps != Q_NULLPTR)
+    if (rigCaps != nullptr)
     {
         if (rigCaps->numVFO > 0 && rigCaps->commands.contains(funcVFOASelect))
             vfoList |= 1<<0;
@@ -362,7 +362,7 @@ rigCtlClient::rigCtlClient(int socketId, rigCtlD* parent) : QObject(parent)
 void rigCtlClient::socketReadyRead()
 {
 
-    if (this->rigCaps == Q_NULLPTR) {
+    if (this->rigCaps == nullptr) {
         qWarning(logRigCtlD()) << "Rig has gone away, closing connection";
         closeSocket();
         return;
@@ -582,7 +582,7 @@ void rigCtlClient::closeSocket()
 void rigCtlClient::sendData(QString data)
 {
     qDebug(logRigCtlD()) << sessionId << "TX:" << data;
-    if (socket != Q_NULLPTR && socket->isValid() && socket->isOpen())
+    if (socket != nullptr && socket->isValid() && socket->isOpen())
     {
         socket->write(data.toLatin1());
     }
@@ -885,7 +885,7 @@ int rigCtlClient::getCommand(QStringList& response, bool extended, const command
     rigStateType state=queue->getState();
 
 
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
         return ret;
 
     if (((cmd.flags & ARG_IN) == ARG_IN) && params.size())
@@ -1191,7 +1191,7 @@ int rigCtlClient::getSubCommand(QStringList& response, bool extended, const comm
 
     int ret = -RIG_EINVAL;
 
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
         return ret;
 
     rigStateType state = queue->getState();

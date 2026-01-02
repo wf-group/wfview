@@ -20,7 +20,7 @@ void yaesuUdpBase::init()
 }
 yaesuUdpBase::~yaesuUdpBase()
 {
-    if (sock != Q_NULLPTR)
+    if (sock != nullptr)
         qInfo(logUdp()).noquote() << QString("Closing Yaesu UDP connection to %0:%1 (from %2:%3)")
                                      .arg(remoteAddr.toString()).arg(remotePort).arg(sock->localAddress().toString()).arg(sock->localPort()) ;
 }
@@ -48,7 +48,7 @@ void yaesuUdpBase::outgoing(void *buf, size_t bufLen)
     qint64 remoteLen = encodePacket((quint8*) buf, bufLen);
     if (remoteLen < 0)
         return;
-    if (sock != Q_NULLPTR)
+    if (sock != nullptr)
         sock->writeDatagram((char*)&remoteBuffer, remoteLen, remoteAddr, remotePort);
 }
 

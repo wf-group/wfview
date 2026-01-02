@@ -30,7 +30,7 @@ struct spotData {
     QDateTime timestamp;
     QString mode;
     QString comment;
-    QCPItemText* text = Q_NULLPTR;
+    QCPItemText* text = nullptr;
     int timeout; // timeout in seconds
     bool current = false;
 };
@@ -90,8 +90,8 @@ private:
 
     bool udpEnable;
     bool tcpEnable;
-    QUdpSocket* udpSocket=Q_NULLPTR;
-    QTcpSocket* tcpSocket=Q_NULLPTR;
+    QUdpSocket* udpSocket=nullptr;
+    QTcpSocket* tcpSocket=nullptr;
     int udpPort;
     QString tcpServerName;
     int tcpPort;
@@ -102,7 +102,7 @@ private:
     QRegularExpression tcpRegex;
     QMutex mutex;
     bool authenticated=false;
-    QTimer* tcpCleanupTimer=Q_NULLPTR;
+    QTimer* tcpCleanupTimer=nullptr;
 #ifdef USESQL
     QSqlDatabase db;
 #endif

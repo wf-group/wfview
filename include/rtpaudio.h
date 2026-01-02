@@ -48,18 +48,18 @@ private slots:
 
 private:
 
-    QUdpSocket* udp = Q_NULLPTR;
+    QUdpSocket* udp = nullptr;
 
     audioSetup outSetup;
     audioSetup inSetup;
 
-    audioHandlerBase* outaudio = Q_NULLPTR;
-    QThread* outAudioThread = Q_NULLPTR;
+    audioHandlerBase* outaudio = nullptr;
+    QThread* outAudioThread = nullptr;
 
-    audioHandlerBase* inaudio = Q_NULLPTR;
-    QThread* inAudioThread = Q_NULLPTR;
+    audioHandlerBase* inaudio = nullptr;
+    QThread* inAudioThread = nullptr;
 
-    QTimer* inAudioTimer = Q_NULLPTR;
+    QTimer* inAudioTimer = nullptr;
     bool enableIn = true;
     bool enableOut = true;
 

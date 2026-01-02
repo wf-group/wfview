@@ -83,24 +83,24 @@ audioConverter::~audioConverter()
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleFormat();
 #endif
 
-    if (opusEncoder != Q_NULLPTR) {
+    if (opusEncoder != nullptr) {
         qInfo(logAudioConverter()) << "Destroying opus encoder";
         opus_encoder_destroy(opusEncoder);
     }
 
-    if (opusDecoder != Q_NULLPTR) {
+    if (opusDecoder != nullptr) {
         qInfo(logAudioConverter()) << "Destroying opus decoder";
         opus_decoder_destroy(opusDecoder);
     }
 
-    if (adpcmContext != Q_NULLPTR) {
+    if (adpcmContext != nullptr) {
         qDebug(logAudioConverter()) << "adpcm context closed";
         adpcm_free_context(adpcmContext);
     }
 
-    if (resampler != Q_NULLPTR) {
+    if (resampler != nullptr) {
         wf_resampler_destroy(resampler);
-        resampler = Q_NULLPTR;
+        resampler = nullptr;
         qDebug(logAudioConverter()) << "Resampler closed";
     }
 
@@ -268,7 +268,7 @@ bool audioConverter::convert(audioPacket audio)
                 Next step is to resample (if needed)
             */
 
-            if (resampler != Q_NULLPTR && resampleRatio != 1.0)
+            if (resampler != nullptr && resampleRatio != 1.0)
             {
                 quint32 outFrames = ((samplesF.size() / outFormat.channelCount()) * resampleRatio);
                 quint32 inFrames = (samplesF.size() / outFormat.channelCount());

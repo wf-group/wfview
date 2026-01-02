@@ -48,7 +48,7 @@ protected:
     virtual void sendConnect() {};
     virtual void incomingUdp(void* buf, size_t bufLen) {Q_UNUSED(buf) Q_UNUSED(bufLen)};
 
-    QTimer* heartbeat = Q_NULLPTR;
+    QTimer* heartbeat = nullptr;
 
     quint16 remotePort;
     QHostAddress remoteAddr;

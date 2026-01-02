@@ -97,7 +97,7 @@ public:
 
 	//QTime timeStarted;
 
-	QUdpSocket* udp = Q_NULLPTR;
+	QUdpSocket* udp = nullptr;
 	uint32_t myId = 0;
 	uint32_t remoteId = 0;
 	uint16_t authSeq = 0x30;
@@ -137,12 +137,12 @@ public:
 	void sendTrackedPacket(QByteArray d);
 	void purgeOldEntries();
 
-	QTimer* areYouThereTimer = Q_NULLPTR; // Send are-you-there packets every second until a response is received.
-	QTimer* pingTimer = Q_NULLPTR; // Start sending pings immediately.
-	QTimer* idleTimer = Q_NULLPTR; // Start watchdog once we are connected.
+	QTimer* areYouThereTimer = nullptr; // Send are-you-there packets every second until a response is received.
+	QTimer* pingTimer = nullptr; // Start sending pings immediately.
+	QTimer* idleTimer = nullptr; // Start watchdog once we are connected.
 
-	QTimer* watchdogTimer = Q_NULLPTR;
-	QTimer* retransmitTimer = Q_NULLPTR;
+	QTimer* watchdogTimer = nullptr;
+	QTimer* retransmitTimer = nullptr;
 
 	QDateTime lastPingSentTime;
 	uint16_t pingSendSeq = 0;

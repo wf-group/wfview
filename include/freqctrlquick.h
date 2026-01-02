@@ -41,16 +41,21 @@ class FreqCtrlQuick : public QQuickPaintedItem
     Q_OBJECT
 
     // QML-visible properties
-    Q_PROPERTY(qint64 frequency READ getFrequency WRITE setFrequency NOTIFY newFrequency)
-    Q_PROPERTY(qint64 minFrequency READ minFrequency WRITE setMinFrequency NOTIFY rangeChanged)
-    Q_PROPERTY(qint64 maxFrequency READ maxFrequency WRITE setMaxFrequency NOTIFY rangeChanged)
-    Q_PROPERTY(bool resetLowerDigits READ resetLowerDigits WRITE setResetLowerDigits NOTIFY resetLowerDigitsChanged)
-    Q_PROPERTY(bool invertScrolling READ invertScrolling WRITE setInvertScrolling NOTIFY invertScrollingChanged)
-    Q_PROPERTY(FctlUnit unit READ unit WRITE setUnit NOTIFY unitChanged)
-    Q_PROPERTY(QColor digitColor READ digitColor WRITE setDigitColor NOTIFY colorsChanged)
-    Q_PROPERTY(QColor backgroundColor READ bgColor WRITE setBgColor NOTIFY colorsChanged)
-    Q_PROPERTY(QColor unitsColor READ unitsColor WRITE setUnitsColor NOTIFY colorsChanged)
-    Q_PROPERTY(QColor highlightColor READ highlightColor WRITE setHighlightColor NOTIFY colorsChanged)
+    Q_PROPERTY(qint64 frequency READ getFrequency WRITE setFrequencyExt NOTIFY newFrequency) // Use setFrequencyExt so it doesn't trigger a signal.
+    Q_PROPERTY(qint64 minFrequency READ getMinFrequency WRITE setMinFrequency NOTIFY rangeChanged)
+    Q_PROPERTY(qint64 maxFrequency READ getMaxFrequency WRITE setMaxFrequency NOTIFY rangeChanged)
+    Q_PROPERTY(bool resetLowerDigits READ getResetLowerDigits WRITE setResetLowerDigits NOTIFY resetLowerDigitsChanged)
+    Q_PROPERTY(bool invertScrolling READ getInvertScrolling WRITE setInvertScrolling NOTIFY invertScrollingChanged)
+    Q_PROPERTY(FctlUnit unit READ getUnit WRITE setUnit NOTIFY unitChanged)
+    Q_PROPERTY(QColor digitColor READ getDigitColor WRITE setDigitColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor backgroundColor READ getBgColor WRITE setBgColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor unitsColor READ getUnitsColor WRITE setUnitsColor NOTIFY colorsChanged)
+    Q_PROPERTY(QColor highlightColor READ getHighlightColor WRITE setHighlightColor NOTIFY colorsChanged)
+
+    Q_PROPERTY(int freqDigits READ getFreqDigits WRITE setFreqDigits NOTIFY freqDigitsChanged)
+    Q_PROPERTY(qint64 freqMinStep READ getFreqMinStep WRITE setFreqMinStep NOTIFY freqMinStepChanged)
+    Q_PROPERTY(QChar gsep READ getGsep WRITE setGsep NOTIFY gsepChanged)
+    Q_PROPERTY(QChar dsep READ getDsep WRITE setDsep NOTIFY dsepChanged)
 
 public:
     explicit FreqCtrlQuick();
@@ -62,22 +67,52 @@ public:
                            qint64 Maxf,
                            int MinStep,
                            FctlUnit unit,
-                           std::vector<bandType> *bands = Q_NULLPTR);
+                           std::vector<bandType> *bands = nullptr);
 
     // Properties / API
     qint64 getFrequency() const { return m_freq; }
-    qint64 minFrequency() const { return m_MinFreq; }
-    qint64 maxFrequency() const { return m_MaxFreq; }
+    qint64 getMinFrequency() const { return m_MinFreq; }
+    qint64 getMaxFrequency() const { return m_MaxFreq; }
 
-    bool resetLowerDigits() const { return m_ResetLowerDigits; }
-    bool invertScrolling() const { return m_InvertScrolling; }
+    int getFreqDigits() const { return m_NumDigits; }
 
-    FctlUnit unit() const { return m_Unit; }
+    void setFreqDigits(int f) {
+        if (!f) {
+            if (f < 10e6)
+                m_NumDigits = 7;
+            else if (f < 100e6)
+                m_NumDigits = 8;
+            else if (f < 1e9)
+                m_NumDigits = 9;
+            else if (f < 10e9)
+                m_NumDigits = 10;
+            else if (f < 100e9)
+                m_NumDigits = 11;
+        } else {
+            m_NumDigits = (f < FCTL_MIN_DIGITS) ? FCTL_MIN_DIGITS : (f > FCTL_MAX_DIGITS) ? FCTL_MAX_DIGITS : f;
+        }
+        emit freqDigitsChanged();
+    }
+    qint64 getFreqMinStep() const { return m_MaxFreq; }
 
-    QColor digitColor() const { return m_DigitColor; }
-    QColor bgColor() const { return m_BkColor; }
-    QColor unitsColor() const { return m_UnitsColor; }
-    QColor highlightColor() const { return m_HighlightColor; }
+    void setFreqMinStep(qint64 s)
+    {
+        if (s == 0)
+            m_MinStep = 1;
+        else
+            m_MinStep = s;
+        emit freqMinStepChanged();
+    }
+
+    bool getResetLowerDigits() const { return m_ResetLowerDigits; }
+    bool getInvertScrolling() const { return m_InvertScrolling; }
+
+    FctlUnit getUnit() const { return m_Unit; }
+
+    QColor getDigitColor() const { return m_DigitColor; }
+    QColor getBgColor() const { return m_BkColor; }
+    QColor getUnitsColor() const { return m_UnitsColor; }
+    QColor getHighlightColor() const { return m_HighlightColor; }
 
     void setUnit(FctlUnit unit);
     void setDigitColor(const QColor &col);
@@ -91,8 +126,13 @@ public:
         gsep = group;
         dsep = decimal;
         m_UpdateAll = true;
-        update();        // trigger repaint in Qt Quick
+        update();        // trigger repaint in Qt Quick        
     }
+
+    void setDsep( QChar d) { dsep = d;m_UpdateAll = true; update(); emit dsepChanged();}
+    void setGsep( QChar g) { gsep = g;m_UpdateAll = true; update(); emit gsepChanged();}
+    QChar getDsep() const { return dsep;}
+    QChar getGsep() const { return gsep;}
 
     void setResetLowerDigits(bool reset) { m_ResetLowerDigits = reset; }
     void setInvertScrolling(bool invert) { m_InvertScrolling = invert; }
@@ -104,9 +144,14 @@ signals:
     void invertScrollingChanged();
     void unitChanged();
     void colorsChanged();
+    void freqDigitsChanged();
+    void dsepChanged();
+    void gsepChanged();
+    void freqMinStepChanged();
 
 public slots:
     void setFrequency(qint64 freq);
+    void setFrequencyExt(qint64 freq);
     void setFrequencyFocus();           // optional: to be wired from QML
 
     void setMinFrequency(qint64 f);
@@ -211,6 +256,7 @@ private:
         bool      modified = false;
         bool      editmode = false;
     } m_DigitInfo[FCTL_MAX_DIGITS];
+
 };
 
 #endif // FREQCTRLQUICK_H

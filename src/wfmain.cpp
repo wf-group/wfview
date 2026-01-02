@@ -42,6 +42,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     setWindowTitle(QString("wfview"));
 
+
     ui->setupUi(this);
 
 
@@ -165,11 +166,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     this->setObjectName("wfmain");
     queue = cachingQueue::getInstance(this);
 
-    connect(queue,SIGNAL(sendValue(cacheItem)),this,SLOT(receiveValue(cacheItem)));
-    connect(queue,SIGNAL(sendMessage(QString)),this,SLOT(showStatusBarText(QString)));
-    connect(queue,SIGNAL(intervalUpdated(qint64)),this,SLOT(updatedQueueInterval(qint64)));
+    //connect(queue,SIGNAL(sendValue(cacheItem)),this,SLOT(receiveValue(cacheItem)));
+    //connect(queue,SIGNAL(sendMessage(QString)),this,SLOT(showStatusBarText(QString)));
+    //connect(queue,SIGNAL(intervalUpdated(qint64)),this,SLOT(updatedQueueInterval(qint64)));
 
-    connect(queue, SIGNAL(finished()), queue, SLOT(deleteLater()));
+    //connect(queue, SIGNAL(finished()), queue, SLOT(deleteLater()));
 
     // Disable all controls until connected.
     enableControls(false);
@@ -177,11 +178,11 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     // We need to populate the list of rigs as early as possible so do it now
 
     // Setup the connectiontimer as we may need it soon!
-    ConnectionTimer.setSingleShot(true);
-    connect(&ConnectionTimer,SIGNAL(timeout()), this,SLOT(connectionTimeout()));
+    //ConnectionTimer.setSingleShot(true);
+    //connect(&ConnectionTimer,SIGNAL(timeout()), this,SLOT(connectionTimeout()));
 
     // Make sure we know about any changes to rigCaps
-    connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
+    //connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
 
     setupKeyShortcuts();
 
@@ -225,8 +226,9 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     finputbtns->setAutomaticSidebandSwitching(prefs.automaticSidebandSwitching);
 
 
+
     qDebug(logSystem()) << "Running setInitialTiming()";
-    setInitialTiming();
+    //setInitialTiming();
 
     fts = new FirstTimeSetup();
 
@@ -378,12 +380,12 @@ wfmain::~wfmain()
 
     qInfo() << "wfmain destroyed" << this;
 
-    if(rigThread != Q_NULLPTR) {
+    if(rigThread != nullptr) {
         rigThread->quit();
         rigThread->wait();
     }
 
-    if (serverThread != Q_NULLPTR) {
+    if (serverThread != nullptr) {
         serverThread->quit();
         serverThread->wait();
     }
@@ -400,21 +402,21 @@ wfmain::~wfmain()
         delete rig;
     }
 
-    if (clusterThread != Q_NULLPTR) {
+    if (clusterThread != nullptr) {
         clusterThread->quit();
         clusterThread->wait();
     }
 
-    if (tciThread != Q_NULLPTR) {
+    if (tciThread != nullptr) {
         tciThread->quit();
         tciThread->wait();
     }
 
-    if (rigCtl != Q_NULLPTR) {
+    if (rigCtl != nullptr) {
         delete rigCtl;
     }
 
-    if (colorPrefs != Q_NULLPTR) {
+    if (colorPrefs != nullptr) {
         delete colorPrefs;
     }
 
@@ -422,7 +424,7 @@ wfmain::~wfmain()
     delete ui;
     delete settings;
 #if defined(USB_CONTROLLER)
-    if (usbControllerThread != Q_NULLPTR) {
+    if (usbControllerThread != nullptr) {
         usbControllerThread->quit();
         usbControllerThread->wait();
     }
@@ -437,7 +439,7 @@ wfmain::~wfmain()
 
 #endif
 
-    logStream->flush();
+    //logStream->flush();
 }
 
 void wfmain::closeEvent(QCloseEvent *event)
@@ -484,7 +486,7 @@ void wfmain::openRig()
         udpPrefs.waterfallFormat = prefs.waterfallFormat;
         // 60 second connection timeout.
         ConnectionTimer.start(60000);
-        emit sendCommSetup(rigList, prefs.radioCIVAddr, udpPrefs, prefs.rxSetup, prefs.txSetup, prefs.virtualSerialPort, prefs.tcpPort);
+        emit sendNetworkCommSetup(rigList, prefs.radioCIVAddr, udpPrefs, prefs.rxSetup, prefs.txSetup, prefs.virtualSerialPort, prefs.tcpPort);
     } else {
         if( (prefs.serialPortRadio.toLower() == QString("auto")))
         {
@@ -492,7 +494,7 @@ void wfmain::openRig()
         } else {
             serialPortRig = prefs.serialPortRadio;
         }
-        emit sendCommSetup(rigList, prefs.radioCIVAddr, serialPortRig, prefs.serialPortBaud,prefs.virtualSerialPort, prefs.tcpPort,prefs.waterfallFormat);
+        emit sendSerialCommSetup(rigList, prefs.radioCIVAddr, serialPortRig, prefs.serialPortBaud,prefs.virtualSerialPort, prefs.tcpPort,prefs.waterfallFormat);
         ui->statusBar->showMessage(QString("Connecting to rig using serial port ").append(serialPortRig), 1000);
 
     }
@@ -507,7 +509,7 @@ void wfmain::rigConnections()
 
 void wfmain::makeRig()
 {
-    if (rigThread == Q_NULLPTR)
+    if (rigThread == nullptr)
     {
         switch (prefs.manufacturer){
         case manufIcom:
@@ -543,8 +545,6 @@ void wfmain::makeRig()
         connect(rig, SIGNAL(setRadioUsage(quint8, bool, quint8, QString, QString)), this, SLOT(radioInUse(quint8, bool, quint8, QString, QString)));
         connect(selRad, SIGNAL(selectedRadio(quint8)), rig, SLOT(setCurrentRadio(quint8)));
         // Rig comm setup:
-        connect(this, SIGNAL(sendCommSetup(rigTypedef,quint16, udpPreferences, audioSetup, audioSetup, QString, quint16)), rig, SLOT(commSetup(rigTypedef,quint16, udpPreferences, audioSetup, audioSetup, QString, quint16)));
-        connect(this, SIGNAL(sendCommSetup(rigTypedef,quint16, QString, quint32,QString, quint16,quint8)), rig, SLOT(commSetup(rigTypedef,quint16, QString, quint32,QString, quint16,quint8)));
         connect(this, SIGNAL(setPTTType(pttType_t)), rig, SLOT(setPTTType(pttType_t)));
 
         connect(rig, SIGNAL(haveBaudRate(quint32)), this, SLOT(receiveBaudRate(quint32)));
@@ -623,7 +623,7 @@ void wfmain::makeRig()
                 [=]() {  queue->add(priorityImmediate,funcReadFreqOffset,false,false);});
 
         // Create link for server so it can have easy access to rig.
-        if (serverConfig.rigs.first() != Q_NULLPTR) {
+        if (serverConfig.rigs.first() != nullptr) {
             serverConfig.rigs.first()->rig = rig;
             serverConfig.rigs.first()->rigThread = rigThread;
         }
@@ -634,15 +634,15 @@ void wfmain::removeRig()
 {
     ConnectionTimer.stop();
 
-    if (rigThread != Q_NULLPTR)
+    if (rigThread != nullptr)
     {
         rigThread->quit();
         rigThread->wait();
-        rig = Q_NULLPTR;
-        rigThread = Q_NULLPTR;
+        rig = nullptr;
+        rigThread = nullptr;
     }
 
-    if (cw != Q_NULLPTR)
+    if (cw != nullptr)
     {
         prefs.cwCutNumbers = cw->getCutNumbers();
         prefs.cwSendImmediate = cw->getSendImmediate();
@@ -651,7 +651,7 @@ void wfmain::removeRig()
         prefs.cwMacroList = cw->getMacroText();
 
         delete cw;
-        cw = Q_NULLPTR;
+        cw = nullptr;
         ui->cwButton->setEnabled(false);
     }
 
@@ -1021,11 +1021,11 @@ void wfmain::setServerToPrefs()
 
     // Start server if enabled in config
     //ui->serverSetupGroup->setEnabled(serverConfig.enabled);
-    if (serverThread != Q_NULLPTR) {
+    if (serverThread != nullptr) {
         serverThread->quit();
         serverThread->wait();
-        serverThread = Q_NULLPTR;
-        server = Q_NULLPTR;
+        serverThread = nullptr;
+        server = nullptr;
         ui->statusBar->showMessage(QString("Server disabled"), 1000);
     }
 
@@ -1092,7 +1092,7 @@ void wfmain::configureVFOs()
 
 
     for(uchar i=0;i<rigCaps->numReceiver;i++)
-    {
+    {/*
         receiverWidget* receiver = new receiverWidget(rigCaps->hasSpectrum,i,rigCaps->numVFO,this);
         receiver->prepareScope(rigCaps->spectAmpMax, rigCaps->spectLenMax);
         receiver->setSeparators(prefs.groupSeparator,prefs.decimalSeparator);
@@ -1145,7 +1145,7 @@ void wfmain::configureVFOs()
         //{
         //    connect(receivers[0], SIGNAL(sendTrack(int)),receivers[1], SLOT(receiveTrack(int)));
         //}
-
+    */
     }
 }
 
@@ -1247,7 +1247,7 @@ void wfmain::runShortcut(const QKeySequence k)
     {
         debugBtn_clicked();
     }
-    else if (rigCaps == Q_NULLPTR)
+    else if (rigCaps == nullptr)
     {
         // No rig yet
         qWarning() << "Cannot run shortcut as not connected to rig";
@@ -1449,7 +1449,7 @@ void wfmain::setupUsbControllerDevice()
 {
 #if defined (USB_CONTROLLER)
 
-    if (usbWindow == Q_NULLPTR) {
+    if (usbWindow == nullptr) {
         usbWindow = new controllerSetup();
     }
 
@@ -1522,7 +1522,7 @@ void wfmain::buttonControl(const COMMAND* cmd)
 {
     qDebug(logUsbControl()) << QString("executing command: %0 (%1) suffix:%2 value:%3" ).arg(cmd->text).arg(funcString[cmd->command]).arg(cmd->suffix).arg(cmd->value);
     quint8 vfo=0;
-    if (rigCaps == Q_NULLPTR) {
+    if (rigCaps == nullptr) {
         return;
     }
 
@@ -1904,10 +1904,10 @@ void wfmain::loadSettings()
     restoreState(settings->value("windowState").toByteArray());
     setWindowState(Qt::WindowActive); // Works around QT bug to returns window+keyboard focus.
 
-    if (bandbtns != Q_NULLPTR)
+    if (bandbtns != nullptr)
         bandbtns->setGeometry(settings->value("BandWindowGeometry").toByteArray());
 
-    if (finputbtns != Q_NULLPTR)
+    if (finputbtns != nullptr)
         finputbtns->setGeometry(settings->value("FreqWindowGeometry").toByteArray());
 
     prefs.confirmExit = settings->value("ConfirmExit", defPrefs.confirmExit).toBool();
@@ -2090,7 +2090,7 @@ void wfmain::loadSettings()
     prefs.rxSetup.resampleQuality = settings->value("ResampleQuality", defPrefs.rxSetup.resampleQuality).toInt();
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
 
-    if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
+    if (prefs.tciPort > 0 && tci == nullptr) {
 
         tci = new tciServer();
 
@@ -2997,11 +2997,11 @@ void wfmain::extChangedCtPref(prefCtItem i)
         break;
     case ct_enableUSBControllers:
 #if defined (USB_CONTROLLER)
-        if (usbControllerThread != Q_NULLPTR) {
+        if (usbControllerThread != nullptr) {
             usbControllerThread->quit();
             usbControllerThread->wait();
-            usbControllerThread = Q_NULLPTR;
-            usbWindow = Q_NULLPTR;
+            usbControllerThread = nullptr;
+            usbWindow = nullptr;
         }
 
         if (prefs.enableUSBControllers) {
@@ -3012,7 +3012,7 @@ void wfmain::extChangedCtPref(prefCtItem i)
 #endif
         break;
     case ct_USBControllersSetup:
-        if (usbWindow != Q_NULLPTR) {
+        if (usbWindow != nullptr) {
             if (usbWindow->isVisible()) {
                 usbWindow->hide();
             }
@@ -3260,9 +3260,9 @@ void wfmain::saveSettings()
     //settings->setValue("splitter", ui->splitter->saveState());
     settings->setValue("windowGeometry", saveGeometry());
 
-    if (bandbtns != Q_NULLPTR)
+    if (bandbtns != nullptr)
         settings->setValue("BandWindowGeometry", bandbtns->getGeometry());
-    if (finputbtns != Q_NULLPTR)
+    if (finputbtns != nullptr)
         settings->setValue("FreqWindowGeometry", finputbtns->getGeometry());
 
     settings->setValue("windowState", saveState());
@@ -3480,7 +3480,7 @@ void wfmain::saveSettings()
 
     settings->beginGroup("Keyer");
 
-    if (cw != Q_NULLPTR) {
+    if (cw != nullptr) {
         prefs.cwCutNumbers = cw->getCutNumbers();
         prefs.cwSendImmediate = cw->getSendImmediate();
         prefs.cwSidetoneEnabled = cw->getSidetoneEnable();
@@ -3559,15 +3559,15 @@ void wfmain::saveSettings()
         settings->setValue("Colour", usbButtons[nb].textColour.name(QColor::HexArgb));
         settings->setValue("BackgroundOn", usbButtons[nb].backgroundOn.name(QColor::HexArgb));
         settings->setValue("BackgroundOff", usbButtons[nb].backgroundOff.name(QColor::HexArgb));
-        if (usbButtons[nb].icon != Q_NULLPTR) {
+        if (usbButtons[nb].icon != nullptr) {
             settings->setValue("Icon", *usbButtons[nb].icon);
             settings->setValue("IconName", usbButtons[nb].iconName);
         }
         settings->setValue("Toggle", usbButtons[nb].toggle);
 
-        if (usbButtons[nb].onCommand != Q_NULLPTR)
+        if (usbButtons[nb].onCommand != nullptr)
             settings->setValue("OnCommand", usbButtons[nb].onCommand->text);
-        if (usbButtons[nb].offCommand != Q_NULLPTR)
+        if (usbButtons[nb].offCommand != nullptr)
             settings->setValue("OffCommand", usbButtons[nb].offCommand->text);
         settings->setValue("Graphics",usbButtons[nb].graphics);
         if (usbButtons[nb].led) {
@@ -3591,7 +3591,7 @@ void wfmain::saveSettings()
         settings->setValue("Width", usbKnobs[nk].pos.width());
         settings->setValue("Height", usbKnobs[nk].pos.height());
         settings->setValue("Colour", usbKnobs[nk].textColour.name());
-        if (usbKnobs[nk].command != Q_NULLPTR)
+        if (usbKnobs[nk].command != nullptr)
             settings->setValue("Command", usbKnobs[nk].command->text);
     }
 
@@ -3809,7 +3809,7 @@ void wfmain:: getInitialRigState()
         setRadioTimeDatePrep();
     }
 
-    if (cw != Q_NULLPTR)
+    if (cw != nullptr)
     {
         cw->receiveEnabled(rigCaps->commands.contains(funcCWDecode));
     }
@@ -3869,7 +3869,7 @@ void wfmain::setDefaultColors(int presetNumber)
     colorPrefsType *p = &colorPreset[presetNumber];
 
     // Begin every parameter with these safe defaults first:
-    if(p->presetName == Q_NULLPTR)
+    if(p->presetName == nullptr)
     {
         p->presetName = new QString();
     }
@@ -4881,7 +4881,7 @@ void wfmain::calculateTimingParameters()
     if(msMinTiming < 25)
         msMinTiming = 25;
 
-    if(rigCaps != Q_NULLPTR && rigCaps->hasFDcomms)
+    if(rigCaps != nullptr && rigCaps->hasFDcomms)
     {
         queue->interval(msMinTiming);
     } else {
@@ -4958,7 +4958,7 @@ void wfmain::powerRigOn()
     emit sendPowerOn();
     // Need to allow time for the rig to power-on.
     // If we have no rigCaps then usual rig detection should occur.
-    if (rigCaps != Q_NULLPTR) {
+    if (rigCaps != nullptr) {
         calculateTimingParameters(); // Set queue interval
         QTimer::singleShot(5000, this, SLOT(initPeriodicCommands()));
         QTimer::singleShot(6500, this, SLOT(getInitialRigState()));
@@ -5071,7 +5071,7 @@ void wfmain::getMeterExtremities(meter_t m, double &lowVal, double &highVal, dou
     if(m==meterNone)
     {
         return;
-    } else if (rigCaps != Q_NULLPTR){
+    } else if (rigCaps != nullptr){
         redLineVal = rigCaps->meterLines[m];
         for (auto it = rigCaps->meters[m].keyValueBegin(); it != rigCaps->meters[m].keyValueEnd(); ++it) {
             if (it->second < lowVal)
@@ -5150,7 +5150,7 @@ void wfmain::changeMeterType(meter_t m, int meterNum)
     {
         uiMeter->setMeterType(newMeterType);
         uiMeter->setMeterShortString("None");
-    } else if (rigCaps != Q_NULLPTR){
+    } else if (rigCaps != nullptr){
         uiMeter->show();
         uiMeter->setMeterType(newMeterType);
         uiMeter->setMeterExtremities(lowVal, highVal, lineVal);
@@ -5186,11 +5186,11 @@ void wfmain::changeMeterType(meter_t m, int meterNum)
 void wfmain::enableRigCtl(bool enabled)
 {
     // migrated to this, keep
-    if (rigCtl != Q_NULLPTR)
+    if (rigCtl != nullptr)
     {
         rigCtl->disconnect();
         delete rigCtl;
-        rigCtl = Q_NULLPTR;
+        rigCtl = nullptr;
     }
 
     if (enabled) {
@@ -5238,7 +5238,7 @@ void wfmain::useColorPreset(colorPrefsType *cp)
 {
     // Apply the given preset to the UI elements
     // prototyped from setPlotTheme()
-    if(cp == Q_NULLPTR)
+    if(cp == nullptr)
         return;
 
     //qInfo(logSystem()) << "Setting plots to color preset number " << cp->presetNum << ", with name " << *(cp->presetName);
@@ -5258,7 +5258,7 @@ void wfmain::useColorPreset(colorPrefsType *cp)
     for (const auto& receiver: receivers) {
         receiver->colorPreset(cp);
     }
-    if (this->colorPrefs != Q_NULLPTR)
+    if (this->colorPrefs != nullptr)
         delete this->colorPrefs;
     this->colorPrefs = new colorPrefsType(*cp);
     qInfo() << "Setting color Preset" << cp->presetNum << "name" << *(cp->presetName);
@@ -5290,6 +5290,7 @@ void wfmain::on_showLogBtn_clicked()
 
 void wfmain::initLogging()
 {
+    return;
     // Set the logging file before doing anything else.
     m_logFile.reset(new QFile(logFilename));
     // Open the file logging
@@ -5438,7 +5439,7 @@ void wfmain::connectionHandler(bool connect)
         openRig();
     } else {
         ui->connectBtn->setText("Connect to Radio");
-        enableRigCtl(false);
+        //enableRigCtl(false);
         removeRig();
         // Stop time sync timer if running.
         if (timeSync->isActive())
@@ -5446,10 +5447,10 @@ void wfmain::connectionHandler(bool connect)
     }
 
     // Whatever happened, make sure we delete the memories window.
-    if (memWindow != Q_NULLPTR) {
+    if (memWindow != nullptr) {
         memWindow->close();
         delete memWindow;
-        memWindow = Q_NULLPTR;
+        memWindow = nullptr;
     }
 
 
@@ -5464,7 +5465,7 @@ void wfmain::connectionTimeout()
 
 void wfmain::on_cwButton_clicked()
 {
-    if (cw != Q_NULLPTR) {
+    if (cw != nullptr) {
         if(cw->isMinimized())
         {
             cw->raise();
@@ -5479,9 +5480,9 @@ void wfmain::on_cwButton_clicked()
 
 void wfmain::on_memoriesBtn_clicked()
 {
-    if (rigCaps != Q_NULLPTR) {
+    if (rigCaps != nullptr) {
 
-        if (memWindow == Q_NULLPTR) {
+        if (memWindow == nullptr) {
             // Add slowload option for background loading.
             memWindow = new memories(isRadioAdmin, false);
             this->memWindow->connect(this, SIGNAL(haveMemory(memoryType)), memWindow, SLOT(receiveMemory(memoryType)));
@@ -5533,10 +5534,10 @@ void wfmain::on_memoriesBtn_clicked()
             }
         }
     } else {
-        if (memWindow != Q_NULLPTR)
+        if (memWindow != nullptr)
         {
             delete memWindow;
-            memWindow = Q_NULLPTR;
+            memWindow = nullptr;
         }
     }
 }
@@ -5553,37 +5554,16 @@ void wfmain::receiveValue(cacheItem val){
 
     // Sometimes we can receive data before the rigCaps have been determined, so return if this happens:
 
-    if (rigCaps == Q_NULLPTR)
+    if (rigCaps == nullptr)
     {
         qWarning(logSystem()) << "Data received before we have rigCaps(), aborting";
         return;
     }
     else if (val.receiver >= receivers.size())
     {
-        qWarning(logSystem()) << "Data received for Radio/VFO that doesn't exist!" << val.receiver << "(" << funcString[val.command] << ")";
+        //qWarning(logSystem()) << "Data received for Radio/VFO that doesn't exist!" << val.receiver << "(" << funcString[val.command] << ")";
         return;
     }
-
-    /* Certain radios (IC-9700) cannot provide direct access to Sub receiver
-     * In this situation, set the receiver to currentReceiver so most commands received
-     * work on this receiver only.
-     *
-     * This functionality has now been moved to the xxxxCommander class.
-     */
-
-    /*
-    if (!rigCaps->hasCommand29 && val.receiver != currentReceiver)
-    {
-        switch (val.command) {
-        case funcSelectedFreq: case funcSelectedMode: case funcUnselectedFreq: case funcUnselectedMode: case funcScopeMode: case funcScopeSpan:
-        case funcScopeRef: case funcScopeHold: case funcScopeSpeed: case funcScopeRBW: case funcScopeVBW: case funcScopeCenterType: case funcScopeEdge:
-           break;
-        default:
-            val.receiver=currentReceiver;
-            break;
-        }
-    }
-    */
 
     switch (val.command)
     {
@@ -5620,7 +5600,7 @@ void wfmain::receiveValue(cacheItem val){
             finputbtns->updateCurrentMode(m.mk);
             finputbtns->updateFilterSelection(m.filter);
             rpt->handleUpdateCurrentMainMode(m);
-            if (cw != Q_NULLPTR) {
+            if (cw != nullptr) {
                 cw->handleCurrentModeUpdate(m.mk);
             }
         }
@@ -5739,7 +5719,7 @@ void wfmain::receiveValue(cacheItem val){
             receiver->receiveCwPitch(val.value.value<quint16>());
         }
         // Also send to CW window
-        if (cw != Q_NULLPTR) {
+        if (cw != nullptr) {
             cw->handlePitch(val.value.value<quint16>());
         }
         break;
@@ -5749,7 +5729,7 @@ void wfmain::receiveValue(cacheItem val){
         break;
     case funcKeySpeed:
         // Only used by CW window
-        if (cw != Q_NULLPTR) {
+        if (cw != nullptr) {
             cw->handleKeySpeed(val.value.value<uchar>());
         }
         break;
@@ -5940,7 +5920,7 @@ void wfmain::receiveValue(cacheItem val){
         }
         break;
     case funcBreakIn:
-        if (cw != Q_NULLPTR) {
+        if (cw != nullptr) {
             cw->handleBreakInMode(val.value.value<uchar>());
         }
         break;
@@ -6010,7 +5990,7 @@ void wfmain::receiveValue(cacheItem val){
         receiveModInput(val.value.value<rigInput>(), 3);
         break;
     case funcDashRatio:
-        if (cw != Q_NULLPTR) {
+        if (cw != nullptr) {
             cw->handleDashRatio(val.value.value<uchar>());
         }
         break;
@@ -6285,7 +6265,7 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
 
     //bandbtns->acceptRigCaps(rigCaps);
 
-    if(caps == Q_NULLPTR)
+    if(caps == nullptr)
     {
         // Note: This line makes it difficult to accept a different radio connecting.
         return;
@@ -6689,7 +6669,7 @@ void wfmain::updatedQueueInterval(qint64 interval)
 {
     if (interval == -1)
         enableControls(false);
-    else if (rigCaps != Q_NULLPTR)
+    else if (rigCaps != nullptr)
         enableControls(true);
 }
 

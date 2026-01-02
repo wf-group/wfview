@@ -25,13 +25,13 @@ controllerSetup::~controllerSetup()
     // Step through ALL buttons and knobs setting their text to NULL (just in case)
     for (auto b = buttons->begin(); b != buttons->end(); b++)
     {
-        b->text=Q_NULLPTR;
-        b->bgRect=Q_NULLPTR;
+        b->text=nullptr;
+        b->bgRect=nullptr;
     }
 
     for (auto k= knobs->begin(); k != knobs->end(); k++)
     {
-        k->text=Q_NULLPTR;
+        k->text=nullptr;
     }
 }
 
@@ -45,7 +45,7 @@ void controllerSetup::hideEvent(QHideEvent *event)
 void controllerSetup::on_tabWidget_currentChanged(int index)
 {
     // We may get the indexChanged event before the tabWidget has been initialized
-    if (ui->tabWidget->widget(index) != Q_NULLPTR) {
+    if (ui->tabWidget->widget(index) != nullptr) {
         QString path = ui->tabWidget->widget(index)->objectName();
         auto tab = tabs.find(path);
         if (tab != tabs.end())
@@ -54,7 +54,7 @@ void controllerSetup::on_tabWidget_currentChanged(int index)
         }
     }
 
-    if (updateDialog != Q_NULLPTR)
+    if (updateDialog != nullptr)
     {
         updateDialog->hide();
     }
@@ -167,12 +167,12 @@ void controllerSetup::showMenu(controllerScene* scene, QPoint p)
 
     // Did the user click on a button?
     auto but = std::find_if(buttons->begin(), buttons->end(), [p, this](BUTTON& b)
-    { return (b.parent != Q_NULLPTR && b.pos.contains(p) && b.page == b.parent->currentPage && ui->tabWidget->currentWidget()->objectName() == b.path ); });
+    { return (b.parent != nullptr && b.pos.contains(p) && b.page == b.parent->currentPage && ui->tabWidget->currentWidget()->objectName() == b.path ); });
 
     if (but != buttons->end())
     {
         currentButton = &(*but);
-        currentKnob = Q_NULLPTR;
+        currentKnob = nullptr;
         qDebug() << "Button" << currentButton->num << "On Event" << currentButton->onCommand->text << "Off Event" << currentButton->offCommand->text;
 
         updateDialog->setWindowTitle(QString("Update button %0").arg(but->num));
@@ -269,12 +269,12 @@ void controllerSetup::showMenu(controllerScene* scene, QPoint p)
     } else {
         // It wasn't a button so was it a knob?
         auto kb = std::find_if(knobs->begin(), knobs->end(), [p, this](KNOB& k)
-        { return (k.parent != Q_NULLPTR && k.pos.contains(p) && k.page == k.parent->currentPage && ui->tabWidget->currentWidget()->objectName() == k.path ); });
+        { return (k.parent != nullptr && k.pos.contains(p) && k.page == k.parent->currentPage && ui->tabWidget->currentWidget()->objectName() == k.path ); });
 
         if (kb != knobs->end())
         {
             currentKnob = &(*kb);
-            currentButton = Q_NULLPTR;
+            currentButton = nullptr;
             qDebug() << "Knob" << currentKnob->num << "Event" << currentKnob->command->text;
 
             updateDialog->setWindowTitle(QString("Update knob %0").arg(kb->num));
@@ -304,8 +304,8 @@ void controllerSetup::showMenu(controllerScene* scene, QPoint p)
         {
             // It wasn't either so hide the updateDialog();
             updateDialog->hide();
-            currentButton = Q_NULLPTR;
-            currentKnob = Q_NULLPTR;
+            currentButton = nullptr;
+            currentKnob = nullptr;
         }
     }
 }
@@ -314,15 +314,15 @@ void controllerSetup::showMenu(controllerScene* scene, QPoint p)
 void controllerSetup::onEventIndexChanged(int index) {
     Q_UNUSED(index);
     // If command is changed, delete current command and deep copy the new command
-    if (currentButton != Q_NULLPTR && onEvent->currentData().toInt() < commands->size()) {
+    if (currentButton != nullptr && onEvent->currentData().toInt() < commands->size()) {
         QMutexLocker locker(mutex);
         currentButton->onCommand = &commands->at(onEvent->currentData().toInt());
         currentButton->text->setPlainText(currentButton->onCommand->text);
         currentButton->text->setPos(currentButton->pos.center().x() - currentButton->text->boundingRect().width() / 2,
             (currentButton->pos.center().y() - currentButton->text->boundingRect().height() / 2));
         // Signal that any button programming on the device should be completed.
-        if (currentButton->icon == Q_NULLPTR) {
-            emit sendRequest(currentButton->parent,usbFeatureType::featureButton,currentButton->num,currentButton->onCommand->text,Q_NULLPTR,&currentButton->backgroundOn);
+        if (currentButton->icon == nullptr) {
+            emit sendRequest(currentButton->parent,usbFeatureType::featureButton,currentButton->num,currentButton->onCommand->text,nullptr,&currentButton->backgroundOn);
         }
     }
 }
@@ -331,14 +331,14 @@ void controllerSetup::onEventIndexChanged(int index) {
 void controllerSetup::offEventIndexChanged(int index) {
     Q_UNUSED(index);
     // If command is changed, delete current command and deep copy the new command
-    if (currentButton != Q_NULLPTR && offEvent->currentData().toInt() < commands->size()) {
+    if (currentButton != nullptr && offEvent->currentData().toInt() < commands->size()) {
         QMutexLocker locker(mutex);
         currentButton->offCommand = &commands->at(offEvent->currentData().toInt());
     }
 }
 
 void controllerSetup::ledNumberChanged(int index) {
-    if (currentButton != Q_NULLPTR) {
+    if (currentButton != nullptr) {
         QMutexLocker locker(mutex);
         currentButton->led = index;
     }
@@ -348,7 +348,7 @@ void controllerSetup::ledNumberChanged(int index) {
 void controllerSetup::knobEventIndexChanged(int index) {
     Q_UNUSED(index);
     // If command is changed, delete current command and deep copy the new command
-    if (currentKnob != Q_NULLPTR && knobEvent->currentData().toInt() < commands->size()) {
+    if (currentKnob != nullptr && knobEvent->currentData().toInt() < commands->size()) {
         QMutexLocker locker(mutex);
         currentKnob->command = &commands->at(knobEvent->currentData().toInt());
         currentKnob->text->setPlainText(currentKnob->command->text);
@@ -366,11 +366,11 @@ void controllerSetup::buttonOnColorClicked()
     options.setFlag(QColorDialog::DontUseNativeDialog, false);
     QColor selColor = QColorDialog::getColor(currentButton->backgroundOn, this, "Select Color to use for unpressed button", options);
 
-    if(selColor.isValid() && currentButton != Q_NULLPTR)
+    if(selColor.isValid() && currentButton != nullptr)
     {
         QMutexLocker locker(mutex);
         currentButton->backgroundOn = selColor;
-        if (currentButton->graphics && currentButton->bgRect != Q_NULLPTR)
+        if (currentButton->graphics && currentButton->bgRect != nullptr)
         {
             currentButton->bgRect->setBrush(currentButton->backgroundOn);
         }
@@ -386,7 +386,7 @@ void controllerSetup::buttonOffColorClicked()
     options.setFlag(QColorDialog::DontUseNativeDialog, false);
     QColor selColor = QColorDialog::getColor(currentButton->backgroundOff, this, "Select Color to use for pressed button", options);
 
-    if(selColor.isValid() && currentButton != Q_NULLPTR)
+    if(selColor.isValid() && currentButton != nullptr)
     {
         QMutexLocker locker(mutex);
         currentButton->backgroundOff = selColor;
@@ -403,15 +403,15 @@ void controllerSetup::buttonIconClicked()
         iconLabel->setText(currentButton->iconName);
         QImage image;
         image.load(file);
-        if (currentButton->icon != Q_NULLPTR)
+        if (currentButton->icon != nullptr)
             delete currentButton->icon;
         currentButton->icon = new QImage(image.scaled(currentButton->parent->type.iconSize,currentButton->parent->type.iconSize));
     } else {
-        if (currentButton->icon != Q_NULLPTR)
+        if (currentButton->icon != nullptr)
         {
             currentButton->iconName = "";
             delete currentButton->icon;
-            currentButton->icon = Q_NULLPTR;
+            currentButton->icon = nullptr;
         }
     }
     iconLabel->setText(currentButton->iconName);
@@ -420,7 +420,7 @@ void controllerSetup::buttonIconClicked()
 
 void controllerSetup::latchStateChanged(int state)
 {
-    if (currentButton != Q_NULLPTR) {
+    if (currentButton != nullptr) {
         QMutexLocker locker(mutex);
         if (currentButton->dev == MiraBox293S)
         {
@@ -446,21 +446,21 @@ void controllerSetup::removeDevice(USBDEVICE* dev)
     {
         if (b->parent == dev && b->page == dev->currentPage)
         {
-            if (b->text != Q_NULLPTR) {
+            if (b->text != nullptr) {
                 tab.value()->scene->removeItem(b->text);
                 delete b->text;
-                b->text = Q_NULLPTR;
+                b->text = nullptr;
             }
-            b->offCommand = Q_NULLPTR;
-            b->onCommand = Q_NULLPTR;
-            if (b->icon != Q_NULLPTR) {
+            b->offCommand = nullptr;
+            b->onCommand = nullptr;
+            if (b->icon != nullptr) {
                 delete b->icon;
-                b->icon=Q_NULLPTR;
+                b->icon=nullptr;
             }
-            if (b->bgRect != Q_NULLPTR) {
+            if (b->bgRect != nullptr) {
                 tab.value()->scene->removeItem(b->bgRect);
                 delete b->bgRect;
-                b->bgRect = Q_NULLPTR;
+                b->bgRect = nullptr;
             }
 
         }
@@ -470,11 +470,11 @@ void controllerSetup::removeDevice(USBDEVICE* dev)
     {
         if (k->parent == dev && k->page == dev->currentPage)
         {
-            if (k->text != Q_NULLPTR) {
+            if (k->text != nullptr) {
                 tab.value()->scene->removeItem(k->text);
                 delete k->text;
-                k->text = Q_NULLPTR;
-                k->command = Q_NULLPTR;
+                k->text = nullptr;
+                k->command = nullptr;
             }
         }
     }
@@ -495,13 +495,13 @@ void controllerSetup::removeDevice(USBDEVICE* dev)
         {
             qDebug(logUsbControl()) << "Removing tab content" << dev->product;
 
-            if (it.value()->bgImage != Q_NULLPTR) {
+            if (it.value()->bgImage != nullptr) {
                 it.value()->scene->removeItem(it.value()->bgImage);
                 delete it.value()->bgImage;
             }
             delete tab.value()->scene;
             delete it.value();
-            it.value() = Q_NULLPTR;
+            it.value() = nullptr;
             tabs.erase(it++);
         }
         else
@@ -755,7 +755,7 @@ void controllerSetup::newDevice(USBDEVICE* dev)
     emit sendRequest(dev,usbFeatureType::featureOrientation,dev->orientation);
     emit sendRequest(dev,usbFeatureType::featureSpeed,dev->speed);
     emit sendRequest(dev,usbFeatureType::featureTimeout,dev->timeout);
-    emit sendRequest(dev,usbFeatureType::featureColor,0,"", Q_NULLPTR, &dev->color);
+    emit sendRequest(dev,usbFeatureType::featureColor,0,"", nullptr, &dev->color);
 
 
 
@@ -867,7 +867,7 @@ void controllerSetup::colorPicker(USBDEVICE* dev, QPushButton* btn, QColor curre
     if(selColor.isValid())
     {
         btn->setStyleSheet(QString("background-color: %1").arg(selColor.name(QColor::HexArgb)));
-        emit sendRequest(dev,usbFeatureType::featureColor,0, "", Q_NULLPTR, &selColor);
+        emit sendRequest(dev,usbFeatureType::featureColor,0, "", nullptr, &selColor);
     }
 }
 
@@ -916,15 +916,15 @@ void controllerSetup::pageChanged(USBDEVICE* dev, int val)
         if (b->parent == dev)
         {
             // Make sure we delete any other pages content and then update to latest.
-            if (b->text != Q_NULLPTR) {
+            if (b->text != nullptr) {
                 tab.value()->scene->removeItem(b->text);
                 delete b->text;
-                b->text = Q_NULLPTR;
+                b->text = nullptr;
             }
-            if (b->graphics && b->bgRect != Q_NULLPTR) {
+            if (b->graphics && b->bgRect != nullptr) {
                 tab.value()->scene->removeItem(b->bgRect);
                 delete b->bgRect;
-                b->bgRect = Q_NULLPTR;
+                b->bgRect = nullptr;
             }
             if (b->page == dev->currentPage)
             {
@@ -952,10 +952,10 @@ void controllerSetup::pageChanged(USBDEVICE* dev, int val)
     for (auto k = knobs->begin();k != knobs->end(); k++)
     {
         if (k->parent == dev) {
-            if (k->text != Q_NULLPTR) {
+            if (k->text != nullptr) {
                 tab.value()->scene->removeItem(k->text);
                 delete k->text;
-                k->text = Q_NULLPTR;
+                k->text = nullptr;
             }
             if (k->page == dev->currentPage)
             {

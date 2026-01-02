@@ -69,11 +69,11 @@ cwSender::~cwSender()
 {
     qDebug(logCW()) << "Running CW Sender destructor.";
 
-    if (toneThread != Q_NULLPTR) {
+    if (toneThread != nullptr) {
         toneThread->quit();
         toneThread->wait();
-        toneThread = Q_NULLPTR;
-        tone = Q_NULLPTR;
+        toneThread = nullptr;
+        tone = nullptr;
         /* Finally disconnect all connections */
         //for (auto conn: connections)
         //{
@@ -343,7 +343,7 @@ void cwSender::on_macro10btn_clicked()
 void cwSender::on_sidetoneEnableChk_clicked(bool clicked)
 {
     ui->sidetoneLevelSlider->setEnabled(clicked);
-    if (clicked && toneThread == Q_NULLPTR)
+    if (clicked && toneThread == nullptr)
     {
         toneThread = new QThread(this);
         toneThread->setObjectName("sidetone()");
@@ -373,12 +373,12 @@ void cwSender::on_sidetoneEnableChk_clicked(bool clicked)
 
         emit initTone();
 
-    } else if (!clicked && toneThread != Q_NULLPTR) {
+    } else if (!clicked && toneThread != nullptr) {
         /* disconnect all connections */
         toneThread->quit();
         toneThread->wait();
-        toneThread = Q_NULLPTR;
-        tone = Q_NULLPTR;
+        toneThread = nullptr;
+        tone = nullptr;
 /*
         for (auto conn: connections)
         {
@@ -479,7 +479,7 @@ void cwSender::editMacroButton(int buttonNumber, QPushButton* btn)
 
 void cwSender::setMacroButtonText(QString btnText, QPushButton *btn)
 {
-    if(btn==Q_NULLPTR)
+    if(btn==nullptr)
         return;
     if(btnText.isEmpty())
         return;

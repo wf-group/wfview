@@ -14,7 +14,7 @@ yaesuUdpControl::yaesuUdpControl(udpPreferences prefs, QHostAddress local, QHost
 
 yaesuUdpControl::~yaesuUdpControl()
 {
-    if (heartbeat != Q_NULLPTR)
+    if (heartbeat != nullptr)
     {
         heartbeat->stop();
         delete heartbeat;
@@ -56,7 +56,7 @@ void yaesuUdpControl::incomingUdp(void* buf, size_t bufLen)
                 QString command = "putfile catcmd_table";
                 memcpy(&c.text,command.toLocal8Bit(),command.size());
                 outgoing((quint8*)&c,sizeof(c));
-                if (heartbeat == Q_NULLPTR)
+                if (heartbeat == nullptr)
                 {
                     heartbeat = new QTimer(this);
                     connect(heartbeat, SIGNAL(timeout()), this, SLOT(sendHeartbeat()));

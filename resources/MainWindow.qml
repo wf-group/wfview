@@ -1,14 +1,39 @@
 // Main.qml
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import WFVIEW 1.0
 
 ApplicationWindow {
     id: win
+
+    title: MainController.windowTitle
+
     width: 946
-    height: 361
     visible: true
-    title: "wfmain"
+
+    minimumWidth:  mainLayout.implicitWidth
+    //minimumHeight: mainLayout.implicitHeight+30
+    minimumHeight: mainLayout.implicitHeight + 8
+                   + mainGroup.padding * 2
+                   + scopeVFOGroup.padding * 2
+                   + mainLayout.spacing * 2
+    height: minimumHeight
+
+    LoggingWindow {
+        id: loggingWindow
+    }
+
+    onClosing: function(close) {
+        MainController.shutdown()
+        close.accepted = true
+    }
+
+    Settings {
+        id: settings
+        controller: MainController.settings
+    }
 
     // QWidget had acceptDrops=true
     // In QML, you typically use DropArea
@@ -20,12 +45,23 @@ ApplicationWindow {
         }
     }
 
+    function isPointOutsideWindow(p) {
+        return (
+            p.x < 0 ||
+            p.y < 0 ||
+            p.x > win.contentItem.width ||
+            p.y > win.contentItem.height
+        )
+    }
+
+
     Component {
             id: rigCreatorComponent
             RigCreator { }
-        }
+    }
 
     ColumnLayout {
+        id: mainLayout
         anchors.fill: parent
         spacing: 6
 
@@ -34,21 +70,112 @@ ApplicationWindow {
             id: scopeVFOGroup
             Layout.fillWidth: true
             Layout.fillHeight: true
+            //Layout.preferredHeight: implicitHeight   // content drives height
             padding: 0
 
-            ColumnLayout {
-                anchors.fill: parent
+            contentItem: ColumnLayout {
                 spacing: 0
 
-                // This corresponds to your vfoLayout (currently empty in .ui)
-                // Drop your converted receiver controls in here:
-                //ReceiverControls {   // <- your QML component name
-                //    Layout.fillWidth: true
-                //    // Layout.preferredHeight: ...
-                //}
+                Repeater {
+                    model: MainController.receiverCount
 
-                // If you also have scope/waterfall above/below, place it here too
-                // ScopePanel { Layout.fillWidth: true; Layout.fillHeight: true }
+                    delegate: Item {
+                        id: row
+                        Layout.fillWidth: true
+
+                        Item { id: attachedHost; anchors.fill: parent }
+
+                        property int pendingX: 0
+                        property int pendingY: 0
+                        property bool havePendingPos: false
+                        property bool detached: false
+
+                        visible: !detached
+                        Layout.fillHeight: !detached
+                        Layout.preferredHeight: detached ? 0 : -1
+                        Layout.minimumHeight: detached ? 0 : 240
+
+                        clip: true
+
+                        Behavior on Layout.preferredHeight {
+                            NumberAnimation { duration: 120 }   // tweak to taste
+                        }
+
+                        Loader {
+                            id: rxLoader
+                            active: true
+                            sourceComponent: Receiver {
+                                receiverIndex: index
+                                controller: MainController.receiver(index)
+                            }
+                            onLoaded: {
+                                rxLoader.item.parent = attachedHost
+                                rxLoader.item.anchors.fill = attachedHost
+                            }
+                        }
+
+                        Connections {
+                            target: rxLoader.item
+                            function onRequestDetach(p) {
+                                Logging.info("onRequestDetach(p) " + p.x + "," + p.y)
+                                if (MainController.isReceiverDetached(index))
+                                    return
+
+                                if (win.isPointOutsideWindow(p)) {
+                                    const g = win.contentItem.mapToGlobal(p.x, p.y)
+                                    row.pendingX = Math.round(g.x - 40)
+                                    row.pendingY = Math.round(g.y - 16)
+                                    row.havePendingPos = true
+
+                                    Logging.info("detach gpos " + g.x + "," + g.y)
+                                    MainController.setReceiverDetached(index, true)
+                                }
+                            }
+                        }
+
+                        Connections {
+                            target: MainController
+                            function onReceiverDetachedChanged(i, d) {
+                                if (i !== index) return
+                                detachedWin.visible = d
+                                row.detached = d
+                            }
+                        }
+
+                        ApplicationWindow {
+                            id: detachedWin
+                            visible: false
+                            title: "Receiver " + (index + 1)
+                            width: 900
+                            height: 500
+
+                            Item { id: detachedHost; anchors.fill: parent }
+
+                            onVisibleChanged: function() {
+                                if (!rxLoader.item) return
+
+                                rxLoader.item.anchors.fill = undefined
+                                rxLoader.item.parent = visible ? detachedHost : attachedHost
+                                rxLoader.item.anchors.fill = visible ? detachedHost : attachedHost
+
+                                if (visible && row.havePendingPos) {
+                                    Qt.callLater(function() {
+                                        detachedWin.x = row.pendingX
+                                        detachedWin.y = row.pendingY
+                                        row.havePendingPos = false
+                                    })
+                                }
+                            }
+
+                            onClosing: function(close) {
+                                MainController.setReceiverDetached(index, false)
+                                close.accepted = true
+                            }
+                        }
+                    }
+
+                }
+
             }
         }
 
@@ -60,7 +187,6 @@ ApplicationWindow {
             padding: 3
 
             RowLayout {
-                anchors.fill: parent
                 spacing: 6
 
                 // ---- meters + power buttons (left) ----
@@ -269,10 +395,20 @@ ApplicationWindow {
                 spacing: 6
 
                 Button { text: "About" }
-                Button { text: "Settings" }
+                Button {
+                    text: "Settings"
+                    onClicked: settings.show()
+                }
                 Button { text: "Save Settings" }
                 Button { text: "Radio Status" }
-                Button { text: "Log" }
+                Button {
+                    text: "Log"
+                    onClicked: {
+                        loggingWindow.show()
+                        loggingWindow.raise()
+                        loggingWindow.requestActivate()
+                    }
+                }
                 Button { text: "Bands" }
                 Button { text: "Frequency" }
                 Button {
@@ -285,7 +421,10 @@ ApplicationWindow {
 
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_32)
 
-                Button { text: "Connect to Radio" }
+                Button {
+                    text: "Connect to Radio"
+                    onClicked: MainController.connectionHandler()
+                }
 
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_9)
 

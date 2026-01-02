@@ -20,6 +20,8 @@
 #include "cluster.h"
 #include "rigidentities.h"
 
+class ReceiverController; // forward declare
+
 class SpectrumRootNode : public QSGNode
 {
 public:
@@ -43,13 +45,14 @@ public:
 class SpectrumItem : public QQuickItem
 {
     Q_OBJECT
+    Q_PROPERTY(QObject* controller READ getController WRITE setController NOTIFY controllerChanged)
     Q_PROPERTY(double startFreq READ setStartFreq NOTIFY freqRangeChanged)
     Q_PROPERTY(double endFreq   READ setEndFreq   NOTIFY freqRangeChanged)
     Q_PROPERTY(uchar floor   READ getFloor   WRITE setFloor   NOTIFY scaleChanged)
     Q_PROPERTY(uchar ceiling READ getCeiling WRITE setCeiling NOTIFY scaleChanged)
     Q_PROPERTY(uchar gridStep READ getGridStep WRITE setGridStep NOTIFY scaleChanged)
 
-    Q_PROPERTY(double center READ getCenter WRITE setCenter NOTIFY centerChanged)
+    Q_PROPERTY(quint64 center READ getCenter WRITE setCenter NOTIFY centerChanged)
 
     Q_PROPERTY(double passbandLow  READ getPassbandLow  WRITE setPassbandLow  NOTIFY passbandChanged)
     Q_PROPERTY(double passbandHigh READ getPassbandHigh WRITE setPassbandHigh NOTIFY passbandChanged)
@@ -57,39 +60,33 @@ class SpectrumItem : public QQuickItem
     Q_PROPERTY(float peakDecay READ getPeakDecay WRITE setPeakDecay NOTIFY peakDecayChanged)
 
     Q_PROPERTY(int maxSpotRows READ getMaxSpotRows WRITE setMaxSpotRows NOTIFY spotsChanged)
+    Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
+    Q_PROPERTY(const QVector<bandType> bands WRITE setBands NOTIFY bandsChanged)
 
 
 public:
     SpectrumItem();
 
+    QObject* getController() {return m_controller;}
+    void setController(QObject* c);
+
     Q_INVOKABLE void setOverflow(bool on);
     Q_INVOKABLE void setScopeOutOfRange(bool on);
 
+    // Is this correct?
     double setStartFreq() const { return startFreq; }
     double setEndFreq()   const { return endFreq;  }
-    void setColors(const colorPrefsType &c);
 
+    colorPrefsType getColors() const {return colors;}
     uchar getFloor()   const { return floor; }
     uchar getCeiling() const { return ceiling; }
     uchar getGridStep() const { return gridStep; }
-
-    void setFloor(uchar v);
-    void setCeiling(uchar v);
-    void setGridStep(uchar v);
-
-    double getCenter() const { return center; }
-    void setCenter(qreal x);
-
+    double getCenter() const { return quint64(center * 100000.0); }
+    void setCenter(quint64 x);
     double getPassbandLow()  const { return passbandLow; }
     double getPassbandHigh() const { return passbandHigh; }
-    void  setPassbandLow(qreal x);
-    void  setPassbandHigh(qreal x);
-
     float getPeakDecay() const { return decay; }
-    void  setPeakDecay(int d);
-
     int getMaxSpotRows() const { return maxSpotRows; }
-    void setMaxSpotRows(int rows);
 
     struct SpotLayout {
         QRectF   rect;   // label rect in item coordinates
@@ -97,15 +94,23 @@ public:
     };
 
     void setBands(const QVector<bandType> &newBands);
-    void clearBands();
 
 public slots:
+    void setColors(const colorPrefsType &c);
+    void setFloor(uchar v);
+    void setCeiling(uchar v);
+    void setGridStep(uchar v);
+    void setPassbandLow(qreal x);
+    void setPassbandHigh(qreal x);
+    void setPeakDecay(int d);
+    void setMaxSpotRows(int rows);
     void updateScope(const scopeData &data);
     void setSpots(const QVector<spotData> &newSpots);
     void clearSpots();
     void clearPeaks();
 
 signals:
+    void controllerChanged();
     void freqRangeChanged();
     void scaleChanged();
     void centerChanged();
@@ -119,8 +124,10 @@ signals:
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
     void passbandResizeRequested(double lowFreq, double highFreq);
     void processingTimeNs(qint64 ns);
+    void colorsChanged();
+    void bandsChanged();
 
-protected:
+protected:    
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
@@ -130,7 +137,16 @@ protected:
     void hoverLeaveEvent(QHoverEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void geometryChange(const QRectF &newG, const QRectF &oldG) override;
+#else
+    void geometryChanged(const QRectF &newG, const QRectF &oldG) override;
+#endif
+
 private:
+
+    QPointer<QObject> m_controller;
+
     QVector<quint8> mags;
     QVector<quint8> peaks;
     QVector<spotData> spots;
@@ -168,7 +184,6 @@ private:
 
     bool overflow = false;
     bool outOfRange = false;
-
 
 };
 

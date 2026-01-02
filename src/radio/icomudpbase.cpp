@@ -27,7 +27,7 @@ void icomUdpBase::init(quint16 lport)
 icomUdpBase::~icomUdpBase()
 {
     qInfo(logUdp()) << "Closing UDP stream :" << radioIP.toString() << ":" << port;
-    if (udp != Q_NULLPTR) {
+    if (udp != nullptr) {
         sendControl(false, 0x05, 0x00); // Send disconnect
         udp->close();
         delete udp;
@@ -78,7 +78,7 @@ void icomUdpBase::dataReceived(QByteArray r)
             areYouThereCounter = 0;
             // I don't think that we will ever receive an "I am here" other than in response to "Are you there?"
             remoteId = in->sentid;
-            if (areYouThereTimer != Q_NULLPTR && areYouThereTimer->isActive()) {
+            if (areYouThereTimer != nullptr && areYouThereTimer->isActive()) {
                 // send ping packets every second
                 areYouThereTimer->stop();
             }
@@ -474,7 +474,7 @@ void icomUdpBase::sendTrackedPacket(QByteArray d)
         if (congestion > 20) // Even worse so send again.
             udp->writeDatagram(d, radioIP, port);
     } */
-    if (idleTimer != Q_NULLPTR && idleTimer->isActive()) {
+    if (idleTimer != nullptr && idleTimer->isActive()) {
         idleTimer->start(IDLE_PERIOD); // Reset idle counter if it's running
     }
     udpMutex.unlock();

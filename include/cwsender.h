@@ -114,14 +114,14 @@ private:
     void runMacroButton(int buttonNumber);
     void editMacroButton(int buttonNumber, QPushButton *btn);
     void setMacroButtonText(QString btnText, QPushButton *btn);
-    cwSidetone* tone=Q_NULLPTR;
-    QThread* toneThread = Q_NULLPTR;
+    cwSidetone* tone=nullptr;
+    QThread* toneThread = nullptr;
     bool sidetoneWasEnabled=false;
     QList<QMetaObject::Connection> connections;
     cachingQueue* queue;
-    rigCapabilities* rigCaps = Q_NULLPTR;
+    rigCapabilities* rigCaps = nullptr;
     int maxChars = 0;
-    rigCommander * rig=Q_NULLPTR;
+    rigCommander * rig=nullptr;
 };
 
 #endif // CWSENDER_H

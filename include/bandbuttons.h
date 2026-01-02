@@ -101,7 +101,7 @@ private:
     bandStackType currentBSR;
 
     bool waitingForBSR = false;
-    rigCapabilities* rigCaps=Q_NULLPTR;
+    rigCapabilities* rigCaps=nullptr;
     bool haveRigCaps = false;
     cachingQueue* queue;
     availableBands requestedBand = bandUnknown;

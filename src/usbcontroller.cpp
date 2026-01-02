@@ -63,10 +63,10 @@ usbController::~usbController()
     
     hid_exit();
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    if (gamepad != Q_NULLPTR)
+    if (gamepad != nullptr)
     {
         delete gamepad;
-        gamepad = Q_NULLPTR;
+        gamepad = nullptr;
     }
 #endif
 }
@@ -165,7 +165,7 @@ void usbController::run()
         ++it;
     }
     
-    if (devicesConnected > 0 && dataTimer == Q_NULLPTR) {
+    if (devicesConnected > 0 && dataTimer == nullptr) {
         dataTimer = new QTimer(this);
         connect(dataTimer, &QTimer::timeout, this, &usbController::runTimer);
         dataTimer->start(25);
@@ -221,7 +221,7 @@ void usbController::runTimer()
                 if (devicesConnected == 0) {
                     dataTimer->stop();
                     delete dataTimer;
-                    dataTimer = Q_NULLPTR;
+                    dataTimer = nullptr;
                 }
                 emit removeDevice(dev);
                 break;
@@ -479,7 +479,7 @@ void usbController::runTimer()
                             dev->lcd = funcLCDWaterfall;
                         else if (but->onCommand->command == funcLCDNothing) {
                             dev->lcd = funcLCDNothing;
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                         }else {
                             emit button(but->onCommand);
                         }
@@ -502,7 +502,7 @@ void usbController::runTimer()
                             dev->lcd = funcLCDWaterfall;
                         else if (but->offCommand->command == funcLCDNothing) {
                             dev->lcd = funcLCDNothing;
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                         } else {
                             emit button(but->offCommand);
                         }
@@ -516,7 +516,7 @@ void usbController::runTimer()
                         else if (but->offCommand->command == funcLCDWaterfall)
                             dev->lcd = funcLCDWaterfall;
                         else if (but->offCommand->command == funcLCDNothing) {
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                             dev->lcd = funcLCDNothing;
                         } else
                         {
@@ -572,7 +572,7 @@ void usbController::runTimer()
                                 sendCommand.value = tempVal;
                                 dev->knobValues[i].value=tempVal;
                                 dev->knobValues[i].name = kb->command->text;
-                                QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,i,"",Q_NULLPTR,&dev->color); });
+                                QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,i,"",nullptr,&dev->color); });
                             } else {
                                 // We don't have this command available
                                 qInfo(logUsbControl()) << "Requested command" << funcString[sendCommand.command] << "Not available on this rig";
@@ -617,11 +617,11 @@ void usbController::receivePTTStatus(bool on) {
                 lastColour = currentColour;
                 QColor newColor = QColor(255,0,0);
                 sendRequest(dev,usbFeatureType::featureLEDControl,1,"1");
-                sendRequest(dev,usbFeatureType::featureColor,0, "", Q_NULLPTR, &newColor);
+                sendRequest(dev,usbFeatureType::featureColor,0, "", nullptr, &newColor);
             }
             else {
                 sendRequest(dev,usbFeatureType::featureLEDControl,1,"0");
-                sendRequest(dev,usbFeatureType::featureColor,0, "", Q_NULLPTR, &lastColour);
+                sendRequest(dev,usbFeatureType::featureColor,0, "", nullptr, &lastColour);
             }
         }
     }
@@ -652,7 +652,7 @@ void usbController::sendToLCD(QImage* img)
 */
 void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val, QString text, QImage* img, QColor* color)
 {
-    if (dev == Q_NULLPTR || !dev->connected || dev->disabled || !dev->handle)
+    if (dev == nullptr || !dev->connected || dev->disabled || !dev->handle)
         return;
 
     QMutexLocker locker(mutex);
@@ -873,7 +873,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
                 if (text != "**REMOVE**") {
                     dev->knobValues[val].lastChanged = QDateTime::currentMSecsSinceEpoch();
                     if (dev->lcd != funcLCDSpectrum && dev->lcd != funcLCDWaterfall)
-                        QTimer::singleShot(2000, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,val,"**REMOVE**",Q_NULLPTR,&dev->color); });
+                        QTimer::singleShot(2000, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,val,"**REMOVE**",nullptr,&dev->color); });
                 }
 
             }
@@ -904,7 +904,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
         {
             if (dev->type.model == usbDeviceType::StreamDeckPlus)
             {
-                if (img != Q_NULLPTR)
+                if (img != nullptr)
                 {
                     QImage image = img->scaled(800,100,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
                     QPainter paint(&image);
@@ -967,14 +967,14 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
                 if (val < 8 || dev->type.model != usbDeviceType::StreamDeckPlus) {
 
                     QImage butImage(dev->type.iconSize,dev->type.iconSize, QImage::Format_RGB888);
-                    if (color != Q_NULLPTR)
+                    if (color != nullptr)
                         butImage.fill(*color);
                     else
                         butImage.fill(dev->color);
 
                     QPainter butPaint(&butImage);
 
-                    if ( img == Q_NULLPTR) {
+                    if ( img == nullptr) {
                         if (dev->type.iconSize == 72)
                             butPaint.setFont(QFont("serif",14));
                         else
@@ -1147,14 +1147,14 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
                 data.replace(6,3,QByteArrayLiteral("\x42\x41\x54"));
 
                 QImage butImage(dev->type.iconSize,dev->type.iconSize, QImage::Format_RGB888);
-                if (color != Q_NULLPTR)
+                if (color != nullptr)
                     butImage.fill(*color);
                 else
                     butImage.fill(dev->color);
 
                 QPainter butPaint(&butImage);
 
-                if ( img == Q_NULLPTR) {
+                if ( img == nullptr) {
                     if (dev->type.iconSize == 72)
                         butPaint.setFont(QFont("serif",14));
                     else
@@ -1725,19 +1725,19 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (b->parent == dev && b->page > val)
             {
-                if (b->text != Q_NULLPTR) {
+                if (b->text != nullptr) {
                     delete b->text;
-                    b->text = Q_NULLPTR;
+                    b->text = nullptr;
                 }
-                if (b->bgRect != Q_NULLPTR) {
+                if (b->bgRect != nullptr) {
                     delete b->bgRect;
-                    b->bgRect = Q_NULLPTR;
+                    b->bgRect = nullptr;
                 }
-                b->onCommand = Q_NULLPTR;
-                b->offCommand = Q_NULLPTR;
-                if (b->icon != Q_NULLPTR) {
+                b->onCommand = nullptr;
+                b->offCommand = nullptr;
+                if (b->icon != nullptr) {
                     delete b->icon;
-                    b->icon=Q_NULLPTR;
+                    b->icon=nullptr;
                 }
                 b = buttonList->erase(b);
             } else {
@@ -1750,10 +1750,10 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (k->parent == dev && k->page > val)
             {
-                if (k->text != Q_NULLPTR) {
+                if (k->text != nullptr) {
                     delete k->text;
-                    k->text = Q_NULLPTR;
-                    k->command = Q_NULLPTR;
+                    k->text = nullptr;
+                    k->command = nullptr;
                 }
                 k = knobList->erase(k);
             } else {
@@ -1886,15 +1886,15 @@ void usbController::backupController(USBDEVICE* dev, QString file)
             settings->setValue("Colour", b->textColour.name(QColor::HexArgb));
             settings->setValue("BackgroundOn", b->backgroundOn.name(QColor::HexArgb));
             settings->setValue("BackgroundOff", b->backgroundOff.name(QColor::HexArgb));
-            if (b->icon != Q_NULLPTR) {
+            if (b->icon != nullptr) {
                 settings->setValue("Icon", *b->icon);
                 settings->setValue("IconName", b->iconName);
             }
             settings->setValue("Toggle", b->toggle);
 
-            if (b->onCommand != Q_NULLPTR)
+            if (b->onCommand != nullptr)
                 settings->setValue("OnCommand", b->onCommand->text);
-            if (b->offCommand != Q_NULLPTR)
+            if (b->offCommand != nullptr)
                 settings->setValue("OffCommand", b->offCommand->text);
             settings->setValue("Graphics",b->graphics);
             if (b->led > -1) {
@@ -1920,7 +1920,7 @@ void usbController::backupController(USBDEVICE* dev, QString file)
             settings->setValue("Width", k->pos.width());
             settings->setValue("Height", k->pos.height());
             settings->setValue("Colour", k->textColour.name());
-            if (k->command != Q_NULLPTR)
+            if (k->command != nullptr)
                 settings->setValue("Command", k->command->text);
             ++n;
         }
@@ -1962,19 +1962,19 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (b->parent == dev)
         {
-            if (b->text != Q_NULLPTR) {
+            if (b->text != nullptr) {
                 delete b->text;
-                b->text = Q_NULLPTR;
+                b->text = nullptr;
             }
-            if (b->bgRect != Q_NULLPTR) {
+            if (b->bgRect != nullptr) {
                 delete b->bgRect;
-                b->bgRect = Q_NULLPTR;
+                b->bgRect = nullptr;
             }
-            b->onCommand = Q_NULLPTR;
-            b->offCommand = Q_NULLPTR;
-            if (b->icon != Q_NULLPTR) {
+            b->onCommand = nullptr;
+            b->offCommand = nullptr;
+            if (b->icon != nullptr) {
                 delete b->icon;
-                b->icon=Q_NULLPTR;
+                b->icon=nullptr;
             }
             b = buttonList->erase(b);
         } else {
@@ -2028,10 +2028,10 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (k->parent == dev)
         {
-            if (k->text != Q_NULLPTR) {
+            if (k->text != nullptr) {
                 delete k->text;
-                k->text = Q_NULLPTR;
-                k->command = Q_NULLPTR;
+                k->text = nullptr;
+                k->command = nullptr;
             }
             k = knobList->erase(k);
         } else {
@@ -2162,7 +2162,7 @@ void usbController::checkForGamePad()
         return;
     }
 
-    if (gamepad == Q_NULLPTR) {
+    if (gamepad == nullptr) {
         auto gamepads = QGamepadManager::instance()->connectedGamepads();
         if (!gamepads.isEmpty()) {
             qInfo(logUsbControl()) << "Found" << gamepads.size() << "Gamepad controllers";
@@ -2270,7 +2270,7 @@ void usbController::checkForGamePad()
     }
     else if (!gamepad->isConnected()) {
         delete gamepad;
-        gamepad = Q_NULLPTR;
+        gamepad = nullptr;
     }
 
     mutex->unlock();
@@ -2341,7 +2341,7 @@ bool usbController::initDevice(USBDEVICE *dev)
 {
     bool ret = false;
 
-    if (dev == Q_NULLPTR || dev->connected)
+    if (dev == nullptr || dev->connected)
     {
         return ret;
     }
