@@ -70,9 +70,7 @@ signals:
 
 protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
-    virtual void mousePressEvent(QMouseEvent *event) override;
-    virtual void mouseDoubleClickEvent(QMouseEvent *event) override;
-    virtual void wheelEvent(QWheelEvent *event) override;
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     void geometryChange(const QRectF &newG, const QRectF &oldG) override;
 #else

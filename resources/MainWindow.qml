@@ -35,6 +35,38 @@ ApplicationWindow {
         controller: MainController.settings
     }
 
+    Loader {
+        id: debugLoader
+        active: false
+        source: "qrc:/resources/Debug.qml"
+
+        onLoaded: {
+            // show + activate
+            item.visible = true
+            item.raise()
+            item.requestActivate()
+
+            // when closed, destroy it (frees controller/timers/models too)
+            item.closing.connect(function() {
+                debugLoader.active = false
+            })
+        }
+    }
+
+    Shortcut {
+        sequences: ["Ctrl+D"]
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (!debugLoader.active) {
+                debugLoader.active = true
+            } else {
+                debugLoader.item.visible = true
+                debugLoader.item.raise()
+                debugLoader.item.requestActivate()
+            }
+        }
+    }
+
     // QWidget had acceptDrops=true
     // In QML, you typically use DropArea
     DropArea {

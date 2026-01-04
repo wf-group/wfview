@@ -26,7 +26,15 @@ ReceiverController::ReceiverController(int rxIndex, QObject *parent)
 void ReceiverController::setScopeData(const scopeData &d)
 {
 
-    double freq = (frequencyA/100000.0);
+    // Have we received scope data before?
+    if (!scopeReceived)
+    {
+        queue->del(funcScopeOnOff,receiver); // Delete recurring on/off command
+        scopeReceived=true;
+    }
+
+
+    double freq = (frequencyA/1000000.0);
 
     double pbLow = 0.0;
     double pbHigh = 0.0;
@@ -76,6 +84,7 @@ void ReceiverController::setScopeData(const scopeData &d)
 
     if (!qFuzzyCompare(passbandLow,pbLow) || !qFuzzyCompare(passbandHigh,pbHigh))
     {
+        qInfo() << "New passband" << pbLow << pbHigh;
         passbandLow = pbLow;
         passbandHigh = pbHigh;
         emit passbandChanged();
@@ -87,6 +96,56 @@ void ReceiverController::setScopeData(const scopeData &d)
     lastScope = d;               // QByteArray is implicitly shared (cheap copy)
     emit scopeUpdated(lastScope);    // fan out to Spectrum/Waterfall
 }
+
+
+
+void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
+{
+    //if (freqLock)
+    //    return;
+
+    // Convert angle delta to "steps" like QWidget wheel notches.
+    // Typical mouse wheel: 120 per notch.
+    const int steps = angleDeltaY / 120;
+    if (steps == 0)
+        return;
+
+    const qreal stepsToScroll = QApplication::wheelScrollLines() * steps;
+
+    // Did we change direction?
+    if ((scrollWheelOffsetAccumulated > 0 && steps > 0) ||
+        (scrollWheelOffsetAccumulated < 0 && steps < 0)) {
+        scrollWheelOffsetAccumulated += stepsToScroll;
+    } else {
+        scrollWheelOffsetAccumulated = stepsToScroll;
+    }
+
+    const int clicks = int(scrollWheelOffsetAccumulated);
+    if (!clicks)
+        return;
+
+    unsigned int stepsHz = stepSize;
+
+    const Qt::KeyboardModifiers mods = Qt::KeyboardModifiers(modifiers);
+
+    if ((mods & Qt::ShiftModifier) && stepsHz != 1) {
+        stepsHz /= 10;
+    } else if (mods & Qt::ControlModifier) {
+        stepsHz *= 10;
+    }
+
+    vfoCommandType t = queue->getVfoCommand(vfoA, receiver, true);
+
+    freqt f;
+    f.Hz = roundFrequency(frequencyA, clicks, stepsHz);
+    f.MHzDouble = f.Hz / 1E6;
+
+    queue->add(priorityImmediate,
+               queueItem(t.freqFunc, QVariant::fromValue<freqt>(f), false, receiver));
+
+    scrollWheelOffsetAccumulated = 0.0;
+}
+
 
 void ReceiverController::setTitle(QString t)
 {
@@ -114,7 +173,7 @@ void ReceiverController::setScopeMode(uchar m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue(scopeMode),false,t.receiver));
         } else {
-            emit scopeModeValueChanged();
+            emit scopeModeChanged();
         }
     }
 }
@@ -128,7 +187,7 @@ void ReceiverController::setScopeSpan(centerSpanData m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeSpan,QVariant::fromValue(scopeSpan),false,t.receiver));
         } else {
-            emit scopeSpanValueChanged();
+            emit scopeSpanChanged();
         }
     }
 }
@@ -141,11 +200,32 @@ void ReceiverController::setScopeEdge(uchar m, bool u)
         if (u) {
             // Code to set scope edge to be added
         }else {
-            emit scopeEdgeValueChanged();
+            emit scopeEdgeChanged();
         }
     }
 }
 
+
+
+void ReceiverController::receiveMeter(meter_t inMeter, double level)
+{
+    setMeterType(inMeter);
+    setMeter(level);
+}
+
+void ReceiverController::setMeterType(meter_t t)
+{
+    if (m_meterType == t) return;
+    m_meterType = t;
+    emit meterTypeChanged();
+}
+
+void ReceiverController::setMeter(double v)
+{
+    if (qFuzzyCompare(m_meter, v)) return;
+    m_meter = v;
+    emit meterChanged();
+}
 
 
 void ReceiverController::receiveMode(modeInfo m, uchar vfo)
@@ -349,7 +429,7 @@ void ReceiverController::setMode(modeInfo m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit modeValueChanged();
+            emit modeChanged();
         }
     }
 }
@@ -373,7 +453,7 @@ void ReceiverController::setDataMode(uchar m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit dataModeValueChanged();
+            emit dataModeChanged();
         }
     }
 }
@@ -397,7 +477,7 @@ void ReceiverController::setFilter(uchar m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit filterValueChanged();
+            emit filterChanged();
         }
     }
 }
@@ -412,7 +492,7 @@ void ReceiverController::setFilterShape(uchar m, bool u)
             uchar f = uchar(m + (mode.filter * 10));
             queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
         }else {
-            emit filterShapeValueChanged();
+            emit filterShapeChanged();
         }
     }
 }
@@ -426,7 +506,7 @@ void ReceiverController::setRoofing(uchar m, bool u)
             uchar f = uchar(m + (mode.filter * 10));
             queue->addUnique(priorityImmediate,queueItem(funcRoofingFilter,QVariant::fromValue<uchar>(f),false,t.receiver));
         }else {
-            emit roofingValueChanged();
+            emit roofingChanged();
         }
     }
 }
@@ -440,7 +520,7 @@ void ReceiverController::setSpeed(uchar m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue(m),false,t.receiver));
         }else {
-            emit speedValueChanged();
+            emit speedChanged();
         }
     }
 }
@@ -454,7 +534,7 @@ void ReceiverController::setTheme(WaterfallItem::Theme m, bool u)
         theme = m;
 
         if (!u) {
-            emit themeValueChanged();
+            emit themeChanged();
         }
     }
 }
@@ -482,10 +562,179 @@ void ReceiverController::setRef(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeRef,QVariant::fromValue(v),false,t.receiver));
         } else {
-            emit refValueChanged();
+            emit refChanged();
         }
     }
 }
+
+void ReceiverController::setRfGain(ushort v, bool u)
+{
+    if (rfGain != v)
+    {
+        rfGain = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcRfGain,QVariant::fromValue(v),false,t.receiver));
+        } else {
+            emit rfGainChanged();
+        }
+    }
+}
+
+
+void ReceiverController::setAfGain(ushort v, bool u)
+{
+    if (afGain != v)
+    {
+        afGain = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcAfGain,QVariant::fromValue(v),false,t.receiver));
+        } else {
+            emit afGainChanged();
+        }
+    }
+}
+
+
+void ReceiverController::setSquelch(ushort v, bool u)
+{
+    if (squelch != v)
+    {
+        squelch = v;
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcSquelch,QVariant::fromValue(v),false,t.receiver));
+        } else {
+            emit squelchChanged();
+        }
+    }
+}
+
+void ReceiverController::setAttenuator(uchar v, bool u)
+{
+    if (attenuator != v)
+    {
+        attenuator = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcAttenuator,QVariant::fromValue(attenuator),false,t.receiver));
+        } else {
+            emit attenuatorChanged();
+        }
+    }
+}
+
+void ReceiverController::setPreamp(uchar v, bool u)
+{
+    if (preamp != v)
+    {
+        preamp = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcPreamp,QVariant::fromValue(preamp),false,t.receiver));
+        } else {
+            emit preampChanged();
+        }
+    }
+}
+
+void ReceiverController::setNr(uchar v, bool u)
+{
+    if (nr != v)
+    {
+        qInfo() << "New setNr()" << v;
+
+        nr = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcNoiseReduction,QVariant::fromValue(nr),false,t.receiver));
+        } else {
+            emit nrChanged();
+        }
+    }
+}
+
+void ReceiverController::setNrLevel(ushort v, bool u)
+{
+    if (nrLevel != v)
+    {
+        nrLevel = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcNRLevel,QVariant::fromValue(nrLevel),false,t.receiver));
+        } else {
+            emit nrLevelChanged();
+        }
+    }
+}
+
+void ReceiverController::setNb(uchar v, bool u)
+{
+    if (nb != v)
+    {
+        qInfo() << "New setNb()" << v;
+        nb = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcNoiseBlanker,QVariant::fromValue(nb),false,t.receiver));
+        } else {
+            emit nbChanged();
+        }
+    }
+}
+
+void ReceiverController::setNbLevel(ushort v, bool u)
+{
+    if (nbLevel != v)
+    {
+        nbLevel = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcNBLevel,QVariant::fromValue(nbLevel),false,t.receiver));
+        } else {
+            emit nbLevelChanged();
+        }
+    }
+}
+
+void ReceiverController::setAntenna(uchar v, bool u)
+{
+    if (antenna.antenna != v)
+    {
+        antenna.antenna = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcAntenna,QVariant::fromValue(antenna),false,t.receiver));
+        } else {
+            emit antennaChanged();
+        }
+    }
+}
+
+
+void ReceiverController::setRxAntenna(bool v, bool u)
+{
+    if (antenna.rx != v)
+    {
+        antenna.rx = v;
+
+        if (u) {
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcAntenna,QVariant::fromValue(antenna),false,t.receiver));
+        } else {
+            emit rxAntennaChanged();
+        }
+    }
+}
+
 
 void ReceiverController::setPbtInner(int v, bool u)
 {
@@ -496,7 +745,7 @@ void ReceiverController::setPbtInner(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTInner,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit pbtInnerValueChanged();
+            emit pbtInnerChanged();
         }
     }
 }
@@ -510,7 +759,7 @@ void ReceiverController::setPbtOuter(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTOuter,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit pbtOuterValueChanged();
+            emit pbtOuterChanged();
         }
     }
 }
@@ -524,7 +773,7 @@ void ReceiverController::setIfShift(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcIFShift,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit ifShiftValueChanged();
+            emit ifShiftChanged();
         }
     }
 }
@@ -539,7 +788,7 @@ void ReceiverController::setFilterWidth(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcFilterWidth,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit filterWidthValueChanged();
+            emit filterWidthChanged();
         }
     }
 }
@@ -786,6 +1035,133 @@ void ReceiverController::buildUiSpecs()
             {"visible",true}
         };
     }
+
+    if (rigCaps->commands.contains(funcNBLevel))
+    {
+        funcType func = rigCaps->commands.find(funcNBLevel).value();
+        uiSpecs["nbSlider"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"visible",true}
+        };
+    }
+
+    if (rigCaps->commands.contains(funcNRLevel))
+    {
+        funcType func = rigCaps->commands.find(funcNRLevel).value();
+        uiSpecs["nrSlider"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"visible",true}
+        };
+    }
+
+
+    if (rigCaps->commands.contains(funcRfGain))
+    {
+        funcType func = rigCaps->commands.find(funcRfGain).value();
+        uiSpecs["rfGainSlider"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"visible",true}
+        };
+    }
+
+    if (rigCaps->commands.contains(funcAfGain))
+    {
+        funcType func = rigCaps->commands.find(funcAfGain).value();
+        uiSpecs["afGainSlider"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"visible",true}
+        };
+    }
+
+
+    if (rigCaps->commands.contains(funcSquelch))
+    {
+        funcType func = rigCaps->commands.find(funcSquelch).value();
+        uiSpecs["squelchSlider"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"visible",true}
+        };
+    }
+
+    if (rigCaps->commands.contains(funcAttenuator))
+    {
+        // Find the step size between attenuator values
+        int step = 0;
+
+        if (rigCaps->attenuators.size() < 2)
+        {
+            step = 1;
+        } else {
+            for (int i = 1; i < rigCaps->attenuators.size(); ++i) {
+                const int delta = rigCaps->attenuators[i].num - rigCaps->attenuators[i - 1].num;
+                if (delta <= 0)
+                    continue;
+                step = (step == 0) ? delta : std::gcd(step, delta);
+            }
+        }
+
+        funcType func = rigCaps->commands.find(funcAttenuator).value();
+        uiSpecs["attenuator"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"step",step},
+            {"unit","dB"},
+            {"visible",true}
+        };
+    }
+
+    if (rigCaps->commands.contains(funcPreamp))
+    {
+        int step = 0;
+        if (rigCaps->preamps.size() < 2)
+        {
+            step = 1;
+        } else {
+            for (int i = 1; i < rigCaps->preamps.size(); ++i) {
+                const int delta = rigCaps->preamps[i].num - rigCaps->preamps[i - 1].num;
+                if (delta <= 0)
+                    continue;
+                step = (step == 0) ? delta : std::gcd(step, delta);
+            }
+        }
+
+        funcType func = rigCaps->commands.find(funcPreamp).value();
+        uiSpecs["preamp"] = QVariantMap{
+            {"from",func.minVal},
+            {"to",func.maxVal},
+            {"step",step},
+            {"unit",""},
+            {"visible",true}
+        };
+    }
+
+
+    const auto mkAntennaOptions = [](const std::vector<genericType> &ants) -> QVariantList {
+        QVariantList opts;
+        opts.reserve(static_cast<int>(ants.size()));
+
+        for (const auto &a : ants) {
+            opts.append(QVariantMap{
+                {"text", a.name},
+                {"value", a.num}
+            });
+        }
+        return opts;
+    };
+
+    // usage
+    uiSpecs["antenna"] = QVariantMap{
+        {"visible", true},
+        {"options", mkAntennaOptions(rigCaps->antennas)}
+    };
+
+
+    emit uiSpecsChanged();
 
 
     flags |= ShowVFOA | (rigCaps->numVFO > 1 ? ShowVFOB : ShowNothing);

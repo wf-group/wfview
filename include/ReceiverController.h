@@ -19,26 +19,39 @@ class ReceiverController : public QObject
     Q_PROPERTY(QString title READ getTitle WRITE setTitle NOTIFY titleChanged)
     Q_PROPERTY(quint64 frequencyA READ getFrequencyA WRITE setFrequencyA NOTIFY frequencyAChanged)
     Q_PROPERTY(quint64 frequencyB READ getFrequencyB WRITE setFrequencyB NOTIFY frequencyBChanged)
-    Q_PROPERTY(uchar scopeModeValue READ getScopeMode WRITE setScopeMode NOTIFY scopeModeValueChanged)
-    Q_PROPERTY(centerSpanData scopeSpanValue READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanValueChanged)
-    Q_PROPERTY(uchar scopeEdgeValue READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeValueChanged)
+    Q_PROPERTY(uchar scopeMode READ getScopeMode WRITE setScopeMode NOTIFY scopeModeChanged)
+    Q_PROPERTY(centerSpanData scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
+    Q_PROPERTY(uchar scopeEdge READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeChanged)
     Q_PROPERTY(uchar toFixed WRITE toFixedEdge)
-    Q_PROPERTY(modeInfo modeValue READ getMode WRITE setMode NOTIFY modeValueChanged)
-    Q_PROPERTY(uchar dataModeValue READ getDataMode WRITE setDataMode NOTIFY dataModeValueChanged)
-    Q_PROPERTY(uchar filterValue READ getFilter WRITE setFilter NOTIFY filterValueChanged)
-    Q_PROPERTY(uchar filterShapeValue READ getFilterShape WRITE setFilterShape NOTIFY filterShapeValueChanged)
-    Q_PROPERTY(uchar roofingValue READ getRoofing WRITE setRoofing NOTIFY roofingValueChanged)
+    Q_PROPERTY(modeInfo mode READ getMode WRITE setMode NOTIFY modeChanged)
+    Q_PROPERTY(uchar dataMode READ getDataMode WRITE setDataMode NOTIFY dataModeChanged)
+    Q_PROPERTY(uchar filter READ getFilter WRITE setFilter NOTIFY filterChanged)
+    Q_PROPERTY(uchar filterShape READ getFilterShape WRITE setFilterShape NOTIFY filterShapeChanged)
+    Q_PROPERTY(uchar roofing READ getRoofing WRITE setRoofing NOTIFY roofingChanged)
 
-    Q_PROPERTY(uchar speedValue READ getSpeed WRITE setSpeed NOTIFY speedValueChanged)
-    Q_PROPERTY(WaterfallItem::Theme themeValue READ getTheme WRITE setTheme NOTIFY themeValueChanged)
+    Q_PROPERTY(uchar speed READ getSpeed WRITE setSpeed NOTIFY speedChanged)
+    Q_PROPERTY(WaterfallItem::Theme theme READ getTheme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(bool hold READ getHold WRITE setHold NOTIFY holdChanged)
 
-    Q_PROPERTY(int refValue READ getRef WRITE setRef NOTIFY refValueChanged)
+    Q_PROPERTY(int ref READ getRef WRITE setRef NOTIFY refChanged)
     // Length and ceiling/floor update the scope directly
-    Q_PROPERTY(int pbtInnerValue READ getPbtInner WRITE setPbtInner NOTIFY pbtInnerValueChanged)
-    Q_PROPERTY(int pbtOuterValue READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterValueChanged)
-    Q_PROPERTY(int ifShiftValue READ getIfShift WRITE setIfShift NOTIFY ifShiftValueChanged)
-    Q_PROPERTY(int filterWidthValue READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthValueChanged)
+
+    Q_PROPERTY(ushort rfGain READ getRfGain WRITE setRfGain NOTIFY rfGainChanged)
+    Q_PROPERTY(ushort afGain READ getAfGain WRITE setAfGain NOTIFY afGainChanged)
+    Q_PROPERTY(ushort squelch READ getSquelch WRITE setSquelch NOTIFY squelchChanged)
+    Q_PROPERTY(uchar attenuator READ getAttenuator WRITE setAttenuator NOTIFY attenuatorChanged)
+    Q_PROPERTY(uchar nr READ getNr WRITE setNr NOTIFY nrChanged)
+    Q_PROPERTY(uchar nb READ getNb WRITE setNb NOTIFY nbChanged)
+    Q_PROPERTY(ushort nrLevel READ getNrLevel WRITE setNrLevel NOTIFY nrLevelChanged)
+    Q_PROPERTY(ushort nbLevel READ getNbLevel WRITE setNbLevel NOTIFY nbLevelChanged)
+    Q_PROPERTY(uchar preamp READ getPreamp WRITE setPreamp NOTIFY preampChanged)
+    Q_PROPERTY(uchar antenna READ getAntenna WRITE setAntenna NOTIFY antennaChanged)
+    Q_PROPERTY(bool rxAntenna READ getRxAntenna WRITE setRxAntenna NOTIFY rxAntennaChanged)
+
+    Q_PROPERTY(int pbtInner READ getPbtInner WRITE setPbtInner NOTIFY pbtInnerChanged)
+    Q_PROPERTY(int pbtOuter READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterChanged)
+    Q_PROPERTY(int ifShift READ getIfShift WRITE setIfShift NOTIFY ifShiftChanged)
+    Q_PROPERTY(int filterWidth READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthChanged)
     Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
 
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
@@ -50,8 +63,10 @@ class ReceiverController : public QObject
     Q_PROPERTY(QString drawerTitle READ getDrawerTitle NOTIFY drawerTitleChanged)
 
     Q_PROPERTY(QVariantMap freqDisplay READ getFreqDisplay WRITE setFreqDisplay NOTIFY freqDisplayChanged)
-
     Q_PROPERTY(QVector<bandType> activeBands READ getActiveBands NOTIFY activeBandsChanged)
+
+    Q_PROPERTY(meter_t meterType READ meterType WRITE setMeterType NOTIFY meterTypeChanged)
+    Q_PROPERTY(double meter READ meter WRITE setMeter NOTIFY meterChanged)
 
 public:
     explicit ReceiverController(int rxIndex = 0, QObject *parent = nullptr);
@@ -105,6 +120,17 @@ public:
     bool getHold() {return hold;}
 
     int getRef() { return ref;}
+    ushort getRfGain() { return rfGain;}
+    ushort getAfGain() { return afGain;}
+    ushort getSquelch() { return squelch;}
+    uchar getAttenuator() { return attenuator;}
+    uchar getPreamp() { return preamp;}
+    uchar getNr() { return nr;}
+    uchar getNb() { return nb;}
+    ushort getNrLevel() { return nrLevel;}
+    ushort getNbLevel() { return nbLevel;}
+    uchar getAntenna() { return antenna.antenna;}
+    bool getRxAntenna() { return antenna.rx;}
     int getPbtInner() { return pbtInner;}
     int getPbtOuter() { return pbtOuter;}
     int getIfShift() { return ifShift;}
@@ -134,6 +160,14 @@ public:
 
     QVector<bandType> getActiveBands() {return activeBands;}
 
+    meter_t meterType() const { return m_meterType; }
+    void setMeterType(meter_t t);
+
+    double meter() const { return m_meter; }
+    void setMeter(double v);
+
+    Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
+
 public slots:
 
     // Receive mode from Radio.
@@ -155,6 +189,21 @@ public slots:
     void setTheme(WaterfallItem::Theme m, bool u=true);
     void setHold(bool v, bool u=true);
     void setRef(int v, bool u=true);
+
+    // Although these are 0-255 at most, we use uchar for 2 digit conversion (0-99) so use ushort instead.
+    // We could use char for 2 digit and uchar for 0-255 but that would require singificant rewriting.
+    void setRfGain(ushort v, bool u=true);
+    void setAfGain(ushort v, bool u=true);
+    void setSquelch(ushort v, bool u=true);
+    void setAttenuator(uchar v, bool u=true);
+    void setPreamp(uchar v, bool u=true);
+    void setNb(uchar v, bool u=true);
+    void setNr(uchar v, bool u=true);
+    void setNbLevel(ushort v, bool u=true);
+    void setNrLevel(ushort v, bool u=true);
+    void setAntenna(uchar v, bool u=true);
+    void setRxAntenna(bool v, bool u=true);
+
     void setPbtInner(int v, bool u=true);
     void setPbtOuter(int v, bool u=true);
     void setIfShift(int v, bool u=true);
@@ -174,6 +223,8 @@ public slots:
     void setFreqLock(bool lock) { m_freqLock = lock;}
     bool freqLock() { return m_freqLock;}
 
+    void receiveMeter(meter_t meter, double level);
+
 private slots:
     void receiveRigCaps(rigCapabilities* caps);
 
@@ -187,26 +238,39 @@ signals:
     void activeChanged();
     void titleChanged();
     void colorsChanged();
-    void scopeSpanValueChanged();
-    void scopeEdgeValueChanged();
-    void scopeModeValueChanged();
+    void scopeSpanChanged();
+    void scopeEdgeChanged();
+    void scopeModeChanged();
     void holdChanged();
 
-    void modeValueChanged();
-    void dataModeValueChanged();
+    void modeChanged();
+    void dataModeChanged();
 
-    void filterValueChanged();
-    void filterShapeValueChanged();
-    void roofingValueChanged();
-    void filterWidthValueChanged();
+    void filterChanged();
+    void filterShapeChanged();
+    void roofingChanged();
+    void filterWidthChanged();
 
-    void refValueChanged();
-    void speedValueChanged();
-    void themeValueChanged();
+    void refChanged();
+    void rfGainChanged();
+    void afGainChanged();
+    void squelchChanged();
+    void attenuatorChanged();
+    void preampChanged();
+    void nrChanged();
+    void nbChanged();
+    void nrLevelChanged();
+    void nbLevelChanged();
+    void antennaChanged();
+    void rxAntennaChanged();
 
-    void pbtInnerValueChanged();
-    void pbtOuterValueChanged();
-    void ifShiftValueChanged();
+
+    void speedChanged();
+    void themeChanged();
+
+    void pbtInnerChanged();
+    void pbtOuterChanged();
+    void ifShiftChanged();
 
     void passbandChanged();
     void frequencyAChanged();
@@ -214,13 +278,20 @@ signals:
     void drawerTitleChanged();
 
     void activeBandsChanged();
+
+    void meterTypeChanged();
+    void meterChanged();
+
 private:
     void buildUiSpecs();
     quint64 roundFrequency(quint64 frequency, unsigned int tsHz);
     quint64 roundFrequency(quint64 frequency, int steps, unsigned int tsHz);
 
-
     uchar receiver = 0;
+    bool scopeReceived = false;
+
+    qreal scrollWheelOffsetAccumulated = 0.0;
+
 
     QVariantMap uiSpecs;
     quint64 frequencyA;
@@ -270,6 +341,20 @@ private:
     // These need to be settable
     bool tuningFloorZeros=false;
     quint64 stepSize = 100;
+
+    meter_t m_meterType = meterS;
+    double m_meter = 0.0;
+
+    ushort rfGain = 0;
+    ushort afGain = 0;
+    ushort squelch = 0;
+    uchar attenuator = 0;
+    uchar preamp = 0;
+    uchar nr = 0;
+    uchar nb = 0;
+    ushort nrLevel = 0;
+    ushort nbLevel = 0;
+    antennaInfo antenna;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(ReceiverController::UiFlags)

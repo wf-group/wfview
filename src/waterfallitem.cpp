@@ -108,54 +108,6 @@ double WaterfallItem::xToFreq(qreal x) const
     return startFreq + t * (endFreq - startFreq);
 }
 
-void WaterfallItem::mousePressEvent(QMouseEvent *event)
-{
-    if (event->button() != Qt::LeftButton) {
-        event->ignore();
-        return;
-    }
-    event->accept();
-}
-
-void WaterfallItem::mouseDoubleClickEvent(QMouseEvent *event)
-{
-
-    qInfo() << "Double click event!";
-
-    if (event->button() != Qt::LeftButton) {
-        event->ignore();
-        return;
-    }
-
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    const qreal x = event->pos().x();   // Qt 6
-#else
-    const qreal x = event->position().x();   // Qt 6
-#endif
-    const double f = xToFreq(x);
-
-    emit tuneRequested(f);
-    event->accept();
-}
-
-void WaterfallItem::wheelEvent(QWheelEvent *event)
-{
-
-    // Standard: angleDelta is in 1/8 of a degree. 15° per notch -> 120 units.
-    const QPoint numDegrees = event->angleDelta() / 8;
-    int steps = 0;
-
-    if (!numDegrees.isNull()) {
-        steps = numDegrees.y() / 15;   // vertical wheel only
-    }
-
-    if (steps != 0) {
-        emit wheelTuneRequested(steps, event->modifiers());
-        event->accept();
-    } else {
-        event->ignore();
-    }
-}
 
 void WaterfallItem::updateScope(const scopeData &data)
 {

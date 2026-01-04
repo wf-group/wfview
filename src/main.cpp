@@ -20,6 +20,9 @@
 #include <iostream>
 #include "wfmain.h"
 
+#include "MeterItem.h"
+#include "DebugController.h"
+
 #include "logcategories.h"
 #include "LoggingController.h"
 
@@ -387,12 +390,14 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<ReceiverController>("WFVIEW", 1, 0, "ReceiverController");
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
-
+    qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
 
     // Members of ReceiverController
     qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");
     qmlRegisterType<WaterfallItem>("WFVIEW", 1, 0, "WaterfallItem");
     qmlRegisterType<FreqCtrlQuick>("WFVIEW", 1, 0, "FreqCtrlQuick");
+    qmlRegisterType<MeterItem>("WFVIEW", 1, 0, "Meter");
+
 
     // Helpers
     qmlRegisterType<IniTableModel>("WFVIEW", 1, 0, "IniTableModel");

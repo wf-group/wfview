@@ -812,15 +812,11 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //receiveTuningStep(val.value.value<uchar>());
         break;
     case funcAttenuator:
-        //receiveAttenuator(val.value.value<uchar>(),val.receiver);
+        receivers[val.receiver]->setAttenuator(val.value.value<uchar>(),false);
         break;
     case funcAntenna:
-        /*
-        if (val.receiver == currentReceiver) {
-            ui->antennaSelCombo->setCurrentIndex(ui->antennaSelCombo->findData(val.value.value<antennaInfo>().antenna));
-            ui->rxAntennaCheck->setChecked(val.value.value<antennaInfo>().rx);
-        }
-        */
+        receivers[val.receiver]->setAntenna(val.value.value<antennaInfo>().antenna,false);
+        receivers[val.receiver]->setRxAntenna(val.value.value<antennaInfo>().rx,false);
         break;
     case funcPBTOuter:
 
@@ -865,27 +861,27 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcNotchFilter:
         break;
     case funcAfGain:
-        //if (val.receiver == currentReceiver)
-        //    changeSliderQuietly(ui->afGainSlider, val.value.value<uchar>());
+        receivers[val.receiver]->setAfGain(val.value.value<ushort>(),false);
         break;
     case funcMonitorGain:
         //changeSliderQuietly(ui->monitorSlider, val.value.value<uchar>());
         break;
     case funcRfGain:
-        //if (val.receiver == currentReceiver)
-        //    changeSliderQuietly(ui->rfGainSlider, val.value.value<uchar>());
+        receivers[val.receiver]->setRfGain(val.value.value<ushort>(),false);
         break;
     case funcSquelch:
-        //if (val.receiver == currentReceiver) {
-        //    changeSliderQuietly(ui->sqlSlider, val.value.value<uchar>());
-        //}
+        receivers[val.receiver]->setSquelch(val.value.value<ushort>(),false);
         break;
     case funcRFPower:
         //changeSliderQuietly(ui->txPowerSlider, val.value.value<uchar>());
         break;
-    case funcCompressorLevel:
     case funcNBLevel:
+        receivers[val.receiver]->setNbLevel(val.value.value<ushort>(),false);
+        break;
     case funcNRLevel:
+        receivers[val.receiver]->setNrLevel(val.value.value<ushort>(),false);
+        break;
+    case funcCompressorLevel:
     case funcAPFLevel:
     case funcDriveGain:
     case funcVoxGain:
@@ -899,14 +895,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcSMeterSqlStatus:
         break;
     case funcSMeter:
-        /*
-        if (val.receiver ) {
-            receiveMeter(meter_t::meterSubS,val.value.value<double>());
-        }
-        else {
-            receiveMeter(meter_t::meterS,val.value.value<double>());
-        }
-        */
+        receivers[val.receiver]->receiveMeter(meter_t::meterS,val.value.value<double>());
         break;
     case funcAbsoluteMeter:
     {
@@ -938,6 +927,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //receiveMeter(meter_t::meterCenter,val.value.value<double>());
         break;
     case funcPowerMeter:
+        //receivers[val.receiver]->receiveMeter(meter_t::meterS,val.value.value<double>());
         //receiveMeter(meter_t::meterPower,val.value.value<double>());
         break;
     case funcSWRMeter:
@@ -957,12 +947,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     // 0x16 enable/disable functions:
     case funcPreamp:
-        //receivePreamp(val.value.value<uchar>(),val.receiver);
+        receivers[val.receiver]->setPreamp(val.value.value<uchar>(),false);
         break;
     case funcAGC:
     case funcAGCTimeConstant:
         break;
     case funcNoiseBlanker:
+        receivers[val.receiver]->setNb(val.value.value<uchar>(),false);
+
         /*
         if (val.receiver == currentReceiver) {
             ui->nbEnableChk->blockSignals(true);
@@ -978,19 +970,20 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcAudioPeakFilter:
         break;
     case funcFilterShape:
-        qInfo() << "Received filter shape" << val.value.value<uchar>() / 10;
-        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
-        {
+        qInfo() << "Received filter shape" << val.value.value<uchar>() % 10;
+        //if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
+        //{
             receivers[val.receiver]->setFilterShape(val.value.value<uchar>() % 10, false);
-        }
+        //}
         break;
     case funcRoofingFilter:
-        if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
-        {
+        //if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
+        //{
             receivers[val.receiver]->setRoofing(val.value.value<uchar>() % 10, false);
-        }
+        //}
         break;
     case funcNoiseReduction:
+        receivers[val.receiver]->setNr(val.value.value<uchar>(),false);
         /*
         if (val.receiver == currentReceiver) {
             ui->nrEnableChk->blockSignals(true);

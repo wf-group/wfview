@@ -309,9 +309,11 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/resampler
 
 SOURCES += \
+    src/DebugController.cpp \
     src/LogModel.cpp \
     src/LoggingController.cpp \
     src/MainController.cpp \
+    src/MeterItem.cpp \
     src/ReceiverController.cpp \
     src/RigCreatorController.cpp \
     src/aboutbox.cpp \
@@ -389,9 +391,11 @@ SOURCES += \
     src/wfmain.cpp
 
 HEADERS  += \
+    include/DebugController.h \
     include/LogModel.h \
     include/LoggingController.h \
     include/MainController.h \
+    include/MeterItem.h \
     include/ReceiverController.h \
     include/RigCreatorController.h \
     include/SettingsController.h \

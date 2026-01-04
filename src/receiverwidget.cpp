@@ -2337,7 +2337,7 @@ void receiverWidget::setScopeMode(uchar m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue(currentScopeMode),false,t.receiver));
         } else {
-            emit scopeModeValueChanged();
+            emit scopeModeChanged();
         }
     }
 }
@@ -2351,7 +2351,7 @@ void receiverWidget::setScopeSpan(centerSpanData m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeSpan,QVariant::fromValue(currentScopeSpan),false,t.receiver));
         } else {
-            emit scopeSpanValueChanged();
+            emit scopeSpanChanged();
         }
     }
 }
@@ -2364,7 +2364,7 @@ void receiverWidget::setScopeEdge(uchar m, bool u)
         if (u) {
             // Code to set scope edge to be added
         }else {
-            emit scopeEdgeValueChanged();
+            emit scopeEdgeChanged();
         }
     }
 }
@@ -2391,7 +2391,7 @@ void receiverWidget::setMode(modeInfo m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit modeValueChanged();
+            emit modeChanged();
         }
     }
 
@@ -2416,7 +2416,7 @@ void receiverWidget::setDataMode(uchar m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit dataModeValueChanged();
+            emit dataModeChanged();
         }
     }
 }
@@ -2440,7 +2440,7 @@ void receiverWidget::setFilter(uchar m, bool u)
                 queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
             }
         }else {
-            emit filterValueChanged();
+            emit filterChanged();
         }
     }
 }
@@ -2455,7 +2455,7 @@ void receiverWidget::setFilterShape(uchar m, bool u)
             uchar f = uchar(m + (currentMode.filter * 10));
             queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
         }else {
-            emit filterShapeValueChanged();
+            emit filterShapeChanged();
         }
     }
 }
@@ -2469,7 +2469,7 @@ void receiverWidget::setRoofing(uchar m, bool u)
             uchar f = uchar(m + (currentMode.filter * 10));
             queue->addUnique(priorityImmediate,queueItem(funcRoofingFilter,QVariant::fromValue<uchar>(f),false,t.receiver));
         }else {
-            emit roofingValueChanged();
+            emit roofingChanged();
         }
     }
 }
@@ -2483,7 +2483,7 @@ void receiverWidget::setSpeed(uchar m, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeSpeed,QVariant::fromValue(m),false,t.receiver));
         }else {
-            emit speedValueChanged();
+            emit speedChanged();
         }
     }
 }
@@ -2496,7 +2496,7 @@ void receiverWidget::setTheme(WaterfallItem::Theme m, bool u)
         currentTheme = m;
 
         if (!u) {
-            emit themeValueChanged();
+            emit themeChanged();
         }
 
         if (waterfall)
@@ -2527,7 +2527,7 @@ void receiverWidget::setRef(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcScopeRef,QVariant::fromValue(v),false,t.receiver));
         } else {
-            emit refValueChanged();
+            emit refChanged();
         }
     }
 }
@@ -2541,7 +2541,7 @@ void receiverWidget::setPbtInner(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTInner,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit pbtInnerValueChanged();
+            emit pbtInnerChanged();
         }
     }
 }
@@ -2555,7 +2555,7 @@ void receiverWidget::setPbtOuter(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTOuter,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit pbtOuterValueChanged();
+            emit pbtOuterChanged();
         }
     }
 }
@@ -2569,7 +2569,7 @@ void receiverWidget::setIfShift(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcIFShift,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit ifShiftValueChanged();
+            emit ifShiftChanged();
         }
     }
 }
@@ -2584,7 +2584,7 @@ void receiverWidget::setFilterWidth(int v, bool u)
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcFilterWidth,QVariant::fromValue<ushort>(v),false,t.receiver));
         } else {
-            emit filterWidthValueChanged();
+            emit filterWidthChanged();
         }
     }
 }

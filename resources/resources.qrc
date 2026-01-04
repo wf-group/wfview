@@ -21,5 +21,6 @@
         <file>RigCreator.qml</file>
         <file>LoggingWindow.qml</file>
         <file>Settings.qml</file>
+        <file>Debug.qml</file>
     </qresource>
 </RCC>

@@ -46,26 +46,26 @@ struct bandIndicator {
 class receiverWidget : public QGroupBox
 {
     Q_OBJECT
-    Q_PROPERTY(uchar scopeModeValue READ getScopeMode WRITE setScopeMode NOTIFY scopeModeValueChanged)
-    Q_PROPERTY(centerSpanData scopeSpanValue READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanValueChanged)
-    Q_PROPERTY(uchar scopeEdgeValue READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeValueChanged)
+    Q_PROPERTY(uchar scopeMode READ getScopeMode WRITE setScopeMode NOTIFY scopeModeChanged)
+    Q_PROPERTY(centerSpanData scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
+    Q_PROPERTY(uchar scopeEdge READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeChanged)
     Q_PROPERTY(uchar toFixed WRITE toFixedEdge)
-    Q_PROPERTY(modeInfo modeValue READ getMode WRITE setMode NOTIFY modeValueChanged)
-    Q_PROPERTY(uchar dataModeValue READ getDataMode WRITE setDataMode NOTIFY dataModeValueChanged)
-    Q_PROPERTY(uchar filterValue READ getFilter WRITE setFilter NOTIFY filterValueChanged)
-    Q_PROPERTY(uchar filterShapeValue READ getFilterShape WRITE setFilterShape NOTIFY filterShapeValueChanged)
-    Q_PROPERTY(uchar roofingValue READ getRoofing WRITE setRoofing NOTIFY roofingValueChanged)
+    Q_PROPERTY(modeInfo mode READ getMode WRITE setMode NOTIFY modeChanged)
+    Q_PROPERTY(uchar dataMode READ getDataMode WRITE setDataMode NOTIFY dataModeChanged)
+    Q_PROPERTY(uchar filter READ getFilter WRITE setFilter NOTIFY filterChanged)
+    Q_PROPERTY(uchar filterShape READ getFilterShape WRITE setFilterShape NOTIFY filterShapeChanged)
+    Q_PROPERTY(uchar roofing READ getRoofing WRITE setRoofing NOTIFY roofingChanged)
 
-    Q_PROPERTY(uchar speedValue READ getSpeed WRITE setSpeed NOTIFY speedValueChanged)
-    Q_PROPERTY(WaterfallItem::Theme themeValue READ getTheme WRITE setTheme NOTIFY themeValueChanged)
+    Q_PROPERTY(uchar speed READ getSpeed WRITE setSpeed NOTIFY speedChanged)
+    Q_PROPERTY(WaterfallItem::Theme theme READ getTheme WRITE setTheme NOTIFY themeChanged)
     Q_PROPERTY(bool hold READ getHold WRITE setHold NOTIFY holdChanged)
 
-    Q_PROPERTY(int refValue READ getRef WRITE setRef NOTIFY refValueChanged)
+    Q_PROPERTY(int ref READ getRef WRITE setRef NOTIFY refChanged)
     // Length and ceiling/floor update the scope directly
-    Q_PROPERTY(int pbtInnerValue READ getPbtInner WRITE setPbtInner NOTIFY pbtInnerValueChanged)
-    Q_PROPERTY(int pbtOuterValue READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterValueChanged)
-    Q_PROPERTY(int ifShiftValue READ getIfShift WRITE setIfShift NOTIFY ifShiftValueChanged)
-    Q_PROPERTY(int filterWidthValue READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthValueChanged)
+    Q_PROPERTY(int pbtInner READ getPbtInner WRITE setPbtInner NOTIFY pbtInnerChanged)
+    Q_PROPERTY(int pbtOuter READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterChanged)
+    Q_PROPERTY(int ifShift READ getIfShift WRITE setIfShift NOTIFY ifShiftChanged)
+    Q_PROPERTY(int filterWidth READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthChanged)
 
 
 
@@ -256,26 +256,26 @@ signals:
 
 
     // Comboboxes
-    void scopeModeValueChanged();
-    void scopeSpanValueChanged();
-    void scopeEdgeValueChanged();
-    void modeValueChanged();
-    void dataModeValueChanged();
-    void filterValueChanged();
-    void filterShapeValueChanged();
-    void roofingValueChanged();
-    void speedValueChanged();
-    void themeValueChanged();
+    void scopeModeChanged();
+    void scopeSpanChanged();
+    void scopeEdgeChanged();
+    void modeChanged();
+    void dataModeChanged();
+    void filterChanged();
+    void filterShapeChanged();
+    void roofingChanged();
+    void speedChanged();
+    void themeChanged();
 
     // Buttons (checkable)
     void holdChanged();
 
     // Sliders
-    void refValueChanged();
-    void pbtInnerValueChanged();
-    void pbtOuterValueChanged();
-    void ifShiftValueChanged();
-    void filterWidthValueChanged();
+    void refChanged();
+    void pbtInnerChanged();
+    void pbtOuterChanged();
+    void ifShiftChanged();
+    void filterWidthChanged();
 
 private slots:
     void detachScope(bool state);
