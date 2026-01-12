@@ -11,6 +11,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     udpPrefs = m_settings->getUdpPrefs();
     setManufacturer(prefs->manufacturer);
     setAppTheme(prefs->useSystemTheme);
+    m_theme.syncFromAppPalette();
+    qInfo() << "******** Theme colors:" << m_theme.text().name();
 
     // We should be the first thing to request the queue so need to delete when finished
     queue = cachingQueue::getInstance(this);
@@ -22,9 +24,97 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     // Make sure we know about any changes to rigCaps
     connect(queue, &cachingQueue::rigCapsUpdated, this, &MainController::receiveRigCaps);
 
+    connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
+    connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
     queue->interval(cmdStartupInterval_ms);
 
     startRigConnection();
+
+}
+
+void MainController::colChanged(prefColItems items)
+{
+    qInfo() << "Received changed colors into MainController" << items;
+    for (auto *r : std::as_const(receivers)) {
+        if (r) r->setColors(m_settings->getCurrentColorPreset());
+    }
+
+}
+
+void MainController::buildUiSpecs()
+{
+    // Must only be called if we already have a valid rigCaps
+    QVariantList values;
+
+    values.clear();
+    for (auto &sm : rigCaps->steps) {
+        values.append(QVariantMap{
+            {"text",  sm.name},
+            {"value", sm.hz}
+        });
+    }
+    uiSpecs["tuningSteps"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", -1},
+        {"model", values},
+        {"visible",!values.empty()}
+    };
+    emit uiSpecsChanged();
+}
+
+void MainController::ifChanged(prefIfItems items)
+{
+    /*
+     *     if_useFullScreen = 1 << 0,
+    if_useSystemTheme = 1 << 1,
+    if_drawPeaks = 1 << 2,
+    if_underlayMode = 1 << 3,
+    if_underlayBufferSize = 1 << 4,
+    if_wfAntiAlias = 1 << 5,
+    if_wfInterpolate = 1 << 6,
+    if_wftheme = 1 << 7,
+    if_plotFloor = 1 << 8,
+    if_plotCeiling = 1 << 9,
+    if_stylesheetPath = 1 << 10,
+    if_wflength = 1 << 11,
+    if_confirmExit = 1 << 12,
+    if_confirmPowerOff = 1 << 13,
+    if_meter1Type = 1 << 14,
+    if_meter2Type = 1 << 15,
+    if_meter3Type = 1 << 16,
+    if_compMeterReverse = 1 << 17,
+    if_clickDragTuningEnable = 1 << 18,
+    if_currentColorPresetNumber = 1 << 19,
+    if_rigCreatorEnable = 1 << 20,
+    if_frequencyUnits = 1 << 21,
+    if_region = 1 << 22,
+    if_showBands = 1 << 23,
+    if_separators = 1 << 24,
+    if_forceVfoMode = 1 << 25,
+    if_autoPowerOn = 1 << 26,
+     */
+    qInfo() << "Received if item in MainController" << items;
+
+    auto bits = static_cast<quint32>(items);
+    while (bits) {
+        quint32 lsb = bits & (~bits + 1);   // isolate lowest set bit
+        bits &= ~lsb;
+        auto f = static_cast<prefIfItem>(lsb);
+        switch (f)
+        {
+        case if_frequencyUnits:
+            qInfo() << "Got new frequencyUnit";
+            //for (auto *r : std::as_const(receivers)) {
+            //    if (r) r->setFreqDisplay(freqDisplay);
+            //}
+            break;
+
+        default:
+            break;
+        }
+
+    }
 }
 
 
@@ -73,8 +163,10 @@ void MainController::connectionHandler()
         rigThread->wait();
         rig = nullptr;
         rigThread = nullptr;
+        connStatus = connectionStatus_t::connDisconnected;
     }
 
+    emit connStatusChanged();
 }
 
 void MainController::startRigConnection()
@@ -288,7 +380,9 @@ void MainController::getInitialRigState()
     for (const auto& receiver: std::as_const(receivers))
     {
         qInfo(logSystem()) << "Display Settings start:" << start << "end:" << end;
-
+        qInfo(logSystem()) << "Frequency units:" << prefs->frequencyUnits;
+        qInfo(logSystem()) << "Group Separator:" << prefs->groupSeparator;
+        qInfo(logSystem()) << "Decimal Separator:" << prefs->decimalSeparator;
         receiver->setFreqDisplay(fd);
         receiver->setBandIndicators(prefs->showBands, prefs->region, &rigCaps->bands);
     }
@@ -401,10 +495,14 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         }
         detached.fill(false,rigCaps->numReceiver);
         connStatus = connectionStatus_t::connConnected;
+
         getInitialRigState();
+        buildUiSpecs();
+
     } else {
         connStatus = connectionStatus_t::connDisconnected;
     }
+    emit connStatusChanged();
     // Build new
 
 
@@ -809,8 +907,18 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //rpt->receiveQuickSplit(val.value.value<bool>());
         break;
     case funcTuningStep:
-        //receiveTuningStep(val.value.value<uchar>());
+    {
+        auto it = std::find_if(rigCaps->steps.begin(), rigCaps->steps.end(),
+                               [val](const stepType &s) {
+                                   return s.num == val.value.value<uchar>();   // change condition
+                               });
+        if (it != rigCaps->steps.end() && it->hz != stepSize && it->num != 0) {
+            stepSize = it->hz;
+            receivers[val.receiver]->receiveStepSize(it->hz);
+            emit stepSizeChanged();
+        }
         break;
+    }
     case funcAttenuator:
         receivers[val.receiver]->setAttenuator(val.value.value<uchar>(),false);
         break;
@@ -819,16 +927,13 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setRxAntenna(val.value.value<antennaInfo>().rx,false);
         break;
     case funcPBTOuter:
-
-        //receivers[val.receiver]->setPbtOuter(val.value.value<uchar>(),false);
+        receivers[val.receiver]->setPbtOuter(val.value.value<ushort>(),false);
         break;
     case funcPBTInner:
-    {
-        //receivers[val.receiver]->setPbtInner(val.value.value<uchar>(),false);
+        receivers[val.receiver]->setPbtInner(val.value.value<ushort>(),false);
         break;
-    }
     case funcIFShift:
-        //receivers[val.receiver]->setIfShift(val.value.value<uchar>(),false);
+        receivers[val.receiver]->setIfShift(val.value.value<ushort>(),false);
         break;
         /*
     connect(this->rig, &rigCommander::haveDashRatio,
@@ -970,7 +1075,6 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcAudioPeakFilter:
         break;
     case funcFilterShape:
-        qInfo() << "Received filter shape" << val.value.value<uchar>() % 10;
         //if (rigCaps->manufacturer == manufIcom || receivers[val.receiver]->getFilter() == val.value.value<uchar>() / 10)
         //{
             receivers[val.receiver]->setFilterShape(val.value.value<uchar>() % 10, false);
@@ -1020,9 +1124,10 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //ui->voxEnableChk->setChecked(val.value.value<bool>());
         break;
     case funcManualNotch:
+        receivers[val.receiver]->setMn(val.value.value<bool>(),false);
         break;
     case funcDigiSel:
-        //ui->digiselEnableChk->setChecked(val.value.value<bool>());
+        receivers[val.receiver]->setDs(val.value.value<bool>(),false);
         //ui->preampSelCombo->setEnabled(!val.value.value<bool>());
         break;
     case funcTwinPeakFilter:
@@ -1047,9 +1152,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcToneSquelchType:
         break;
     case funcIPPlus:
-        //if (val.receiver == currentReceiver) {
-        //    ui->ipPlusEnableChk->setChecked(val.value.value<bool>());
-        //}
+        receivers[val.receiver]->setIpPlus(val.value.value<bool>(),false);
         break;
     case funcBreakIn:
         //if (cw != nullptr) {
@@ -1063,9 +1166,12 @@ void MainController::receiveValueFromQueue(cacheItem val)
     // 0x1a
     case funcBandStackReg:
     {
-        /*
         bandStackType bsr = val.value.value<bandStackType>();
-        qDebug(logRig()) << __func__ << "BSR received into" << val.receiver << "Freq:" << bsr.freq.Hz << ", mode: " << bsr.mode << ", filter: " << bsr.filter << ", data mode: " << bsr.data;
+        for (const auto& r: receivers)
+        {
+            r->receiveBSR(bsr);
+        }
+        /*
 
         queue->add(priorityImmediate,queueItem(queue->getVfoCommand(vfoA,val.receiver,true).freqFunc,
                                                 QVariant::fromValue<freqt>(bsr.freq),false,uchar(val.receiver)));
@@ -1206,11 +1312,11 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     }
     case funcScopeMode:
-        //qDebug() << "Got new scope mode for receiver" << val.receiver << "mode" << val.value.value<uchar>();
+        qDebug() << "Got new scope mode for receiver" << val.receiver << "mode" << val.value.value<uchar>();
         receivers[val.receiver]->setScopeMode(val.value.value<uchar>(),false);
         break;
     case funcScopeSpan:
-        receivers[val.receiver]->setScopeSpan(val.value.value<centerSpanData>(),false);
+        receivers[val.receiver]->setScopeSpan(val.value.value<centerSpanData>().reg,false);
         break;
     case funcScopeEdge:
         receivers[val.receiver]->setScopeEdge(val.value.value<uchar>(),false);
@@ -2179,6 +2285,26 @@ void MainController::setWindowTitle(const QString &t) {
     if (windowTitle == t) return;
     windowTitle = t;
     emit windowTitleChanged();
+}
+
+void MainController::setStepSize(quint64 st)
+{
+    if (st != stepSize) {
+        stepSize = st;
+
+        auto it = std::find_if(rigCaps->steps.begin(), rigCaps->steps.end(),
+                               [st](const stepType &s) {
+                                   return s.hz == st;   // change condition
+                               });
+        if (it != rigCaps->steps.end()) {
+            queue->addUnique(priorityImmediate,queueItem(funcTuningStep,QVariant::fromValue(it->num),false,0));
+        }
+
+        for (auto *r : std::as_const(receivers)) {
+            if (r) r->receiveStepSize(stepSize);
+        }
+
+    }
 }
 
 

@@ -75,6 +75,9 @@ public:
     QStringList getInputs();
     QStringList getOutputs();
 
+    QList<audioDevice*> getInputList() { return inputs;}
+    QList<audioDevice*> getOutputList() { return outputs;}
+
     int findInput(QString type, QString name, bool ignoreDefault=false);
     int findOutput(QString type, QString name, bool ignoreDefault=false);
 

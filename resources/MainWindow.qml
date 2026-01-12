@@ -10,6 +10,8 @@ ApplicationWindow {
 
     title: MainController.windowTitle
 
+    property int connStatus: Number(MainController.connStatus)
+
     width: 946
     visible: true
 
@@ -85,6 +87,26 @@ ApplicationWindow {
             p.y > win.contentItem.height
         )
     }
+
+    function indexFromValue(cb, v) {
+        if (!cb || v === undefined || v === null)
+            return -1
+
+        var sv = String(v)
+
+        for (var i = 0; i < cb.count; ++i) {
+            var it = (cb.model && cb.model.get) ? cb.model.get(i) : cb.model[i]
+            if (!it)
+                continue
+
+            var iv = it.value
+            if (iv === v || String(iv) === sv)
+                return i
+        }
+        return -1
+    }
+
+
 
 
     Component {
@@ -229,11 +251,31 @@ ApplicationWindow {
                     ColumnLayout {
                         spacing: 0
 
-                        // Replace these with your QML meter items (you had a custom QWidget 'meter')
-                        //MeterItem { id: meter1; Layout.fillWidth: true; Layout.preferredHeight: 30 }
-                        //MeterItem { id: meter2; Layout.fillWidth: true; Layout.preferredHeight: 30 }
-                        //MeterItem { id: meter3; Layout.fillWidth: true; Layout.preferredHeight: 30 }
+                        Meter {
+                            id: meter1
+                            width: 300
+                            height: 40
+                            meterType: root.controller ? controller.meter1Type : 0
+                            // only set the "current" level; MeterItem does peak/avg itself
+                            current: root.controller ? controller.meter1 : 0
+
+                            drawLabels: true
+                            Component.onCompleted: meter1.setMeterExtremities(-54, 60, 0)
+                        }
+                        Meter {
+                            id: meter2
+                            width: 300
+                            height: 40
+                            meterType: root.controller ? controller.meter2Type : 0
+                            // only set the "current" level; MeterItem does peak/avg itself
+                            current: root.controller ? controller.meter2 : 0
+
+                            drawLabels: true
+                            Component.onCompleted: meter2.setMeterExtremities(-54, 60, 0)
+                        }
                     }
+
+                    Item { Layout.fillHeight: true }
 
                     RowLayout {
                         Button { text: "Power On"; onClicked: rig.powerOn() }
@@ -260,10 +302,13 @@ ApplicationWindow {
                     ComboBox {
                         id: tuningStepCombo
                         Layout.fillWidth: true
-                        // model: stepModel
-                        // textRole: "text"
-                        // valueRole: "value"
-                        // onActivated: rig.setStep(currentValue)
+                        readonly property var spec: MainController ? MainController.uiSpecs["tuningSteps"] : null
+                        model: spec ? spec.model : []
+                        textRole: spec ? spec.textRole : "text"
+                        valueRole: spec ? spec.valueRole : "value"
+                        visible: spec ? (spec.visible ?? true) : false
+                        currentIndex: controller ? indexFromValue(tuningStepCombo,controller.stepSize) : -1
+                        onActivated: MainController.stepSize = currentValue
                     }
 
                     CheckBox { id: tuneLockChk; text: "F Lock" }
@@ -297,18 +342,6 @@ ApplicationWindow {
                         }
 
                         ColumnLayout {
-                            Slider { id: rfGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
-                            Label { text: "RF"; horizontalAlignment: Text.AlignHCenter }
-                        }
-                        ColumnLayout {
-                            Slider { id: afGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
-                            Label { text: "AF"; horizontalAlignment: Text.AlignHCenter }
-                        }
-                        ColumnLayout {
-                            Slider { id: sqlSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
-                            Label { text: "SQ"; horizontalAlignment: Text.AlignHCenter }
-                        }
-                        ColumnLayout {
                             Slider { id: micGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
                             Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
                         }
@@ -319,26 +352,6 @@ ApplicationWindow {
                         ColumnLayout {
                             Slider { id: monitorSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
                             Label { text: "Mon"; horizontalAlignment: Text.AlignHCenter }
-                        }
-                    }
-
-                    GroupBox {
-                        title: "Other Controls"
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            spacing: 3
-
-                            RowLayout {
-                                CheckBox { text: "NB" }
-                                CheckBox { text: "NR" }
-                                CheckBox { text: "IP+" }
-                            }
-                            RowLayout {
-                                CheckBox { text: "DS" }
-                                CheckBox { text: "CMP" }
-                                CheckBox { text: "VOX" }
-                            }
                         }
                     }
                 }
@@ -385,30 +398,19 @@ ApplicationWindow {
                     }
 
                     GroupBox {
-                        title: "Preamp/Att"
+                        title: "Other Controls"
                         Layout.fillWidth: true
 
                         ColumnLayout {
+                            spacing: 3
                             RowLayout {
-                                Label { text: "Preamp:" }
-                                ComboBox { id: preampSelCombo; Layout.fillWidth: true }
-                            }
-                            RowLayout {
-                                Label { text: "Attenuator:" }
-                                ComboBox { id: attSelCombo; Layout.fillWidth: true }
+                                CheckBox { text: "CMP" }
+                                CheckBox { text: "VOX" }
                             }
                         }
                     }
 
-                    GroupBox {
-                        title: "Antenna"
-                        Layout.fillWidth: true
 
-                        RowLayout {
-                            ComboBox { id: antennaSelCombo; Layout.fillWidth: true }
-                            CheckBox { id: rxAntennaCheck; text: "RX"; enabled: false }
-                        }
-                    }
                 }
 
                 Item { Layout.fillWidth: true } // spacer (your horizontalSpacer_3)
@@ -431,7 +433,11 @@ ApplicationWindow {
                     text: "Settings"
                     onClicked: settings.show()
                 }
-                Button { text: "Save Settings" }
+                Button {
+                    text: "Save Settings"
+                    onClicked: settings.save()
+                }
+
                 Button { text: "Radio Status" }
                 Button {
                     text: "Log"
@@ -454,7 +460,12 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_32)
 
                 Button {
-                    text: "Connect to Radio"
+                    text: (connStatus === 0) ?
+                              "Connect to Radio" :
+                              (connStatus === 1) ?
+                              "Cancel Connection" :
+                              (connStatus === 2) ?
+                              "Disconnect from Radio" : "Unknown status!"
                     onClicked: MainController.connectionHandler()
                 }
 

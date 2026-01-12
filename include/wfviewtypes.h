@@ -22,24 +22,24 @@ enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connection
 // meterString MUST be updated if any of these are changed, but this might break rigCaps.
 enum meter_t {
     meterNone=0,
-    meterS,
-    meterCenter,
-    meterSWR,
-    meterPower,
-    meterALC,
-    meterComp,
-    meterVoltage,
-    meterCurrent,
-    meterRxdB,
-    meterTxMod,
-    meterRxAudio,
-    meterAudio,
-    meterLatency,
-    meterdBu,
-    meterdBuEMF,
-    meterdBm,
-    meterSubS,
-    meterUnknown
+    meterS=1,
+    meterCenter=2,
+    meterSWR=3,
+    meterPower=4,
+    meterALC=5,
+    meterComp=6,
+    meterVoltage=7,
+    meterCurrent=8,
+    meterRxdB=9,
+    meterTxMod=10,
+    meterRxAudio=11,
+    meterAudio=12,
+    meterLatency=13,
+    meterdBu=14,
+    meterdBuEMF=15,
+    meterdBm=16,
+    meterSubS=17,
+    meterUnknown=18
 };
 
 static QString meterString[19] {"None","S-Meter","Center","SWR","Power","ALC","Comp","Voltage","Current","RX dB","TX Mod", "RX Audio", "Audio", "Latency", "dBu", "dBu EMF", "dBm", "Sub S", ""};
@@ -136,6 +136,8 @@ enum vfoModeType_t { vfoModeVfo, vfoModeMem, vfoModeSat };
 
 enum manufacturersType_t {manufIcom=0, manufKenwood, manufYaesu, manufFlexRadio};
 
+
+
 struct lpfhpf {
     lpfhpf ():lpf(0),hpf(0) {};
     lpfhpf (ushort lpf, ushort hpf):lpf(lpf),hpf(hpf) {};
@@ -186,6 +188,8 @@ struct rigInfo {
     QString path;
     float version;
 };
+Q_DECLARE_METATYPE(rigInfo)
+
 
 struct antennaInfo {
     quint8 antenna;
@@ -597,6 +601,7 @@ struct errorType {
     QString device;
     QString message;
 };
+Q_DECLARE_METATYPE(errorType)
 
 struct memoryTagType {
     quint16 num;
@@ -706,7 +711,10 @@ struct commandErrorType{
 };
 
 enum audioType {qtAudio,portAudio,rtAudio,tciAudio};
+Q_DECLARE_METATYPE(audioType)
+
 enum codecType { LPCM, PCMU, OPUS, ADPCM };
+Q_DECLARE_METATYPE(codecType)
 
 enum passbandActions {passbandStatic, pbtInnerMove, pbtOuterMove, pbtMoving, passbandResizing};
 
@@ -842,7 +850,6 @@ Q_DECLARE_METATYPE(toneInfo)
 Q_DECLARE_METATYPE(meter_t)
 Q_DECLARE_METATYPE(meterkind)
 Q_DECLARE_METATYPE(spectrumBounds)
-Q_DECLARE_METATYPE(rigInfo)
 Q_DECLARE_METATYPE(lpfhpf)
 
 #endif // WFVIEWTYPES_H

@@ -16,22 +16,171 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
+import Qt.labs.platform 1.1 as PLATFORM
+import WFVIEW 1.0
 
 Window {
     id: window
     title: "Settings"
-    //parent: Overlay.overlay      // <- IMPORTANT: ensures correct parenting to ApplicationWindow
-    //modal: false
-    //focus: true
-    //standardButtons: Dialog.Close
 
     width: 1193
     height: 625
 
-    // add later if/when you want it
-    property var controller: null
+    required property var controller
+
+
+    property int connStatus: Number(MainController.connStatus)
 
     // ---- Helpers ----
+
+    function indexFromValue(cb, v) {
+        if (!cb || v === undefined || v === null)
+            return -1
+
+        var sv = String(v)
+
+        for (var i = 0; i < cb.count; ++i) {
+            var it = (cb.model && cb.model.get) ? cb.model.get(i) : cb.model[i]
+            if (!it)
+                continue
+
+            var iv = it.value
+            if (iv === v || String(iv) === sv)
+                return i
+        }
+        return -1
+    }
+
+
+    component ColorRow : RowLayout {
+        spacing: 8
+        Layout.fillWidth: true
+
+        property string key: "Color.SpectrumLine"
+        property string label: "Spectrum line"
+
+        // Can be QColor-ish OR a string in some cases; we handle both.
+        readonly property var cur: controller ? controller.options[key] : null
+
+        function clamp01(x) { return Math.max(0, Math.min(1, x)) }
+
+        function qmlColor(v) {
+            // Accept QColor, QML color, or strings "#RRGGBB" / "#AARRGGBB"
+            if (v === null || v === undefined) return Qt.rgba(0.266, 0.266, 0.266, 1) // "#444444"
+            if (typeof v === "string") return parseHexToColor(v) ?? Qt.rgba(0.266, 0.266, 0.266, 1)
+            // If it's already a color/QColor, just return it (QML can consume it directly)
+            return v
+        }
+
+        function parseHexToColor(s) {
+            if (!s) return null
+            var t = ("" + s).trim()
+            if (t.length === 0) return null
+            if (t[0] !== "#") t = "#" + t
+
+            // #RRGGBB
+            if (t.length === 7) {
+                var r = parseInt(t.slice(1,3), 16)
+                var g = parseInt(t.slice(3,5), 16)
+                var b = parseInt(t.slice(5,7), 16)
+                if (isNaN(r) || isNaN(g) || isNaN(b)) return null
+                return Qt.rgba(r/255, g/255, b/255, 1)
+            }
+
+            // #AARRGGBB
+            if (t.length === 9) {
+                var a = parseInt(t.slice(1,3), 16)
+                var r2 = parseInt(t.slice(3,5), 16)
+                var g2 = parseInt(t.slice(5,7), 16)
+                var b2 = parseInt(t.slice(7,9), 16)
+                if (isNaN(a) || isNaN(r2) || isNaN(g2) || isNaN(b2)) return null
+                return Qt.rgba(r2/255, g2/255, b2/255, a/255)
+            }
+
+            return null
+        }
+
+        function byteHex(n) {
+            var h = Math.round(n).toString(16).toUpperCase()
+            return (h.length === 1) ? ("0" + h) : h
+        }
+
+        function colorToHexArgb(c) {
+            // Works for QML colors (r,g,b,a exist). Also works for QColor-ish values in QML.
+            if (!c) return ""
+            var cc = qmlColor(c)
+            // QML color has r/g/b/a in 0..1
+            var a = byteHex(clamp01(cc.a) * 255)
+            var r = byteHex(clamp01(cc.r) * 255)
+            var g = byteHex(clamp01(cc.g) * 255)
+            var b = byteHex(clamp01(cc.b) * 255)
+            return "#" + a + r + g + b
+        }
+
+        // ---------- UI ----------
+        Button {
+            text: label
+            Layout.preferredWidth: 150
+            onClicked: {
+                if (!controller) return
+                dlg.color = qmlColor(cur)    // IMPORTANT: use dlg.color (common across dialogs)
+                dlg.open()
+            }
+        }
+
+        TextField {
+            id: hexField
+            Layout.preferredWidth: 110
+            placeholderText: "#AARRGGBB"
+
+            // Don’t bind text permanently. We update it when cur changes.
+            onEditingFinished: {
+                if (!controller) return
+                var c = parseHexToColor(text)
+                if (!c) {
+                    text = colorToHexArgb(cur)   // revert
+                    return
+                }
+                controller.setOption(key, c)
+            }
+        }
+
+        Rectangle {
+            // QLedLabel stand-in
+            width: 10
+            height: 18
+            radius: 2
+            border.width: 1
+            color: qmlColor(cur)
+        }
+
+        // Keep textbox synced when controller changes the color (including preset switches),
+        // but don’t overwrite while user is typing.
+        onCurChanged: {
+            if (!hexField.activeFocus)
+                hexField.text = colorToHexArgb(cur)
+        }
+
+        Component.onCompleted: {
+            hexField.text = colorToHexArgb(cur)
+        }
+
+        // --------- ColorDialog ---------
+        // This version assumes your ColorDialog has a 'color' property.
+        // (Qt.labs.platform ColorDialog does; many others do too.)
+        PLATFORM.ColorDialog {
+            id: dlg
+            title: "Select " + label
+            options: ColorDialog.ShowAlphaChannel
+
+            // This is the key: use dlg.color on accept.
+            onAccepted: {
+                if (!controller) return
+                controller.setOption(key, dlg.color)
+            }
+        }
+    }
+
 
     component LedSwatch: Rectangle {
         // QLedLabel stand-in
@@ -92,7 +241,7 @@ Window {
 
                 delegate: ItemDelegate {
                     width: ListView.view.width
-                    text: model.title
+                    text: modelData.title
                     highlighted: ListView.isCurrentItem
                     onClicked: settingsStack.currentIndex = index
                 }
@@ -127,30 +276,50 @@ Window {
                                 Layout.preferredWidth: 140
 
                                 ColumnLayout {
+                                    enabled: !connStatus
                                     spacing: 6
 
                                     ComboBox {
                                         id: manufacturerCombo
-                                        Accessible.name: "Radio Brand Select"
-                                        model: [] // TODO: bind to C++
+                                        Accessible.name: "Radio Manufacturer Select"
+                                        textRole: "item"
+                                        valueRole: "value"
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(manufacturerCombo,controller.options["Radio.Manufacturer"])
+                                                      : -1
+
+                                        onActivated: if (controller) controller.setOption("Radio.Manufacturer", currentValue)
+                                        model: [
+                                            { item: "Icom", value: 0 },
+                                            { item: "Kenwood", value: 1 },
+                                            { item: "Yaesu", value: 2 }
+                                        ]
                                     }
+
+                                    ButtonGroup { id: connGroup; exclusive: true ; }
 
                                     RadioButton {
                                         id: serialEnableBtn
                                         text: "Serial (USB)"
-                                        Accessible.name: "Serial Port (USB)"
+                                        ButtonGroup.group: connGroup
+                                        checked: controller ? !Boolean(controller.options["LAN.EnableLAN"]) : true
+                                        onClicked: if (controller) controller.setOption("LAN.EnableLAN", false)
                                     }
 
                                     RadioButton {
                                         id: lanEnableBtn
                                         text: "Network"
-                                        Accessible.name: "Network"
+                                        ButtonGroup.group: connGroup
+                                        checked: controller ? Boolean(controller.options["LAN.EnableLAN"]) : false
+                                        onClicked: if (controller) controller.setOption("LAN.EnableLAN", true)
                                     }
+
                                 }
                             }
 
                             GroupBox {
                                 title: "CI-V and Model"
+                                enabled: !connStatus
                                 Layout.preferredWidth: 300
                                 Layout.maximumWidth: 300
 
@@ -164,27 +333,41 @@ Window {
                                         text: "Manual Radio CI-V Address:"
                                         Accessible.name: "Manual CI-V address Checkbox"
                                         ToolTip.visible: hovered
+                                        checked: false
                                         ToolTip.text: "If you are using an older (year 2010) radio, you may need to enable this option to manually specify the CI-V address. This option is also useful for radios that do not have CI-V Transceive enabled and thus will not answer our broadcast query for connected rigs on the CI-V bus.\n\nIf you have a modern radio with CI-V Transceive enabled, you should not need to check this box.\n\nYou will need to Save Settings and re-launch wfview for this to take effect."
                                     }
 
                                     TextField {
                                         id: rigCIVaddrHexLine
-                                        enabled: false
+                                        enabled: rigCIVManualAddrChk.checked
                                         Layout.preferredWidth: 50
                                         Layout.maximumWidth: 50
-                                        text: "auto"
                                         Accessible.name: "Manual CI-V Textbox"
                                         ToolTip.visible: hovered
                                         ToolTip.text: "Enter the address in hexadecimal, no prefix. Examples: IC-706:58, IC-756:50, IC-7300:94, IC-7100:88, etc. After changing, press Save Settings and re-launch wfview."
+                                        text: (controller && controller.options && controller.options["Radio.CIVAddr"] !== undefined)
+                                              ? controller.options["Radio.CIVAddr"].toString(16).toUpperCase()
+                                              : ""
+
+
+                                        onEditingFinished: {
+                                            const v = parseInt(text, 16)
+                                            if (!isNaN(v))
+                                                controller.setOption("Radio.CIVAddr", v)
+                                        }
                                     }
 
                                     CheckBox {
                                         id: useCIVasRigIDChk
+                                        enabled: rigCIVManualAddrChk.checked
                                         Layout.columnSpan: 2
                                         text: "Use CI-V address as Model ID too"
                                         Accessible.name: "Use CI-V address as Model ID checkbox"
                                         ToolTip.visible: hovered
                                         ToolTip.text: "Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio."
+
+                                        checked: controller ? Boolean(controller.options["Radio.CIVisRadioModel"]) : false
+                                        onClicked: if (controller) controller.setOption("Radio.CIVisRadioModel", true)
                                     }
                                 }
                             }
@@ -198,7 +381,9 @@ Window {
                                     horizontalAlignment: Text.AlignHCenter
                                     text: "Audio controls on this page are ONLY for network radios\n" +
                                           "Please use the \"Radio Server\" page to select server audio.\n" +
-                                          "ONLY use Manual CI-V when Transceive mode is not supported"
+                                          "ONLY use Manual CI-V when Transceive mode is not supported\n\n"+
+                                          "You MUST disconnect from the radio before making any changes.\n\n"+
+                                          "Please use the Connect/Disconnect button below"
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -209,7 +394,9 @@ Window {
                             id: groupSerial
                             title: "Serial Connected Radios"
                             Layout.fillWidth: true
-
+                            enabled: controller
+                                     && connStatus === 0
+                                     && !Boolean(controller.options["LAN.EnableLAN"])
                             RowLayout {
                                 spacing: 8
 
@@ -219,7 +406,15 @@ Window {
                                     Layout.preferredWidth: 180
                                     Layout.maximumWidth: 180
                                     Accessible.name: "Serial (USB) Port Selection Combo"
-                                    model: [] // TODO
+                                    readonly property var spec: controller ? controller.uiSpecs["SerialPorts"] : null
+                                    model: spec ? spec.model : []
+                                    textRole: spec ? spec.textRole : "text"
+                                    valueRole: spec ? spec.valueRole : "value"
+                                    visible: spec ? (spec.visible ?? true) : false
+                                    currentIndex: (controller && controller.options)
+                                                  ? indexFromValue(serialDeviceListCombo,controller.options["Radio.SerialPortRadio"])
+                                                  : -1
+                                    onActivated: controller.setOption("Radio.SerialPortRadio", currentValue)
                                 }
 
                                 Label { text: "Baud Rate" }
@@ -228,14 +423,39 @@ Window {
                                     Layout.preferredWidth: 120
                                     Layout.maximumWidth: 120
                                     Accessible.name: "Serial Baud Rate Combo"
-                                    model: [] // TODO
+                                    textRole: "text"
+                                    valueRole: "value"
+                                    model: [
+                                        { text: "115,200", value: 115200 },
+                                        { text: "57,600", value: 57600 },
+                                        { text: "38,400", value: 38400 },
+                                        { text: "28,800", value: 38400 },
+                                        { text: "19,200", value: 38400 },
+                                        { text: "9,600", value: 38400 },
+                                        { text: "4,800", value: 38400 },
+                                        { text: "2,400", value: 38400 },
+                                        { text: "1,200", value: 38400 },
+                                        { text: "600", value: 38400 }
+                                    ]
                                 }
 
                                 Label { id: pttTypeLabel; text: "PTT Type" }
                                 ComboBox {
                                     id: pttTypeCombo
                                     Accessible.name: "PTT Type Combo"
-                                    model: ["CI-V", "RTS", "DTR"]
+                                    model: [
+                                        { text: "CI-V", value: 0 },
+                                        { text: "RTS", value: 1 },
+                                        { text: "DTR", value: 2 }
+                                    ]
+                                    textRole: "text"
+                                    valueRole: "value"
+
+                                    currentIndex: (controller && controller.options)
+                                                  ? indexFromValue(pttTypeCombo,controller.options["Radio.PTTType"])
+                                                  : -1
+
+                                    onActivated: controller.setOption("Radio.PTTType",currentValue)
                                 }
 
                                 Item { Layout.fillWidth: true }
@@ -244,7 +464,11 @@ Window {
 
                         // Network Connected Radios
                         GroupBox {
-                            id: groupNetwork
+                            id: groupLan
+                            enabled: controller
+                                     && connStatus === 0
+                                     && Boolean(controller.options["LAN.EnableLAN"])
+
                             title: "Network Connected Radios"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -262,6 +486,14 @@ Window {
                                         Layout.preferredWidth: 150
                                         Layout.maximumWidth: 150
                                         Accessible.name: "Hostname Textbox"
+                                        text: (controller && controller.options && controller.options["UDP.IPAddress"] !== undefined)
+                                              ? controller.options["UDP.IPAddress"]
+                                              : ""
+
+                                        onEditingFinished: {
+                                            if (text !== controller.options["UDP.IPAddress"])
+                                                controller.setOption("UDP.IPAddress", text)
+                                        }
                                     }
 
                                     Label { id: controlPortLabel; text: "Control Port" }
@@ -269,36 +501,90 @@ Window {
                                         id: controlPortTxt
                                         Layout.preferredWidth: 60
                                         Layout.maximumWidth: 60
-                                        text: "50001"
                                         Accessible.name: "Control Port Textbox"
+                                        text: (controller && controller.options && controller.options["UDP.ControlLANPort"] !== undefined)
+                                              ? String(controller.options["UDP.ControlLANPort"])
+                                              : "50001"
+
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        onEditingFinished: {
+                                            const v = parseInt(text)
+                                            if (!isNaN(v))
+                                                controller.setOption("UDP.ControlLANPort", v)
+                                        }
                                     }
 
-                                    Label { id: catPortLabel; text: "CAT" }
+                                    Label { id: catPortLabel; text: "CAT"; visible: manufacturerCombo.currentValue === 2 }
                                     TextField {
                                         id: catPortTxt
+                                        visible: manufacturerCombo.currentValue === 2
                                         Layout.preferredWidth: 60
                                         Layout.maximumWidth: 60
+                                        text: (controller && controller.options && controller.options["UDP.SerialLANPort"] !== undefined)
+                                              ? String(controller.options["UDP.SerialLANPort"])
+                                              : "50002"
+
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        onEditingFinished: {
+                                            const v = parseInt(text)
+                                            if (!isNaN(v))
+                                                controller.setOption("UDP.SerialLANPort", v)
+                                        }
                                     }
 
-                                    Label { id: audioPortLabel; text: "Audio" }
+                                    Label { id: audioPortLabel; text: "Audio";  visible: manufacturerCombo.currentValue === 2 }
                                     TextField {
+                                        visible: manufacturerCombo.currentValue === 2
                                         id: audioPortTxt
                                         Layout.preferredWidth: 60
                                         Layout.maximumWidth: 60
+                                        text: (controller && controller.options && controller.options["UDP.AudioLANPort"] !== undefined)
+                                              ? String(controller.options["UDP.AudioLANPort"])
+                                              : "50003"
+
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        onEditingFinished: {
+                                            const v = parseInt(text)
+                                            if (!isNaN(v))
+                                                controller.setOption("UDP.AudioLANPort", v)
+                                        }
                                     }
 
-                                    Label { id: scopePortLabel; text: "Scope" }
+                                    Label { id: scopePortLabel; text: "Scope"; visible: manufacturerCombo.currentValue === 2}
                                     TextField {
                                         id: scopePortTxt
+                                        visible: manufacturerCombo.currentValue === 2
                                         Layout.preferredWidth: 60
                                         Layout.maximumWidth: 60
+                                        text: (controller && controller.options && controller.options["UDP.ScopeLANPort"] !== undefined)
+                                              ? String(controller.options["UDP.ScopeLANPort"])
+                                              : "50004"
+
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        onEditingFinished: {
+                                            const v = parseInt(text)
+                                            if (!isNaN(v))
+                                                controller.setOption("UDP.ScopeLANPort", v)
+                                        }
                                     }
 
-                                    Label { text: "Connection Type" }
+                                    Label { text: "Connection Type"; visible: manufacturerCombo.currentValue === 1 }
                                     ComboBox {
                                         id: networkConnectionTypeCombo
+                                        visible: manufacturerCombo.currentValue === 1
                                         Accessible.name: "Connection Type Combo"
-                                        model: [] // TODO
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "LAN", value: 1 },
+                                            { text: "WiFi", value: 2 },
+                                            { text: "WAN", value: 3 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("UDP.ConnectionType",currentValue)
                                     }
 
                                     Item { Layout.fillWidth: true }
@@ -314,67 +600,94 @@ Window {
                                         Layout.preferredWidth: 150
                                         Layout.maximumWidth: 150
                                         Accessible.name: "Username Textbox"
+                                        text: (controller && controller.options && controller.options["UDP.Username"] !== undefined)
+                                              ? controller.options["UDP.Username"]
+                                              : ""
+
+                                        onEditingFinished: {
+                                            if (text !== controller.options["UDP.Username"])
+                                                controller.setOption("UDP.Username", text)
+                                        }
+
                                     }
 
                                     Label { text: "Password" }
                                     TextField {
                                         id: passwordTxt
+                                        echoMode: TextInput.Password
                                         Layout.preferredWidth: 150
                                         Layout.maximumWidth: 150
-                                        echoMode: TextInput.Password
                                         Accessible.name: "Password Textbox"
+                                        text: (controller && controller.options && controller.options["UDP.Password"] !== undefined)
+                                              ? controller.options["UDP.Password"]
+                                              : ""
+
+                                        onEditingFinished: {
+                                            if (text !== controller.options["UDP.Password"])
+                                                controller.setOption("UDP.Password", text)
+                                        }
+
                                     }
 
                                     CheckBox {
                                         id: adminLoginChk
+                                        visible: manufacturerCombo.currentValue === 1;
                                         text: "Admin Login"
                                         Accessible.name: "Admin Login Checkbox"
+                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
+                                        onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
+
                                         Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
                                     }
 
                                     Item { Layout.fillWidth: true }
                                 }
 
-                                // Row: latency sliders + codecs
+                                // Row: codecs
                                 RowLayout {
                                     spacing: 8
-
-                                    Label { text: "RX Latency (ms)" }
-                                    Slider {
-                                        id: rxLatencySlider
-                                        from: 30
-                                        to: 500
-                                        stepSize: 1
-                                        Accessible.name: "RX Latency Buffer Size"
-                                        Layout.preferredWidth: 220
-                                        onValueChanged: rxLatencyValue.text = Math.round(value).toString()
-                                    }
-                                    Label { id: rxLatencyValue; text: "0" }
-
-                                    Label { text: "TX Latency (ms)" }
-                                    Slider {
-                                        id: txLatencySlider
-                                        from: 30
-                                        to: 500
-                                        stepSize: 1
-                                        Accessible.name: "TX Latency Buffer Size"
-                                        Layout.preferredWidth: 220
-                                        onValueChanged: txLatencyValue.text = Math.round(value).toString()
-                                    }
-                                    Label { id: txLatencyValue; text: "0" }
 
                                     Label { text: "RX Codec" }
                                     ComboBox {
                                         id: audioRXCodecCombo
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "LPCM 1ch 16bit", value: 4 },
+                                            { text: "PCM 1ch 8bit", value: 2 },
+                                            { text: "uLaw 1ch 8bit", value: 1 },
+                                            { text: "LPCM 2ch 16bit", value: 16 },
+                                            { text: "uLaw 2ch 8bit", value: 32 },
+                                            { text: "PCM 2ch 8bit", value: 8 },
+                                            { text: "Opus 1ch", value: 64 },
+                                            { text: "Opus 2ch", value: 65 },
+                                            { text: "ADPCM 1ch", value: 128 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioRXCodecCombo,controller.options["UDP.RxCodec"])
+                                                      : -1
+                                        onActivated: controller.setOption("UDP.RxCodec",currentValue)
                                         Accessible.name: "Receive Audio Codec Selector"
-                                        model: [] // TODO
                                     }
 
                                     Label { text: "TX Codec" }
                                     ComboBox {
                                         id: audioTXCodecCombo
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "LPCM 1ch 16bit", value: 4 },
+                                            { text: "PCM 1ch 8bit", value: 2 },
+                                            { text: "uLaw 1ch 8bit", value: 1 },
+                                            { text: "Opus 1ch", value: 64 },
+                                            { text: "ADPCM 1ch", value: 128 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioTXCodecCombo,controller.options["UDP.TxCodec"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("UDP.TxCodec",currentValue)
                                         Accessible.name: "Transmit Audio Codec Selector"
-                                        model: [] // TODO
                                     }
 
                                     Item { Layout.fillWidth: true }
@@ -387,21 +700,51 @@ Window {
                                     ComboBox {
                                         id: audioSampleRateCombo
                                         Accessible.name: "Audio Sample Rate Selector"
-                                        model: ["48000", "24000", "16000", "8000"]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioSampleRateCombo,controller.options["UDP.SampleRate"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("UDP.SampleRate",currentValue)
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "48 kHz", value: 48000 },
+                                            { text: "24 kHz", value: 24000 },
+                                            { text: "16 kHz", value: 16000 },
+                                            { text: "8 kHz", value: 8000 }
+                                        ]
                                     }
 
                                     Label { text: "Duplex" }
                                     ComboBox {
                                         id: audioDuplexCombo
+                                        model: [
+                                            { text: "Full Duplex", value: 0 },
+                                            { text: "Half Duplex", value: 1 }
+                                        ]
                                         Accessible.name: "Full or Half Duplex Combo"
-                                        model: ["Full Duplex", "Half Duplex"]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioDuplexCombo,controller.options["UDP.HalfDuplex"])
+                                                      : -1
+                                        onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
                                     }
 
                                     Label { text: "Audio System" }
                                     ComboBox {
                                         id: audioSystemCombo
                                         Accessible.name: "Audio System Selection Combo"
-                                        model: ["Qt Audio", "PortAudio", "RT Audio", "TCI Audio"]
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "Qt Audio", value: 0 },
+                                            { text: "PortAudio", value: 1 },
+                                            { text: "RT Audio", value: 2 },
+                                            { text: "TCI Audio", value: 3 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioSystemCombo,controller.options["Radio.AudioSystem"])
+                                                      : -1
+                                        onActivated: controller.setOption("Radio.AudioSystem",currentValue)
                                     }
 
                                     Item { Layout.fillWidth: true }
@@ -413,32 +756,118 @@ Window {
                                     Label { text: "Audio Output" }
                                     ComboBox {
                                         id: audioOutputCombo
-                                        Layout.preferredWidth: 200
-                                        Layout.maximumWidth: 200
+                                        readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        visible: spec ? (spec.visible ?? true) : false
+
+                                        currentIndex: controller ? indexFromValue(audioOutputCombo,controller.options["UDP.RxAudio"]) : -1
+                                        onActivated: controller.setOption("UDP.RxAudio", currentValue)
+
+                                        // --- Autosize to widest item ---
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i) {
+                                                max = Math.max(max, ipmetrics.advanceWidth(textAt(i)))
+                                            }
+                                            // also include current text in case model is empty/late
+                                            max = Math.max(max, ipmetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+
+                                        FontMetrics { id: ipmetrics; font: audioOutputCombo.font }
+
                                         Accessible.name: "Audio Output Selector"
-                                        model: [] // TODO
                                     }
+
 
                                     Label { text: "Audio Input" }
                                     ComboBox {
                                         id: audioInputCombo
-                                        Layout.preferredWidth: 200
-                                        Layout.maximumWidth: 200
+                                        readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        visible: spec ? (spec.visible ?? true) : false
+                                        currentIndex: controller ? indexFromValue(audioInputCombo,controller.options["UDP.TxAudio"]) : -1
+                                        onActivated: controller.setOption("UDP.TxAudio", currentValue)
+                                        // --- Autosize to widest item ---
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i) {
+                                                max = Math.max(max, opmetrics.advanceWidth(textAt(i)))
+                                            }
+                                            // also include current text in case model is empty/late
+                                            max = Math.max(max, opmetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+
+                                        FontMetrics { id: opmetrics; font: audioOutputCombo.font }
+
+                                        // Autosize
                                         Accessible.name: "Audio Input Selector"
-                                        model: [] // TODO
                                     }
 
                                     Item { Layout.fillWidth: true }
                                 }
 
-                                Label {
-                                    id: radioDisconnectLabel
-                                    text: "You MUST disconnect from the radio before making any changes in the above form.\n\nPlease use the Connect/Disconnect button below"
-                                    wrapMode: Text.WordWrap
-                                }
-
                                 Item { Layout.fillHeight: true }
                             }
+                        }
+                        GroupBox {
+                            id: groupLatency
+                            enabled: controller
+                                     && Boolean(controller.options["LAN.EnableLAN"])
+
+                            title: "Network latency settings"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            ColumnLayout {
+                                spacing: 8
+                                // Row: latency sliders + codecs
+                                RowLayout {
+                                    spacing: 8
+
+                                    Label { text: "RX Latency (ms)" }
+                                    Slider {
+                                        id: rxLatencySlider
+                                        from: 30
+                                        to: 500
+                                        stepSize: 1
+                                        Accessible.name: "RX Latency Buffer Size"
+                                        Layout.preferredWidth: 220
+                                        value: controller ? controller.options["UDP.RxLatency"] : 0
+                                        onMoved:controller.setOption("UDP.RxLatency", value)
+                                    }
+                                    Label { id: rxLatencyValue; text: rxLatencySlider.value }
+
+                                    Label { text: "TX Latency (ms)" }
+                                    Slider {
+                                        id: txLatencySlider
+                                        from: 30
+                                        to: 500
+                                        stepSize: 1
+                                        Accessible.name: "TX Latency Buffer Size"
+                                        Layout.preferredWidth: 220
+                                        value: controller ? controller.options["UDP.TxLatency"] : 0
+                                        onMoved:controller.setOption("UDP.TxLatency", value)
+                                    }
+                                    Label { id: txLatencyValue; text: txLatencySlider.value }
+
+                                }
+                            }
+
+
                         }
                     }
                 }
@@ -459,23 +888,34 @@ Window {
 
                             CheckBox {
                                 id: tuningFloorZerosChk
+                                checked: controller ? Boolean(controller.options["Controls.NiceTS"]) : false
+                                onClicked: if (controller) controller.setOption("Controls.NiceTS", checked)
+
                                 text: "When tuning, set lower digits to zero"
-                                checked: true
                             }
                             CheckBox {
                                 id: autoSSBchk
                                 text: "Auto SSB"
+                                checked: controller ? Boolean(controller.options["Controls.AutomaticSidebandSwitching"]) : false
+                                onClicked: if (controller) controller.setOption("Controls.AutomaticSidebandSwitching", checked)
                                 Accessible.name: "Auto SSB Switching"
                                 Accessible.description: "When using SSB, automatically switch to the standard sideband for a given band."
                                 ToolTip.visible: hovered
                                 ToolTip.text: "When using SSB, automatically switch to the standard sideband for a given band."
                             }
-                            CheckBox { id: pttEnableChk; text: "Enable PTT Controls" }
+                            CheckBox {
+                                id: pttEnableChk;
+                                text: "Enable PTT Controls"
+                                checked: controller ? Boolean(controller.options["Controls.EnablePTT"]) : false
+                                onClicked: if (controller) controller.setOption("Controls.EnablePTT", checked)
+                            }
                             CheckBox {
                                 id: rigCreatorChk
                                 text: "Enable Rig Creator Feature (use with care)"
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Rig creator allows changing of all rig features and adding new rig profiles"
+                                checked: controller ? Boolean(controller.options["Interface.RigCreatorEnable"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.RigCreatorEnable", checked)
                             }
 
                             Item { Layout.fillWidth: true }
@@ -489,7 +929,16 @@ Window {
                                 id: regionTxt
                                 Layout.preferredWidth: 35
                                 Layout.maximumWidth: 35
+                                inputMethodHints: Qt.ImhDigitsOnly
                                 placeholderText: "1"
+                                text: (controller && controller.options && controller.options["Interface.Region"] !== undefined)
+                                      ? controller.options["Interface.Region"]
+                                      : ""
+
+                                onEditingFinished: {
+                                    if (text !== controller.options["Interface.Region"])
+                                        controller.setOption("Interface.Region", text)
+                                }
                             }
                         }
 
@@ -498,14 +947,35 @@ Window {
                             CheckBox {
                                 id: wfInterpolateChk
                                 text: "Interpolate Waterfall"
-                                checked: true
+                                checked: controller ? Boolean(controller.options["Interface.WFInterpolate"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.WFInterpolate", checked)
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Enables interpolation between pixels. Note that this will increase CPU usage."
                             }
-                            CheckBox { id: wfAntiAliasChk; text: "Anti-Alias Waterfall" }
-                            CheckBox { id: clickDragTuningEnableChk; text: "Allow tuning via click and drag (experimental)" }
-                            CheckBox { id: useSystemThemeChk; text: "Use System Theme" }
-                            CheckBox { id: fullScreenChk; text: "Show full screen (F11)" }
+                            CheckBox {
+                                id: wfAntiAliasChk;
+                                checked: controller ? Boolean(controller.options["Interface.WFAntiAlias"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.WFAntiAlias", checked)
+                                text: "Anti-Alias Waterfall"
+                            }
+                            CheckBox {
+                                id: clickDragTuningEnableChk;
+                                checked: controller ? Boolean(controller.options["Interface.ClickDragTuningEnable"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.ClickDragTuningEnable", checked)
+                                text: "Allow tuning via click and drag (experimental)"
+                            }
+                            CheckBox {
+                                id: useSystemThemeChk;
+                                checked: controller ? Boolean(controller.options["Interface.UseSystemTheme"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.UseSystemTheme", checked)
+                                text: "Use System Theme"
+                            }
+                            CheckBox {
+                                id: fullScreenChk;
+                                checked: controller ? Boolean(controller.options["Interface.UseFullScreen"]) : false
+                                onClicked: if (controller) controller.setOption("Interface.UseFullScreen", checked)
+                                text: "Show full screen (F11)"
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -516,15 +986,65 @@ Window {
                             Label { text: "Units" }
                             ComboBox {
                                 id: frequencyUnitsCombo
-                                model: ["None", "Hz", "kHz", "MHz", "GHz"]
+                                textRole: "text"
+                                valueRole: "value"
+                                model: [
+                                    { text: "None", value: 0 },
+                                    { text: "Hz", value: 1 },
+                                    { text: "kHz", value: 2 },
+                                    { text: "MHz", value: 3 },
+                                    { text: "GHz", value: 4 }
+                                ]
+                                currentIndex: (controller && controller.options)
+                                              ? indexFromValue(frequencyUnitsCombo,controller.options["Interface.FrequencyUnits"])
+                                              : -1
+                                onActivated: controller.setOption("Interface.FrequencyUnits",currentValue)
                             }
                             Label { text: "Separators:" }
                             Label { text: "Decimal" }
-                            ComboBox { id: decimalSeparatorsCombo; model: [] } // TODO
+                            ComboBox {
+                                id: decimalSeparatorsCombo;
+                                textRole: "text"
+                                valueRole: "value"
+                                model: [
+                                    { text: "\",\"", value: "," },
+                                    { text: "\".\"", value: "." },
+                                    { text: "\":\"", value: ":" },
+                                    { text: "\" \"", value: " " }
+                                ]
+                                currentIndex: (controller && controller.options)
+                                              ? indexFromValue(decimalSeparatorsCombo,controller.options["Interface.DecimalSeparator"])
+                                              : -1
+
+                                onActivated: controller.setOption("Interface.DecimalSeparator",currentValue)
+                            }
                             Label { text: "Groups" }
-                            ComboBox { id: groupSeparatorsCombo; model: [] } // TODO
-                            CheckBox { id: forceVfoModeChk; text: "Force VFO Mode"; checked: true }
-                            CheckBox { id: autoPowerOnChk; text: "Auto Power-on radio"; checked: true }
+                            ComboBox {
+                                id: groupSeparatorsCombo;
+                                textRole: "text"
+                                valueRole: "value"
+                                model: [
+                                    { text: "\",\"", value: "," },
+                                    { text: "\".\"", value: "." },
+                                    { text: "\":\"", value: ":" },
+                                    { text: "\" \"", value: " " }
+                                ]
+                                currentIndex: (controller && controller.options)
+                                              ? indexFromValue(groupSeparatorsCombo,controller.options["Interface.GroupSeparator"])
+                                              : -1
+
+                                onActivated: controller.setOption("Interface.GroupSeparator",currentValue)
+                            }
+                            CheckBox {
+                                id: forceVfoModeChk;
+                                text: "Force VFO Mode";
+                                checked: true
+                            }
+                            CheckBox {
+                                id: autoPowerOnChk;
+                                text: "Auto Power-on radio";
+                                checked: true
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -561,8 +1081,41 @@ Window {
 
                             Item { width: 20 } // fixed spacer
                             Label { id: secondaryMeterSelectionLabel; text: "Additional Meter Selection:" }
-                            ComboBox { id: meter2selectionCombo; model: [] } // TODO
-                            ComboBox { id: meter3selectionCombo; model: [] } // TODO
+                            ComboBox {
+                                id: meter2selectionCombo;
+                                textRole: "text"
+                                valueRole: "value"
+                                model: [
+                                    { text: "None", value: 0 },
+                                    { text: "SWR", value: 3 },
+                                    { text: "ALC", value: 5 },
+                                    { text: "Compression", value: 6 },
+                                    { text: "Voltage", value: 7 },
+                                    { text: "Current", value: 8 },
+                                    { text: "Center", value: 2 },
+                                    { text: "Tx/Rx Audio", value: 12 },
+                                    { text: "Tx Audio", value: 10 },
+                                    { text: "Rx Audio", value: 11 }
+                                ]
+                            }
+
+                            ComboBox {
+                                id: meter3selectionCombo;
+                                textRole: "text"
+                                valueRole: "value"
+                                model: [
+                                    { text: "None", value: 0 },
+                                    { text: "SWR", value: 3 },
+                                    { text: "ALC", value: 5 },
+                                    { text: "Compression", value: 6 },
+                                    { text: "Voltage", value: 7 },
+                                    { text: "Current", value: 8 },
+                                    { text: "Center", value: 2 },
+                                    { text: "Tx/Rx Audio", value: 12 },
+                                    { text: "Tx Audio", value: 10 },
+                                    { text: "Rx Audio", value: 11 }
+                                ]
+                            }
                             CheckBox { id: revCompMeterBtn; text: "Reverse Comp Meter"; ToolTip.visible: hovered; ToolTip.text: "Broadcast-style reduction meter" }
 
                             ButtonGroup { id: pollingButtonGroup }
@@ -604,10 +1157,30 @@ Window {
                                 id: colorPresetCombo
                                 Layout.preferredWidth: 90
                                 Layout.maximumWidth: 90
-                                model: ["1", "2", "3", "4", "5"]
+
+                                // show 1..N, but store 0..N-1
+                                model: [
+                                    { text: "1", value: 0 },
+                                    { text: "2", value: 1 },
+                                    { text: "3", value: 2 },
+                                    { text: "4", value: 3 },
+                                    { text: "5", value: 4 }
+                                ]
+                                textRole: "text"
+                                valueRole: "value"
+
+                                // display current selection
+                                currentIndex: (controller && controller.options)
+                                              ? indexFromValue(colorPresetCombo,controller.options["Interface.CurrentColorPresetNumber"])
+                                              : -1
+
+                                // commit user change
+                                onActivated: if (controller) controller.setOption("Interface.CurrentColorPresetNumber", model[currentIndex].value)
+
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Select a color preset here."
                             }
+
                             Button { id: colorRevertPresetBtn; text: "Revert"; ToolTip.visible: hovered; ToolTip.text: "Revert the selected color preset to the default." }
                             Button { id: colorRenamePresetBtn; text: "Rename Preset"; ToolTip.visible: hovered; ToolTip.text: "Rename the selected color preset. Max length is 10 characters." }
                             Item { Layout.fillWidth: true }
@@ -628,155 +1201,62 @@ Window {
                                 clip: true
 
                                 GridLayout {
-                                    id: gridLayout_5_qml
-                                    columns: 12
-                                    columnSpacing: 6
+                                    id: gridLayoutColors
+                                    columns: 3
+                                    columnSpacing: 40
                                     rowSpacing: 6
 
                                     // ---- Row 0: Grid, Tuning line, Meter Scale ----
-                                    Button { id: colorSetBtnGrid; text: "Grid" }
-                                    Item { } // column 1 unused in .ui grid
-                                    TextField {
-                                        id: colorEditGrid
-                                        text: "#AARRGGBB"
-                                        Layout.preferredWidth: 90
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: "Color format is #AARRGGBB (AA alpha). 00 transparent, ff opaque."
+                                    ColorRow { key: "Color.Grid"; label: "Grid" }
+                                    ColorRow { key: "Color.TuningLine"; label: "Tuning Line" }
+                                    ColorRow { key: "Color.MeterScale"; label: "Meter Scale" }
+
+                                    ColorRow { key: "Color.Axis"; label: "Axis" }
+                                    ColorRow { key: "Color.Passband"; label: "Passband" }
+                                    ColorRow { key: "Color.MeterText"; label: "Meter Text" }
+
+                                    ColorRow { key: "Color.Text"; label: "Text" }
+                                    ColorRow { key: "Color.PbtIndicator"; label: "PBT Indicator" }
+                                    ColorRow { key: "Color.WaterfallBack"; label: "Waterfall Back" }
+
+                                    ColorRow { key: "Color.PlotBackround"; label: "Plot Background" }
+                                    ColorRow { key: "Color.MeterLevel"; label: "Meter Level" }
+                                    ColorRow { key: "Color.WaterfallGrid"; label: "Waterfall Grid" }
+
+                                    ColorRow { key: "Color.SpectrumLine"; label: "Spectrum Line" }
+                                    ColorRow { key: "Color.MeterAverage"; label: "Meter Average" }
+                                    ColorRow { key: "Color.WaterfallAxis"; label: "Waterfall Axis" }
+
+                                    ColorRow { key: "Color.SpectrumFill"; label: "Spectrum Fill" }
+                                    ColorRow { key: "Color.MeterPeakLevel"; label: "Meter Peak Level" }
+                                    ColorRow { key: "Color.WaterfallText"; label: "Waterfall Text" }
+
+                                    CheckBox {
+                                        id: useSpectrumFillGradientChk;
+                                        text: "Spectrum Gradient"
+                                        checked: controller ? Boolean(controller.options["Color.UseSpectrumFillGradient"]) : false
+                                        onClicked: if (controller) controller.setOption("Color.UseSpectrumFillGradient", checked)
+
                                     }
-                                    LedSwatch { id: colorSwatchGrid }
-                                    Item { width: 20 } // fixed spacer
-                                    Button { id: colorSetBtnTuningLine; text: "Tuning Line" }
-                                    TextField { id: colorEditTuningLine; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchTuningLine }
-                                    Item { width: 20 } // spacer
-                                    Button { id: colorSetBtnMeterScale; text: "Meter Scale" }
-                                    TextField { id: colorEditMeterScale; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterScale }
+                                    ColorRow { key: "Color.MeterHighScale"; label: "Meter High Scale" }
+                                    CheckBox {
+                                        id: useUnderlayFillGradientChk;
+                                        text: "Underlay Gradient"
+                                        checked: controller ? Boolean(controller.options["Color.UseUnderlayFillGradient"]) : false
+                                        onClicked: if (controller) controller.setOption("Color.UseUnderlayFillGradient", checked)
+                                    }
 
-                                    // ---- Row 1: Axis, Passband, Meter Text ----
-                                    Button { id: colorSetBtnAxis; text: "Axis" }
-                                    Item { }
-                                    TextField { id: colorEditAxis; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchAxis }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnPassband; text: "Passband" }
-                                    TextField { id: colorEditPassband; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchPassband }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnMeterText; text: "Meter Text" }
-                                    TextField { id: colorEditMeterText; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterText }
+                                    ColorRow { key: "Color.SpectrumFillTop"; label: "Spectrum Fill Top" }
+                                    ColorRow { key: "Color.UnderlayLine"; label: "Underlay Line" }
+                                    ColorRow { key: "Color.UnderlayFillTop"; label: "Underlay Fill Top" }
 
-                                    // ---- Row 2: Text, PBT, Waterfall Back ----
-                                    Button { id: colorSetBtnText; text: "Text" }
-                                    Item { }
-                                    TextField { id: colorEditText; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchText }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnPBT; text: "PBT Indicator" }
-                                    TextField { id: colorEditPBT; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchPBT }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnwfBackground; text: "Waterfall Back" }
-                                    TextField { id: colorEditWfBackground; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchWfBackground }
+                                    ColorRow { key: "Color.SpectrumFillBot"; label: "Spectrum Fill Bot" }
+                                    ColorRow { key: "Color.UnderlayFill"; label: "Underlay Fill" }
+                                    ColorRow { key: "Color.WaterfallText"; label: "Underlay Fill Bot" }
 
-                                    // ---- Row 3: Plot background, Meter level, Waterfall Grid ----
-                                    Button { id: colorSetBtnPlotBackground; text: "Plot Background" }
-                                    Item { }
-                                    TextField { id: colorEditPlotBackground; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchPlotBackground }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnMeterLevel; text: "Meter Level" }
-                                    TextField { id: colorEditMeterLevel; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterLevel }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnWfGrid; text: "Waterfall Grid" }
-                                    TextField { id: colorEditWfGrid; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchWfGrid }
-
-                                    // ---- Row 4: Spectrum line, Meter average, Waterfall axis ----
-                                    Button { id: colorSetBtnSpecLine; text: "Spectrum Line" }
-                                    Item { }
-                                    TextField { id: colorEditSpecLine; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchSpecLine }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnMeterAvg; text: "Meter Average" }
-                                    TextField { id: colorEditMeterAvg; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterAverage }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnWfAxis; text: "Waterfall Axis" }
-                                    TextField { id: colorEditWfAxis; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchWfAxis }
-
-                                    // ---- Row 5: Spectrum fill, Meter peak, Waterfall text ----
-                                    Button { id: colorSetBtnSpecFill; text: "Spectrum Fill" }
-                                    Item { }
-                                    TextField { id: colorEditSpecFill; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchSpecFill }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnMeterPeakLevel; text: "Meter Peak Level" }
-                                    TextField { id: colorEditMeterPeakLevel; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterPeakLevel }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnWfText; text: "Waterfall Text" }
-                                    TextField { id: colorEditWfText; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchWfText }
-
-                                    // ---- Row 6: Spectrum gradient + Meter high scale ----
-                                    CheckBox { id: useSpectrumFillGradientChk; text: "Spectrum Gradient" }
-                                    Item { }
-                                    Item { }
-                                    Item { } // align
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnMeterPeakScale; text: "Meter High Scale" }
-                                    TextField { id: colorEditMeterPeakScale; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchMeterPeakScale }
-                                    Item { width: 20 }
-                                    CheckBox { id: useUnderlayFillGradientChk; text: "Underlay Gradient" }
-                                    Item { Layout.columnSpan: 3 } // keep grid sane
-
-                                    // ---- Row 7: Spectrum fill top + underlay line + underlay fill top ----
-                                    Button { id: colorSetBtnSpectFillTop; text: "Spectrum Fill Top" }
-                                    Item { }
-                                    TextField { id: colorEditSpecFillTop; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchSpecFillTop }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnUnderlayLine; text: "Underlay Line" }
-                                    TextField { id: colorEditUnderlayLine; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchUnderlayLine }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnUnderlayFillTop; text: "Underlay Fill Top" }
-                                    TextField { id: colorEditUnderlayFillTop; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchUnderlayFillTop }
-
-                                    // ---- Row 8: Spectrum fill bot + underlay fill + underlay fill bot ----
-                                    Button { id: colorSetBtnSpectFillBot; text: "Spectrum Fill Bot" }
-                                    Item { }
-                                    TextField { id: colorEditSpecFillBot; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchSpecFillBot }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnUnderlayFill; text: "Underlay Fill" }
-                                    TextField { id: colorEditUnderlayFill; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchUnderlayFill }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnUnderlayFillBot; text: "Underlay Fill Bot" }
-                                    TextField { id: colorEditUnderlayFillBot; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchUnderlayFillBot }
-
-                                    // ---- Row 15: Cluster spots + Button off/on ----
-                                    Button { id: colorSetBtnClusterSpots; text: "Cluster Spots" }
-                                    Item { }
-                                    TextField { id: colorEditClusterSpots; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchClusterSpots }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnButtonOff; text: "Button Off" }
-                                    TextField { id: colorEditButtonOff; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchButtonOff }
-                                    Item { width: 20 }
-                                    Button { id: colorSetBtnButtonOn; text: "Button On" }
-                                    TextField { id: colorEditButtonOn; text: "#AARRGGBB"; Layout.preferredWidth: 90 }
-                                    LedSwatch { id: colorSwatchButtonOn }
+                                    ColorRow { key: "Color.ClusterSpots"; label: "Cluster Spots" }
+                                    ColorRow { key: "Color.ButtonOff"; label: "Button Off" }
+                                    ColorRow { key: "Color.ButtonOn"; label: "Button On" }
                                 }
                             }
                         }
@@ -915,31 +1395,32 @@ Window {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 220
 
-                                    // Stand-in for custom tableWidget: use a TableView.
-                                    TableView {
+                                    ListView {
                                         id: serverUsersTable
                                         anchors.fill: parent
                                         clip: true
 
-                                        // TODO: bind to model from C++
                                         model: ListModel {
-                                            // Example placeholders:
                                             // ListElement { username: "user"; password: "pass"; admin: "no" }
                                         }
 
                                         delegate: Rectangle {
+                                            width: serverUsersTable.width
                                             implicitHeight: 28
                                             border.width: 1
+
                                             RowLayout {
                                                 anchors.fill: parent
                                                 spacing: 8
-                                                Label { Layout.preferredWidth: 140; text: model.username ?? "" }
-                                                Label { Layout.preferredWidth: 140; text: model.password ?? "" }
-                                                Label { Layout.preferredWidth: 140; text: model.admin ?? "" }
+
+                                                Label { Layout.preferredWidth: 140; text: username }   // ListModel roles are direct
+                                                Label { Layout.preferredWidth: 140; text: password }
+                                                Label { Layout.preferredWidth: 140; text: admin }
                                             }
                                         }
                                     }
                                 }
+
 
                                 Label {
                                     id: serverDisconnectLabel
@@ -1040,7 +1521,7 @@ Window {
                 // Page 5: DX Cluster
                 // =========================
                 Item {
-                    id: cluster
+                    id: clusterPage
                     anchors.fill: parent
 
                     ColumnLayout {
@@ -1056,6 +1537,7 @@ Window {
                             id: clusterTcpGroup
                             title: "TCP Cluster Connection"
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
 
                             label: CheckBox {
                                 id: clusterTcpEnable
@@ -1064,46 +1546,179 @@ Window {
                             }
 
                             enabled: clusterTcpEnable.checked
-                            RowLayout {
+                            ColumnLayout {
+                                anchors.fill: parent
                                 spacing: 12
 
-                                // approximate FormLayout using GridLayout
-                                GridLayout {
-                                    columns: 2
-                                    columnSpacing: 8
-                                    rowSpacing: 8
+                                Item {
+                                    id: root
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    readonly property var clusterModel: controller ? controller.clusterModel : null
+                                    property int currentRow: -1
 
-                                    Label { text: "Server Name" }
-                                    RowLayout {
-                                        spacing: 6
-                                        ComboBox {
-                                            id: clusterServerNameCombo
-                                            editable: true
-                                            model: [] // TODO
-                                            Layout.preferredWidth: 240
-                                        }
-                                        Button { id: clusterTcpAddBtn; text: "Add/Update"; Layout.preferredWidth: 90 }
-                                        Button { id: clusterTcpDelBtn; text: "Del"; Layout.preferredWidth: 60 }
-                                    }
+                                    function selectRow(r) { root.currentRow = r }
 
-                                    Label { text: "Server Port" }
-                                    TextField { id: clusterTcpPortLineEdit; inputMask: "00000"; Layout.preferredWidth: 120 }
+                                    // Column widths (easy to tweak)
+                                    readonly property int wServer: 260
+                                    readonly property int wPort: 90
+                                    readonly property int wUser: 160
+                                    readonly property int wPass: 160
+                                    readonly property int wTimeout: 100
+                                    readonly property int wDef: 90
+                                    readonly property int rowH: 34
+                                    readonly property int pad: 6
 
-                                    Label { text: "Username" }
-                                    TextField { id: clusterUsernameLineEdit; Layout.preferredWidth: 240 }
-
-                                    Label { text: "Password" }
-                                    TextField { id: clusterPasswordLineEdit; echoMode: TextInput.Normal; Layout.preferredWidth: 240 }
-
-                                    Label { text: "Spot Timeout (minutes)" }
-                                    TextField { id: clusterTimeoutLineEdit; inputMask: "0000"; Layout.preferredWidth: 120 }
-
-                                    Item { } // empty label cell
-                                    RowLayout {
+                                    ColumnLayout {
+                                        anchors.fill: parent
                                         spacing: 8
-                                        Button { id: clusterTcpConnectBtn; text: "Connect" }
-                                        Button { id: clusterTcpDisconnectBtn; text: "Disconnect" }
-                                        Item { Layout.fillWidth: true }
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+
+                                            Button {
+                                                text: "Add"
+                                                enabled: root.clusterModel !== null
+                                                onClicked: root.clusterModel.addEntry("localhost", 7300, "", "", 30, false)
+                                            }
+                                            Button {
+                                                text: "Remove"
+                                                enabled: root.clusterModel !== null && root.currentRow >= 0
+                                                onClicked: {
+                                                    root.clusterModel.removeEntry(root.currentRow)
+                                                    root.currentRow = -1
+                                                }
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                        }
+
+                                        // Header (DON'T use RowLayout here; use Row + fixed widths for predictability)
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            height: root.rowH
+                                            color: "#111"
+                                            border.color: "#333"
+
+                                            Row {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: root.pad
+                                                anchors.rightMargin: root.pad
+                                                spacing: root.pad
+
+                                                Label { width: root.wServer;  height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Server";  font.bold: true; color: "white" }
+                                                Label { width: root.wPort;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Port";    font.bold: true; color: "white" }
+                                                Label { width: root.wUser;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "User";    font.bold: true; color: "white" }
+                                                Label { width: root.wPass;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Password";font.bold: true; color: "white" }
+                                                Label { width: root.wTimeout; height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Timeout"; font.bold: true; color: "white" }
+                                                Label { width: root.wDef;     height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Default"; font.bold: true; color: "white" }
+                                            }
+                                        }
+
+                                        ScrollView {
+                                            Layout.fillWidth: true
+                                            Layout.fillHeight: true
+                                            clip: true
+
+                                            // Critical for Qt5: give the content item a width
+                                            contentItem: ListView {
+                                                id: list
+                                                width: ScrollView.view.width   // forces stable column layout
+                                                model: root.clusterModel
+                                                clip: true
+                                                boundsBehavior: Flickable.StopAtBounds
+
+                                                delegate: Rectangle {
+                                                    width: list.width
+                                                    height: root.rowH
+                                                    color: (index === root.currentRow) ? "#2a2a2a" : ((index % 2) ? "#1f1f1f" : "#171717")
+                                                    border.color: "#333"
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        onClicked: root.currentRow = index
+                                                    }
+
+                                                    Row {
+                                                        anchors.fill: parent
+                                                        anchors.leftMargin: root.pad
+                                                        anchors.rightMargin: root.pad
+                                                        spacing: root.pad
+
+                                                        TextField {
+                                                            width: root.wServer
+                                                            height: parent.height - 6
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            text: model.server
+                                                            selectByMouse: true
+                                                            onPressed: root.currentRow = index
+                                                            onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            onEditingFinished: root.clusterModel.setRoleValue(index, root.clusterModel.ServerRole, text)
+                                                        }
+
+                                                        TextField {
+                                                            width: root.wPort
+                                                            height: parent.height - 6
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            inputMethodHints: Qt.ImhDigitsOnly
+                                                            validator: IntValidator { bottom: 1; top: 65535 }
+                                                            text: String(model.port)
+                                                            selectByMouse: true
+                                                            onPressed: root.currentRow = index
+                                                            onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            onEditingFinished: root.clusterModel.setRoleValue(index, root.clusterModel.PortRole, parseInt(text))
+                                                        }
+
+                                                        TextField {
+                                                            width: root.wUser
+                                                            height: parent.height - 6
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            text: model.userName
+                                                            selectByMouse: true
+                                                            onPressed: root.currentRow = index
+                                                            onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            onEditingFinished: root.clusterModel.setRoleValue(index, root.clusterModel.UserNameRole, text)
+                                                        }
+
+                                                        TextField {
+                                                            width: root.wPass
+                                                            height: parent.height - 6
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            echoMode: TextInput.Password
+                                                            text: model.password
+                                                            selectByMouse: true
+                                                            onPressed: root.currentRow = index
+                                                            onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            onEditingFinished: root.clusterModel.setRoleValue(index, root.clusterModel.PasswordRole, text)
+                                                        }
+
+                                                        TextField {
+                                                            width: root.wTimeout
+                                                            height: parent.height - 6
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            inputMethodHints: Qt.ImhDigitsOnly
+                                                            validator: IntValidator { bottom: 1; top: 600 }
+                                                            text: String(model.timeout)
+                                                            selectByMouse: true
+                                                            onPressed: root.currentRow = index
+                                                            onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            onEditingFinished: root.clusterModel.setRoleValue(index, root.clusterModel.TimeoutRole, parseInt(text))
+                                                        }
+
+                                                        Item {
+                                                            width: root.wDef
+                                                            height: parent.height
+                                                            CheckBox {
+                                                                anchors.centerIn: parent
+                                                                checked: !!model.isdefault
+                                                                onToggled: root.clusterModel.setDefaultRow(index, checked)
+                                                                onPressed: root.currentRow = index
+                                                                onActiveFocusChanged: if (activeFocus) root.currentRow = index
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
 
@@ -1198,6 +1813,7 @@ Window {
                 id: saveSettingsBtn
                 text: "Save Settings"
                 Accessible.name: "Save Settings"
+                onClicked: controller && controller.save()
             }
 
             Button {
@@ -1210,7 +1826,14 @@ Window {
 
             Button {
                 id: connectBtn
-                text: "Connect to Radio"
+                text: (connStatus === 0) ?
+                          "Connect to Radio" :
+                          (connStatus === 1) ?
+                          "Cancel Connection" :
+                          (connStatus === 2) ?
+                          "Disconnect from Radio" : "Unknown status!"
+                onClicked: MainController.connectionHandler()
+
                 Accessible.name: "Connect to Radio"
             }
 

@@ -20,10 +20,10 @@ class ReceiverController : public QObject
     Q_PROPERTY(quint64 frequencyA READ getFrequencyA WRITE setFrequencyA NOTIFY frequencyAChanged)
     Q_PROPERTY(quint64 frequencyB READ getFrequencyB WRITE setFrequencyB NOTIFY frequencyBChanged)
     Q_PROPERTY(uchar scopeMode READ getScopeMode WRITE setScopeMode NOTIFY scopeModeChanged)
-    Q_PROPERTY(centerSpanData scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
+    Q_PROPERTY(uchar scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
     Q_PROPERTY(uchar scopeEdge READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeChanged)
     Q_PROPERTY(uchar toFixed WRITE toFixedEdge)
-    Q_PROPERTY(modeInfo mode READ getMode WRITE setMode NOTIFY modeChanged)
+    Q_PROPERTY(rigMode_t mode READ getMode WRITE setMode NOTIFY modeChanged)
     Q_PROPERTY(uchar dataMode READ getDataMode WRITE setDataMode NOTIFY dataModeChanged)
     Q_PROPERTY(uchar filter READ getFilter WRITE setFilter NOTIFY filterChanged)
     Q_PROPERTY(uchar filterShape READ getFilterShape WRITE setFilterShape NOTIFY filterShapeChanged)
@@ -42,6 +42,9 @@ class ReceiverController : public QObject
     Q_PROPERTY(uchar attenuator READ getAttenuator WRITE setAttenuator NOTIFY attenuatorChanged)
     Q_PROPERTY(uchar nr READ getNr WRITE setNr NOTIFY nrChanged)
     Q_PROPERTY(uchar nb READ getNb WRITE setNb NOTIFY nbChanged)
+    Q_PROPERTY(uchar ipPlus READ getIpPlus WRITE setIpPlus NOTIFY ipPlusChanged)
+    Q_PROPERTY(uchar mn READ getMn WRITE setMn NOTIFY mnChanged)
+    Q_PROPERTY(uchar ds READ getDs WRITE setDs NOTIFY dsChanged)
     Q_PROPERTY(ushort nrLevel READ getNrLevel WRITE setNrLevel NOTIFY nrLevelChanged)
     Q_PROPERTY(ushort nbLevel READ getNbLevel WRITE setNbLevel NOTIFY nbLevelChanged)
     Q_PROPERTY(uchar preamp READ getPreamp WRITE setPreamp NOTIFY preampChanged)
@@ -67,6 +70,9 @@ class ReceiverController : public QObject
 
     Q_PROPERTY(meter_t meterType READ meterType WRITE setMeterType NOTIFY meterTypeChanged)
     Q_PROPERTY(double meter READ meter WRITE setMeter NOTIFY meterChanged)
+
+    Q_PROPERTY(availableBands band READ getBand WRITE setBand NOTIFY bandChanged)
+    Q_PROPERTY(uchar bsrReg READ getBsrReg WRITE setBsrReg NOTIFY bsrRegChanged)
 
 public:
     explicit ReceiverController(int rxIndex = 0, QObject *parent = nullptr);
@@ -104,14 +110,17 @@ public:
     quint64 getFrequencyA() const { return frequencyA;}
     quint64 getFrequencyB() const { return frequencyB;}
     uchar getScopeMode() { return scopeMode;}
-    centerSpanData getScopeSpan() { return scopeSpan;}
+    uchar getScopeSpan() { return scopeSpan.reg;}
     uchar getScopeEdge() { return scopeEdge;}
-    modeInfo getMode() { return mode;}
+    rigMode_t getMode() { return mode.mk;}
     uchar getDataMode() { return mode.data;}
     uchar getFilter() { return mode.filter;}
     uchar getFilterShape() { return filterShape;}
     uchar getRoofing() { return roofing;}
     void toFixedEdge(uchar val);
+    availableBands getBand() {return band;}
+    uchar getBsrReg() {return bsr.reg;}
+    void receiveBSR(bandStackType& bsr);
 
     uchar getSpeed() { return speed;}
     WaterfallItem::Theme getTheme() { return theme;}
@@ -129,6 +138,9 @@ public:
     uchar getNb() { return nb;}
     ushort getNrLevel() { return nrLevel;}
     ushort getNbLevel() { return nbLevel;}
+    bool getIpPlus() { return ipPlus;}
+    bool getMn() { return mn;}
+    bool getDs() { return ds;}
     uchar getAntenna() { return antenna.antenna;}
     bool getRxAntenna() { return antenna.rx;}
     int getPbtInner() { return pbtInner;}
@@ -167,6 +179,7 @@ public:
     void setMeter(double v);
 
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
+    Q_INVOKABLE void storeBsr();
 
 public slots:
 
@@ -178,8 +191,8 @@ public slots:
     void setActive(bool a);
     void setScopeEdge(uchar m, bool u=true);
     void setScopeMode(uchar m, bool u=true);
-    void setScopeSpan(centerSpanData m, bool u=true);
-    void setMode(modeInfo m, bool u=true);
+    void setScopeSpan(uchar m, bool u=true);
+    void setMode(uchar m, bool u=true);
     void setDataMode(uchar m, bool u=true);
     void setFilter(uchar m, bool u=true);
     void setFilterShape(uchar m, bool u=true);
@@ -199,6 +212,9 @@ public slots:
     void setPreamp(uchar v, bool u=true);
     void setNb(uchar v, bool u=true);
     void setNr(uchar v, bool u=true);
+    void setIpPlus(bool v, bool u=true);
+    void setMn(bool v, bool u=true);
+    void setDs(bool v, bool u=true);
     void setNbLevel(ushort v, bool u=true);
     void setNrLevel(ushort v, bool u=true);
     void setAntenna(uchar v, bool u=true);
@@ -214,6 +230,8 @@ public slots:
     void setFrequencyA(quint64 f, bool u=true);
     void setFrequencyB(quint64 f, bool u=true);
 
+    void setBand(availableBands b, bool u=true);
+
     void setColors (colorPrefsType c)
     {
         colors = c;
@@ -225,6 +243,15 @@ public slots:
 
     void receiveMeter(meter_t meter, double level);
 
+    void receiveStepSize(quint64 s) { stepSize = s;}
+
+    void setBsrReg(uchar r) {
+        if (bsr.reg != r)
+        {
+            bsr.reg = r;
+            emit bsrRegChanged();
+        }
+    }
 private slots:
     void receiveRigCaps(rigCapabilities* caps);
 
@@ -261,6 +288,9 @@ signals:
     void nbChanged();
     void nrLevelChanged();
     void nbLevelChanged();
+    void ipPlusChanged();
+    void mnChanged();
+    void dsChanged();
     void antennaChanged();
     void rxAntennaChanged();
 
@@ -282,8 +312,12 @@ signals:
     void meterTypeChanged();
     void meterChanged();
 
+    void bandChanged();
+    void bsrRegChanged();
+
 private:
     void buildUiSpecs();
+    QVariantMap uiSpecs;
     quint64 roundFrequency(quint64 frequency, unsigned int tsHz);
     quint64 roundFrequency(quint64 frequency, int steps, unsigned int tsHz);
 
@@ -293,7 +327,6 @@ private:
     qreal scrollWheelOffsetAccumulated = 0.0;
 
 
-    QVariantMap uiSpecs;
     quint64 frequencyA;
     quint64 frequencyB;
     bool active=false;
@@ -354,7 +387,13 @@ private:
     uchar nb = 0;
     ushort nrLevel = 0;
     ushort nbLevel = 0;
+    bool ipPlus = false;
+    bool mn = false;
+    bool ds = false;
     antennaInfo antenna;
+    availableBands band = bandUnknown;
+    bandStackType bsr;
+    bool awaitingBSR = false;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(ReceiverController::UiFlags)

@@ -49,6 +49,7 @@ struct networkAudioLevels {
     quint8 rxAudioPeak = 0;
     quint8 txAudioPeak = 0;
 };
+Q_DECLARE_METATYPE(networkAudioLevels)
 
 struct networkStatus {
 	quint8 rxAudioBufferPercent;
@@ -70,6 +71,8 @@ struct networkStatus {
     qint64 timeDifference = 0;
 	QString message;
 };
+Q_DECLARE_METATYPE(networkStatus)
+
 
 
 // Parent class that contains all common items.

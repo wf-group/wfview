@@ -82,6 +82,7 @@ public:
         return true;
     }
 
+
     Q_INVOKABLE bool saveAs(QString fileUrlOrPath) const {
         const QString path = toLocalPath(fileUrlOrPath);
         if (path.isEmpty()) return false;
@@ -237,6 +238,38 @@ private:
 };
 
 
+class IniSortProxy : public QSortFilterProxyModel {
+
+    Q_OBJECT
+
+public:
+    using QSortFilterProxyModel::QSortFilterProxyModel;
+
+    Q_INVOKABLE int mapRowToSource(int proxyRow) const {
+        if (proxyRow < 0 || proxyRow >= rowCount()) return -1;
+        const QModelIndex p = index(proxyRow, 0);
+        const QModelIndex s = mapToSource(p);
+        return s.isValid() ? s.row() : -1;
+    }
+
+    Q_INVOKABLE int mapRowFromSource(int sourceRow) const {
+        if (!sourceModel()) return -1;
+        if (sourceRow < 0 || sourceRow >= sourceModel()->rowCount()) return -1;
+        const QModelIndex s = sourceModel()->index(sourceRow, 0);
+        const QModelIndex p = mapFromSource(s);
+        return p.isValid() ? p.row() : -1;
+    }
+protected:
+    bool lessThan(const QModelIndex &left,
+                  const QModelIndex &right) const override
+    {
+        //if (left.column() == 2) {
+        //    return left.data(Qt::UserRole).toInt()
+        //    < right.data(Qt::UserRole).toInt();
+        //}
+        return QSortFilterProxyModel::lessThan(left, right);
+    }
+};
 
 class IniTableModel : public QAbstractTableModel {
     Q_OBJECT
@@ -253,20 +286,20 @@ public:
         if (m_store == st) return;
         if (m_store) disconnect(m_store, nullptr, this, nullptr);
         m_store = st;
-        if (m_store) connect(m_store, &IniStore::changed, this, &IniTableModel::reload);
+        if (m_store) connect(m_store, &IniStore::changed, this, &IniTableModel::scheduleReload);
         emit storeChanged();
-        reload();
+        scheduleReload();
     }
 
     QString group() const { return m_group; }
-    void setGroup(const QString &g) { if (m_group==g) return; m_group=g; emit groupChanged(); reload(); }
+    void setGroup(const QString &g) { if (m_group==g) return; m_group=g; emit groupChanged(); scheduleReload(); }
 
     QStringList columns() const { return m_cols; }
     void setColumns(const QStringList &c)
     {
         m_cols=c;
         emit columnsChanged();
-        reload();
+        scheduleReload();
     }
 
     Q_INVOKABLE void reload() {
@@ -290,15 +323,28 @@ public:
     }
 
     QVariant data(const QModelIndex &idx, int role) const override {
-        if (!idx.isValid() || role != Qt::DisplayRole) return {};
+        if (!idx.isValid()) return {};
+        if (role != Qt::DisplayRole && role != Qt::EditRole) return {};
         return valueAt(idx.row(), idx.column());
     }
 
     bool setData(const QModelIndex &idx, const QVariant &v, int role) override {
-        if (!idx.isValid() || role != Qt::EditRole) return false;
+        if (!idx.isValid()) return false;
+
+        // QML frequently writes via the "display" role
+        if (role != Qt::EditRole && role != Qt::DisplayRole)
+            return false;
+
         setValueAt(idx.row(), idx.column(), v);
         emit dataChanged(idx, idx, {Qt::DisplayRole, Qt::EditRole});
         return true;
+    }
+
+    QHash<int, QByteArray> roleNames() const override {
+        auto r = QAbstractTableModel::roleNames();
+        r[Qt::DisplayRole] = "display";
+        r[Qt::EditRole]    = "edit";
+        return r;
     }
 
     Q_INVOKABLE QVariant cell(int row, int col) const {
@@ -390,6 +436,16 @@ public:
         return true;
     }
 
+private slots:
+
+    void scheduleReload() {
+        if (m_reloadScheduled) return;
+        m_reloadScheduled = true;
+        QTimer::singleShot(0, this, [this]{
+            m_reloadScheduled = false;
+            reload();
+        });
+    }
 
 signals:
     void storeChanged();
@@ -397,6 +453,10 @@ signals:
     void columnsChanged();
 
 private:
+
+    bool m_reloadScheduled = false;
+
+
     QVariant valueAt(int row0, int col) const {
         if (!m_store) return {};
         const int row1 = row0 + 1;
@@ -424,6 +484,7 @@ class RigCreatorController : public QObject
     //Q_PROPERTY(QString currentFile READ currentFile NOTIFY currentFileChanged)
     Q_PROPERTY(QObject* store READ store CONSTANT)
     Q_PROPERTY(QQmlPropertyMap* settings READ settings CONSTANT)
+
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
     Q_PROPERTY(bool loading READ loading WRITE setLoading NOTIFY loadingChanged)
     Q_PROPERTY(QString iniPath READ iniPath NOTIFY iniPathChanged)

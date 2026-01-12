@@ -34,6 +34,7 @@ struct spotData {
     int timeout; // timeout in seconds
     bool current = false;
 };
+Q_DECLARE_METATYPE(spotData)
 
 struct clusterSettings {
     QString server;
@@ -115,4 +116,8 @@ private:
     bool skimmerSpots = false;
 };
 
+Q_DECLARE_METATYPE(clusterSettings)
+
 #endif
+
+

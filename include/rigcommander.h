@@ -27,6 +27,8 @@
 //#define DEBUG_PARSE // Enable to output Info messages every 10s with command parse timing.
 
 typedef QHash<quint16, rigInfo> rigTypedef;
+Q_DECLARE_METATYPE(rigTypedef)
+
 
 class rigCommander : public QObject
 {
@@ -142,6 +144,7 @@ protected:
     audioSetup txSetup;
 
     double getMeterCal(meter_t meter,int value);
+    void determineRigCaps();
 
     void printHex(const QByteArray &pdata);
     void printHex(const QByteArray &pdata, bool printVert, bool printHoriz);

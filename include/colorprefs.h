@@ -1,6 +1,7 @@
 #ifndef COLORPREFS_H
 #define COLORPREFS_H
 
+#include <QObject>
 #include <QColor>
 #include <QString>
 
@@ -50,6 +51,8 @@ struct colorPrefsType{
     QColor buttonOn;
 
 };
+
+Q_DECLARE_METATYPE(colorPrefsType)
 
 
 #endif // COLORPREFS_H

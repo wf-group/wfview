@@ -1,7 +1,8 @@
-// WaterfallItem.cpp
 #include "waterfallitem.h"
-
 #include "ReceiverController.h"
+
+#include <cmath>
+#include <cstring>
 
 WaterfallItem::WaterfallItem()
 {
@@ -10,51 +11,49 @@ WaterfallItem::WaterfallItem()
     setAcceptHoverEvents(true);
     setFlag(QQuickItem::ItemHasContents, true);
     qInfo() << "Creating new WaterfallItem()";
-
 }
-
 
 void WaterfallItem::setLength(int d)
 {
     if (d <= 0 || d == length)
         return;
 
-    const int oldH = img.isNull() ? 0 : img.height();
-    const int oldW = imgWidth;   // width is fixed in your case
-
     length = d;
 
-    if (!img.isNull() && oldH > 1 && oldW > 0) {
-        // Vertically resample old image into new height
-        QImage newImg(oldW, length, QImage::Format_RGB32);
-        newImg.fill(Qt::black);
+    {
+        QMutexLocker lock(&imgMu);
 
-        const int newH = length;
+        // If we already have an image, resample it to the new height.
+        if (!img.isNull() && imgWidth > 0) {
+            const int oldH = img.height();
+            const int oldW = imgWidth;
 
-        for (int yNew = 0; yNew < newH; ++yNew) {
-            // Map new row to old row (nearest neighbour)
-            int yOld = (newH > 1) ? (yNew * (oldH - 1) / (newH - 1)) : 0;
-            if (yOld < 0)      yOld = 0;
-            if (yOld >= oldH)  yOld = oldH - 1;
+            QImage newImg(oldW, length, QImage::Format_RGB32);
+            newImg.fill(Qt::black);
 
-            const QRgb *srcRow = reinterpret_cast<const QRgb *>(
-                img.constScanLine(yOld)
-                );
-            QRgb *dstRow = reinterpret_cast<QRgb *>(
-                newImg.scanLine(yNew)
-                );
+            if (oldH > 0) {
+                const int newH = length;
+                for (int yNew = 0; yNew < newH; ++yNew) {
+                    int yOld = (newH > 1) ? (yNew * (oldH - 1) / (newH - 1)) : 0;
+                    yOld = qBound(0, yOld, oldH - 1);
 
-            // width is fixed, so copy one row as-is
-            memcpy(dstRow, srcRow, oldW * int(sizeof(QRgb)));
+                    const QRgb *srcRow = reinterpret_cast<const QRgb *>(img.constScanLine(yOld));
+                    QRgb *dstRow = reinterpret_cast<QRgb *>(newImg.scanLine(yNew));
+                    std::memcpy(dstRow, srcRow, size_t(oldW) * sizeof(QRgb));
+                }
+            }
+
+            img = std::move(newImg);
+            ringIndex = 0;
+        } else {
+            img = QImage();
+            imgWidth = 0;
+            ringIndex = 0;
         }
 
-        img = std::move(newImg);
-    } else {
-        // No valid old image; let updateScope allocate later
-        img = QImage();
+        dirty = true;
     }
 
-    dirty = true;
     emit lengthChanged();
     update();
 }
@@ -64,23 +63,27 @@ void WaterfallItem::setTheme(Theme t)
     if (t == theme)
         return;
     theme = t;
-    dirty = true;     // force redraw with new colours
+    {
+        QMutexLocker lock(&imgMu);
+        dirty = true;
+    }
     emit themeChanged();
     update();
 }
 
-// WaterfallItem.cpp
 void WaterfallItem::setSmooth(bool s)
 {
     if (smooth == s) return;
     smooth = s;
+    {
+        QMutexLocker lock(&imgMu);
+        dirty = true;
+    }
     emit smoothChanged();
-    dirty = true;
     update();
 }
 
-// grid/scale configuration
-void WaterfallItem::setFloor (uchar v)
+void WaterfallItem::setFloor(uchar v)
 {
     if (floor == v) return;
     floor = v;
@@ -101,13 +104,12 @@ double WaterfallItem::xToFreq(qreal x) const
     if (endFreq <= startFreq || width() <= 0.0)
         return startFreq;
 
-    double t = double(x) / double(width()); // 0..1
+    double t = double(x) / double(width());
     if (t < 0.0) t = 0.0;
     if (t > 1.0) t = 1.0;
 
     return startFreq + t * (endFreq - startFreq);
 }
-
 
 void WaterfallItem::updateScope(const scopeData &data)
 {
@@ -124,67 +126,68 @@ void WaterfallItem::updateScope(const scopeData &data)
         endFreq   = data.endFreq;
     }
 
-    // Never allow a non-positive height
     const int targetHeight = qMax(1, length);
 
-    // (Re)allocate image when width OR height changes
+    QMutexLocker lock(&imgMu);
+
     if (img.isNull() || imgWidth != w || img.height() != targetHeight) {
         imgWidth = w;
         img = QImage(imgWidth, targetHeight, QImage::Format_RGB32);
         img.fill(Qt::black);
-        ringIndex = 0;  // reset ring on size change
+        ringIndex = 0;
+        dirty = true;
     }
 
     const int imgH = img.height();
     if (imgH <= 0)
         return;
 
-    // ---- ring index: ALWAYS clamp to image height ----
     if (ringIndex < 0 || ringIndex >= imgH)
         ringIndex = 0;
 
-    // advance ring one line up
     ringIndex = (ringIndex - 1 + imgH) % imgH;
 
-    // destination row
     QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(ringIndex));
-
-    // source values – MUST be bytes (0..255) for LUT indexing
     const uchar *src = reinterpret_cast<const uchar *>(data.data.constData());
 
-    // LUT is built for indices 0..255 only
     rebuildLut();
     const QRgb *lut = valueLut;
 
     for (int i = 0; i < imgWidth; ++i) {
-        unsigned idx = src[i];      // uchar => 0..255
-
-        // belt & braces; basically free
-        if (idx > 255)
-            idx = 255;
-
-        dstRow[i] = lut[idx];
+        dstRow[i] = lut[src[i]];
     }
 
     dirty = true;
     update();
 }
 
-
 QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 {
-    if (width() <= 0 || height() <= 0 || img.isNull()) {
-        delete oldNode;
-        return nullptr;
-    }
-
     QElapsedTimer timer;
     timer.start();
 
-    // IMPORTANT: discard any previous node tree completely
-    if (oldNode) {
-        delete oldNode;
-        oldNode = nullptr;
+    // Take a stable snapshot for the render thread.
+    QImage snapshot;
+    int ring = 0;
+    bool doUpload = false;
+
+    {
+        QMutexLocker lock(&imgMu);
+
+        if (width() <= 0 || height() <= 0 || img.isNull()) {
+            delete oldNode;
+            emit processingTimeNs(timer.nsecsElapsed());
+            return nullptr;
+        }
+
+        ring = ringIndex;
+        doUpload = dirty;
+
+        // IMPORTANT: deep copy so the render thread never sees live-mutating pixels.
+        // This is the thing that stops the crashes.
+        snapshot = doUpload ? img.copy() : img; // if not dirty, sharing is fine
+
+        dirty = false;
     }
 
     auto *root = static_cast<WaterfallRootNode *>(oldNode);
@@ -194,6 +197,9 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         root->bottomNode = new QSGSimpleTextureNode;
         root->appendChildNode(root->topNode);
         root->appendChildNode(root->bottomNode);
+
+        root->topNode->setOwnsTexture(false);
+        root->bottomNode->setOwnsTexture(false);
     }
 
     if (!window()) {
@@ -201,60 +207,62 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         return root;
     }
 
-    // Create separate textures for top and bottom
-    QSGTexture *texTop = window()->createTextureFromImage(img);
-    texTop->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
-    texTop->setMipmapFiltering(QSGTexture::None);
-    texTop->setHorizontalWrapMode(QSGTexture::ClampToEdge);
-    texTop->setVerticalWrapMode(QSGTexture::ClampToEdge);
-
-    QSGTexture *texBottom = window()->createTextureFromImage(img);
-    texBottom->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
-    texBottom->setMipmapFiltering(QSGTexture::None);
-    texBottom->setHorizontalWrapMode(QSGTexture::ClampToEdge);
-    texBottom->setVerticalWrapMode(QSGTexture::ClampToEdge);
-
-    root->topNode->setTexture(texTop);
-    root->topNode->setOwnsTexture(true);
-
-    root->bottomNode->setTexture(texBottom);
-    root->bottomNode->setOwnsTexture(true);
-
-    const int texW = img.width();
-    const int texH = img.height();
-    if (texH <= 0) {
+    const int texW = snapshot.width();
+    const int texH = snapshot.height();
+    if (texW <= 0 || texH <= 0) {
         emit processingTimeNs(timer.nsecsElapsed());
         return root;
     }
 
+    // Clamp ring defensively
+    ring = qBound(0, ring, texH - 1);
+
+    // Recreate ONE texture only when needed (dirty or size change)
+    const QSize wantSize(texW, texH);
+    if (!root->tex || root->texSize != wantSize || doUpload) {
+
+        // 1) Create new texture first (so we never set nullptr on the nodes)
+        QSGTexture *newTex = window()->createTextureFromImage(snapshot);
+
+        newTex->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
+        newTex->setMipmapFiltering(QSGTexture::None);
+        newTex->setHorizontalWrapMode(QSGTexture::ClampToEdge);
+        newTex->setVerticalWrapMode(QSGTexture::ClampToEdge);
+
+        // 2) Point nodes at the new texture (non-null)
+        root->topNode->setTexture(newTex);
+        root->bottomNode->setTexture(newTex);
+
+        // 3) Now it’s safe to delete the old texture
+        delete root->tex;
+        root->tex = newTex;
+        root->texSize = wantSize;
+    }
+
+
     const qreal itemW = width();
     const qreal itemH = height();
 
-    // Clamp ringIndex defensively
-    int ring = ringIndex;
-    if (ring < 0)     ring = 0;
-    if (ring >= texH) ring = texH - 1;
+    const int topLines    = texH - ring;
+    const int bottomLines = ring;
 
-    const int topLines    = texH - ring; // ring .. texH-1
-    const int bottomLines = ring;        // 0 .. ring-1
+    // Snap join to device pixels to reduce “join crawl”
+    const qreal dpr = window()->effectiveDevicePixelRatio();
+    auto snap = [dpr](qreal v) { return std::round(v * dpr) / dpr; };
 
-    // ----- Top segment -----
     if (topLines > 0) {
-        const qreal topHeight = itemH * (qreal(topLines) / texH);
-
-        root->topNode->setRect(0, 0, itemW, topHeight);
+        const qreal topH = snap(itemH * (qreal(topLines) / texH));
+        root->topNode->setRect(0, 0, snap(itemW), topH);
         root->topNode->setSourceRect(QRectF(0, ring, texW, topLines));
         root->topNode->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
     } else {
         root->topNode->setRect(0, 0, 0, 0);
     }
 
-    // ----- Bottom segment -----
     if (bottomLines > 0) {
-        const qreal topHeight    = itemH * (qreal(topLines) / texH);
-        const qreal bottomHeight = itemH - topHeight;
-
-        root->bottomNode->setRect(0, topHeight, itemW, bottomHeight);
+        const qreal topH = snap(itemH * (qreal(topLines) / texH));
+        const qreal botH = snap(itemH - topH);
+        root->bottomNode->setRect(0, topH, snap(itemW), botH);
         root->bottomNode->setSourceRect(QRectF(0, 0, texW, bottomLines));
         root->bottomNode->setFiltering(smooth ? QSGTexture::Linear : QSGTexture::Nearest);
     } else {
@@ -263,6 +271,41 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
     emit processingTimeNs(timer.nsecsElapsed());
     return root;
+}
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+void WaterfallItem::geometryChange(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChange(n, o);
+    if (n.size() != o.size()) update();
+}
+#else
+void WaterfallItem::geometryChanged(const QRectF &n, const QRectF &o)
+{
+    QQuickItem::geometryChanged(n, o);
+    if (n.size() != o.size()) update();
+}
+#endif
+
+void WaterfallItem::setController(QObject *c)
+{
+    if (controller == c)
+        return;
+
+    //if (controller)
+    //    disconnect(controller, nullptr, this, nullptr);
+
+    controller = c;
+
+    auto * rx=qobject_cast<ReceiverController *>(c);
+
+    if (rx) {
+        connect(rx, &ReceiverController::scopeUpdated,
+                this, &WaterfallItem::updateScope,
+                Qt::QueuedConnection);
+    }
+
+    emit controllerChanged();
 }
 
 
@@ -500,38 +543,5 @@ void WaterfallItem::rebuildLut()
     }
 
     lutValid = true;
-}
-
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-void WaterfallItem::geometryChange(const QRectF &n, const QRectF &o)
-{
-    QQuickItem::geometryChange(n, o);
-    if (n.size() != o.size()) update();
-}
-#else
-void WaterfallItem::geometryChanged(const QRectF &n, const QRectF &o)
-{
-    QQuickItem::geometryChanged(n, o);
-    if (n.size() != o.size()) update();
-}
-#endif
-
-void WaterfallItem::setController(QObject* c)
-{
-    if (m_controller == c) return;
-    if (m_controller) disconnect(m_controller, nullptr, this, nullptr);
-
-    m_controller = c;
-
-    auto *rx = qobject_cast<ReceiverController*>(c);
-    if (rx) {
-        connect(rx, &ReceiverController::scopeUpdated,
-                this, &WaterfallItem::updateScope,
-                Qt::DirectConnection);          // same thread (GUI)
-    }
-
-
-    emit controllerChanged();
-    update();
 }
 

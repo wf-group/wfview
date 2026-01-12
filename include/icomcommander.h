@@ -106,7 +106,6 @@ private:
     icomUdpHandler* udp=nullptr;
     QThread* udpHandlerThread = nullptr;
 
-    void determineRigCaps();
     QByteArray payloadIn;
     QByteArray echoPerfix;
     QByteArray replyPrefix;

@@ -34,7 +34,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     QWidget *styled = qobject_cast<QWidget*>(parent);
     if (!styled) styled = this;
-    theme->syncFrom(styled);
+    //theme->syncFrom(styled);
 
     scopeQuick->rootContext()->setContextProperty("Theme", theme);
     scopeQuick->setClearColor(theme->window());

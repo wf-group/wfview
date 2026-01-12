@@ -370,7 +370,7 @@ typedef union radio_cap_packet {
     };
     char packet[RADIO_CAP_SIZE];
 } *radio_cap_packet_t;
-
+Q_DECLARE_METATYPE(radio_cap_packet)
 
 
 // 0xA8 length capabilities packet

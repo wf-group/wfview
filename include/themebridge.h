@@ -1,10 +1,9 @@
 #ifndef THEMEBRIDGE_H
 #define THEMEBRIDGE_H
 
-#include <QObject>
-#include <QColor>
+// ThemeBridge.h
+#include <QGuiApplication>
 #include <QPalette>
-#include <QWidget>
 
 class ThemeBridge : public QObject {
     Q_OBJECT
@@ -19,19 +18,31 @@ class ThemeBridge : public QObject {
 public:
     explicit ThemeBridge(QObject* parent=nullptr) : QObject(parent) {}
 
-    void syncFrom(const QWidget* w) {
-        const QPalette p = w ? w->palette() : QPalette{};
-        m_window    = p.color(QPalette::Window);
-        m_windowText = p.color(QPalette::WindowText);
-        m_text      = p.color(QPalette::Text);
-        m_base      = p.color(QPalette::Base);
-        m_button    = p.color(QPalette::Button);
-        m_highlight = p.color(QPalette::Highlight);
-        m_highlightedText = p.color(QPalette::HighlightedText);
-        m_buttonText = p.color(QPalette::ButtonText);
+    Q_INVOKABLE void syncFromAppPalette() {
+        const QPalette p = QGuiApplication::palette();
+        setFromPalette(p);
+    }
+
+    void setFromPalette(const QPalette& p) {
+        QColor nw      = p.color(QPalette::Window);
+        QColor nwt     = p.color(QPalette::WindowText);
+        QColor nt      = p.color(QPalette::Text);
+        QColor nb      = p.color(QPalette::Base);
+        QColor nbtn    = p.color(QPalette::Button);
+        QColor nh      = p.color(QPalette::Highlight);
+        QColor nht     = p.color(QPalette::HighlightedText);
+        QColor nbtntxt = p.color(QPalette::ButtonText);
+
+        if (m_window == nw && m_windowText == nwt && m_text == nt && m_base == nb &&
+            m_button == nbtn && m_highlight == nh && m_highlightedText == nht && m_buttonText == nbtntxt)
+            return;
+
+        m_window = nw; m_windowText = nwt; m_text = nt; m_base = nb;
+        m_button = nbtn; m_highlight = nh; m_highlightedText = nht; m_buttonText = nbtntxt;
         emit changed();
     }
 
+    // getters unchanged...
     QColor window() const { return m_window; }
     QColor windowText() const { return m_windowText; }
     QColor text() const { return m_text; }

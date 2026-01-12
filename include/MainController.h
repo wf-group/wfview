@@ -17,15 +17,53 @@
 #include "icomcommander.h"
 #include "kenwoodcommander.h"
 #include "yaesucommander.h"
+#include "themebridge.h"
 
 #include "SettingsController.h"
 
 class MainController : public QObject {
     Q_OBJECT
+
+public:
+
+    enum connectionStatus_t { connDisconnected, connConnecting, connConnected };
+    Q_ENUM (connectionStatus_t)
+
+    enum underlay_t { underlayNone, underlayPeakHold, underlayPeakBuffer, underlayAverageBuffer };
+    Q_ENUM (underlay_t)
+
+    enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connectionWAN };
+    Q_ENUM (connectionType_t)
+
     Q_PROPERTY(QString windowTitle READ getWindowTitle WRITE setWindowTitle NOTIFY windowTitleChanged)
     Q_PROPERTY(int receiverCount READ receiverCount NOTIFY receiverCountChanged)
     Q_PROPERTY(SettingsController* settings READ getSettings CONSTANT)
-public:
+    Q_PROPERTY(connectionStatus_t connStatus READ getConnStatus WRITE setConnStatus NOTIFY connStatusChanged)
+    Q_PROPERTY(ThemeBridge* theme READ theme CONSTANT)
+
+    Q_PROPERTY(quint64 stepSize READ getStepSize WRITE setStepSize NOTIFY stepSizeChanged)
+
+    Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
+
+    Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
+    Q_DECLARE_FLAGS(prefColItems, prefColItem)
+    Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
+    Q_DECLARE_FLAGS(prefRaItems ,prefRaItem)
+    Q_DECLARE_FLAGS(prefCtItems, prefCtItem)
+    Q_DECLARE_FLAGS(prefLanItems, prefLanItem)
+    Q_DECLARE_FLAGS(prefClusterItems, prefClusterItem)
+    Q_DECLARE_FLAGS(prefUDPItems, prefUDPItem)
+    Q_DECLARE_FLAGS(prefServerItems, prefServerItem)
+    Q_FLAGS(prefIfItems)
+    Q_FLAGS(prefColItems)
+    Q_FLAGS(prefRsItems)
+    Q_FLAGS(prefRaItems)
+    Q_FLAGS(prefCtItems)
+    Q_FLAGS(prefLanItems)
+    Q_FLAGS(prefClusterItems)
+    Q_FLAGS(prefUDPItems)
+    Q_FLAGS(prefServerItems)
+
     explicit MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *parent=nullptr);
 
     ~MainController() override { shutdown(); } // still fine as a backup
@@ -53,6 +91,25 @@ public:
     }
     SettingsController* getSettings() const { return m_settings.get(); }
 
+    ThemeBridge* theme() { return &m_theme; }
+
+    Q_INVOKABLE void syncTheme(QObject* obj) {
+        m_theme.syncFromAppPalette();
+    }
+
+    connectionStatus_t getConnStatus() { return connStatus;}
+
+    void setConnStatus(connectionStatus_t c) {
+        if (c != connStatus) {
+            connStatus =c;
+            emit connStatusChanged();
+        }
+    }
+
+    quint64 getStepSize() { return stepSize;}
+    void setStepSize(quint64 s);
+    QVariantMap getUiSpecs() const { return uiSpecs; }
+
 signals:
     void windowTitleChanged();
     void receiverCountChanged();
@@ -69,6 +126,11 @@ signals:
 
     void sendPowerOn();
     void sendPowerOff();
+    void connStatusChanged();
+
+    void stepSizeChanged();
+    void uiSpecsChanged();
+
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -81,8 +143,19 @@ private slots:
     void receiveRigCaps(rigCapabilities* caps);
     void receiveCommReady();
 
+    void ifChanged(prefIfItems items);
+    void colChanged(prefColItems items);
+    //void rsChanged(prefRsItems items);
+    //void raChanged(prefRaItems items);
+    //void ctChanged(prefCtItems items);
+    //void lanChanged(prefLanItems items);
+    //void clusterChanged(prefClusterItems items);
+    //void udpChanged(prefUDPItems items);
+    //void serverChanged(prefServerItems items);
 
 private:
+    void buildUiSpecs();
+    QVariantMap uiSpecs;
 
     //void setDefPrefs();
     //void loadSettings(QString file); // Look for saved preferences
@@ -126,6 +199,9 @@ private:
 
     std::unique_ptr<SettingsController> m_settings;
 
+    ThemeBridge m_theme;
+
+    quint64 stepSize=100; // should this be a setting?
 };
 
 #endif // MAINCONTROLLER_H

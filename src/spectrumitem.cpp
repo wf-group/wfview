@@ -253,6 +253,7 @@ void SpectrumItem::hoverLeaveEvent(QHoverEvent *event)
     }
 }
 
+/*
 void SpectrumItem::wheelEvent(QWheelEvent *event)
 {
 
@@ -271,7 +272,7 @@ void SpectrumItem::wheelEvent(QWheelEvent *event)
         event->ignore();
     }
 }
-
+*/
 
 void SpectrumItem::setMaxSpotRows(int rows)
 {

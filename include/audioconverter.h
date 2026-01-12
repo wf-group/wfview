@@ -51,6 +51,7 @@ struct audioPacket {
     float amplitudeRMS;
     qreal volume = 1.0;
 };
+Q_DECLARE_METATYPE(audioPacket)
 
 struct audioSetup {
     audioType type;
@@ -72,6 +73,7 @@ struct audioSetup {
     quint8 guid[GUIDLEN];
     void* tci = nullptr;
 };
+Q_DECLARE_METATYPE(audioSetup)
 
 class audioConverter : public QObject
 {

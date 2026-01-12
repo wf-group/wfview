@@ -554,9 +554,7 @@ void FreqCtrlQuick::mouseMoveEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
 {
-    qDebug() << "SpectrumItem press accepted before:" << event->isAccepted() << "pos" << event->position();
     event->setAccepted(true);
-    qDebug() << "SpectrumItem press accepted after:" << event->isAccepted();
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QPointF pt = event->localPos();

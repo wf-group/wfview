@@ -146,6 +146,8 @@ struct USBDEVICE {
     QImage image;
     quint8 ledStatus;
 };
+Q_DECLARE_METATYPE(USBDEVICE)
+Q_DECLARE_METATYPE(const USBDEVICE*)
 
 enum cmdValueType {cmdValueInc, cmdValueDec, cmdValueAbs };
 struct COMMAND {
@@ -169,6 +171,9 @@ struct COMMAND {
     rigMode_t mode=modeLSB;
     cmdValueType cmdValue=cmdValueAbs;
 };
+Q_DECLARE_METATYPE(COMMAND)
+Q_DECLARE_METATYPE(QVector<COMMAND>*)
+Q_DECLARE_METATYPE(const COMMAND*)
 
 struct BUTTON {
     BUTTON() {}
@@ -201,7 +206,8 @@ struct BUTTON {
     bool graphics = false;
     int led = 0;
 };
-
+Q_DECLARE_METATYPE(BUTTON)
+Q_DECLARE_METATYPE(QVector<BUTTON>*)
 
 struct KNOB {
     KNOB() {}
@@ -222,7 +228,8 @@ struct KNOB {
     QString path;
     int value=0;
 };
-
+Q_DECLARE_METATYPE(KNOB)
+Q_DECLARE_METATYPE(QVector<KNOB>*)
 
 typedef QMap<QString,USBDEVICE> usbDevMap;
 

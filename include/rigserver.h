@@ -71,6 +71,7 @@ struct SERVERCONFIG {
 	QList <SERVERUSER> users;
 	QList <RIGCONFIG*> rigs;
 };
+Q_DECLARE_METATYPE(SERVERCONFIG)
 
 enum prefServerItem {
     s_enabled = 1 << 0,
@@ -87,6 +88,9 @@ enum prefServerItem {
     s_rigs = 1 << 11,
     s_all = 1 << 12
 };
+
+Q_DECLARE_FLAGS(prefServerItems, prefServerItem)
+Q_FLAGS(prefServerItems)
 
 
 class rigServer : public QObject

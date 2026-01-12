@@ -30,10 +30,11 @@ Window {
         fileMode: PLATFORM.FileDialog.OpenFile
         options: PLATFORM.FileDialog.DontUseNativeDialog
         onAccepted: {
-            Qt.callLater(function() {
-                rig.loadFile(file) // Pass selected file URL to the controller
-            })
+            pendingFile = file
+            rig.loading = true        // if writable, or via a method
+            deferredLoad.start()
         }
+
         onRejected: {
             console.log("File dialog was canceled")
         }
@@ -101,11 +102,25 @@ Window {
         columns: ["Type","String","Min","Max","Bytes","PadRight","Command29","GetCommand","SetCommand","Admin"]
     }
 
+    IniSortProxy {
+        id: commandsProxy
+        sourceModel: commandsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: inputsModel
         store: rig.store
         group: "Rig/Inputs"
         columns: ["Num", "Reg", "Name"]
+    }
+
+    IniSortProxy {
+        id: inputsProxy
+        sourceModel: inputsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -115,6 +130,13 @@ Window {
         columns: ["Num", "Name"]
     }
 
+    IniSortProxy {
+        id: scopeModesProxy
+        sourceModel: scopeModesModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: widthsModel
         store: rig.store
@@ -122,11 +144,25 @@ Window {
         columns: ["Num", "Name", "Hz"]   // adjust if your Widths rows use different keys
     }
 
+    IniSortProxy {
+        id: widthsProxy
+        sourceModel: widthsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: modesModel
         store: rig.store
         group: "Rig/Modes"
         columns: ["Num", "Reg", "Min", "Max", "Name"]
+    }
+
+    IniSortProxy {
+        id: modesProxy
+        sourceModel: modesModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -139,11 +175,25 @@ Window {
         ]
     }
 
+    IniSortProxy {
+        id: bandsProxy
+        sourceModel: bandsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: tuningStepsModel
         store: rig.store
         group: "Rig/Tuning Steps"
         columns: ["Num", "Name", "Hz"]
+    }
+
+    IniSortProxy {
+        id: tuningStepsProxy
+        sourceModel: tuningStepsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -153,12 +203,25 @@ Window {
         columns: ["Priority", "Command", "VFO"]
     }
 
+    IniSortProxy {
+        id: periodicProxy
+        sourceModel: periodicModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
 
     IniTableModel {
         id: spansModel
         store: rig.store
         group: "Rig/Spans"
         columns: ["Num", "Name", "Freq"]
+    }
+
+    IniSortProxy {
+        id: spansProxy
+        sourceModel: spansModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -168,11 +231,25 @@ Window {
         columns: ["Num", "Modes", "Name"]
     }
 
+    IniSortProxy {
+        id: filtersProxy
+        sourceModel: filtersModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: preampsModel;
         store: rig.store;
         group: "Rig/Preamps";
         columns: ["Num","Name"]
+    }
+
+    IniSortProxy {
+        id: preampsProxy
+        sourceModel: preampsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -182,11 +259,25 @@ Window {
         columns: ["Num","Name"]
     }
 
+    IniSortProxy {
+        id: attenProxy
+        sourceModel: attenModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
     IniTableModel {
         id: metersModel
         store: rig.store
         group: "Rig/Meters"
         columns: ["Meter","RigVal","ActualVal","RedLine"]
+    }
+
+    IniSortProxy {
+        id: metersProxy
+        sourceModel: metersModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -196,11 +287,26 @@ Window {
         columns: ["Num", "Name"]
     }
 
+    IniSortProxy {
+        id: antennasProxy
+        sourceModel: antennasModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
+
     IniTableModel {
         id: attenuatorsModel
         store: rig.store
         group: "Rig/Attenuators"
         columns: ["Num", "Name"]
+    }
+
+    IniSortProxy {
+        id: attenuatorsProxy
+        sourceModel: attenuatorsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
     }
 
     IniTableModel {
@@ -210,12 +316,28 @@ Window {
         columns: ["Reg", "Tone"]
     }
 
+    IniSortProxy {
+        id: ctcssProxy
+        sourceModel: ctcssModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
+
     IniTableModel {
         id: dtcsModel
         store: rig.store
         group: "Rig/DTCS"
         columns: ["Reg"]
     }
+
+    IniSortProxy {
+        id: dtcsProxy
+        sourceModel: dtcsModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
+
 
     IniTableModel {
         id: roofingModel
@@ -224,6 +346,12 @@ Window {
         columns: ["Num", "Name", "Hz"]   // adjust once you show Roofing\1\... keys
     }
 
+    IniSortProxy {
+        id: roofingProxy
+        sourceModel: roofingModel
+        dynamicSortFilter: true
+        // sortRole: Qt.UserRole
+    }
 
     Connections {
         target: rig
@@ -292,6 +420,7 @@ Window {
         // IMPORTANT: do NOT redeclare "title" here (we use PanelFrame.title)
 
         property var model: null
+        property var sourceModel: null
         property var columns: []
         property bool alternating: true
 
@@ -310,6 +439,10 @@ Window {
         property var ctxCellData: null
         property string ctxCellText: ""
 
+        // sort state lives on panel (or root)
+        property int sortColumn: -1
+        property int sortOrder: Qt.AscendingOrder
+
 
         Menu {
             id: ctxMenu
@@ -324,48 +457,62 @@ Window {
                 onTriggered: panel.ctxCellData.display = Clipboard.text
             }
             MenuSeparator {}
-            MenuItem { text: "Add row"; onTriggered: panel.model.appendRow() }
-            MenuItem { text: "Delete row"; onTriggered: panel.model.removeRowAt(panel.ctxRow) }
+
+            MenuItem {
+                text: "Add row"
+                onTriggered: panel.sourceModel.appendRow()
+            }
+
+            MenuItem {
+                text: "Delete row"
+                enabled: panel.ctxRow >= 0
+                onTriggered: {
+                    var srcRow = panel.model.mapRowToSource(panel.ctxRow)
+                    if (srcRow >= 0)
+                        panel.sourceModel.removeRowAt(srcRow)
+                }
+
+            }
         }
-
-
-
-
-        // Helpers
         function isBoolLike(v) {
             if (typeof v === "boolean") return true
             if (typeof v === "number") return (v === 0 || v === 1)
             if (typeof v === "string") {
-                const s = v.trim().toLowerCase()
-                return (s === "true" || s === "false" || s === "0" || s === "1" || s === "yes" || s === "no" || s === "on" || s === "off")
+                var s = v.trim().toLowerCase()
+                return (s === "true" || s === "false" || s === "0" || s === "1" ||
+                        s === "yes" || s === "no" || s === "on" || s === "off")
             }
             return false
         }
+
         function toBool(v) {
             if (typeof v === "boolean") return v
             if (typeof v === "number") return v !== 0
             if (typeof v === "string") {
-                const s = v.trim().toLowerCase()
+                var s = v.trim().toLowerCase()
                 return (s === "true" || s === "1" || s === "yes" || s === "on")
             }
             return false
         }
 
-        // Convert QML color -> "#AARRGGBB" string for INI
+
         function toAARRGGBB(c) {
-            function hexByte(x) { return Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0") }
-            const a = hexByte(c.a * 255)
-            const r = hexByte(c.r * 255)
-            const g = hexByte(c.g * 255)
-            const b = hexByte(c.b * 255)
+            function hexByte(x) {
+                var v = Math.max(0, Math.min(255, Math.round(x))).toString(16)
+                return (v.length === 1) ? "0" + v : v
+            }
+            var a = hexByte(c.a * 255)
+            var r = hexByte(c.r * 255)
+            var g = hexByte(c.g * 255)
+            var b = hexByte(c.b * 255)
             return "#" + a + r + g + b
         }
 
-        // Parse strings like "#rrggbb" or "#aarrggbb" to a usable color
-        function parseColor(s) {
-            if (!s) return "#000000"
-            const str = String(s).trim()
-            if (str[0] === "#") return str
+
+        function parseColor(cs) {
+            if (!cs) return "#000000"
+            var str = String(cs).trim()
+            if (str.charAt(0) === "#") return str
             return "#000000"
         }
 
@@ -376,6 +523,7 @@ Window {
         PLATFORM.ColorDialog {
             id: colorDlg
             color: panel.parseColor(panel._colorCurrentString)
+            options: ColorDialog.ShowAlphaChannel
             onAccepted: {
                 if (!panel._colorTargetCellData) return
                 panel._colorTargetCellData.display = panel.toAARRGGBB(colorDlg.color)
@@ -387,215 +535,264 @@ Window {
             anchors.fill: parent
             spacing: 0
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: panel.headerHeight
-                color: panel.headerBg
-                border.color: panel.gridColor
-                border.width: 1
-                clip: true
-
-                Row {
-                    anchors.fill: parent
-                    spacing: 0
-                    clip: true
-
-                    Repeater {
-                        model: panel.columns.length
-                        Rectangle {
-                            width: panel.columns[index].width ?? 140
-                            height: parent.height
-                            color: panel.headerBg
-                            border.color: panel.gridColor
-                            border.width: 1
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 6
-                                anchors.right: parent.right
-                                anchors.rightMargin: 6
-                                text: panel.columns[index].title ?? ""
-                                color: panel.textColor
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-                }
-            }
-
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                TableView {
-                    id: tv
+                Column {
                     anchors.fill: parent
-                    clip: true
-                    model: panel.model
+                    spacing: 0
 
-                    rowSpacing: 0
-                    columnSpacing: 0
-
-                    ScrollBar.vertical: ScrollBar {}
-                    ScrollBar.horizontal: ScrollBar {}
-
-                    columnWidthProvider: function(col) {
-                        if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
-                        return panel.columns[col].width ?? 140
-                    }
-
-                    delegate: Rectangle {
-                        implicitHeight: panel.rowHeight
-                        visible: column < panel.columns.length
-
-                        property var cellData: model
-                        property var cellValue: (model.display !== undefined) ? model.display : ""
-
-                        readonly property var colDef: panel.columns[column] || ({})
-                        readonly property string editorType: String(colDef.editor || "").toLowerCase()
-
-                        color: (editorType === "color")
-                               ? panel.parseColor(cellValue)
-                               : (panel.alternating ? ((row % 2) ? panel.rowBgB : panel.rowBgA) : panel.rowBgA)
-
+                    // --- SINGLE header row (click to sort) ---
+                    Rectangle {
+                        id: headerBar
+                        width: parent.width
+                        height: panel.headerHeight
+                        color: panel.headerBg
                         border.color: panel.gridColor
                         border.width: 1
+                        clip: true
 
-                        Item {
+                        Row {
                             anchors.fill: parent
-                            anchors.margins: 2
+                            spacing: 0
 
-                            Loader {
-                                id: editorLoader
-                                anchors.fill: parent
+                            Repeater {
+                                model: panel.columns ? panel.columns.length : 0
 
-                                property var colDef: parent.parent.colDef
-                                property var cellDataRef: parent.parent.cellData
-                                property var cellValueRef: parent.parent.cellValue
+                                Rectangle {
+                                    width: tv.columnWidthProvider(index)
+                                    height: parent.height
+                                    color: panel.headerBg
+                                    border.color: panel.gridColor
+                                    border.width: 1
+                                    clip: true
 
-                                sourceComponent: {
-                                    const ed = (colDef.editor || "").toLowerCase()
-                                    if (ed === "combo" && colDef.choices) return comboEditor
-                                    if (ed === "bool") return boolEditor
-                                    if (ed === "color") return colorEditor
-                                    return textEditor
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 6
+                                        anchors.right: sortArrow.left
+                                        anchors.rightMargin: 6
+                                        elide: Text.ElideRight
+                                        text: panel.columns[index].title ?? ""
+                                        color: panel.textColor
+                                        font.bold: true
+                                    }
+
+                                    Text {
+                                        id: sortArrow
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 6
+                                        text: (panel.sortColumn === index)
+                                              ? (panel.sortOrder === Qt.AscendingOrder ? "▲" : "▼")
+                                              : ""
+                                        color: panel.textColor
+                                        opacity: 0.8
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            if (!panel.model) return
+
+                                            if (panel.sortColumn === index) {
+                                                panel.sortOrder = (panel.sortOrder === Qt.AscendingOrder)
+                                                                 ? Qt.DescendingOrder
+                                                                 : Qt.AscendingOrder
+                                            } else {
+                                                panel.sortColumn = index
+                                                panel.sortOrder = Qt.AscendingOrder
+                                            }
+
+                                            // This MUST be the proxy (IniSortProxy / QSortFilterProxyModel)
+                                            panel.model.sort(panel.sortColumn, panel.sortOrder)
+                                        }
+                                    }
                                 }
                             }
                         }
+                    }
 
-                        Component {
-                            id: textEditor
-                            TextField {
-                                text: {
-                                    const v = editorLoader.cellValueRef
-                                    const fmt = editorLoader.colDef.format || ""
-                                    if (fmt === "fixed1" && v !== undefined && v !== null)
-                                        return Number(v).toFixed(1)
-                                    return String(v ?? "")
-                                }
-                                color: panel.textColor
-                                background: Rectangle { color: "transparent" }
-                                selectByMouse: true
-                                onEditingFinished: editorLoader.cellDataRef.display = text
-                            }
+                    // --- Table ---
+                    TableView {
+                        id: tv
+                        width: parent.width
+                        height: parent.height - headerBar.height
+                        clip: true
+                        model: panel.model
+
+                        rowSpacing: 0
+                        columnSpacing: 0
+
+                        ScrollBar.vertical: ScrollBar {}
+                        ScrollBar.horizontal: ScrollBar {}
+
+                        columnWidthProvider: function(col) {
+                            if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
+                            return panel.columns[col].width ?? 140
                         }
 
-                        Component {
-                            id: boolEditor
-                            CheckBox {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: ""
-                                checked: panel.toBool(editorLoader.cellValueRef)
-                                onToggled: editorLoader.cellDataRef.display = checked
-                            }
-                        }
+                        delegate: Rectangle {
+                            implicitHeight: panel.rowHeight
+                            visible: column < panel.columns.length
 
-                        Component {
-                            id: comboEditor
+                            property var cellData: model
+                            property var cellValue: (model.display !== undefined) ? model.display : ""
+
+                            readonly property var colDef: panel.columns[column] || ({})
+                            readonly property string editorType: String(colDef.editor || "").toLowerCase()
+
+                            color: (editorType === "color")
+                                   ? panel.parseColor(cellValue)
+                                   : (panel.alternating ? ((row % 2) ? panel.rowBgB : panel.rowBgA) : panel.rowBgA)
+
+                            border.color: panel.gridColor
+                            border.width: 1
+
                             Item {
                                 anchors.fill: parent
+                                anchors.margins: 2
 
-                                property var choicesRef: editorLoader.colDef.choices || []
-                                property var valueRef: editorLoader.cellValueRef
-
-                                function syncCurrent() {
-                                    if (!cb || cb.count <= 0) return
-
-                                    const v = valueRef
-                                    for (let i = 0; i < cb.count; ++i) {
-                                        const it = cb.model[i]
-                                        if (it && it.value === v) { cb.currentIndex = i; return }
-                                    }
-                                    const sv = String(v ?? "")
-                                    for (let j = 0; i < cb.count; ++i) {
-                                        const it = cb.model[j]
-                                        if (it && String(it.text ?? "") === sv) { cb.currentIndex = j; return }
-                                    }
-                                    cb.currentIndex = -1
-                                }
-
-                                ComboBox {
-                                    id: cb
+                                Loader {
+                                    id: editorLoader
                                     anchors.fill: parent
-                                    model: choicesRef
-                                    textRole: "text"
-                                    valueRole: "value"
 
-                                    Component.onCompleted: Qt.callLater(syncCurrent)
-                                    onCountChanged: Qt.callLater(syncCurrent)
-                                    onActivated: editorLoader.cellDataRef.display = currentValue
+                                    property var colDef: parent.parent.colDef
+                                    property var cellDataRef: parent.parent.cellData
+                                    property var cellValueRef: parent.parent.cellValue
+
+                                    sourceComponent: {
+                                        var ed = (colDef.editor || "").toLowerCase()
+                                        if (ed === "combo" && colDef.choices) return comboEditor
+                                        if (ed === "bool") return boolEditor
+                                        if (ed === "color") return colorEditor
+                                        return textEditor
+                                    }
                                 }
-
-                                onChoicesRefChanged: Qt.callLater(syncCurrent)
-                                onValueRefChanged: Qt.callLater(syncCurrent)
                             }
-                        }
 
-                        // ---- COLOR EDITOR ----
-                        Component {
-                            id: colorEditor
-                            Item {
-                                anchors.fill: parent
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: String(editorLoader.cellValueRef ?? "")
+                            Component {
+                                id: textEditor
+                                TextField {
+                                    text: {
+                                        var v = editorLoader.cellValueRef
+                                        var fmt = editorLoader.colDef.format || ""
+                                        if (fmt === "fixed1" && v !== undefined && v !== null)
+                                            return Number(v).toFixed(1)
+                                        return String(v ?? "")
+                                    }
                                     color: panel.textColor
-                                    elide: Text.ElideRight
+                                    background: Rectangle { color: "transparent" }
+                                    selectByMouse: true
+                                    onEditingFinished: editorLoader.cellDataRef.display = text
                                 }
+                            }
 
-                                MouseArea {
+                            Component {
+                                id: boolEditor
+                                CheckBox {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: ""
+                                    checked: panel.toBool(editorLoader.cellValueRef)
+                                    onToggled: editorLoader.cellDataRef.display = checked
+                                }
+                            }
+
+                            Component {
+                                id: comboEditor
+                                Item {
                                     anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        panel._colorTargetCellData = editorLoader.cellDataRef
-                                        panel._colorCurrentString = String(editorLoader.cellValueRef ?? "#ff000000")
-                                        colorDlg.open()
+
+                                    property var choicesRef: editorLoader.colDef.choices || []
+                                    property var valueRef: editorLoader.cellValueRef
+
+                                    function syncCurrent() {
+                                        if (!cb || cb.count <= 0) return
+
+                                        var v = valueRef
+
+                                        for (var i = 0; i < cb.count; ++i) {
+                                            var it = cb.model[i]
+                                            if (it && it.value === v) { cb.currentIndex = i; return }
+                                        }
+
+                                        var sv = String((v !== undefined && v !== null) ? v : "")
+
+                                        for (var j = 0; j < cb.count; ++j) {
+                                            var it2 = cb.model[j]
+                                            var t = (it2 && it2.text !== undefined && it2.text !== null) ? it2.text : ""
+                                            if (it2 && String(t) === sv) { cb.currentIndex = j; return }
+                                        }
+
+                                        cb.currentIndex = -1
+                                    }
+
+
+                                    ComboBox {
+                                        id: cb
+                                        anchors.fill: parent
+                                        model: choicesRef
+                                        textRole: "text"
+                                        valueRole: "value"
+
+                                        Component.onCompleted: Qt.callLater(syncCurrent)
+                                        onCountChanged: Qt.callLater(syncCurrent)
+                                        onActivated: editorLoader.cellDataRef.display = currentValue
+                                    }
+
+                                    onChoicesRefChanged: Qt.callLater(syncCurrent)
+                                    onValueRefChanged: Qt.callLater(syncCurrent)
+                                }
+                            }
+
+                            // ---- COLOR EDITOR ----
+                            Component {
+                                id: colorEditor
+                                Item {
+                                    anchors.fill: parent
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: String(editorLoader.cellValueRef ?? "")
+                                        color: panel.textColor
+                                        elide: Text.ElideRight
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            panel._colorTargetCellData = editorLoader.cellDataRef
+                                            panel._colorCurrentString = String(editorLoader.cellValueRef ?? "#ff000000")
+                                            colorDlg.open()
+                                        }
                                     }
                                 }
                             }
-                        }
-                        MouseArea {
-                            id: cellMouse
-                            anchors.fill: parent
-                            acceptedButtons: Qt.RightButton
+                            MouseArea {
+                                id: cellMouse
+                                anchors.fill: parent
+                                acceptedButtons: Qt.RightButton
 
-                            onPressed: function(mouse) {
-                                if (mouse.button !== Qt.RightButton)
-                                    return
-                                panel.ctxRow = row
-                                panel.ctxCol = column
-                                panel.ctxCellData = cellData
-                                panel.ctxCellText = String(cellValue ?? "")
+                                onPressed: function(mouse) {
+                                    if (mouse.button !== Qt.RightButton)
+                                        return
+                                    panel.ctxRow = row
+                                    panel.ctxCol = column
+                                    panel.ctxCellData = cellData
+                                    panel.ctxCellText = String(cellValue ?? "")
 
-                                // Convert from this MouseArea's local coords -> panel coords
-                                const p = panel.mapFromItem(cellMouse, mouse.x, mouse.y)
+                                    // Convert from this MouseArea's local coords -> panel coords
+                                    var p = panel.mapFromItem(cellMouse, mouse.x, mouse.y)
 
-                                ctxMenu.x = p.x
-                                ctxMenu.y = p.y
-                                ctxMenu.open()
-                                mouse.accepted = true
+                                    ctxMenu.x = p.x
+                                    ctxMenu.y = p.y
+                                    ctxMenu.open()
+                                    mouse.accepted = true
+                                }
                             }
                         }
                     }
@@ -681,7 +878,7 @@ Window {
 
                 function applySetting() {
                     // Coerce to int so it matches your model values
-                    const v = parseInt(rig.settings["Rig/Manufacturer"] ?? 0)
+                    var v = parseInt(rig.settings["Rig/Manufacturer"] ?? 0)
                     for (let i = 0; i < count; ++i) {
                         if (parseInt(model[i].value) === v) {
                             currentIndex = i
@@ -764,55 +961,75 @@ Window {
 
                     // Small tables row (will wrap as needed)
                     FlowPanel { prefW: 160; prefH: 220
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Inputs"
-                            model: inputsModel
-                            columns: [
-                              { title: "Num",  name: "Num",  width: 40 },
-                              { title: "Reg",  name: "Reg",  width: 40 },
-                              { title: "Name", name: "Name", width: 70 }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Inputs"
+                                model: inputsProxy
+                                sourceModel: inputsModel
+                                columns: [
+                                  { title: "Num",  name: "Num",  width: 40 },
+                                  { title: "Reg",  name: "Reg",  width: 40 },
+                                  { title: "Name", name: "Name", width: 70 }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 160; prefH: 220
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Scope Modes"
-                            model: scopeModesModel
-                            columns: [
-                              { title: "Num",  name: "Num",  width: 40 },
-                              { title: "Name", name: "Name", width: 120 }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Scope Modes"
+                                model: scopeModesProxy
+                                sourceModel: scopeModesModel
+                                columns: [
+                                  { title: "Num",  name: "Num",  width: 40 },
+                                  { title: "Name", name: "Name", width: 120 }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 160; prefH: 220
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Widths"
-                            model: widthsModel
-                            columns: [
-                              { title: "Bands", name: "Bands", width: 40 },
-                              { title: "Num",   name: "Num",   width: 40 },
-                              { title: "Hz",    name: "Hz",    width: 80 }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Widths"
+                                model: widthsProxy
+                                sourceModel: widthsModel
+                                columns: [
+                                  { title: "Bands", name: "Bands", width: 40 },
+                                  { title: "Num",   name: "Num",   width: 40 },
+                                  { title: "Hz",    name: "Hz",    width: 80 }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 260; prefH: 220
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Modes"
-                            model: modesModel
-                            columns: [
-                              { title: "Num",  name: "Num",  width: 40 },
-                              { title: "Reg",  name: "Reg",  width: 40 },
-                              { title: "Min",  name: "Min",  width: 50 },
-                              { title: "Max",  name: "Max",  width: 50 },
-                              { title: "Name", name: "Name", width: 80 }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Modes"
+                                model: modesProxy
+                                sourceModel: modesModel
+                                columns: [
+                                  { title: "Num",  name: "Num",  width: 40 },
+                                  { title: "Reg",  name: "Reg",  width: 40 },
+                                  { title: "Min",  name: "Min",  width: 50 },
+                                  { title: "Max",  name: "Max",  width: 50 },
+                                  { title: "Name", name: "Name", width: 80 }
+                                ]
+                            }
                         }
                     }
 
@@ -820,164 +1037,229 @@ Window {
 
                     // Big tables become "full row" so they always use all available width
                     FlowPanel { prefW: 750; prefH: 320
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Commands"
-                            model: commandsModel
-                            columns: [
-                                { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
-                                { title: "Command", name: "String",     width: 140 },
-                                { title: "Min",     name: "Min",        width: 60  },
-                                { title: "Max",     name: "Max",        width: 60  },
-                                { title: "Bytes",   name: "Bytes",      width: 50  },
-                                { title: "PadR",    name: "PadRight",   width: 50, editor: "bool" },
-                                { title: "Cmd29",   name: "Command29",  width: 60, editor: "bool" },
-                                { title: "Get",     name: "GetCommand", width: 40, editor: "bool" },
-                                { title: "Set",     name: "SetCommand", width: 40, editor: "bool" },
-                                { title: "Admin",   name: "Admin",      width: 60, editor: "bool" }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                title: "Commands"
+                                model: commandsProxy
+                                sourceModel: commandsModel
+                                columns: [
+                                    { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: "Command", name: "String",     width: 140 },
+                                    { title: "Min",     name: "Min",        width: 60  },
+                                    { title: "Max",     name: "Max",        width: 60  },
+                                    { title: "Bytes",   name: "Bytes",      width: 50  },
+                                    { title: "PadR",    name: "PadRight",   width: 50, editor: "bool" },
+                                    { title: "Cmd29",   name: "Command29",  width: 60, editor: "bool" },
+                                    { title: "Get",     name: "GetCommand", width: 40, editor: "bool" },
+                                    { title: "Set",     name: "SetCommand", width: 40, editor: "bool" },
+                                    { title: "Admin",   name: "Admin",      width: 60, editor: "bool" }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 900 ; prefH: 360
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Bands"
-                            model: bandsModel
-                            columns: [
-                              { title: "Region", name: "Region",      width: 60 },
-                              { title: "Num",    name: "Num",         width: 40 },
-                              { title: "BSR",    name: "BSR",         width: 40 },
-                              { title: "Start",  name: "Start",       width: 100 },
-                              { title: "End",    name: "End",         width: 100 },
-                              { title: "Range",  name: "Range",       width: 60 },
-                              { title: "MemGrp", name: "MemoryGroup", width: 80 },
-                              { title: "Name",   name: "Name",        width: 80 },
-                              { title: "Bytes",  name: "Bytes",       width: 60 },
-                              { title: "Power",  name: "Power",       width: 60 },
-                              { title: "Ant",    name: "Antennas",    width: 40, editor: "bool" },
-                              { title: "Offset", name: "Offset",      width: 80 },
-                              { title: "Color",  name: "Color",       width: 100, editor: "color" }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Bands"
+                                model: bandsProxy
+                                sourceModel: bandsModel
+                                columns: [
+                                  { title: "Region", name: "Region",      width: 60 },
+                                  { title: "Num",    name: "Num",         width: 40 },
+                                  { title: "BSR",    name: "BSR",         width: 40 },
+                                  { title: "Start",  name: "Start",       width: 100 },
+                                  { title: "End",    name: "End",         width: 100 },
+                                  { title: "Range",  name: "Range",       width: 60 },
+                                  { title: "MemGrp", name: "MemoryGroup", width: 80 },
+                                  { title: "Name",   name: "Name",        width: 80 },
+                                  { title: "Bytes",  name: "Bytes",       width: 60 },
+                                  { title: "Power",  name: "Power",       width: 60 },
+                                  { title: "Ant",    name: "Antennas",    width: 40, editor: "bool" },
+                                  { title: "Offset", name: "Offset",      width: 80 },
+                                  { title: "Color",  name: "Color",       width: 100, editor: "color" }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 220; prefH: 260
-                       TablePanel {
-                           anchors.fill: parent
-                           title: "Tuning Steps"
-                           model: tuningStepsModel
-                           columns: [
-                             { title: "Num",  name: "Num",  width: 40 },
-                             { title: "Name", name: "Name", width: 100 },
-                             { title: "Hz",   name: "Hz",   width: 80 }
-                           ]
-                       }
+                        Loader {
+                            anchors.fill: parent
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Tuning Steps"
+                                model: tuningStepsProxy
+                                sourceModel: tuningStepsModel
+                                columns: [
+                                     { title: "Num",  name: "Num",  width: 40 },
+                                     { title: "Name", name: "Name", width: 100 },
+                                     { title: "Hz",   name: "Hz",   width: 80 }
+                                ]
+                            }
+                        }
                     }
 
                     FlowPanel { prefW: 370; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Periodic Commands"
-                            model: periodicModel
-                            columns: [
-                                { title: "Priority", name: "Priority", width: 140, editor: "combo", choices: [
-                                    { text: "Highest", value: "Highest" },
-                                    { text: "High", value: "High" },
-                                    { text: "Medium High", value: "Medium High" },
-                                    { text: "Medium", value: "Medium" },
-                                    { text: "Medium Low", value: "Medium Low" },
-                                    { text: "Low", value: "Low" }
-                                ]},
-                                { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
-                                { title: "VFO",     name: "VFO",     width: 40 }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Periodic Commands"
+                                model: periodicProxy
+                                sourceModel: periodicModel
+                                columns: [
+                                    { title: "Priority", name: "Priority", width: 140, editor: "combo", choices: [
+                                        { text: "Highest", value: "Highest" },
+                                        { text: "High", value: "High" },
+                                        { text: "Medium High", value: "Medium High" },
+                                        { text: "Medium", value: "Medium" },
+                                        { text: "Medium Low", value: "Medium Low" },
+                                        { text: "Low", value: "Low" }
+                                    ]},
+                                    { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: "VFO",     name: "VFO",     width: 40 }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 120; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Antennas";
-                            model: antennasModel;
-                            columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Antennas";
+                                model: antennasProxy;
+                                sourceModel: antennasModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 120; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Attenuators";
-                            model: attenuatorsModel;
-                            columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Attenuators";
+                                model: attenuatorsProxy;
+                                sourceModel: attenuatorsModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 170; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Filters";
-                            model: filtersModel;
-                            columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Modes", name: "Modes", width: 50 }, { title: "Name", name: "Name", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Filters";
+                                model: filtersProxy
+                                sourceModel: filtersModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Modes", name: "Modes", width: 50 }, { title: "Name", name: "Name", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 200; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Spans"; model:
-                            spansModel; columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }, { title: "Freq", name: "Freq", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Spans"
+                                model: spansProxy
+                                sourceModel: spansModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }, { title: "Freq", name: "Freq", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 120; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Preamps";
-                            model: preampsModel;
-                            columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Preamps"
+                                model: preampsProxy
+                                sourceModel: preampsModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 110; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "CTCSS";
-                            model: ctcssModel;
-                            columns: [
-                            { title: "Reg", name: "Reg", width: 40 }, { title: "Tone", name: "Tone", width: 70, format: "fixed1" }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "CTCSS";
+                                model: ctcssProxy
+                                sourceModel: ctcssModel
+                                columns: [
+                                { title: "Reg", name: "Reg", width: 40 }, { title: "Tone", name: "Tone", width: 70, format: "fixed1" }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 90; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "DTCS";
-                            model: dtcsModel;
-                            columns: [{ title: "Reg", name: "Reg", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "DTCS";
+                                model: dtcsProxy
+                                sourceModel: dtcsModel
+                                columns: [{ title: "Reg", name: "Reg", width: 80 }]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 250; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Meters";
-                            model: metersModel;
-                            columns: [
-                                { title: "Meter", name: "Meter", width: 80 },
-                                { title: "Rig", name: "RigVal", width: 60 },
-                                { title: "Act", name: "ActualVal", width: 60 },
-                                { title: "Red", name: "RedLine", width: 40, editor: "bool" }
-                            ]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Meters";
+                                model: metersProxy
+                                sourceModel: metersModel
+                                columns: [
+                                    { title: "Meter", name: "Meter", width: 80 },
+                                    { title: "Rig", name: "RigVal", width: 60 },
+                                    { title: "Act", name: "ActualVal", width: 60 },
+                                    { title: "Red", name: "RedLine", width: 40, editor: "bool" }
+                                ]
+                            }
                         }
                     }
 
                     FlowPanel { prefW: 120; prefH: 260
-                        TablePanel {
+                        Loader {
                             anchors.fill: parent
-                            title: "Roofing";
-                            model: roofingModel;
-                            columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            active: rigCreator.visible && !rig.loading
+                            sourceComponent: TablePanel {
+                                anchors.fill: parent
+                                title: "Roofing";
+                                model: roofingProxy
+                                sourceModel: roofingModel
+                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                            }
                         }
                     }
                 }
@@ -1086,7 +1368,7 @@ Window {
             Layout.preferredHeight: 44
             spacing: 8
             Item { Layout.fillWidth: true }
-            Button { text: "Close"; onClicked: dlg.close() }
+            Button { text: "Close"; onClicked: rigCreator.close() }
         }
     }
 }

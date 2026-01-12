@@ -2,6 +2,9 @@
 #include <QtCore/QCoreApplication>
 #include "keyboard.h"
 #else
+#include <QtQml/qqml.h>   // declares qmlRegisterSingletonType/Instance
+#include <QQmlEngine>
+#include <QJSEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QGuiApplication>
@@ -120,42 +123,68 @@ int main(int argc, char *argv[])
 #endif
     QApplication a(argc, argv);
 
-/*
- * // This code will log current window behaviour
-    QObject::connect(qApp, &QGuiApplication::focusWindowChanged,
-                     [](QWindow *w) {
-                         qInfo() << "[focusWindowChanged]" << w
-                                  << (w ? w->title() : QString());
-                     });
-
-    QTimer::singleShot(0, []() {
-        qInfo() << "Startup windows:";
-
-        const auto windows = QGuiApplication::allWindows();
-        for (QWindow *w : windows) {
-            qInfo() << "  -" << w << "title:" << w->title()
-            << "flags:" << w->flags()
-            << "visible:" << w->isVisible();
-        }
-    });
-
-    QTimer::singleShot(500, []() {
-        qInfo() << "Windows after 500ms:";
-        const auto windows = QGuiApplication::allWindows();
-        for (QWindow *w : windows) {
-            qInfo() << "  -" << w << "title:" << w->title()
-            << "visible:" << w->isVisible();
-        }
-    });
-
-*/
-
     a.setApplicationName("wfview");
 
 #endif
 
+    qRegisterMetaType<rigInfo>("rigInfo");
+    qRegisterMetaType<rigTypedef>("rigTypedef");
+
+    qRegisterMetaType<udpPreferences>("udpPreferences"); // Needs to be registered early.
+    qRegisterMetaType<manufacturersType_t>("manufacturersType_t");
+    qRegisterMetaType<connectionType_t>("connectionType_t");
+    qRegisterMetaType<rigCapabilities>("rigCapabilities");
+    qRegisterMetaType<duplexMode_t>("duplexMode_t");
+    qRegisterMetaType<rptAccessTxRx_t>("rptAccessTxRx_t");
+    qRegisterMetaType<rptrAccessData>();
+    qRegisterMetaType<toneInfo>();
+    qRegisterMetaType<rigInput>();
+    qRegisterMetaType<inputTypes>();
+    qRegisterMetaType<meter_t>();
+    qRegisterMetaType<meterkind>();
+    qRegisterMetaType<freqt>();
+    qRegisterMetaType<vfo_t>();
+    qRegisterMetaType<modeInfo>();
+    qRegisterMetaType<rigMode_t>();
+    qRegisterMetaType<pttType_t>();
+    qRegisterMetaType<audioPacket>();
+    qRegisterMetaType<audioSetup>();
+    qRegisterMetaType<SERVERCONFIG>();
+    qRegisterMetaType<timekind>();
+    qRegisterMetaType<datekind>();
+    qRegisterMetaType<QList<radio_cap_packet>>();
+    qRegisterMetaType<QVector<BUTTON>*>();
+    qRegisterMetaType<QVector<KNOB>*>();
+    qRegisterMetaType<QVector<COMMAND>*>();
+    qRegisterMetaType<const COMMAND*>();
+    qRegisterMetaType<const USBDEVICE*>();
+    qRegisterMetaType<QList<radio_cap_packet>>();
+    qRegisterMetaType<QVector<spotData>>();
+    qRegisterMetaType<networkStatus>();
+    qRegisterMetaType<networkAudioLevels>();
+    qRegisterMetaType<codecType>();
+    qRegisterMetaType<errorType>();
+    qRegisterMetaType<usbFeatureType>();
+    qRegisterMetaType<funcs>();
+    qRegisterMetaType<memoryType>();
+    qRegisterMetaType<memoryTagType>();
+    qRegisterMetaType<memorySplitType>();
+    qRegisterMetaType<antennaInfo>();
+    qRegisterMetaType<queueItem>();
+    qRegisterMetaType<cacheItem>();
+    qRegisterMetaType<spectrumBounds>();
+    qRegisterMetaType<centerSpanData>();
+    qRegisterMetaType<bandStackType>();
+    qRegisterMetaType<widthsType>();
+    qRegisterMetaType<yaesu_scope_data>();
+    qRegisterMetaType<lpfhpf>();
+    qRegisterMetaType<clusterSettings>();
+    qRegisterMetaType<colorPrefsType>();
+    qRegisterMetaType<scopeData>();
+
     a.setOrganizationName("wfview");
     a.setOrganizationDomain("wfview.org");
+
 
 #ifdef QT_DEBUG
     //debugMode = true;
@@ -368,7 +397,7 @@ int main(int argc, char *argv[])
     auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, &a);
     QObject::connect(&a, &QCoreApplication::aboutToQuit, g_mwc.get(), &MainController::shutdown);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)   
     qmlRegisterSingletonInstance("WFVIEW", 1, 0, "MainController", g_mwc.get());
     qmlRegisterSingletonInstance("WFVIEW", 1, 0, "Logging", g_log.get());
 #else
@@ -401,12 +430,35 @@ int main(int argc, char *argv[])
 
     // Helpers
     qmlRegisterType<IniTableModel>("WFVIEW", 1, 0, "IniTableModel");
+    qmlRegisterType<IniSortProxy>("WFVIEW", 1, 0, "IniSortProxy");
     qmlRegisterSingletonType<ClipboardProxy>("WFVIEW", 1, 0, "Clipboard",
                                              [](QQmlEngine*, QJSEngine*) -> QObject* { return new ClipboardProxy; });
 
+
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                     &a,
+                     [&a](QObject *obj, const QUrl &url) {
+                         if (obj)
+                             return;
+
+                         const QString msg = QStringLiteral("Failed to load QML:\n%1").arg(url.toString());
+                         QMessageBox::critical(nullptr, QStringLiteral("Startup error"), msg);
+
+                         // Ensure we really quit even if something is half-initialized
+                         QMetaObject::invokeMethod(&a, "quit", Qt::QueuedConnection);
+                     },
+                     Qt::QueuedConnection);
+
+
     engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
     if (engine.rootObjects().isEmpty())
+    {
+        QMessageBox::critical(nullptr, QStringLiteral("Startup error"), "rootObjects is empty");
         return -1;
+    }
+
+    qInfo() << "connStatus index:"
+            << g_mwc->metaObject()->indexOfProperty("connStatus");
 
     // This needs to be removed eventually
     //wfmain w(settingsFile, logFilename, debugMode);

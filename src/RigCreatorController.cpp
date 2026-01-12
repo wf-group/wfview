@@ -84,6 +84,7 @@ bool RigCreatorController::saveFile(QString file)
 void RigCreatorController::closeEvent(QCloseEvent *event)
 {
 
+    Q_UNUSED(event)
     if (settingsChanged)
     {
         // Settings have changed since last save

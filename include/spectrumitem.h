@@ -135,7 +135,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void hoverMoveEvent(QHoverEvent *event) override;
     void hoverLeaveEvent(QHoverEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
+    //void wheelEvent(QWheelEvent *event) override;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     void geometryChange(const QRectF &newG, const QRectF &oldG) override;

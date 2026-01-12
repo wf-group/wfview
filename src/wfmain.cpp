@@ -110,58 +110,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     connect(setupui, SIGNAL(havePortError(errorType)), this, SLOT(receivePortError(errorType)));
 
 
-    qRegisterMetaType<udpPreferences>(); // Needs to be registered early.
-    qRegisterMetaType<manufacturersType_t>();
-    qRegisterMetaType<connectionType_t>();
-    qRegisterMetaType<rigCapabilities>();
-    qRegisterMetaType<duplexMode_t>();
-    qRegisterMetaType<rptAccessTxRx_t>();
-    qRegisterMetaType<rptrAccessData>();
-    qRegisterMetaType<toneInfo>();
-    qRegisterMetaType<rigInput>();
-    qRegisterMetaType<inputTypes>();
-    qRegisterMetaType<meter_t>();
-    qRegisterMetaType<meterkind>();
-    qRegisterMetaType<freqt>();
-    qRegisterMetaType<vfo_t>();
-    qRegisterMetaType<modeInfo>();
-    qRegisterMetaType<rigMode_t>();
-    qRegisterMetaType<pttType_t>();
-    qRegisterMetaType<audioPacket>();
-    qRegisterMetaType<audioSetup>();
-    qRegisterMetaType<SERVERCONFIG>();
-    qRegisterMetaType<timekind>();
-    qRegisterMetaType<datekind>();
-    qRegisterMetaType<QList<radio_cap_packet>>();
-    qRegisterMetaType<QVector<BUTTON>*>();
-    qRegisterMetaType<QVector<KNOB>*>();
-    qRegisterMetaType<QVector<COMMAND>*>();
-    qRegisterMetaType<const COMMAND*>();
-    qRegisterMetaType<const USBDEVICE*>();
-    qRegisterMetaType<QList<radio_cap_packet>>();
-    qRegisterMetaType<QVector<spotData>>();
-    qRegisterMetaType<networkStatus>();
-    qRegisterMetaType<networkAudioLevels>();
-    qRegisterMetaType<codecType>();
-    qRegisterMetaType<errorType>();
-    qRegisterMetaType<usbFeatureType>();
-    qRegisterMetaType<funcs>();
-    qRegisterMetaType<rigTypedef>();
-    qRegisterMetaType<memoryType>();
-    qRegisterMetaType<memoryTagType>();
-    qRegisterMetaType<memorySplitType>();
-    qRegisterMetaType<antennaInfo>();
-    qRegisterMetaType<queueItem>();
-    qRegisterMetaType<cacheItem>();
-    qRegisterMetaType<spectrumBounds>();
-    qRegisterMetaType<centerSpanData>();
-    qRegisterMetaType<bandStackType>();
-    qRegisterMetaType<widthsType>();
-    qRegisterMetaType<yaesu_scope_data>();
-    qRegisterMetaType<rigInfo>();
-    qRegisterMetaType<lpfhpf>();
 
-    qRegisterMetaType<scopeData>();
 
     this->setObjectName("wfmain");
     queue = cachingQueue::getInstance(this);

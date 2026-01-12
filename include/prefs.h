@@ -37,7 +37,7 @@ enum prefIfItem {
     if_separators = 1 << 24,
     if_forceVfoMode = 1 << 25,
     if_autoPowerOn = 1 << 26,
-    if_all = 1 << 27
+    if_all = ~0
 };
 
 enum prefColItem {
@@ -71,7 +71,7 @@ enum prefColItem {
     col_clusterSpots = 1 << 27,
     col_buttonOff = 1 << 28,
     col_buttonOn = 1 << 29,
-    col_all = 1 << 30
+    col_all = ~0
 };
 
 enum prefRsItem {
@@ -87,7 +87,7 @@ enum prefRsItem {
     rs_satOps = 1 << 9,
     rs_adjRef = 1 << 10,
     rs_debug = 1 << 11,
-    rs_all = 1 << 12
+    rs_all = ~0
 };
 
 enum prefRaItem {
@@ -102,7 +102,7 @@ enum prefRaItem {
     ra_localAFgain = 1 << 8,
     ra_audioSystem = 1 << 9,
     ra_manufacturer = 1 << 10,
-    ra_all = 1 << 11
+    ra_all = ~0
 };
 
 enum prefCtItem {
@@ -112,7 +112,7 @@ enum prefCtItem {
     ct_enableUSBControllers = 1 << 3,
     ct_USBControllersSetup = 1 << 4,
     ct_USBControllersReset = 1 << 5,
-    ct_all = 1 << 6
+    ct_all = ~0
 };
 
 enum prefLanItem {
@@ -122,7 +122,7 @@ enum prefLanItem {
     l_tcpPort = 1 << 3,
     l_tciPort = 1 << 4,
     l_waterfallFormat = 1 << 5,
-    l_all = 1 << 6
+    l_all = ~0
 };
 
 enum prefClusterItem {
@@ -137,7 +137,7 @@ enum prefClusterItem {
     cl_clusterSkimmerSpotsEnable = 1 << 8,
     cl_clusterTcpConnect = 1 << 9,
     cl_clusterTcpDisconnect = 1 << 10,
-    cl_all = 1 << 11
+    cl_all = ~0
 };
 
 enum prefUDPItem {
@@ -160,10 +160,9 @@ enum prefUDPItem {
     u_audioOutput = 1 << 16,
     u_connectionType = 1 << 17,
     u_adminLogin = 1 << 18,
-    u_all = 1 << 19
+    u_all = ~0
 };
 
-/* All below will be deprecated M0VSE */
 
 struct preferences {
     // Program:

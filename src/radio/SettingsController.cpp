@@ -1,9 +1,25 @@
 #include "SettingsController.h"
 #include "logcategories.h"
 
+
+static inline QVariant qColorToVariant(const QColor& c) {
+    return QVariant::fromValue(c);
+}
+
+static inline QColor variantToQColor(const QVariant& v) {
+    if (v.canConvert<QColor>()) return v.value<QColor>();
+    // allow "#AARRGGBB" or "#RRGGBB"
+    const QString s = v.toString().trimmed();
+    QColor c(s);
+    return c;
+}
+
+
 SettingsController::SettingsController(QString file, QObject *p) : QObject(p)
 {
-    qInfo(logSystem) << "Creating SettingsConntroller() to load settings";
+    qInfo(logSystem) << "Creating SettingsController() to load settings";
+
+    setObjectName("MainSettingsController");
 
     if (!file.isNull())
     {
@@ -24,8 +40,94 @@ SettingsController::SettingsController(QString file, QObject *p) : QObject(p)
     } else {
         settings = std::make_unique<QSettings>();
     }
+
+    m_options = new QQmlPropertyMap(this);
+    m_clusterModel = std::make_unique<ClusterSettingsModel>();
+
+
     setDefPrefs();
-    load();    
+    load();
+    buildUiSpecs();
+
+    // buildBindings() will attach all preferences items to the QML lookup for easy updating.
+    buildBindings();
+    seedOptionsFromBindings();
+
+    m_clusterModel->setFromList(prefs.clusters);
+}
+
+void SettingsController::buildUiSpecs()
+{
+    // First create comboBox models
+    QVariantList values;
+    uiSpecs.clear();
+
+    // Audio input devices
+    for (auto &a: audioDev->getInputList()) {
+        qInfo() << "added audio input device::::" << a;
+        values.append(QVariantMap{
+            {"text",  a->name},
+            {"value", a->name}
+        });
+    }
+
+    uiSpecs["audioInputs"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", -1},
+        {"model", values},
+        {"visible",!values.empty()}
+    };
+
+    values.clear();
+    for (auto &a: audioDev->getOutputList()) {
+        values.append(QVariantMap{
+            {"text",  a->name},
+            {"value", a->name}
+        });
+    }
+
+    uiSpecs["audioOutputs"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", -1},
+        {"model", values},
+        {"visible",!values.empty()}
+    };
+
+    values.clear();
+    for (auto &a: QSerialPortInfo::availablePorts()) {
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+        values.append(QVariantMap{
+            {"text",  QString("%0 (%1)").arg(a.portName(),a.serialNumber())},
+            {"value", QString("/dev/%0").arg(a.portName())}
+        });
+#else
+        values.append(QVariantMap{
+            {"text",  QString("%0 (%1)").arg(a.portName(),a.serialNumber())},
+            {"value", a.portName()}
+        });
+#endif
+    }
+
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    values.append(QVariantMap{
+        {"text",  "Manual ..."},
+        {"value", 256}
+    });
+#endif
+
+    uiSpecs["SerialPorts"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", -1},
+        {"model", values},
+        {"visible",!values.empty()}
+    };
+
+    values.clear();
+
+    emit uiSpecsChanged();
 }
 
 void SettingsController::load()
@@ -629,11 +731,401 @@ void SettingsController::load()
     */
 
     prefs.settingsChanged = false;
-
+    m_dirty = false;
+    emit dirtyChanged();
 }
 
-void SettingsController::save() const
+void SettingsController::save()
 {
+    qInfo(logSystem()) << "Saving settings to " << settings->fileName();
+    // Basic things to load:
+
+    prefs.clusters = m_clusterModel->toList();
+
+    QString versionstr = QString(WFVIEW_VERSION);
+    QString majorVersion = "-1";
+    QString minorVersion = "-1";
+    if(versionstr.contains(".") && (versionstr.split(".").length() == 2))
+    {
+        majorVersion = versionstr.split(".").at(0);
+        minorVersion = versionstr.split(".").at(1);
+    }
+
+    settings->beginGroup("Program");
+    settings->setValue("version", versionstr);
+    settings->setValue("majorVersion", int(majorVersion.toInt()));
+    settings->setValue("minorVersion", int(minorVersion.toInt()));
+    settings->setValue("gitShort", QString(GITSHORT));
+    settings->setValue("hasRunSetup", prefs.hasRunSetup);
+    settings->endGroup();
+
+    // UI: (full screen, dark theme, draw peaks, colors, etc)
+    settings->beginGroup("Interface");
+    settings->setValue("UseFullScreen", prefs.useFullScreen);
+    settings->setValue("UseSystemTheme", prefs.useSystemTheme);
+    settings->setValue("WFEnable", prefs.wfEnable);
+    settings->setValue("DrawPeaks", prefs.drawPeaks);
+    settings->setValue("underlayMode", prefs.underlayMode);
+    settings->setValue("underlayBufferSize", prefs.underlayBufferSize);
+    settings->setValue("WFAntiAlias", prefs.wfAntiAlias);
+    settings->setValue("WFInterpolate", prefs.wfInterpolate);
+    settings->setValue("MainWFTheme", prefs.mainWfTheme);
+    settings->setValue("SubWFTheme", prefs.subWfTheme);
+    settings->setValue("MainPlotFloor", prefs.mainPlotFloor);
+    settings->setValue("SubPlotFloor", prefs.subPlotFloor);
+    settings->setValue("MainPlotCeiling", prefs.mainPlotCeiling);
+    settings->setValue("SubPlotCeiling", prefs.subPlotCeiling);
+    settings->setValue("StylesheetPath", prefs.stylesheetPath);
+    //settings->setValue("splitter", ui->splitter->saveState());
+    /*
+    settings->setValue("windowGeometry", saveGeometry());
+
+    if (bandbtns != nullptr)
+        settings->setValue("BandWindowGeometry", bandbtns->getGeometry());
+    if (finputbtns != nullptr)
+        settings->setValue("FreqWindowGeometry", finputbtns->getGeometry());
+    settings->setValue("windowState", saveState());
+    */
+    settings->setValue("MainWFLength", prefs.mainWflength);
+    settings->setValue("SubWFLength", prefs.subWflength);
+    settings->setValue("ConfirmExit", prefs.confirmExit);
+    settings->setValue("ConfirmPowerOff", prefs.confirmPowerOff);
+    settings->setValue("ConfirmSettingsChanged", prefs.confirmSettingsChanged);
+    settings->setValue("ConfirmMmories", prefs.confirmMemories);
+    settings->setValue("Meter1Type", (int)prefs.meter1Type);
+    settings->setValue("Meter2Type", (int)prefs.meter2Type);
+    settings->setValue("Meter3Type", (int)prefs.meter3Type);
+    settings->setValue("compMeterReverse", prefs.compMeterReverse);
+    settings->setValue("ClickDragTuning", prefs.clickDragTuningEnable);
+
+    settings->setValue("UseUTC",prefs.useUTC);
+    settings->setValue("SetRadioTime",prefs.setRadioTime);
+
+    settings->setValue("RigCreator",prefs.rigCreatorEnable);
+    settings->setValue("FrequencyUnits",prefs.frequencyUnits);
+    settings->setValue("Region",prefs.region);
+    settings->setValue("ShowBands",prefs.showBands);
+    settings->setValue("GroupSeparator",prefs.groupSeparator);
+    settings->setValue("DecimalSeparator",prefs.decimalSeparator);
+    settings->setValue("ForceVfoMode",prefs.forceVfoMode);
+    settings->setValue("AutoPowerOn",prefs.autoPowerOn);
+
+    settings->endGroup();
+
+    // Radio and Comms: C-IV addr, port to use
+    settings->beginGroup("Radio");
+    settings->setValue("Manufacturer", prefs.manufacturer);
+
+    settings->setValue("RigCIVuInt", prefs.radioCIVAddr);
+    settings->setValue("CIVisRadioModel", prefs.CIVisRadioModel);
+    settings->setValue("PTTType", prefs.pttType);
+    settings->setValue("polling_ms", prefs.polling_ms); // 0 = automatic
+    if (!prefs.serialPortRadio.isEmpty())
+        settings->setValue("SerialPortRadio", prefs.serialPortRadio);
+    if (prefs.serialPortBaud != 0)
+        settings->setValue("SerialPortBaud", prefs.serialPortBaud);
+    settings->setValue("VirtualSerialPort", prefs.virtualSerialPort);
+    settings->setValue("localAFgain", prefs.localAFgain);
+    settings->setValue("AudioSystem", prefs.audioSystem);
+
+    settings->endGroup();
+
+    // Misc. user settings (enable PTT, draw peaks, etc)
+    settings->beginGroup("Controls");
+    settings->setValue("EnablePTT", prefs.enablePTT);
+    settings->setValue("NiceTS", prefs.niceTS);
+    settings->setValue("automaticSidebandSwitching", prefs.automaticSidebandSwitching);
+    settings->endGroup();
+
+    settings->beginGroup("LAN");
+    settings->setValue("EnableLAN", prefs.enableLAN);
+    settings->setValue("EnableRigCtlD", prefs.enableRigCtlD);
+    settings->setValue("TcpServerPort", prefs.tcpPort);
+    settings->setValue("RigCtlPort", prefs.rigCtlPort);
+    settings->setValue("TCPServerPort", prefs.tcpPort);
+    settings->setValue("TCIServerPort", prefs.tciPort);
+    settings->setValue("IPAddress", udpPrefs.ipAddress);
+    settings->setValue("ControlLANPort", udpPrefs.controlLANPort);
+    settings->setValue("SerialLANPort", udpPrefs.serialLANPort);
+    settings->setValue("AudioLANPort", udpPrefs.audioLANPort);
+    settings->setValue("ScopeLANPort", udpPrefs.scopeLANPort);
+    settings->setValue("AdminLogin",udpPrefs.adminLogin);
+    settings->setValue("Username", udpPrefs.username);
+    settings->setValue("Password", udpPrefs.password);
+    settings->setValue("AudioRXLatency", prefs.rxSetup.latency);
+    settings->setValue("AudioTXLatency", prefs.txSetup.latency);
+    settings->setValue("AudioRXSampleRate", prefs.rxSetup.sampleRate);
+    settings->setValue("AudioRXCodec", prefs.rxSetup.codec);
+    settings->setValue("AudioTXSampleRate", prefs.txSetup.sampleRate);
+    settings->setValue("AudioTXCodec", prefs.txSetup.codec);
+    if (!prefs.rxSetup.name.isEmpty())
+        settings->setValue("AudioOutput", prefs.rxSetup.name);
+    if (!prefs.txSetup.name.isEmpty())
+        settings->setValue("AudioInput", prefs.txSetup.name);
+    settings->setValue("ResampleQuality", prefs.rxSetup.resampleQuality);
+    settings->setValue("ClientName", udpPrefs.clientName);
+    settings->setValue("WaterfallFormat", prefs.waterfallFormat);
+    settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
+    settings->setValue("ConnectionType", udpPrefs.connectionType);
+
+    settings->endGroup();
+
+    // Memory channels
+    /*
+    settings->beginGroup("Memory");
+    settings->beginWriteArray("Channel", (int)mem.getNumPresets());
+
+    preset_kind temp;
+    for (int i = 0; i < (int)mem.getNumPresets(); i++)
+    {
+        temp = mem.getPreset((int)i);
+        settings->setArrayIndex(i);
+        settings->setValue("chan", i);
+        settings->setValue("freq", temp.frequency);
+        settings->setValue("mode", temp.mode);
+        settings->setValue("isSet", temp.isSet);
+    }
+
+    settings->endArray();
+    settings->endGroup();
+    */
+    // Color presets:
+    settings->beginGroup("ColorPresets");
+    settings->setValue("currentColorPresetNumber", prefs.currentColorPresetNumber);
+    settings->beginWriteArray("ColorPreset", numColorPresetsTotal);
+    const colorPrefsType *p;
+    for(int pn=0; pn < numColorPresetsTotal; pn++)
+    {
+        p = &(colorPreset[pn]);
+        settings->setArrayIndex(pn);
+        settings->setValue("presetNum", p->presetNum);
+        settings->setValue("presetName", *(p->presetName));
+        settings->setValue("gridColor", p->gridColor.name(QColor::HexArgb));
+        settings->setValue("axisColor", p->axisColor.name(QColor::HexArgb));
+        settings->setValue("textColor", p->textColor.name(QColor::HexArgb));
+        settings->setValue("spectrumLine", p->spectrumLine.name(QColor::HexArgb));
+        settings->setValue("spectrumFill", p->spectrumFill.name(QColor::HexArgb));
+        settings->setValue("useSpectrumFillGradient", p->useSpectrumFillGradient);
+        settings->setValue("spectrumFillTop", p->spectrumFillTop.name(QColor::HexArgb));
+        settings->setValue("spectrumFillBot", p->spectrumFillBot.name(QColor::HexArgb));
+        settings->setValue("underlayLine", p->underlayLine.name(QColor::HexArgb));
+        settings->setValue("underlayFill", p->underlayFill.name(QColor::HexArgb));
+        settings->setValue("useUnderlayFillGradient", p->useUnderlayFillGradient);
+        settings->setValue("underlayFillTop", p->underlayFillTop.name(QColor::HexArgb));
+        settings->setValue("underlayFillBot", p->underlayFillBot.name(QColor::HexArgb));
+        settings->setValue("plotBackground", p->plotBackground.name(QColor::HexArgb));
+        settings->setValue("tuningLine", p->tuningLine.name(QColor::HexArgb));
+        settings->setValue("passband", p->passband.name(QColor::HexArgb));
+        settings->setValue("pbt", p->pbt.name(QColor::HexArgb));
+        settings->setValue("wfBackground", p->wfBackground.name(QColor::HexArgb));
+        settings->setValue("wfGrid", p->wfGrid.name(QColor::HexArgb));
+        settings->setValue("wfAxis", p->wfAxis.name(QColor::HexArgb));
+        settings->setValue("wfText", p->wfText.name(QColor::HexArgb));
+        settings->setValue("meterLevel", p->meterLevel.name(QColor::HexArgb));
+        settings->setValue("meterAverage", p->meterAverage.name(QColor::HexArgb));
+        settings->setValue("meterPeakScale", p->meterPeakScale.name(QColor::HexArgb));
+        settings->setValue("meterPeakLevel", p->meterPeakLevel.name(QColor::HexArgb));
+        settings->setValue("meterLowerLine", p->meterLowerLine.name(QColor::HexArgb));
+        settings->setValue("meterLowText", p->meterLowText.name(QColor::HexArgb));
+        settings->setValue("clusterSpots", p->clusterSpots.name(QColor::HexArgb));
+        settings->setValue("buttonOff", p->buttonOff.name(QColor::HexArgb));
+        settings->setValue("buttonOn", p->buttonOn.name(QColor::HexArgb));
+    }
+    settings->endArray();
+    settings->endGroup();
+
+    settings->beginGroup("Server");
+
+    settings->setValue("ServerEnabled", serverConfig.enabled);
+    settings->setValue("DisableUI", serverConfig.disableUI);
+    settings->setValue("ServerControlPort", serverConfig.controlPort);
+    settings->setValue("ServerCivPort", serverConfig.civPort);
+    settings->setValue("ServerAudioPort", serverConfig.audioPort);
+    if (!serverConfig.rigs.first()->txAudioSetup.name.isEmpty())
+        settings->setValue("ServerAudioOutput", serverConfig.rigs.first()->txAudioSetup.name);
+    if (!serverConfig.rigs.first()->rxAudioSetup.name.isEmpty())
+        settings->setValue("ServerAudioInput", serverConfig.rigs.first()->rxAudioSetup.name);
+
+    /* Remove old format users*/
+    int numUsers = settings->value("ServerNumUsers", 0).toInt();
+    if (numUsers > 0) {
+        settings->remove("ServerNumUsers");
+        for (int f = 0; f < numUsers; f++)
+        {
+            settings->remove("ServerUsername_" + QString::number(f));
+            settings->remove("ServerPassword_" + QString::number(f));
+            settings->remove("ServerUserType_" + QString::number(f));
+        }
+    }
+
+    settings->beginWriteArray("Users");
+
+    for (int f = 0; f < serverConfig.users.count(); f++)
+    {
+        settings->setArrayIndex(f);
+        settings->setValue("Username", serverConfig.users[f].username);
+        settings->setValue("Password", serverConfig.users[f].password);
+        settings->setValue("UserType", serverConfig.users[f].userType);
+    }
+
+    settings->endArray();
+    settings->endGroup();
+
+    settings->beginGroup("Cluster");
+    settings->setValue("UdpEnabled", prefs.clusterUdpEnable);
+    settings->setValue("TcpEnabled", prefs.clusterTcpEnable);
+    settings->setValue("UdpPort", prefs.clusterUdpPort);
+
+    settings->beginWriteArray("Servers");
+
+    for (int f = 0; f < prefs.clusters.count(); f++)
+    {
+        settings->setArrayIndex(f);
+        settings->setValue("ServerName", prefs.clusters[f].server);
+        settings->setValue("UserName", prefs.clusters[f].userName);
+        settings->setValue("Port", prefs.clusters[f].port);
+        settings->setValue("Password", prefs.clusters[f].password);
+        settings->setValue("Timeout", prefs.clusters[f].timeout);
+        settings->setValue("Default", prefs.clusters[f].isdefault);
+        /*
+        if (prefs.clusters[f].isdefault  == true) {
+            prefs.clusterTcpServerName = prefs.clusters[f].server;
+            prefs.clusterTcpUserName = prefs.clusters[f].userName;
+            prefs.clusterTcpPassword = prefs.clusters[f].password;
+            prefs.clusterTcpPort = prefs.clusters[f].port;
+            prefs.clusterTimeout = prefs.clusters[f].timeout;
+        }
+        */
+    }
+
+    settings->endArray();
+    settings->endGroup();
+
+    settings->beginGroup("Keyer");
+    /*
+    if (cw != nullptr) {
+        prefs.cwCutNumbers = cw->getCutNumbers();
+        prefs.cwSendImmediate = cw->getSendImmediate();
+        prefs.cwSidetoneEnabled = cw->getSidetoneEnable();
+        prefs.cwSidetoneLevel = cw->getSidetoneLevel();
+        prefs.cwMacroList = cw->getMacroText();
+    }
+    */
+    settings->setValue("CutNumbers", prefs.cwCutNumbers);
+    settings->setValue("SendImmediate", prefs.cwSendImmediate);
+    settings->setValue("SidetoneEnabled", prefs.cwSidetoneEnabled);
+    settings->setValue("SidetoneLevel", prefs.cwSidetoneLevel);
+
+    if(prefs.cwMacroList.length() == 10)
+    {
+        settings->beginWriteArray("macros");
+        for(int m=0; m < 10; m++)
+        {
+            settings->setArrayIndex(m);
+            settings->setValue("macroText", prefs.cwMacroList.at(m));
+        }
+        settings->endArray();
+    } else {
+        qDebug(logSystem()) << "Error, CW macro list is wrong length: " << prefs.cwMacroList.length();
+    }
+    settings->endGroup();
+
+#if defined(USB_CONTROLLER)
+    /*
+    settings->beginGroup("USB");
+
+    settings->setValue("EnableUSBControllers", prefs.enableUSBControllers);
+
+    QMutexLocker locker(&usbMutex);
+
+    // Store USB Controller
+
+    settings->remove("Controllers");
+    settings->beginWriteArray("Controllers");
+    int nc=0;
+
+    for (auto it = usbDevices.begin(); it != usbDevices.end(); it++)
+    {
+        auto dev = &it.value();
+        settings->setArrayIndex(nc);
+
+        settings->setValue("Model", dev->product);
+        settings->setValue("Path", dev->path);
+        settings->setValue("Disabled", dev->disabled);
+        settings->setValue("Sensitivity", dev->sensitivity);
+        settings->setValue("Brightness", dev->brightness);
+        settings->setValue("Orientation", dev->orientation);
+        settings->setValue("Speed", dev->speed);
+        settings->setValue("Timeout", dev->timeout);
+        settings->setValue("Pages", dev->pages);
+        settings->setValue("Color", dev->color.name(QColor::HexArgb));
+        settings->setValue("LCD", dev->lcd);
+
+        ++nc;
+    }
+    settings->endArray();
+
+
+    settings->remove("Buttons");
+    settings->beginWriteArray("Buttons");
+    for (int nb = 0; nb < usbButtons.count(); nb++)
+    {
+        settings->setArrayIndex(nb);
+        settings->setValue("Page", usbButtons[nb].page);
+        settings->setValue("Dev", usbButtons[nb].dev);
+        settings->setValue("Num", usbButtons[nb].num);
+        settings->setValue("Path", usbButtons[nb].path);
+        settings->setValue("Name", usbButtons[nb].name);
+        settings->setValue("Left", usbButtons[nb].pos.left());
+        settings->setValue("Top", usbButtons[nb].pos.top());
+        settings->setValue("Width", usbButtons[nb].pos.width());
+        settings->setValue("Height", usbButtons[nb].pos.height());
+        settings->setValue("Colour", usbButtons[nb].textColour.name(QColor::HexArgb));
+        settings->setValue("BackgroundOn", usbButtons[nb].backgroundOn.name(QColor::HexArgb));
+        settings->setValue("BackgroundOff", usbButtons[nb].backgroundOff.name(QColor::HexArgb));
+        if (usbButtons[nb].icon != nullptr) {
+            settings->setValue("Icon", *usbButtons[nb].icon);
+            settings->setValue("IconName", usbButtons[nb].iconName);
+        }
+        settings->setValue("Toggle", usbButtons[nb].toggle);
+
+        if (usbButtons[nb].onCommand != nullptr)
+            settings->setValue("OnCommand", usbButtons[nb].onCommand->text);
+        if (usbButtons[nb].offCommand != nullptr)
+            settings->setValue("OffCommand", usbButtons[nb].offCommand->text);
+        settings->setValue("Graphics",usbButtons[nb].graphics);
+        if (usbButtons[nb].led) {
+            settings->setValue("Led", usbButtons[nb].led);
+        }
+    }
+
+    settings->endArray();
+
+    settings->remove("Knobs");
+    settings->beginWriteArray("Knobs");
+    for (int nk = 0; nk < usbKnobs.count(); nk++)
+    {
+        settings->setArrayIndex(nk);
+        settings->setValue("Page", usbKnobs[nk].page);
+        settings->setValue("Dev", usbKnobs[nk].dev);
+        settings->setValue("Num", usbKnobs[nk].num);
+        settings->setValue("Path", usbKnobs[nk].path);
+        settings->setValue("Left", usbKnobs[nk].pos.left());
+        settings->setValue("Top", usbKnobs[nk].pos.top());
+        settings->setValue("Width", usbKnobs[nk].pos.width());
+        settings->setValue("Height", usbKnobs[nk].pos.height());
+        settings->setValue("Colour", usbKnobs[nk].textColour.name());
+        if (usbKnobs[nk].command != nullptr)
+            settings->setValue("Command", usbKnobs[nk].command->text);
+    }
+
+    settings->endArray();
+
+    settings->endGroup();
+*/
+#endif
+
+    settings->sync(); // Automatic, not needed (supposedly)
 }
 
 void SettingsController::setDefPrefs()
@@ -853,3 +1345,628 @@ void SettingsController::setDefPrefs()
         }
     }
 }
+
+void SettingsController::markDirty()
+{
+    if (!m_dirty) {
+        m_dirty = true;
+        emit dirtyChanged();
+    }
+}
+
+void SettingsController::emitGroupChange(const Binding& b)
+{
+    if (b.notify) b.notify();
+}
+
+
+void SettingsController::updateOptionInMap(const QString& iniKey, const QVariant& v)
+{
+    if (!m_options) {
+        qWarning() << "updateOptionInMap: NO m_options (iniKey=" << iniKey << ")";
+        return;
+    }
+
+    const QString qmlKey = iniKey;
+
+    const QVariant before = m_options->value(qmlKey);
+    qWarning() << "updateOptionInMap this=" << this
+               << "m_options=" << m_options
+               << "iniKey=" << iniKey
+               << "qmlKey=" << qmlKey
+               << "val=" << v
+               << "before=" << before;
+
+    // IMPORTANT: insert() emits QQmlPropertyMap::valueChanged -> QML updates
+    m_options->insert(qmlKey, v);
+
+    const QVariant after = m_options->value(qmlKey);
+    qWarning() << "updateOptionInMap after=" << after;
+}
+
+
+void SettingsController::setOption(const QString& key, const QVariant& value)
+{
+
+    auto it = m_bindings.find(key);
+    if (it == m_bindings.end()) {
+        qWarning() << "setOption: unknown key"
+                   << "key=" << key;
+        return;
+    }
+
+    const QVariant oldVal = it.value().get();
+    const QVariant mapBefore = m_options ? (*m_options)[key] : QVariant("NO_MAP");
+
+    qWarning() << "setOption"
+               << "key=" << key
+               << "incoming=" << value
+               << "old=" << oldVal
+               << "mapBefore=" << mapBefore;
+
+    // Apply change into prefs
+    const bool changed = it.value().set(value);
+    if (!changed) {
+        qWarning() << "setOption: NO CHANGE"
+                   << "incoming=" << value
+                   << "old=" << oldVal;
+        return;
+    }
+
+    const QVariant newVal = it.value().get();
+
+    // Mark dirty + update map (QML reacts to the map)
+    markDirty();
+    updateOptionInMap(key, newVal);
+
+    // Notify other subsystems (your notify lambda)
+    emitGroupChange(it.value());
+
+    const QVariant mapAfter = m_options ? (*m_options)[key] : QVariant("NO_MAP");
+
+    qWarning() << "setOption DONE"
+               << "new=" << newVal
+               << "mapAfter=" << mapAfter;
+}
+
+QVariant SettingsController::option(const QString& key) const
+{
+    const QString realKey = key; // same helper as setOption()
+
+    const auto it = m_bindings.constFind(realKey);
+    if (it == m_bindings.constEnd()) {
+        qWarning() << "option: unknown key"
+                   << "key=" << key
+                   << "realKey=" << realKey;
+        return {};
+    }
+
+    const QVariant v = it.value().get();
+    qWarning() << "option:" << "key=" << key << "realKey=" << realKey << "val=" << v;
+    return v;
+}
+
+void SettingsController::seedOptionsFromBindings()
+{
+    if (!m_options) return;
+
+    for (auto it = m_bindings.constBegin(); it != m_bindings.constEnd(); ++it) {
+        m_options->insert(it.key(), it.value().get());
+    }
+}
+
+
+// ---- Binding helpers / macros ----
+// NOTE: These macros capture "this" and use prefs directly.
+
+//
+// ---- Binding table (ONE LINE PER SETTING) ----
+// This is how you avoid Q_PROPERTY spam while still keeping QML binding easy.
+//
+// Base binder
+#define WF_BIND(KEY, GETEXPR, SETBODY, NOTIFY)                           \
+do {                                                                     \
+        Binding b;                                                           \
+        b.get = [this]() -> QVariant { return (GETEXPR); };                  \
+        b.set = [this](const QVariant& _v) -> bool { SETBODY };              \
+        b.notify = (NOTIFY);                                                 \
+        m_bindings.insert(QStringLiteral(KEY), std::move(b));                \
+} while(false)
+
+// Typed helpers
+#define WF_BOOL(KEY, FIELD, NOTIFY)                                      \
+    WF_BIND(KEY, QVariant(bool(FIELD)), {                                \
+            const bool _nv = _v.toBool();                                    \
+            if ((FIELD) == _nv) return false;                                \
+            (FIELD) = _nv;                                                   \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_I32(KEY, FIELD, NOTIFY)                                       \
+    WF_BIND(KEY, QVariant(int(FIELD)), {                                 \
+            const int _nv = _v.toInt();                                      \
+            if (int(FIELD) == _nv) return false;                             \
+            (FIELD) = _nv;                                                   \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_U8(KEY, FIELD, NOTIFY)                                        \
+    WF_BIND(KEY, QVariant(uint(FIELD)), {                                \
+            const uint _nv = _v.toUInt();                                    \
+            if (uint(FIELD) == _nv) return false;                            \
+            (FIELD) = quint8(_nv);                                           \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_U16(KEY, FIELD, NOTIFY)                                       \
+    WF_BIND(KEY, QVariant(uint(FIELD)), {                                \
+            const uint _nv = _v.toUInt();                                    \
+            if (uint(FIELD) == _nv) return false;                            \
+            (FIELD) = quint16(_nv);                                          \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_U32(KEY, FIELD, NOTIFY)                                       \
+    WF_BIND(KEY, QVariant(uint(FIELD)), {                                \
+            const uint _nv = _v.toUInt();                                    \
+            if (uint(FIELD) == _nv) return false;                            \
+            (FIELD) = quint32(_nv);                                          \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_STR(KEY, FIELD, NOTIFY)                                       \
+    WF_BIND(KEY, QVariant(FIELD), {                                      \
+            const QString _nv = _v.toString();                               \
+            if ((FIELD) == _nv) return false;                                \
+            (FIELD) = _nv;                                                   \
+            return true;                                                     \
+    }, (NOTIFY))
+
+#define WF_CHAR(KEY, FIELD, NOTIFY)                                      \
+    WF_BIND(KEY, QVariant(QString(FIELD)), {                             \
+            const QString _s = _v.toString();                                \
+            const QChar _nv = _s.isEmpty() ? QChar() : _s.at(0);             \
+            if ((FIELD) == _nv) return false;                                \
+            (FIELD) = _nv;                                                   \
+            return true;                                                     \
+    }, (NOTIFY))
+
+// Enum stored as int in QML
+#define WF_ENUM_I32(KEY, FIELD, ENUMTYPE, NOTIFY)                        \
+    WF_BIND(KEY, QVariant(int(FIELD)), {                                 \
+            const int _nv = _v.toInt();                                      \
+            if (int(FIELD) == _nv) return false;                             \
+            (FIELD) = ENUMTYPE(_nv);                                         \
+            return true;                                                     \
+    }, (NOTIFY))
+
+
+#define WF_COLOR(KEY, FIELD_EXPR, NOTIFY)                                  \
+WF_BIND(KEY, qColorToVariant((FIELD_EXPR)), {                          \
+        const QColor _nv = variantToQColor(_v);                            \
+        if (!_nv.isValid()) return false;                                  \
+        if ((FIELD_EXPR) == _nv) return false;                             \
+        (FIELD_EXPR) = _nv;                                                \
+        return true;                                                       \
+}, (NOTIFY))
+
+#define WF_PRESETNAME(KEY, NOTIFY)                                         \
+WF_BIND(KEY, QVariant(curColor().presetName ? *curColor().presetName : QString()), { \
+        const QString _nv = _v.toString();                                 \
+        auto &cp = curColor();                                             \
+        if (!cp.presetName) cp.presetName = new QString();                 \
+        if (*cp.presetName == _nv) return false;                           \
+        *cp.presetName = _nv;                                              \
+        return true;                                                       \
+}, (NOTIFY))
+
+
+/* This function will build all bindings between the currently loaded settings and
+ * QML. It will also emit the correct signal on changes */
+void SettingsController::buildBindings()
+{
+    m_bindings.clear();
+
+    // -------------------------
+    // LAN group
+    // -------------------------
+    WF_BOOL("LAN.EnableLAN", prefs.enableLAN,
+            [this](){ emit lanChanged(prefLanItems(prefLanItem::l_enableLAN)); });
+
+    WF_BOOL("LAN.EnableRigCtlD", prefs.enableRigCtlD,
+            [this](){ emit lanChanged(prefLanItems(prefLanItem::l_enableRigCtlD)); });
+
+    WF_U16("LAN.RigCtlPort", prefs.rigCtlPort,
+           [this](){ emit lanChanged(prefLanItems(prefLanItem::l_rigCtlPort)); });
+
+    WF_U16("LAN.TCPPort", prefs.tcpPort,
+           [this](){ emit lanChanged(prefLanItems(prefLanItem::l_tcpPort)); });
+
+    WF_U16("LAN.TCIPort", prefs.tciPort,
+           [this](){ emit lanChanged(prefLanItems(prefLanItem::l_tciPort)); });
+
+    WF_U8("LAN.WaterfallFormat", prefs.waterfallFormat,
+          [this](){ emit lanChanged(prefLanItems(prefLanItem::l_waterfallFormat)); });
+
+    // -------------------------
+    // Radio Access group (RA)
+    // -------------------------
+    WF_ENUM_I32("Radio.Manufacturer", prefs.manufacturer, manufacturersType_t,
+                [this](){ emit raChanged(prefRaItems(prefRaItem::ra_manufacturer)); });
+
+    WF_U8("Radio.CIVAddr", prefs.radioCIVAddr,
+          [this](){ emit raChanged(prefRaItems(prefRaItem::ra_radioCIVAddr)); });
+
+    WF_BOOL("Radio.CIVisRadioModel", prefs.CIVisRadioModel,
+            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_CIVisRadioModel)); });
+
+    WF_ENUM_I32("Radio.PTTType", prefs.pttType, pttType_t,
+                [this](){ emit raChanged(prefRaItems(prefRaItem::ra_pttType)); });
+
+    WF_I32("Radio.PollingMS", prefs.polling_ms,
+           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_polling_ms)); });
+
+    WF_STR("Radio.SerialPortRadio", prefs.serialPortRadio,
+           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_serialPortRadio)); });
+
+    WF_U32("Radio.SerialPortBaud", prefs.serialPortBaud,
+           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_serialPortBaud)); });
+
+    WF_STR("Radio.VirtualSerialPort", prefs.virtualSerialPort,
+           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_virtualSerialPort)); });
+
+    WF_U8("Radio.LocalAFGain", prefs.localAFgain,
+          [this](){ emit raChanged(prefRaItems(prefRaItem::ra_localAFgain)); });
+
+    WF_ENUM_I32("Radio.AudioSystem", prefs.audioSystem, audioType,
+                [this](){ emit raChanged(prefRaItems(prefRaItem::ra_audioSystem)); });
+
+    // -------------------------
+    // Interface group (IF) - common ones
+    // -------------------------
+    WF_BOOL("Interface.UseFullScreen", prefs.useFullScreen,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_useFullScreen)); });
+
+    WF_BOOL("Interface.UseSystemTheme", prefs.useSystemTheme,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_useSystemTheme)); });
+
+    WF_BOOL("Interface.DrawPeaks", prefs.drawPeaks,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_drawPeaks)); });
+
+    WF_ENUM_I32("Interface.UnderlayMode", prefs.underlayMode, underlay_t,
+                [this](){ emit ifChanged(prefIfItems(prefIfItem::if_underlayMode)); });
+
+    WF_I32("Interface.UnderlayBufferSize", prefs.underlayBufferSize,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_underlayBufferSize)); });
+
+    WF_BOOL("Interface.WFAntiAlias", prefs.wfAntiAlias,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wfAntiAlias)); });
+
+    WF_BOOL("Interface.WFInterpolate", prefs.wfInterpolate,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wfInterpolate)); });
+
+    WF_I32("Interface.MainPlotFloor", prefs.mainPlotFloor,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotFloor)); });
+
+    WF_I32("Interface.MainPlotCeiling", prefs.mainPlotCeiling,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotCeiling)); });
+
+    WF_STR("Interface.StylesheetPath", prefs.stylesheetPath,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_stylesheetPath)); });
+
+    WF_BOOL("Interface.RigCreatorEnable", prefs.rigCreatorEnable,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_rigCreatorEnable)); });
+
+    WF_BOOL("Interface.ClickDragTuningEnable", prefs.clickDragTuningEnable,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_clickDragTuningEnable)); });
+
+    WF_I32("Interface.FrequencyUnits", prefs.frequencyUnits,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_frequencyUnits)); });
+
+    WF_STR("Interface.Region", prefs.region,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_region)); });
+
+    WF_BOOL("Interface.ShowBands", prefs.showBands,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_showBands)); });
+
+    WF_CHAR("Interface.DecimalSeparator", prefs.decimalSeparator,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_separators)); });
+
+    WF_CHAR("Interface.GroupSeparator", prefs.groupSeparator,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_separators)); });
+
+    WF_BOOL("Interface.ForceVfoMode", prefs.forceVfoMode,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_forceVfoMode)); });
+
+    WF_BOOL("Interface.AutoPowerOn", prefs.autoPowerOn,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_autoPowerOn)); });
+
+    // -------------------------
+    // Controls group (CT)
+    // -------------------------
+    WF_BOOL("Controls.EnablePTT", prefs.enablePTT,
+            [this](){ emit ctChanged(prefCtItems(prefCtItem::ct_enablePTT)); });
+
+    WF_BOOL("Controls.NiceTS", prefs.niceTS,
+            [this](){ emit ctChanged(prefCtItems(prefCtItem::ct_niceTS)); });
+
+    WF_BOOL("Controls.AutomaticSidebandSwitching", prefs.automaticSidebandSwitching,
+            [this](){ emit ctChanged(prefCtItems(prefCtItem::ct_automaticSidebandSwitching)); });
+
+    WF_BOOL("Controls.EnableUSBControllers", prefs.enableUSBControllers,
+            [this](){ emit ctChanged(prefCtItems(prefCtItem::ct_enableUSBControllers)); });
+
+    // -------------------------
+    // Cluster group (basic)
+    // -------------------------
+    WF_BOOL("Cluster.UdpEnabled", prefs.clusterUdpEnable,
+            [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterUdpEnable)); });
+
+    WF_BOOL("Cluster.TcpEnabled", prefs.clusterTcpEnable,
+            [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpEnable)); });
+
+    WF_I32("Cluster.UdpPort", prefs.clusterUdpPort,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterUdpPort)); });
+
+    WF_I32("Cluster.TcpPort", prefs.clusterTcpPort,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpPort)); });
+
+    WF_I32("Cluster.Timeout", prefs.clusterTimeout,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTimeout)); });
+
+    WF_BOOL("Cluster.SkimmerSpotsEnable", prefs.clusterSkimmerSpotsEnable,
+            [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterSkimmerSpotsEnable)); });
+
+    WF_STR("Cluster.TcpServerName", prefs.clusterTcpServerName,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpServerName)); });
+
+    WF_STR("Cluster.TcpUserName", prefs.clusterTcpUserName,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpUserName)); });
+
+    WF_STR("Cluster.TcpPassword", prefs.clusterTcpPassword,
+           [this](){ emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpPassword)); });
+
+    // -------------------------
+    // UDP group (u_*)
+    // -------------------------
+    WF_STR("UDP.IPAddress", udpPrefs.ipAddress,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_ipAddress)); });
+
+    WF_I32("UDP.ControlLANPort", udpPrefs.controlLANPort,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_controlLANPort)); });
+
+    WF_I32("UDP.SerialLANPort", udpPrefs.serialLANPort,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_serialLANPort)); });
+
+    WF_I32("UDP.AudioLANPort", udpPrefs.audioLANPort,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioLANPort)); });
+
+    WF_I32("UDP.ScopeLANPort", udpPrefs.scopeLANPort,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_scopeLANPort)); });
+
+    WF_STR("UDP.Username", udpPrefs.username,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_username)); });
+
+    WF_STR("UDP.Password", udpPrefs.password,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_password)); });
+
+    WF_STR("UDP.ClientName", udpPrefs.clientName,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_clientName)); });
+
+    WF_BOOL("UDP.HalfDuplex", udpPrefs.halfDuplex,
+            [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_halfDuplex)); });
+
+    // If connectionType is an enum, expose as int in QML
+    WF_ENUM_I32("UDP.ConnectionType", udpPrefs.connectionType, connectionType_t,
+                [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_connectionType)); });
+
+    WF_BOOL("UDP.AdminLogin", udpPrefs.adminLogin,
+            [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_adminLogin)); });
+
+    WF_I32("UDP.SampleRate", prefs.rxSetup.sampleRate,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_sampleRate)); });
+
+    WF_U16("UDP.RxLatency", prefs.rxSetup.latency,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_rxLatency)); });
+
+    WF_U8("UDP.RxCodec", prefs.rxSetup.codec,
+          [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_rxCodec)); });
+
+    WF_U16("UDP.TxLatency", prefs.txSetup.latency,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_txLatency)); });
+
+    WF_U8("UDP.TxCodec", prefs.txSetup.codec,
+          [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_txCodec)); });
+
+    WF_STR("UDP.TxAudio", prefs.txSetup.name,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioInput)); });
+
+    WF_STR("UDP.RxAudio", prefs.rxSetup.name,
+           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioOutput)); });
+
+   /*
+     * prefs.rxSetup.isinput = defPrefs.rxSetup.isinput;
+    prefs.rxSetup.latency = settings->value("AudioRXLatency", defPrefs.rxSetup.latency).toInt();
+    prefs.rxSetup.sampleRate=settings->value("AudioRXSampleRate", defPrefs.rxSetup.sampleRate).toInt();
+    prefs.rxSetup.codec = settings->value("AudioRXCodec", defPrefs.rxSetup.codec).toInt();
+    prefs.rxSetup.resampleQuality = settings->value("ResampleQuality", defPrefs.rxSetup.resampleQuality).toInt();
+    prefs.rxSetup.type = prefs.audioSystem;
+    qInfo(logGui()) << "Got Audio Output from Settings: " << prefs.rxSetup.name;
+
+    prefs.txSetup.latency = settings->value("AudioTXLatency", defPrefs.txSetup.latency).toInt();
+    prefs.txSetup.isinput = defPrefs.txSetup.isinput;
+    prefs.txSetup.sampleRate=prefs.rxSetup.sampleRate;
+    prefs.txSetup.codec = settings->value("AudioTXCodec", defPrefs.txSetup.codec).toInt();
+    prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
+    prefs.txSetup.type = prefs.audioSystem;
+    qInfo(logGui()) << "Got Audio Input from Settings: " << prefs.txSetup.name;
+     *
+     * */
+
+
+    /* ----- Current color preset bindings -----
+     * If any more colors are added, they must be added here and to the refreshCurrentColorPresetOptions() function below
+     * refreshCurrentColorPresetOptions() must also be called whenever currentColorPresetNumber is changed.
+     */
+
+    WF_I32("Interface.CurrentColorPresetNumber", prefs.currentColorPresetNumber,
+           [this](){
+               emit ifChanged(prefIfItems(prefIfItem::if_currentColorPresetNumber));
+               refreshCurrentColorPresetOptions(); // IMPORTANT
+               emit colChanged(prefColItems(prefColItem::col_all));
+           });
+
+
+    WF_PRESETNAME("Color.PresetName",
+                  [this](){ emit colChanged(prefColItems(prefColItem::col_all)); });
+
+    WF_I32("Color.PresetNum", curColor().presetNum,
+           [this](){ emit colChanged(prefColItems(prefColItem::col_all)); });
+
+    // Spectrum plot
+    WF_COLOR("Color.Grid",              curColor().gridColor,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_grid)); });
+    WF_COLOR("Color.Axis",              curColor().axisColor,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_axis)); });
+    WF_COLOR("Color.Text",              curColor().textColor,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_text)); });
+    WF_COLOR("Color.PlotBackground",    curColor().plotBackground,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_plotBackground)); });
+
+    WF_COLOR("Color.SpectrumLine",      curColor().spectrumLine,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_spectrumLine)); });
+    WF_COLOR("Color.SpectrumFill",      curColor().spectrumFill,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_spectrumFill)); });
+    WF_BOOL ("Color.UseSpectrumFillGradient", curColor().useSpectrumFillGradient,
+            [this](){ emit colChanged(prefColItems(prefColItem::col_useSpectrumFillGradient)); });
+    WF_COLOR("Color.SpectrumFillTop",   curColor().spectrumFillTop,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_spectrumFillTop)); });
+    WF_COLOR("Color.SpectrumFillBot",   curColor().spectrumFillBot,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_spectrumFillBot)); });
+
+    WF_COLOR("Color.UnderlayLine",      curColor().underlayLine,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_underlayLine)); });
+    WF_COLOR("Color.UnderlayFill",      curColor().underlayFill,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_underlayFill)); });
+    WF_BOOL ("Color.UseUnderlayFillGradient", curColor().useUnderlayFillGradient,
+            [this](){ emit colChanged(prefColItems(prefColItem::col_useUnderlayFillGradient)); });
+    WF_COLOR("Color.UnderlayFillTop",   curColor().underlayFillTop,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_underlayFillTop)); });
+    WF_COLOR("Color.UnderlayFillBot",   curColor().underlayFillBot,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_underlayFillBot)); });
+
+    WF_COLOR("Color.TuningLine",        curColor().tuningLine,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_tuningLine)); });
+    WF_COLOR("Color.Passband",          curColor().passband,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_passband)); });
+    WF_COLOR("Color.PbtIndicator",      curColor().pbt,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_pbtIndicator)); });
+
+    // Waterfall
+    WF_COLOR("Color.WaterfallBack",     curColor().wfBackground,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_waterfallBack)); });
+    WF_COLOR("Color.WaterfallGrid",     curColor().wfGrid,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_waterfallGrid)); });
+    WF_COLOR("Color.WaterfallAxis",     curColor().wfAxis,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_waterfallAxis)); });
+    WF_COLOR("Color.WaterfallText",     curColor().wfText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_waterfallText)); });
+
+    // Meters
+    WF_COLOR("Color.MeterLevel",        curColor().meterLevel,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterLevel)); });
+    WF_COLOR("Color.MeterAverage",      curColor().meterAverage,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterAverage)); });
+    WF_COLOR("Color.MeterPeakLevel",    curColor().meterPeakLevel,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterPeakLevel)); });
+    WF_COLOR("Color.MeterHighScale",    curColor().meterPeakScale,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterHighScale)); });
+    WF_COLOR("Color.MeterScale",        curColor().meterScale,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterScale)); });
+    // if we add a separate meterText field, bind that instead
+    WF_COLOR("Color.MeterText",         curColor().textColor,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterText)); });
+    WF_COLOR("Color.MeterLowerLine",    curColor().meterLowerLine,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterText)); });
+    WF_COLOR("Color.MeterLowText",      curColor().meterLowText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_meterText)); });
+
+    // Assorted
+    WF_COLOR("Color.ClusterSpots",      curColor().clusterSpots,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_clusterSpots)); });
+    WF_COLOR("Color.ButtonOff",         curColor().buttonOff,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_buttonOff)); });
+    WF_COLOR("Color.ButtonOn",          curColor().buttonOn,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_buttonOn)); });
+}
+
+
+void SettingsController::refreshCurrentColorPresetOptions()
+{
+    // Update ONLY Color.* keys (fast enough, and avoids having to rebuild bindings)
+    auto push = [this](const char* key) {
+        const auto it = m_bindings.constFind(QString::fromLatin1(key));
+        if (it != m_bindings.constEnd())
+            updateOptionInMap(QString::fromLatin1(key), it.value().get());
+    };
+
+    push("Color.PresetName");
+    push("Color.PresetNum");
+
+    push("Color.Grid");
+    push("Color.Axis");
+    push("Color.Text");
+    push("Color.PlotBackground");
+
+    push("Color.SpectrumLine");
+    push("Color.SpectrumFill");
+    push("Color.UseSpectrumFillGradient");
+    push("Color.SpectrumFillTop");
+    push("Color.SpectrumFillBot");
+
+    push("Color.UnderlayLine");
+    push("Color.UnderlayFill");
+    push("Color.UseUnderlayFillGradient");
+    push("Color.UnderlayFillTop");
+    push("Color.UnderlayFillBot");
+
+    push("Color.TuningLine");
+    push("Color.Passband");
+    push("Color.PbtIndicator");
+
+    push("Color.WaterfallBack");
+    push("Color.WaterfallGrid");
+    push("Color.WaterfallAxis");
+    push("Color.WaterfallText");
+
+    push("Color.MeterLevel");
+    push("Color.MeterAverage");
+    push("Color.MeterPeakLevel");
+    push("Color.MeterHighScale");
+    push("Color.MeterScale");
+    push("Color.MeterLowerLine");
+    push("Color.MeterLowText");
+
+    push("Color.ClusterSpots");
+    push("Color.ButtonOff");
+    push("Color.ButtonOn");
+}
+
+
+colorPrefsType& SettingsController::curColor()
+{
+    int idx = prefs.currentColorPresetNumber;
+    if (idx < 0) idx = 0;
+    if (idx >= numColorPresetsTotal) idx = 0;
+    return colorPreset[idx];
+}
+
+const colorPrefsType& SettingsController::curColor() const
+{
+    int idx = prefs.currentColorPresetNumber;
+    if (idx < 0) idx = 0;
+    if (idx >= numColorPresetsTotal) idx = 0;
+    return colorPreset[idx];
+}
+
+

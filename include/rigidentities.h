@@ -197,7 +197,7 @@ struct bandType {
 
 // Used for setting/retrieving BSR information
 struct bandStackType {
-    bandStackType(): band(0),reg(0),freq(freqt()),data(0),mode(0),filter(0) {}
+    bandStackType(): band(0),reg(1),freq(freqt()),data(0),mode(0),filter(0) {}
     bandStackType(bandStackType const &b): band(b.band),reg(b.reg),freq(b.freq),data(b.data),
         mode(b.mode),filter(b.filter), sql(b.sql), tone(b.tone), tsql(b.tsql) {}
     bandStackType(uchar band, uchar reg): band(band),reg(reg), freq(), data(0), mode(0), filter(0) {}

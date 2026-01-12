@@ -10,6 +10,9 @@
 #include <QSGNode>
 #include <QSGSimpleTextureNode>
 #include <QElapsedTimer>
+#include <QPointer>
+#include <QMutex>
+
 #include "wfviewtypes.h"
 
 class ReceiverController; // forward declare
@@ -19,8 +22,15 @@ class WaterfallRootNode : public QSGNode
 public:
     QSGSimpleTextureNode *topNode    = nullptr;
     QSGSimpleTextureNode *bottomNode = nullptr;
-};
 
+    QSGTexture *tex = nullptr;   // shared texture
+    QSize texSize;
+
+    ~WaterfallRootNode() override {
+        delete tex;
+        tex = nullptr;
+    }
+};
 
 class WaterfallItem : public QQuickItem
 {
@@ -40,13 +50,12 @@ public:
 
     WaterfallItem();
 
-    QObject* getController() {return m_controller;}
+    QObject* getController() {return controller;}
     int getLength() const { return length; }
     Theme getTheme() const { return theme; }
     bool getSmooth() const { return smooth; }
     uchar getFloor()   const { return floor; }
     uchar getCeiling() const { return ceiling; }
-
 
 public slots:
     void updateScope(const scopeData &data);
@@ -67,7 +76,6 @@ signals:
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
     void processingTimeNs(qint64 ns);
 
-
 protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;
 
@@ -78,26 +86,34 @@ protected:
 #endif
 
 private:
-    QPointer<QObject> m_controller;
+    QObject* controller = nullptr;
+
+    // --- guarded by imgMu ---
+    QMutex imgMu;
     int imgWidth = 0;
+    QImage img;
+    int ringIndex = 0;    // newest line index
+    bool  dirty = false;
+    // ------------------------
+
     int length = 128;
     double startFreq = 0.0;
     double endFreq   = 0.0;
-    QImage img;
-    int ringIndex = 0;    // index of newest line in the image
-    bool  dirty = false;
+
     bool smooth = false;
-    Theme  theme = Jet;
-    Theme  previousTheme = Unknown;
+    Theme theme = Jet;
+    Theme previousTheme = Unknown;
     uchar floor = 0;
     uchar ceiling = 140;
+
     double xToFreq(qreal x) const;
 
-    QRgb colorForValue(quint8 v) const;  // 0..255 → colour
+    QRgb colorForValue(quint8 v) const;
     QRgb valueLut[256];
     bool lutValid = false;
     int  lutFloor = 0;
     int  lutCeil  = 255;
     void rebuildLut();
 };
+
 #endif // WATERFALLITEM_H
