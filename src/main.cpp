@@ -55,7 +55,6 @@
 #include "qledlabel.h"
 #include "rigctld.h"
 #include "aboutbox.h"
-#include "selectradio.h"
 #include "colorprefs.h"
 #include "loggingwindow.h"
 #include "cluster.h"
@@ -69,6 +68,7 @@
 #include "MainController.h"
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
+#include "SelectRadioController.h"
 #include "cachingqueue.h"
 
 #include "waterfallitem.h"
@@ -473,6 +473,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<ReceiverController>("WFVIEW", 1, 0, "ReceiverController");
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
     qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
+    qmlRegisterType<SelectRadioController>("WFVIEW", 1, 0, "SelectRadioController");
     qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
 
     // Members of ReceiverController

@@ -7,6 +7,7 @@
 
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
+#include "SelectRadioController.h"
 #include "prefs.h"
 #include "rigctld.h"
 #include "tciserver.h"
@@ -220,6 +221,8 @@ private:
 
     rigCommander * rig = nullptr;
     QThread* rigThread = nullptr;
+
+    SelectRadioController *selRad = nullptr;
 
     connectionStatus_t connStatus = connDisconnected;
 

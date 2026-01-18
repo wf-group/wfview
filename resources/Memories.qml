@@ -1,8 +1,8 @@
 // Memories.qml
-import QtQuick
-import QtQuick.Window
-import QtQuick.Controls
-import QtQuick.Layouts
+import QtQuick 2.15
+import QtQuick.Window 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 2.15
 import QtQuick.Dialogs
 import WFVIEW 1.0
 

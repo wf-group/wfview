@@ -40,6 +40,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
     queue->interval(cmdStartupInterval_ms);
 
+    selRad = new SelectRadioController(this);
     startRigConnection();
 
 }
@@ -226,6 +227,11 @@ void MainController::startRigConnection()
         connect(this, &MainController::setCIVAddr, rig, &rigCommander::setCIVAddr);
         connect(this, &MainController::sendPowerOn, rig, &rigCommander::powerOn);
         connect(this, &MainController::sendPowerOff, rig, &rigCommander::powerOff);
+
+        connect(selRad, &SelectRadioController::selectedRadio, rig, &rigCommander::setCurrentRadio);
+        connect(rig, &rigCommander::setRadioUsage, selRad, &SelectRadioController::setInUse);
+
+        connect(rig, &rigCommander::requestRadioSelection, selRad, &SelectRadioController::populate);
 
         if (prefs->enableLAN)
         {
@@ -494,6 +500,16 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
+
+            /*
+            if (i == 0) {
+                // Report scope redraw time to Select Radio window (only scope 0)
+                connect(rc,&ReceiverController::spectrumTime,selRad,&SelectRadio::spectrumTime);
+                connect(rc,&ReceiverController::waterfallTime,selRad,&SelectRadio::spectrumTime);
+                connect(rc,&ReceiverController::spectrumTime,rig,&rigCommander::spectrumTime);
+                connect(rc,&ReceiverController::waterfallTime,rig,&rigCommander::waterfallTime);
+            }
+            */
             receivers.push_back(rc);
         }
         detached.fill(false,rigCaps->numReceiver);

@@ -15,7 +15,7 @@ DEFINES += USB_CONTROLLER
 # FTDI support requires the library from https://ftdichip.com/software-examples/ft4222h-software-examples/
 DEFINES += FTDI_SUPPORT
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickcontrols2 quickwidgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick charts quickcontrols2 quickwidgets
 
 contains(DEFINES,USB_CONTROLLER){
     lessThan(QT_MAJOR_VERSION, 6): QT += gamepad
@@ -317,6 +317,7 @@ SOURCES += \
     src/MeterItem.cpp \
     src/ReceiverController.cpp \
     src/RigCreatorController.cpp \
+    src/SelectRadioController.cpp \
     src/SettingsController.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
@@ -372,7 +373,6 @@ SOURCES += \
     src/rtpaudio.cpp \
     src/satellitesetup.cpp \
     src/scrolltest.cpp \
-    src/selectradio.cpp \
     src/sidebandchooser.cpp \
     src/spectrumitem.cpp \
     src/tciserver.cpp \
@@ -389,6 +389,7 @@ HEADERS  += \
     include/MeterItem.h \
     include/ReceiverController.h \
     include/RigCreatorController.h \
+    include/SelectRadioController.h \
     include/SettingsController.h \
     include/freqctrlquick.h \
     include/paletteproxy.h \
@@ -451,7 +452,6 @@ HEADERS  += \
     include/rtpaudio.h \
     include/satellitesetup.h \
     include/scrolltest.h \
-    include/selectradio.h \
     include/sidebandchooser.h \
     include/tciserver.h \
     include/tcpserver.h \
@@ -472,7 +472,6 @@ FORMS    += \
     src/firsttimesetup.ui \
     src/frequencyinputwidget.ui \
     src/satellitesetup.ui \
-    src/selectradio.ui \
     src/repeatersetup.ui \
     src/controllersetup.ui
 

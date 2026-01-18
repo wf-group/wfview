@@ -1,10 +1,7 @@
-#ifndef SELECTRADIO_H
-#define SELECTRADIO_H
+#ifndef SELECTRADIOCONTROLLER_H
+#define SELECTRADIOCONTROLLER_H
 
 #include <QObject>
-#include <QQmlContext>
-#include <QQuickView>
-#include <QQuickItem>
 #include <QAbstractTableModel>
 #include <QList>
 #include <QtEndian>
@@ -52,40 +49,48 @@ private:
     QList<RadioInfo> m_radios;
 };
 
-class SelectRadio : public QObject
+class SelectRadioController : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(RadioTableModel* tableModel READ tableModel CONSTANT)
+    Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
 
 public:
-    explicit SelectRadio(QObject* parent = nullptr);
-    ~SelectRadio();
+    explicit SelectRadioController(QObject* parent = nullptr);
+    ~SelectRadioController();
 
-    void audioOutputLevel(quint16 level);
-    void audioInputLevel(quint16 level);
-    void addTimeDifference(qint64 time);
-    void show();
-    void hide();
+    RadioTableModel* tableModel() const { return m_tableModel; }
+    bool visible() const { return m_visible; }
+    void setVisible(bool visible);
+
+    void populate(QList<radio_cap_packet> radios);
+
+    Q_INVOKABLE void audioOutputLevel(quint16 level);
+    Q_INVOKABLE void audioInputLevel(quint16 level);
+    Q_INVOKABLE void addTimeDifference(qint64 time);
+    Q_INVOKABLE void onRadioSelected(int radio);
 
 public slots:
     void setInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip);
     void spectrumTime(double time);
     void waterfallTime(double time);
-    void populate(QList<radio_cap_packet> radios);
 
 signals:
     void selectedRadio(quint8 radio);
-
-private slots:
-    void onRadioSelected(int radio);
+    void visibleChanged();
+    void audioOutputLevelChanged(int level);
+    void audioInputLevelChanged(int level);
+    void timeDifferencePointAdded(int counter, double time);
+    void waterfallPointAdded(int counter, double time);
+    void spectrumPointAdded(int counter, double time);
 
 private:
-    QQuickView* m_view;
-    QQuickItem* m_rootObject;
     RadioTableModel* m_tableModel;
+    bool m_visible;
 
     int m_timeDifferenceCounter;
     int m_waterfallCounter;
     int m_spectrumCounter;
 };
 
-#endif // SELECTRADIO_H
+#endif // SELECTRADIOCONTROLLER_H

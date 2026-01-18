@@ -1,8 +1,5 @@
 #include "logcategories.h"
-#include "selectradio.h"
-#include <QQmlEngine>
-#include <QQmlComponent>
-#include <QMetaObject>
+#include "SelectRadioController.h"
 
 // RadioTableModel implementation
 RadioTableModel::RadioTableModel(QObject* parent)
@@ -105,122 +102,73 @@ void RadioTableModel::clear()
     endResetModel();
 }
 
-// SelectRadio implementation
-SelectRadio::SelectRadio(QObject* parent)
+// SelectRadioController implementation
+SelectRadioController::SelectRadioController(QObject* parent)
     : QObject(parent)
-    , m_view(nullptr)
-    , m_rootObject(nullptr)
     , m_tableModel(new RadioTableModel(this))
+    , m_visible(false)
     , m_timeDifferenceCounter(0)
     , m_waterfallCounter(0)
     , m_spectrumCounter(0)
 {
-    // Create QML view
-    m_view = new QQuickView();
-    m_view->setResizeMode(QQuickView::SizeRootObjectToView);
-
-    // Set up context properties
-    m_view->rootContext()->setContextProperty("radioTableModel", m_tableModel);
-
-    // Load QML file
-    m_view->setSource(QUrl("qrc:/resources/SelectRadio.qml"));
-
-    if (m_view->status() == QQuickView::Error) {
-        qCritical() << "Error loading SelectRadio QML";
-        return;
-    }
-
-    m_rootObject = m_view->rootObject();
-
-    if (m_rootObject) {
-        // Connect the selectedRadio signal from QML
-        connect(m_rootObject, SIGNAL(selectedRadio(int)),
-                this, SLOT(onRadioSelected(int)));
-    }
 }
 
-SelectRadio::~SelectRadio()
+SelectRadioController::~SelectRadioController()
 {
-    if (m_view) {
-        delete m_view;
+}
+
+void SelectRadioController::setVisible(bool visible)
+{
+    if (m_visible != visible) {
+        m_visible = visible;
+        emit visibleChanged();
     }
 }
 
-void SelectRadio::populate(QList<radio_cap_packet> radios)
+void SelectRadioController::populate(QList<radio_cap_packet> radios)
 {
     m_tableModel->populate(radios);
 
     if (radios.count() > 1) {
-        show();
+        setVisible(true);
     }
 }
 
-void SelectRadio::setInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip)
+void SelectRadioController::setInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip)
 {
     m_tableModel->setInUse(radio, admin, busy, user, ip);
 }
 
-void SelectRadio::onRadioSelected(int radio)
+void SelectRadioController::onRadioSelected(int radio)
 {
     emit selectedRadio(static_cast<quint8>(radio));
+    setVisible(false);
 }
 
-void SelectRadio::show()
+void SelectRadioController::audioOutputLevel(quint16 level)
 {
-    if (m_view) {
-        m_view->show();
-    }
+    emit audioOutputLevelChanged(level);
 }
 
-void SelectRadio::hide()
+void SelectRadioController::audioInputLevel(quint16 level)
 {
-    if (m_view) {
-        m_view->hide();
-    }
+    emit audioInputLevelChanged(level);
 }
 
-void SelectRadio::audioOutputLevel(quint16 level)
+void SelectRadioController::addTimeDifference(qint64 time)
 {
-    if (m_rootObject) {
-        QMetaObject::invokeMethod(m_rootObject, "setAudioOutputLevel",
-                                  Q_ARG(QVariant, level));
-    }
+    emit timeDifferencePointAdded(m_timeDifferenceCounter, time);
+    m_timeDifferenceCounter++;
 }
 
-void SelectRadio::audioInputLevel(quint16 level)
+void SelectRadioController::waterfallTime(double time)
 {
-    if (m_rootObject) {
-        QMetaObject::invokeMethod(m_rootObject, "setAudioInputLevel",
-                                  Q_ARG(QVariant, level));
-    }
+    emit waterfallPointAdded(m_waterfallCounter, time);
+    m_waterfallCounter++;
 }
 
-void SelectRadio::addTimeDifference(qint64 time)
+void SelectRadioController::spectrumTime(double time)
 {
-    if (m_rootObject) {
-        QMetaObject::invokeMethod(m_rootObject, "addTimeDifferencePoint",
-                                  Q_ARG(QVariant, m_timeDifferenceCounter),
-                                  Q_ARG(QVariant, time));
-        m_timeDifferenceCounter++;
-    }
-}
-
-void SelectRadio::waterfallTime(double time)
-{
-    if (m_rootObject) {
-        QMetaObject::invokeMethod(m_rootObject, "addWaterfallPoint",
-                                  Q_ARG(QVariant, m_waterfallCounter),
-                                  Q_ARG(QVariant, time));
-        m_waterfallCounter++;
-    }
-}
-
-void SelectRadio::spectrumTime(double time)
-{
-    if (m_rootObject) {
-        QMetaObject::invokeMethod(m_rootObject, "addSpectrumPoint",
-                                  Q_ARG(QVariant, m_spectrumCounter),
-                                  Q_ARG(QVariant, time));
-        m_spectrumCounter++;
-    }
+    emit spectrumPointAdded(m_spectrumCounter, time);
+    m_spectrumCounter++;
 }

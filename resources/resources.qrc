@@ -24,5 +24,6 @@
         <file>Debug.qml</file>
         <file>Memories.qml</file>
         <file>AboutBox.qml</file>
+        <file>SelectRadio.qml</file>
     </qresource>
 </RCC>
