@@ -1,9 +1,12 @@
+#include "MemoriesModel.h"
 #ifdef BUILD_WFSERVER
 #include <QtCore/QCoreApplication>
 #include "keyboard.h"
 #else
+#include "qqmlapplicationengine.h"
 #include <QtQml/qqml.h>   // declares qmlRegisterSingletonType/Instance
 #include <QQmlEngine>
+#include <QQmlApplicationEngine>
 #include <QJSEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -21,7 +24,57 @@
 #endif
 
 #include <iostream>
-#include "wfmain.h"
+
+// Include lots of our headers
+#include "logcategories.h"
+#include "wfviewtypes.h"
+#include "prefs.h"
+#include "commhandler.h"
+#include "rigcommander.h"
+#include "icomcommander.h"
+#include "kenwoodcommander.h"
+#include "yaesucommander.h"
+#include "freqmemory.h"
+#include "rigidentities.h"
+#include "repeaterattributes.h"
+#include "memories.h"
+#include "firsttimesetup.h"
+
+#include "packettypes.h"
+#include "calibrationwindow.h"
+#include "repeatersetup.h"
+#include "satellitesetup.h"
+#include "cwsender.h"
+#include "bandbuttons.h"
+#include "frequencyinputwidget.h"
+#include "settingswidget.h"
+#include "rigserver.h"
+#include "icomserver.h"
+#include "kenwoodserver.h"
+#include "yaesuserver.h"
+#include "qledlabel.h"
+#include "rigctld.h"
+#include "aboutbox.h"
+#include "selectradio.h"
+#include "colorprefs.h"
+#include "loggingwindow.h"
+#include "cluster.h"
+#include "audiodevices.h"
+#include "sidebandchooser.h"
+#include "tciserver.h"
+
+#include "usbcontroller.h"
+#include "controllersetup.h"
+
+#include "MainController.h"
+#include "ReceiverController.h"
+#include "RigCreatorController.h"
+#include "cachingqueue.h"
+
+#include "waterfallitem.h"
+#include "spectrumitem.h"
+
+
 
 #include "MeterItem.h"
 #include "DebugController.h"
@@ -420,6 +473,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<ReceiverController>("WFVIEW", 1, 0, "ReceiverController");
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
     qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
+    qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
 
     // Members of ReceiverController
     qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");

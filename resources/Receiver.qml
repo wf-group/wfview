@@ -656,7 +656,7 @@ Control {
 
                     Button {
                         text: "Store"
-                        Layout.preferredWidth: 80
+                        Layout.preferredWidth: 50
                         onClicked: {
                             // do whatever you need
                             root.controller.storeBsr();
@@ -672,7 +672,6 @@ Control {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: bandHeader.bottom
-                anchors.topMargin: 30
                 anchors.bottom: bandFooter.top
                 clip: true
 
@@ -709,7 +708,7 @@ Control {
                     readonly property int maxRowsByH: Math.max(1, Math.floor((availH + gap) / (cellH + gap)))
 
                     // choose cols so we use height (more rows, fewer columns)
-                    readonly property int colsByH: Math.max(1, Math.ceil(n / maxRowsByH))
+                    readonly property int colsByH: Math.max(2, Math.ceil(n / maxRowsByH))
 
                     columns: colsByH
 

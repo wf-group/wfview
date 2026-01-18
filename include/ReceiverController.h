@@ -75,7 +75,7 @@ class ReceiverController : public QObject
     Q_PROPERTY(uchar bsrReg READ getBsrReg WRITE setBsrReg NOTIFY bsrRegChanged)
 
 public:
-    explicit ReceiverController(int rxIndex = 0, QObject *parent = nullptr);
+    explicit ReceiverController(int rxIndex = 0, QString region="", QObject *parent = nullptr);
     ~ReceiverController() override = default;
 
     #define UIFLAG(n) (quint64(1) << (n))
@@ -118,7 +118,7 @@ public:
     uchar getFilterShape() { return filterShape;}
     uchar getRoofing() { return roofing;}
     void toFixedEdge(uchar val);
-    availableBands getBand() {return band;}
+    availableBands getBand() {return band.band;}
     uchar getBsrReg() {return bsr.reg;}
     void receiveBSR(bandStackType& bsr);
 
@@ -369,7 +369,7 @@ private:
     QVariantMap freqDisplay;
 
     bool m_freqLock=false;
-    QString currentRegion = "";
+    QString region = "";
     QVector<bandType> activeBands;
     // These need to be settable
     bool tuningFloorZeros=false;
@@ -391,7 +391,7 @@ private:
     bool mn = false;
     bool ds = false;
     antennaInfo antenna;
-    availableBands band = bandUnknown;
+    bandType band;
     bandStackType bsr;
     bool awaitingBSR = false;
 };

@@ -142,6 +142,8 @@ public:
 
     queuePriority del(funcs func, uchar receiver=0);
     void clear();
+    void clearCache();
+
     void interval(qint64 val);
     qint64 interval() {return queueInterval;}
     void updateCache(bool reply, queueItem item);

@@ -37,6 +37,17 @@ ApplicationWindow {
         controller: MainController.settings
     }
 
+    // Create memories window on demand
+    Loader {
+        id: memoriesLoader
+        active: MainController.memoriesModel !== null
+        sourceComponent: Component {
+            Memories {
+                memoriesModel: MainController.memoriesModel
+            }
+        }
+    }
+
     Loader {
         id: debugLoader
         active: false
@@ -335,15 +346,9 @@ ApplicationWindow {
                     RowLayout {
                         spacing: 10
 
-                        function sliderCol(lbl, sliderId) {
-                            // placeholder, QML doesn't support returning Items here;
-                            // keep the explicit blocks below for clarity.
-                            return null
-                        }
-
                         ColumnLayout {
-                            Slider { id: micGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
-                            Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
+                            Slider { id: volumeSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Label { text: "Vol"; horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
                             Slider { id: txPowerSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
@@ -352,6 +357,10 @@ ApplicationWindow {
                         ColumnLayout {
                             Slider { id: monitorSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
                             Label { text: "Mon"; horizontalAlignment: Text.AlignHCenter }
+                        }
+                        ColumnLayout {
+                            Slider { id: micGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
                         }
                     }
                 }
@@ -370,7 +379,13 @@ ApplicationWindow {
                     Button { text: "Tune" }
                     Button { text: "CW" }
                     Button { text: "Rpt/Split" }
-                    Button { text: "Memories" }
+                    Button {
+                        text: "Memories"
+                        enabled: (connStatus === 2) // Only enable button if connected
+                        onClicked: {
+                            onClicked: MainController.openMemories()
+                        }
+                    }
                 }
 
                 // ---- rightControlsLayout (Scope Settings, Preamp/Att, Antenna) ----
@@ -428,7 +443,10 @@ ApplicationWindow {
                 anchors.fill: parent
                 spacing: 6
 
-                Button { text: "About" }
+                Button {
+                    text: "About"
+                    onClicked: aboutDialog.open()
+                }
                 Button {
                     text: "Settings"
                     onClicked: settings.show()
@@ -480,9 +498,38 @@ ApplicationWindow {
     footer: ToolBar {
         RowLayout {
             anchors.fill: parent
-            Label { text: rig.statusText ?? "" }
+            Label { text: "memoriesActive: " + MainController ? MainController.memoriesActive : "none"}
+            //Label { text: rig.statusText ?? "" }
             Item { Layout.fillWidth: true }
-            Label { text: audio.statusText ?? "" }
+            //Label { text: audio.statusText ?? "" }
         }
     }
+
+
+    Dialog {
+        id: aboutDialog
+        width: 700
+        height: 621
+        title: "About wfview"
+        modal: true
+        anchors.centerIn: parent
+
+        // Remove default padding to let AboutBox fill the dialog
+        padding: 0
+
+        contentItem: AboutBox {
+            // Set your build information here
+            wfviewVersion: MainController ? MainController.uiSpecs["program"].wfviewVersion : ""
+            gitShort: MainController ? MainController.uiSpecs["program"].gitShort : ""
+            buildDate: MainController ? MainController.uiSpecs["program"].buildDate : ""
+            buildTime: MainController ? MainController.uiSpecs["program"].buildTime : ""
+            buildUser: MainController ? MainController.uiSpecs["program"].buildUser : ""
+            buildHost: MainController ? MainController.uiSpecs["program"].buildHost : ""
+            qtVersion: Qt.version
+        }
+
+        // Optional: Add a close button at the bottom
+        standardButtons: Dialog.Close
+    }
 }
+

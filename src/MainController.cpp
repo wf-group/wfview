@@ -7,6 +7,18 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     , m_settings(std::make_unique<SettingsController>(settingsFile,this))
 {
 
+    // setup an initial uiSpecs
+
+    uiSpecs["program"] = QVariantMap{
+        {"wfviewVersion",QString(WFVIEW_VERSION)},
+        {"gitShort",QString(GITSHORT)},
+        {"buildDate",QString(__DATE__)},
+        {"buildTime",QString(__TIME__)},
+        {"buildUser",QString(UNAME)},
+        {"buildHost",QString(HOST)}
+    };
+    emit uiSpecsChanged();
+
     prefs = m_settings->getPrefs();
     udpPrefs = m_settings->getUdpPrefs();
     setManufacturer(prefs->manufacturer);
@@ -30,37 +42,6 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     startRigConnection();
 
-}
-
-void MainController::colChanged(prefColItems items)
-{
-    qInfo() << "Received changed colors into MainController" << items;
-    for (auto *r : std::as_const(receivers)) {
-        if (r) r->setColors(m_settings->getCurrentColorPreset());
-    }
-
-}
-
-void MainController::buildUiSpecs()
-{
-    // Must only be called if we already have a valid rigCaps
-    QVariantList values;
-
-    values.clear();
-    for (auto &sm : rigCaps->steps) {
-        values.append(QVariantMap{
-            {"text",  sm.name},
-            {"value", sm.hz}
-        });
-    }
-    uiSpecs["tuningSteps"] = QVariantMap{
-        {"textRole","text"},
-        {"valueRole","value"},
-        {"defaultIndex", -1},
-        {"model", values},
-        {"visible",!values.empty()}
-    };
-    emit uiSpecsChanged();
 }
 
 void MainController::ifChanged(prefIfItems items)
@@ -95,27 +76,59 @@ void MainController::ifChanged(prefIfItems items)
     if_autoPowerOn = 1 << 26,
      */
     qInfo() << "Received if item in MainController" << items;
+    /*
+    for (int bit = 0; bit < 32; bit++) {
+        prefIfItem item = static_cast<prefIfItem>(1 << bit);
+        if (items & item) {
+            switch (item)
+            {
+            case if_frequencyUnits:
+                qInfo() << "Got new frequencyUnit";
+                for (auto *r : std::as_const(receivers)) {
+                    //if (r) r->setFreqDisplay(prefs->frequencyUnits);
+                }
+                break;
 
-    auto bits = static_cast<quint32>(items);
-    while (bits) {
-        quint32 lsb = bits & (~bits + 1);   // isolate lowest set bit
-        bits &= ~lsb;
-        auto f = static_cast<prefIfItem>(lsb);
-        switch (f)
-        {
-        case if_frequencyUnits:
-            qInfo() << "Got new frequencyUnit";
-            //for (auto *r : std::as_const(receivers)) {
-            //    if (r) r->setFreqDisplay(freqDisplay);
-            //}
-            break;
-
-        default:
-            break;
+            default:
+                break;
+            }
         }
-
-    }
+    }*/
 }
+
+void MainController::colChanged(prefColItems items)
+{
+    // No need to step through each color, just update the preset.
+    qInfo() << "Received changed colors into MainController" << items;
+    for (auto *r : std::as_const(receivers)) {
+        if (r) r->setColors(m_settings->getCurrentColorPreset());
+    }
+
+}
+
+void MainController::buildUiSpecs()
+{
+    // Must only be called if we already have a valid rigCaps
+
+    QVariantList values;
+
+    values.clear();
+    for (auto &sm : rigCaps->steps) {
+        values.append(QVariantMap{
+            {"text",  sm.name},
+            {"value", sm.hz}
+        });
+    }
+    uiSpecs["tuningSteps"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", -1},
+        {"model", values},
+        {"visible",!values.empty()}
+    };
+    emit uiSpecsChanged();
+}
+
 
 
 void MainController::shutdown()
@@ -123,24 +136,14 @@ void MainController::shutdown()
     if (shuttingDown) return;
     shuttingDown = true;
 
+    if (connStatus != connectionStatus_t::connDisconnected)
+    {
+        connectionHandler(); // This will disconnect/delete if the radio is connected/connecting
+    }
+
     if (settings)
     {
         delete settings;
-    }
-
-    emit sendCloseComm();
-    queue->clear();
-    for (auto *r : std::as_const(receivers)) {
-        if (r) r->deleteLater();
-    }
-
-    receivers.clear();
-    detached.clear();
-
-    // Force the rig connection to close now.
-    if(rigThread != nullptr) {
-        rigThread->quit();
-        rigThread->wait();
     }
 
 }
@@ -153,16 +156,26 @@ void MainController::connectionHandler()
         connStatus = connectionStatus_t::connConnecting;
         startRigConnection();
     } else {
+        // disconnect and delete
+        // Might as well empty both queue and cache, as both are now invalid.
         queue->clear();
+        queue->clearCache();
         for (auto *r : std::as_const(receivers)) {
             if (r) r->deleteLater();
         }
         receivers.clear();
-        emit sendCloseComm();
+        emit sendCloseComm();        
         rigThread->quit();
         rigThread->wait();
         rig = nullptr;
         rigThread = nullptr;
+        if (m_memoriesModel) {
+            m_memoriesModel->deleteLater();
+            m_memoriesModel = nullptr;
+            emit memoriesModelChanged();
+        }
+
+        queue->interval(-1); // Disable queue
         connStatus = connectionStatus_t::connDisconnected;
     }
 
@@ -187,6 +200,9 @@ void MainController::startRigConnection()
             qCritical() << "Unknown Manufacturer, aborting...";
             break;
         }
+
+        // Set a suitable queue interval to ensure polling happens quickly enough.
+        queue->interval(cmdStartupInterval_ms); // Currently 250ms but could be configurable
 
         rigThread = new QThread(this);
         rigThread->setObjectName("rigCommander()");
@@ -368,14 +384,13 @@ void MainController::getInitialRigState()
         }
     }
 
-    QVariantMap fd;
-    fd["digits"] = 0;
-    fd["min"] = start;
-    fd["max"] = end;
-    fd["minStep"] = 1;
-    fd["unit"] = (FctlUnit)prefs->frequencyUnits;
-    fd["gsep"] = prefs->groupSeparator;
-    fd["dsep"] = prefs->decimalSeparator;
+    frequencyDisplay["digits"] = 0;
+    frequencyDisplay["min"] = start;
+    frequencyDisplay["max"] = end;
+    frequencyDisplay["minStep"] = 1;
+    frequencyDisplay["unit"] = (FctlUnit)prefs->frequencyUnits;
+    frequencyDisplay["gsep"] = prefs->groupSeparator;
+    frequencyDisplay["dsep"] = prefs->decimalSeparator;
 
     for (const auto& receiver: std::as_const(receivers))
     {
@@ -383,7 +398,7 @@ void MainController::getInitialRigState()
         qInfo(logSystem()) << "Frequency units:" << prefs->frequencyUnits;
         qInfo(logSystem()) << "Group Separator:" << prefs->groupSeparator;
         qInfo(logSystem()) << "Decimal Separator:" << prefs->decimalSeparator;
-        receiver->setFreqDisplay(fd);
+        receiver->setFreqDisplay(frequencyDisplay);
         receiver->setBandIndicators(prefs->showBands, prefs->region, &rigCaps->bands);
     }
 
@@ -448,48 +463,36 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
 {
     this->rigCaps = caps;
 
-    if(prefs->polling_ms != 0)
-    {
-        queue->interval(prefs->polling_ms); // Set sensible frequency to poll the radio
-    } else {
-        if (prefs->serialPortBaud == 0)
-        {
-            prefs->serialPortBaud = 9600;
-            qInfo(logSystem()) << "WARNING: baud rate received was zero. Assuming 9600 baud, performance may suffer.";
-        }
 
-        unsigned int usPerByte = 9600*1000 / prefs->serialPortBaud;
-        unsigned int msMinTiming=usPerByte * 10*2/1000;
-        if(msMinTiming < 25)
-            msMinTiming = 25;
-
-        if(rigCaps != nullptr && rigCaps->hasFDcomms)
-        {
-            queue->interval(msMinTiming);
-        } else {
-            queue->interval(msMinTiming * 4);
-        }
-
-        qInfo(logSystem()) << "Delay command interval timing: " << queue->interval() << "ms";
-
-        // Normal:
-        cmdInterval_ms = queue->interval();
-    }
-
-
-
-    for (auto *r : std::as_const(receivers))
-    {
-        if (r) r->deleteLater();
-    }
-    receivers.clear();
-    detached.clear();
-
-    // Now we have rigCaps, we can ask the radio to give us its current state and init the periodic commands.
     if (rigCaps) {
+        if(prefs->polling_ms != 0)
+        {
+            queue->interval(prefs->polling_ms); // Set sensible frequency to poll the radio
+        } else {
+            if (prefs->serialPortBaud == 0)
+            {
+                prefs->serialPortBaud = 9600;
+                qInfo(logSystem()) << "WARNING: baud rate received was zero. Assuming 9600 baud, performance may suffer.";
+            }
+
+            unsigned int usPerByte = 9600*1000 / prefs->serialPortBaud;
+            unsigned int msMinTiming=usPerByte * 10*2/1000;
+            if(msMinTiming < 25)
+                msMinTiming = 25;
+
+            if(rigCaps->hasFDcomms) {
+                queue->interval(msMinTiming);
+            } else {
+                queue->interval(msMinTiming * 4);
+            }
+
+            // Normal:
+            cmdInterval_ms = queue->interval();
+        }
+
         receivers.reserve(rigCaps->numReceiver);
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
-            auto *rc = new ReceiverController(i, this);   // UI thread only
+            auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
             receivers.push_back(rc);
         }
@@ -498,13 +501,13 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
 
         getInitialRigState();
         buildUiSpecs();
-
-    } else {
+    }
+    else
+    {
         connStatus = connectionStatus_t::connDisconnected;
     }
-    emit connStatusChanged();
-    // Build new
 
+    emit connStatusChanged();
 
     emit receiverCountChanged();
     emit detachedChanged();
@@ -880,14 +883,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcSatelliteMemory:
     case funcMemoryContents:
-        //emit haveMemory(val.value.value<memoryType>());
+        emit memoryReceived(val.value.value<memoryType>());
         break;
     case funcMemoryTag:
     case funcMemoryTagB:
-        //emit haveMemoryName(val.value.value<memoryTagType>());
+        emit memoryNameReceived(val.value.value<memoryTagType>());
         break;
     case funcSplitMemory:
-        //emit haveMemorySplit(val.value.value<memorySplitType>());
+        emit memorySplitReceived(val.value.value<memorySplitType>());
         break;
     case funcMemoryClear:
     case funcMemoryKeyer:
@@ -1312,7 +1315,6 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     }
     case funcScopeMode:
-        qDebug() << "Got new scope mode for receiver" << val.receiver << "mode" << val.value.value<uchar>();
         receivers[val.receiver]->setScopeMode(val.value.value<uchar>(),false);
         break;
     case funcScopeSpan:

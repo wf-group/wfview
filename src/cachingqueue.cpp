@@ -475,6 +475,11 @@ void cachingQueue::updateCache(bool reply, funcs func, QVariant value, uchar rec
     updateCache(reply,q);
 }
 
+void cachingQueue::clearCache()
+{
+    QMutexLocker locker(&mutex);
+    cache.clear();
+}
 
 cacheItem cachingQueue::getCache(funcs func, uchar receiver)
 {

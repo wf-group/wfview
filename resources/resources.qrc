@@ -22,5 +22,7 @@
         <file>LoggingWindow.qml</file>
         <file>Settings.qml</file>
         <file>Debug.qml</file>
+        <file>Memories.qml</file>
+        <file>AboutBox.qml</file>
     </qresource>
 </RCC>

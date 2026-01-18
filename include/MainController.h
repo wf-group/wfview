@@ -12,6 +12,7 @@
 #include "tciserver.h"
 #include "wfviewtypes.h"
 #include "rigserver.h"
+#include "MemoriesModel.h"
 
 #include "rigcommander.h"
 #include "icomcommander.h"
@@ -23,6 +24,9 @@
 
 class MainController : public QObject {
     Q_OBJECT
+
+    Q_PROPERTY(MemoriesModel* memoriesModel READ memoriesModel NOTIFY memoriesModelChanged)
+    Q_PROPERTY(bool slowLoad READ slowLoad WRITE setSlowLoad NOTIFY slowLoadChanged)
 
 public:
 
@@ -43,7 +47,7 @@ public:
 
     Q_PROPERTY(quint64 stepSize READ getStepSize WRITE setStepSize NOTIFY stepSizeChanged)
 
-    Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
+    Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)    
 
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
     Q_DECLARE_FLAGS(prefColItems, prefColItem)
@@ -110,6 +114,26 @@ public:
     void setStepSize(quint64 s);
     QVariantMap getUiSpecs() const { return uiSpecs; }
 
+    MemoriesModel* memoriesModel() const { return m_memoriesModel; }
+    bool slowLoad() const { return m_slowLoad; }
+
+    void setSlowLoad(bool value) {
+        if (m_slowLoad != value) {
+            m_slowLoad = value;
+            emit slowLoadChanged();
+
+            if (m_slowLoad && !m_memoriesModel) {
+                createMemoriesModel();
+            }
+        }
+    }
+
+    Q_INVOKABLE void openMemories() {
+        if (!m_memoriesModel) {
+            createMemoriesModel();
+        }
+    }
+
 signals:
     void windowTitleChanged();
     void receiverCountChanged();
@@ -131,6 +155,13 @@ signals:
     void stepSizeChanged();
     void uiSpecsChanged();
 
+    // Memories
+    void memoryReceived(memoryType mem);
+    void memoryNameReceived(memoryTagType tag);
+    void memorySplitReceived(memorySplitType split);
+
+    void memoriesModelChanged();
+    void slowLoadChanged();
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -202,6 +233,22 @@ private:
     ThemeBridge m_theme;
 
     quint64 stepSize=100; // should this be a setting?
+
+    void createMemoriesModel() {
+        if (!m_memoriesModel) {
+            m_memoriesModel = new MemoriesModel(this);
+            // Set any properties needed
+            m_memoriesModel->setIsAdmin(false);
+            m_memoriesModel->setSlowLoad(m_slowLoad);
+            m_memoriesModel->populate();
+            emit memoriesModelChanged();
+        }
+    }
+
+    MemoriesModel* m_memoriesModel = nullptr;
+    bool m_slowLoad = false;
+
+    QVariantMap frequencyDisplay;
 };
 
 #endif // MAINCONTROLLER_H

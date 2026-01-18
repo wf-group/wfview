@@ -3,8 +3,8 @@
 #include "logcategories.h"
 
 
-ReceiverController::ReceiverController(int rxIndex, QObject *parent)
-        : QObject(parent), receiver(rxIndex)
+ReceiverController::ReceiverController(int rxIndex, QString region, QObject *parent)
+    : QObject(parent), region(region), receiver(rxIndex)
 {
     qInfo() << "Creating new Receiver(" << rxIndex <<")";
 
@@ -16,6 +16,7 @@ ReceiverController::ReceiverController(int rxIndex, QObject *parent)
         setActive(true);
 
     buildUiSpecs();
+
 }
 
 /*
@@ -421,9 +422,11 @@ void ReceiverController::setMode(uchar m, bool u)
                                });
 
         if (it != rigCaps->modes.end()) {
-            mode = *it;
-            mode.data = mode.data;
-            mode.filter = mode.filter;
+            auto m = *it;
+
+            m.data = mode.data;
+            m.filter = mode.filter;
+            mode = m;
             emit modeChanged();
             emit dataModeChanged();
             emit filterChanged();
@@ -641,8 +644,6 @@ void ReceiverController::setNr(uchar v, bool u)
 {
     if (nr != v)
     {
-        qInfo() << "New setNr()" << v;
-
         nr = v;
         emit nrChanged();
 
@@ -835,6 +836,7 @@ void ReceiverController::setFrequencyA(quint64 f, bool u)
     if (frequencyA != f)
     {
         frequencyA = f;
+        emit frequencyAChanged();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             f = roundFrequency(f,stepSize);
@@ -842,8 +844,32 @@ void ReceiverController::setFrequencyA(quint64 f, bool u)
             fr.Hz = f;
             fr.MHzDouble = double(f / 1000000.0);
             queue->addUnique(priorityImmediate,queueItem(t.freqFunc,QVariant::fromValue<freqt>(fr),false,t.receiver));
-        } else {
-            emit frequencyAChanged();
+        }
+
+        if (f < band.lowFreq || f > band.highFreq || band.band == bandGen)
+        {
+            // Band may have changed but we don't know how, so set band to unknown
+            // It will be checked below and updated with correct band information.
+            // We need to do this every time if bandGen.
+            band.band = bandUnknown;
+        }
+
+        if (band.band == bandUnknown) {
+
+            auto it = std::find_if(rigCaps->bands.begin(), rigCaps->bands.end(),
+                                   [&](const bandType &bt) {
+                                       return (frequencyA >= bt.lowFreq && frequencyA <= bt.highFreq &&
+                                            (bt.region == "" || bt.region == region));
+                                   });
+
+            if (it != rigCaps->bands.end()) {
+                const bandType &b = *it;
+                if (b.band != band.band)
+                {
+                    band = b;
+                    emit bandChanged();
+                }
+            }
         }
     }
 }
@@ -853,6 +879,7 @@ void ReceiverController::setFrequencyB(quint64 f, bool u)
     if (frequencyB != f)
     {
         frequencyB = f;
+        emit frequencyBChanged();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoB,receiver,true);
             f = roundFrequency(f,stepSize);
@@ -860,8 +887,6 @@ void ReceiverController::setFrequencyB(quint64 f, bool u)
             fr.Hz = f;
             fr.MHzDouble = double(f / 1000000.0);
             queue->addUnique(priorityImmediate,queueItem(t.freqFunc,QVariant::fromValue<freqt>(fr),false,t.receiver));
-        } else {
-            emit frequencyBChanged();
         }
     }
 }
@@ -878,7 +903,7 @@ void ReceiverController::buildUiSpecs()
 
     values.clear();
     for (auto &b : rigCaps->bands) {
-        if (b.region == currentRegion) {
+        if (b.region == region || b.region.isEmpty()) {
             values.append(QVariantMap{
                 {"value",  b.band},
                 {"text", b.name}
@@ -1295,7 +1320,7 @@ void ReceiverController::receiveRigCaps(rigCapabilities* caps)
 void ReceiverController::setBandIndicators(bool show, QString region, std::vector<bandType>* bands)
 {
 
-    this->currentRegion = region;
+    this->region = region;
 
     // Step through the bands and add all indicators!
     activeBands.clear();
@@ -1314,31 +1339,33 @@ void ReceiverController::setBandIndicators(bool show, QString region, std::vecto
 void ReceiverController::setBand(availableBands b, bool u)
 {
     // Always trigger setBand as BSR may have changed.
-    band = b;
-    qInfo() << "Got new band:" << b;
+    qInfo() << "Got new band:" << b << "in region" << region;
     auto it = std::find_if(rigCaps->bands.begin(), rigCaps->bands.end(),
                            [&](const bandType &bt) {
-                               return bt.band == b && (bt.region == currentRegion  || bt.region.isEmpty());
+                               return bt.band == b && (bt.region == region  || bt.region.isEmpty());
                            });
 
     if (it != rigCaps->bands.end()) {
         // Found
-        const bandType &t = *it;
-        if(t.bsr == 0)
-        {
-            qDebug(logGui()) << "requested to drop to band that does not have a BSR, using direct mode.";
-            freqt f;
-            f.Hz = (t.lowFreq+t.highFreq)/2.0;
-            f.MHzDouble = f.Hz/1000000.0;
-            f.VFO = activeVFO;
-            vfoCommandType t = queue->getVfoCommand(vfoMain,receiver,true);
-            queue->add(priorityImmediate,queueItem(t.freqFunc, QVariant::fromValue<freqt>(f),false,t.receiver));
-        } else {
-            awaitingBSR = true;
-            bsr.band = t.bsr;
-            // Need to create an empty bandStackType to stop it trying to set a new one.
-            queue->add(priorityImmediate,queueItem(funcBandStackReg,
-                                                    QVariant::fromValue<bandStackType>(bandStackType(t.bsr,bsr.reg)),false,uchar(0)));
+        if (u) {
+            const bandType &t = *it;
+            band = t;
+            if(t.bsr == 0)
+            {
+                qDebug(logGui()) << "requested to drop to band that does not have a BSR, using direct mode.";
+                freqt f;
+                f.Hz = (t.lowFreq+t.highFreq)/2.0;
+                f.MHzDouble = f.Hz/1000000.0;
+                f.VFO = activeVFO;
+                vfoCommandType t = queue->getVfoCommand(vfoMain,receiver,true);
+                queue->add(priorityImmediate,queueItem(t.freqFunc, QVariant::fromValue<freqt>(f),false,t.receiver));
+            } else {
+                awaitingBSR = true;
+                bsr.band = t.bsr;
+                // Need to create an empty bandStackType to stop it trying to set a new one.
+                queue->add(priorityImmediate,queueItem(funcBandStackReg,
+                                                        QVariant::fromValue<bandStackType>(bandStackType(t.bsr,bsr.reg)),false,uchar(0)));
+            }
         }
     } else {
         // Not found not sure what to do here as it can't happen in theory!
@@ -1380,33 +1407,30 @@ void ReceiverController::receiveBSR(bandStackType& b)
 
 void ReceiverController::storeBsr()
 {
-    qInfo() << "Storing BSR" << bsr.reg;
-    qInfo() << "Setting BSR to current freq/mode, first find band that contains frequency:" << frequencyA;
-    // First find which band we are in
-    for (auto &band: rigCaps->bands)
-    {
-        if (band.region == "" || band.region == currentRegion) {
-            if (band.bsr != 0 && frequencyA >= band.lowFreq && frequencyA <= band.highFreq)
-            {
-                // qInfo() << "Found band" << band.name;
-                // This frequency is within this band
-                freqt fr;
-                fr.Hz = frequencyA;
-                fr.MHzDouble = fr.Hz/1000000.0;
-                bsr.band = band.bsr;
-                bsr.data = mode.data;
-                bsr.freq = fr;
-                bsr.filter = mode.filter;
-                bsr.mode = mode.reg;
-                // If we haven't received a tone yet, use default.
-                if (bsr.tone.tone == 0) {
-                    bsr.tone.tone = 885;
-                    bsr.tsql.tone = 885;
-                }
-                queue->add(priorityImmediate,queueItem(funcBandStackReg, QVariant::fromValue<bandStackType>(bsr),false,uchar(0)));
-                break;
-            }
+    // First find which band we are in    
+    auto it = std::find_if(rigCaps->bands.begin(), rigCaps->bands.end(),
+                           [&](const bandType &bt) {
+                               return (frequencyA >= bt.lowFreq && frequencyA <= bt.highFreq &&
+                                       (bt.region == "" || bt.region == region));
+                           });
+
+    if (it != rigCaps->bands.end()) {
+        const bandType &b = *it;
+        // Current frequency is within this band and it has a BSR
+        freqt fr;
+        fr.Hz = frequencyA;
+        fr.MHzDouble = fr.Hz/1000000.0;
+        bsr.band = b.bsr;
+        bsr.data = mode.data;
+        bsr.freq = fr;
+        bsr.filter = mode.filter;
+        bsr.mode = mode.reg;
+        // If we haven't received a tone yet, use default.
+        if (bsr.tone.tone == 0) {
+            bsr.tone.tone = 885;
+            bsr.tsql.tone = 885;
         }
+        queue->add(priorityImmediate,queueItem(funcBandStackReg, QVariant::fromValue<bandStackType>(bsr),false,uchar(0)));
     }
 }
 

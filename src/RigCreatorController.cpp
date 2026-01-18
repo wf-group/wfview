@@ -2,7 +2,6 @@
 #include "logcategories.h"
 
 #include "RigCreatorController.h"
-#include "ui_rigcreator.h"
 #include "themebridge.h"
 
 // Access main Qt theme from QML.

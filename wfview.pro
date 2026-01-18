@@ -313,10 +313,11 @@ SOURCES += \
     src/LogModel.cpp \
     src/LoggingController.cpp \
     src/MainController.cpp \
+    src/MemoriesModel.cpp \
     src/MeterItem.cpp \
     src/ReceiverController.cpp \
     src/RigCreatorController.cpp \
-    src/aboutbox.cpp \
+    src/SettingsController.cpp \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
     src/audio/audioconverter.cpp \
@@ -331,7 +332,6 @@ SOURCES += \
     src/audio/audiohandlertciinput.cpp \
     src/audio/audiohandlertcioutput.cpp \
     src/audio/resampler/resample.c \
-    src/bandbuttons.cpp \
     src/cachingqueue.cpp \
     src/calibrationwindow.cpp \
     src/cluster.cpp \
@@ -340,7 +340,6 @@ SOURCES += \
     src/cwsender.cpp \
     src/cwsidetone.cpp \
     src/database.cpp \
-    src/debugwindow.cpp \
     src/firsttimesetup.cpp \
     src/freqctrlquick.cpp \
     src/freqmemory.cpp \
@@ -348,13 +347,8 @@ SOURCES += \
     src/ft4222handler.cpp \
     src/keyboard.cpp \
     src/logcategories.cpp \
-    src/loggingwindow.cpp \
     src/main.cpp \
-    src/memories.cpp \
-    src/meter.cpp \
     src/pttyhandler.cpp \
-    src/qledlabel.cpp \
-    src/radio/SettingsController.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
@@ -370,7 +364,6 @@ SOURCES += \
     src/radio/yaesuudpcat.cpp \
     src/radio/yaesuudpcontrol.cpp \
     src/radio/yaesuudpscope.cpp \
-    src/receiverwidget.cpp \
     src/repeatersetup.cpp \
     src/rigcommander.cpp \
     src/rigctld.cpp \
@@ -380,21 +373,19 @@ SOURCES += \
     src/satellitesetup.cpp \
     src/scrolltest.cpp \
     src/selectradio.cpp \
-    src/settingswidget.cpp \
     src/sidebandchooser.cpp \
     src/spectrumitem.cpp \
-    src/tablewidget.cpp \
     src/tciserver.cpp \
     src/tcpserver.cpp \
     src/usbcontroller.cpp \
-    src/waterfallitem.cpp \
-    src/wfmain.cpp
+    src/waterfallitem.cpp
 
 HEADERS  += \
     include/DebugController.h \
     include/LogModel.h \
     include/LoggingController.h \
     include/MainController.h \
+    include/MemoriesModel.h \
     include/MeterItem.h \
     include/ReceiverController.h \
     include/RigCreatorController.h \
@@ -409,7 +400,6 @@ HEADERS  += \
     src/audio/resampler/speex_resampler.h \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
-    include/aboutbox.h \
     include/audioconverter.h \
     include/audiodevices.h \
     include/audiohandler.h \
@@ -423,7 +413,6 @@ HEADERS  += \
     include/audiohandlertciinput.h \
     include/audiohandlertcioutput.h \
     include/audiotaper.h \
-    include/bandbuttons.h \
     include/bytering.h \
     include/cachingqueue.h \
     include/calibrationwindow.h \
@@ -434,7 +423,6 @@ HEADERS  += \
     include/cwsender.h \
     include/cwsidetone.h \
     include/database.h \
-    include/debugwindow.h \
     include/firsttimesetup.h \
     include/freqmemory.h \
     include/frequencyinputwidget.h \
@@ -449,15 +437,10 @@ HEADERS  += \
     include/kenwoodserver.h \
     include/keyboard.h \
     include/logcategories.h \
-    include/loggingwindow.h \
-    include/memories.h \
-    include/meter.h \
     include/packettypes.h \
     include/prefs.h \
     include/printhex.h \
     include/pttyhandler.h \
-    include/qledlabel.h \
-    include/receiverwidget.h \
     include/repeaterattributes.h \
     include/repeatersetup.h \
     include/rigcommander.h \
@@ -469,13 +452,10 @@ HEADERS  += \
     include/satellitesetup.h \
     include/scrolltest.h \
     include/selectradio.h \
-    include/settingswidget.h \
     include/sidebandchooser.h \
-    include/tablewidget.h \
     include/tciserver.h \
     include/tcpserver.h \
     include/usbcontroller.h \
-    include/wfmain.h \
     include/wfviewtypes.h \
     include/yaesucommander.h \
     include/yaesuserver.h \
@@ -487,22 +467,14 @@ HEADERS  += \
 
 
 FORMS    += \
-    src/wfmain.ui \
-    src/bandbuttons.ui \
     src/calibrationwindow.ui \
     src/cwsender.ui \
     src/firsttimesetup.ui \
     src/frequencyinputwidget.ui \
-    src/debugwindow.ui \
-    src/loggingwindow.ui \
-    src/memories.ui \
-    src/rigcreator.ui \
     src/satellitesetup.ui \
     src/selectradio.ui \
     src/repeatersetup.ui \
-    src/settingswidget.ui \
-    src/controllersetup.ui \
-    src/aboutbox.ui
+    src/controllersetup.ui
 
 DISTFILES += \
     src/audio/adpcm/CMakeLists.txt \
