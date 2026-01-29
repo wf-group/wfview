@@ -16,14 +16,5 @@
         <file>mirabox293s.png</file>
         <file>miraboxn3.png</file>
         <file>frequency.ttf</file>
-        <file>MainWindow.qml</file>
-        <file>Receiver.qml</file>
-        <file>RigCreator.qml</file>
-        <file>LoggingWindow.qml</file>
-        <file>Settings.qml</file>
-        <file>Debug.qml</file>
-        <file>Memories.qml</file>
-        <file>AboutBox.qml</file>
-        <file>SelectRadio.qml</file>
     </qresource>
 </RCC>

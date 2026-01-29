@@ -27,9 +27,38 @@ ApplicationWindow {
         id: loggingWindow
     }
 
+
     onClosing: function(close) {
         MainController.shutdown()
         close.accepted = true
+    }
+
+    FirstTimeSetup {
+        id: firstTimeSetup
+        visible: false
+
+        onExitProgram: {
+            Qt.quit()
+        }
+
+        onShowSettings: function(isNetwork) {
+            // Mark first run as complete
+            MainController.setFirstRun(false)
+
+            // Show settings with appropriate mode
+            MainController.showSettings(isNetwork)
+
+            // Show main window
+            mainWindow.visible = true
+        }
+
+        onSkipSetup: {
+            // Mark first run as complete
+            MainController.setFirstRun(false)
+
+            // Show main window
+            mainWindow.visible = true
+        }
     }
 
     Settings {
@@ -45,6 +74,27 @@ ApplicationWindow {
             Memories {
                 memoriesModel: MainController.memoriesModel
             }
+        }
+    }
+
+    Loader {
+        id: selectRadioLoader
+        source: "qrc:/qml/SelectRadio.qml"
+        asynchronous: false
+
+        onLoaded: {
+            // Connect the window to MainController's radio controller
+            item.selectRadioController = MainController.selectRadio
+        }
+    }
+
+    // Load CWSender window
+    Loader {
+        id: cwSenderLoader
+        source: "qrc:/qml/CWSender.qml"
+        asynchronous: false
+        onLoaded: {
+            item.cwSenderController = MainController.cwSender
         }
     }
 
@@ -377,7 +427,12 @@ ApplicationWindow {
                     }
                     CheckBox { text: "Enable ATU" }
                     Button { text: "Tune" }
-                    Button { text: "CW" }
+                    Button {
+                        text: "CW"
+                        enabled: (connStatus === 2) // Only enable button if connected
+                        onClicked: MainController.cwSender.visible = true
+                    }
+
                     Button { text: "Rpt/Split" }
                     Button {
                         text: "Memories"
@@ -456,7 +511,10 @@ ApplicationWindow {
                     onClicked: settings.save()
                 }
 
-                Button { text: "Radio Status" }
+                Button {
+                    text: "Radio Status"
+                    onClicked: MainController.selectRadio.visible = true
+                }
                 Button {
                     text: "Log"
                     onClicked: {
@@ -531,5 +589,13 @@ ApplicationWindow {
         // Optional: Add a close button at the bottom
         standardButtons: Dialog.Close
     }
+
+    Component.onCompleted: {
+        // Check if this is the first run
+        if (MainController.isFirstRun()) {
+            firstTimeSetup.visible = true
+        }
+    }
+
 }
 

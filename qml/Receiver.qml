@@ -261,10 +261,10 @@ Control {
                                 Layout.fillHeight: true
                                 Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
 
-                                freqDigits: controller ? controller.freqDisplay["digits"] : 0
                                 minFrequency: controller ? controller.freqDisplay["min"] : 0
-                                maxFrequency: controller ? controller.freqDisplay["max"] : 0
-                                freqMinStep: controller ? controller.freqDisplay["minStep"] : 0
+                                maxFrequency: controller ? controller.freqDisplay["max"] : 4000000000
+                                freqMinStep: controller ? controller.freqDisplay["minStep"] : 1
+                                freqDigits: controller ? controller.freqDisplay["digits"] : 10
 
                                 unit: (controller && MainController.settings && MainController.settings.options)
                                       ? MainController.settings.options["Interface.FrequencyUnits"]

@@ -11,6 +11,10 @@ struct colorPrefsType{
     int presetNum = -1;
     QString *presetName = nullptr;
 
+	//Main window colors
+	QColor background;
+	QColor foreground;	
+	
     // Spectrum line plot:
     QColor gridColor;
     QColor axisColor;

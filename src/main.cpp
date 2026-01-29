@@ -40,16 +40,13 @@
 #include "rigidentities.h"
 #include "repeaterattributes.h"
 #include "memories.h"
-#include "firsttimesetup.h"
 
 #include "packettypes.h"
 #include "calibrationwindow.h"
 #include "repeatersetup.h"
 #include "satellitesetup.h"
-#include "cwsender.h"
 #include "bandbuttons.h"
 #include "frequencyinputwidget.h"
-#include "settingswidget.h"
 #include "rigserver.h"
 #include "icomserver.h"
 #include "kenwoodserver.h"
@@ -71,6 +68,7 @@
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
+#include "CWSenderController.h"
 #include "cachingqueue.h"
 
 #include "waterfallitem.h"
@@ -485,6 +483,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
     qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
     qmlRegisterType<SelectRadioController>("WFVIEW", 1, 0, "SelectRadioController");
+    qmlRegisterType<CWSenderController>("WFVIEW", 1, 0, "CWSenderController");
     qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
 
     // Members of ReceiverController
@@ -503,10 +502,10 @@ int main(int argc, char *argv[])
 
     std::cout << "DEBUG: Checking if resources are available" << std::endl;
     // Debug: Check if resources are available
-    QDir resourcesDir(":/resources");
-    std::cout << "DEBUG: Resource directory exists: " << (resourcesDir.exists() ? "true" : "false") << std::endl;
-    qInfo() << "Resource directory exists:" << resourcesDir.exists();
-    qInfo() << "Available resources in :/resources:";
+    QDir resourcesDir(":/qml");
+    std::cout << "DEBUG: QML directory exists: " << (resourcesDir.exists() ? "true" : "false") << std::endl;
+    qInfo() << "QML directory exists:" << resourcesDir.exists();
+    qInfo() << "Available resources in :/qml:";
     QStringList resources = resourcesDir.entryList();
     for (const QString& res : resources) {
         qInfo() << "  " << res;
@@ -514,9 +513,9 @@ int main(int argc, char *argv[])
     }
 
     // Debug: Check if MainWindow.qml exists
-    QFile mainWindowFile(":/resources/MainWindow.qml");
+    QFile mainWindowFile(":/qml/MainWindow.qml");
     std::cout << "DEBUG: MainWindow.qml exists: " << (mainWindowFile.exists() ? "true" : "false") << std::endl;
-    qInfo() << "MainWindow.qml exists in resources:" << mainWindowFile.exists();
+    qInfo() << "MainWindow.qml exists in qml:" << mainWindowFile.exists();
 
     // Connect to QML warnings/errors
     std::cout << "DEBUG: Connecting to QML warnings" << std::endl;
@@ -545,7 +544,7 @@ int main(int argc, char *argv[])
 
 
     std::cout << "DEBUG: About to load MainWindow.qml from resources" << std::endl;
-    engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/qml/MainWindow.qml")));
     std::cout << "DEBUG: engine.load() returned" << std::endl;
     if (engine.rootObjects().isEmpty())
     {

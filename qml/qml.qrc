@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/qml">
+        <file>MainWindow.qml</file>
+        <file>Receiver.qml</file>
+        <file>RigCreator.qml</file>
+        <file>LoggingWindow.qml</file>
+        <file>Settings.qml</file>
+        <file>Debug.qml</file>
+        <file>Memories.qml</file>
+        <file>AboutBox.qml</file>
+        <file>SelectRadio.qml</file>
+        <file>CWSender.qml</file>
+        <file>FirstTimeSetup.qml</file>
+    </qresource>
+</RCC>
