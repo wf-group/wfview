@@ -38,16 +38,13 @@
 #include "rigidentities.h"
 #include "repeaterattributes.h"
 #include "memories.h"
-#include "firsttimesetup.h"
 
 #include "packettypes.h"
 #include "calibrationwindow.h"
 #include "repeatersetup.h"
 #include "satellitesetup.h"
-#include "cwsender.h"
 #include "bandbuttons.h"
 #include "frequencyinputwidget.h"
-#include "settingswidget.h"
 #include "rigserver.h"
 #include "icomserver.h"
 #include "kenwoodserver.h"
@@ -69,6 +66,7 @@
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
+#include "CWSenderController.h"
 #include "cachingqueue.h"
 
 #include "waterfallitem.h"
@@ -474,6 +472,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");
     qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
     qmlRegisterType<SelectRadioController>("WFVIEW", 1, 0, "SelectRadioController");
+    qmlRegisterType<CWSenderController>("WFVIEW", 1, 0, "CWSenderController");
     qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
 
     // Members of ReceiverController
@@ -505,7 +504,7 @@ int main(int argc, char *argv[])
                      Qt::QueuedConnection);
 
 
-    engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/qml/MainWindow.qml")));
     if (engine.rootObjects().isEmpty())
     {
         QMessageBox::critical(nullptr, QStringLiteral("Startup error"), "rootObjects is empty");

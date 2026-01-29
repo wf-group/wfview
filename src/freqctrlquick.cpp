@@ -225,6 +225,9 @@ void FreqCtrlQuick::setup(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,
     }
 
     m_NumSeps = (m_NumDigits - 1) / 3 - m_DigStart / 3;
+
+    // At the end of setup(), line 227, add:
+    qInfo() << "After setup: m_NumDigits=" << m_NumDigits << "m_DigStart=" << m_DigStart;
 }
 
 void FreqCtrlQuick::setMinFrequency(qint64 freq)
@@ -298,9 +301,12 @@ void FreqCtrlQuick::setFrequencyExt(qint64 freq)
     rem = m_freq;
     m_LeadZeroPos = m_NumDigits;
 
+    qInfo() << "setFrequencyExt: freq=" << freq << "m_NumDigits=" << m_NumDigits
+             << "m_DigStart=" << m_DigStart;
+
     for (i = m_NumDigits - 1; i >= m_DigStart; i--)
     {
-        val = (int)(rem / m_DigitInfo[i].weight);
+        val = (int)(rem / m_DigitInfo[i].weight) % 10;
         if (m_DigitInfo[i].val != val)
         {
             m_DigitInfo[i].val = val;
@@ -824,14 +830,19 @@ void FreqCtrlQuick::drawDigits(QPainter &Painter)
             else
                 Painter.setPen(m_DigitColor);
 
-            if (m_freq < 0 && i == m_LeadZeroPos - 1 && m_DigitInfo[i].val == 0)
+            if (m_freq < 0 && i == m_LeadZeroPos - 1 && m_DigitInfo[i].val == 0) {
                 Painter.drawText(m_DigitInfo[i].dQRect,
                                  Qt::AlignHCenter | Qt::AlignVCenter,
                                  QString("-0"));
-            else
+            } else {
+                if (i == 6 || i == 7) {
+                    qInfo() << "Drawing digit" << i << "value:" << m_DigitInfo[i].val
+                             << "rect:" << m_DigitInfo[i].dQRect;
+                }
                 Painter.drawText(m_DigitInfo[i].dQRect,
                                  Qt::AlignHCenter | Qt::AlignVCenter,
-                                 QString().number(m_DigitInfo[i].val));
+                                 QString::number(m_DigitInfo[i].val));
+            }
             m_DigitInfo[i].modified = false;
         }
     }

@@ -17,8 +17,6 @@
 #include <QSqlQuery>
 #endif
 
-#include <qcustomplot.h>
-
 #ifdef USESQL
 #include "database.h"
 #endif
@@ -30,7 +28,6 @@ struct spotData {
     QDateTime timestamp;
     QString mode;
     QString comment;
-    QCPItemText* text = nullptr;
     int timeout; // timeout in seconds
     bool current = false;
 };

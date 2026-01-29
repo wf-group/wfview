@@ -40,7 +40,8 @@ enum prefIfItem {
     if_all = ~0
 };
 
-enum prefColItem {
+// Allow 63 different colors
+enum prefColItem : qint64 {
     col_grid = 1 << 0,
     col_axis = 1 << 1,
     col_text = 1 << 2,
@@ -71,6 +72,8 @@ enum prefColItem {
     col_clusterSpots = 1 << 27,
     col_buttonOff = 1 << 28,
     col_buttonOn = 1 << 29,
+    col_background = 1 << 30,
+    col_foreground = 1 << 31,
     col_all = ~0
 };
 

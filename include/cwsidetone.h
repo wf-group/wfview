@@ -26,7 +26,7 @@ class cwSidetone : public QIODevice
 {
     Q_OBJECT
 public:
-    explicit cwSidetone(int level, int speed, int freq, double ratio, QWidget *parent = 0);
+    explicit cwSidetone(int level, int speed, int freq, double ratio, QObject *parent = 0);
     ~cwSidetone();
 
     void start();
@@ -53,7 +53,7 @@ private:
     QByteArray generateData(qint64 len, qint64 freq);
     QByteArray buffer;
     QMap< QChar, QString> cwTable;
-    QWidget* parent;
+    QObject* parent;
     int volume;
     int speed;
     int frequency;

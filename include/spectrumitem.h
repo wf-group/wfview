@@ -61,7 +61,7 @@ class SpectrumItem : public QQuickItem
 
     Q_PROPERTY(int maxSpotRows READ getMaxSpotRows WRITE setMaxSpotRows NOTIFY spotsChanged)
     Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
-    Q_PROPERTY(const QVector<bandType> bands WRITE setBands NOTIFY bandsChanged)
+    Q_PROPERTY(const QVector<bandType> bands READ getBands WRITE setBands NOTIFY bandsChanged)
 
 
 public:
@@ -93,6 +93,7 @@ public:
         spotData spot;
     };
 
+    QVector<bandType> getBands() { return bands;}
     void setBands(const QVector<bandType> &newBands);
 
 public slots:

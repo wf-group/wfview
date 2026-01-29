@@ -78,19 +78,20 @@ public:
 
     void setFreqDigits(int f) {
         if (!f) {
-            if (f < 10e6)
+            if (m_MaxFreq < 10e6)
                 m_NumDigits = 7;
-            else if (f < 100e6)
+            else if (m_MaxFreq < 100e6)
                 m_NumDigits = 8;
-            else if (f < 1e9)
+            else if (m_MaxFreq < 1e9)
                 m_NumDigits = 9;
-            else if (f < 10e9)
+            else if (m_MaxFreq < 10e9)
                 m_NumDigits = 10;
-            else if (f < 100e9)
+            else if (m_MaxFreq < 100e9)
                 m_NumDigits = 11;
         } else {
             m_NumDigits = (f < FCTL_MIN_DIGITS) ? FCTL_MIN_DIGITS : (f > FCTL_MAX_DIGITS) ? FCTL_MAX_DIGITS : f;
         }
+        qDebug() << "setFreqDigits called with:" << f << "set" << m_NumDigits;
         emit freqDigitsChanged();
     }
     qint64 getFreqMinStep() const { return m_MaxFreq; }

@@ -2,7 +2,7 @@
 
 #include "logcategories.h"
 
-cwSidetone::cwSidetone(int level, int speed, int freq, double ratio, QWidget* parent) :
+cwSidetone::cwSidetone(int level, int speed, int freq, double ratio, QObject* parent) :
     parent(parent),
     volume(level),
     speed(speed),

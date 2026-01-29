@@ -8,6 +8,8 @@
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
+#include "CWSenderController.h"
+
 #include "prefs.h"
 #include "rigctld.h"
 #include "tciserver.h"
@@ -28,6 +30,10 @@ class MainController : public QObject {
 
     Q_PROPERTY(MemoriesModel* memoriesModel READ memoriesModel NOTIFY memoriesModelChanged)
     Q_PROPERTY(bool slowLoad READ slowLoad WRITE setSlowLoad NOTIFY slowLoadChanged)
+
+    Q_PROPERTY(CWSenderController* cwSender READ cwSender CONSTANT)
+    Q_PROPERTY(SelectRadioController* selectRadio READ selectRadio CONSTANT)
+
 
 public:
 
@@ -95,12 +101,26 @@ public:
         emit receiverDetachedChanged(i, v);
     }
     SettingsController* getSettings() const { return m_settings.get(); }
+    SelectRadioController* selectRadio() const { return m_selRad.get(); }
+    CWSenderController* cwSender() const { return m_cwSender.get(); }
 
     ThemeBridge* theme() { return &m_theme; }
 
     Q_INVOKABLE void syncTheme(QObject* obj) {
         m_theme.syncFromAppPalette();
     }
+
+
+    // Method to show the radio selector
+    Q_INVOKABLE void showSelectRadio() {
+        m_selRad->setVisible(true);
+    }
+
+    Q_INVOKABLE void showCWSender()
+    {
+        m_cwSender->setVisible(true);
+    }
+
 
     connectionStatus_t getConnStatus() { return connStatus;}
 
@@ -222,7 +242,6 @@ private:
     rigCommander * rig = nullptr;
     QThread* rigThread = nullptr;
 
-    SelectRadioController *selRad = nullptr;
 
     connectionStatus_t connStatus = connDisconnected;
 
@@ -232,6 +251,8 @@ private:
     int cmdStartupInterval_ms = 250;
 
     std::unique_ptr<SettingsController> m_settings;
+    std::unique_ptr<SelectRadioController> m_selRad;
+    std::unique_ptr<CWSenderController> m_cwSender;
 
     ThemeBridge m_theme;
 

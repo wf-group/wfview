@@ -80,7 +80,6 @@ win32:INCLUDEPATH += ../portaudio/include
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
-DEFINES += QCUSTOMPLOT_USE_LIBRARY
 
 # These defines are used for the resampler
 equals(QT_ARCH, i386): win32:DEFINES += USE_SSE
@@ -134,6 +133,7 @@ win32:DEFINES += UNAME=\\\"$$system(echo %USERNAME%)\\\"
 
 RESOURCES += qdarkstyle/style.qrc \
     resources/resources.qrc \
+    qml/qml.qrc \
     translations/translation.qrc
 
 
@@ -173,29 +173,14 @@ macx:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus
 
 CONFIG(debug, release|debug) {
 
-  macos:LIBS += -L ../qcustomplot/qcustomplot-sharedlib/build -lqcustomplotd
-
-  lessThan(QT_MAJOR_VERSION, 6) {
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libQCustomPlotd.so/ {print \"-lQCustomPlotd\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplotd2.so/ {print \"-lqcustomplotd2\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplotd.so/ {print \"-lqcustomplotd\"}'")
-
-  } else {
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libQCustomPlotdQt6.so/ {print \"-lQCustomPlotdQt6\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplotd2qt6.so/ {print \"-lqcustomplotd2qt6\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplotdqt6.so/ {print \"-lqcustomplotdqt6\"}'")
-  }
-
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L../opus/win32/VS2015/x64/DebugDLL/
-      LIBS += -L../qcustomplot/x64 -lqcustomplotd2
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\amd64 -lftd2xx
         LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64 -lLibFT4222-64
         QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-debug $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\x64\qcustomplotd2.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Debug\portaudio_x64.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
@@ -206,14 +191,12 @@ CONFIG(debug, release|debug) {
       }
     } else {
       LIBS += -L../opus/win32/VS2015/win32/DebugDLL/
-      LIBS += -L../qcustomplot/win32 -lqcustomplotd2
       LIBS += -L../portaudio/msvc/Win32/Debug/ -lportaudio_x86
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\i386 -lftd2xx
         LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\i386 -lLibFT4222
         QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-debug $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\win32\qcustomplotd2.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Debug\portaudio_x86.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
@@ -225,28 +208,15 @@ CONFIG(debug, release|debug) {
   }
 } else {
 
-  macos:LIBS += -L ../qcustomplot/qcustomplot-sharedlib/build -lqcustomplot
-
-  lessThan(QT_MAJOR_VERSION, 6) {
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libQCustomPlot.so/ {print \"-lQCustomPlot\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplot2.so/ {print \"-lqcustomplot2\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplot.so/ {print \"-lqcustomplot\"}'")
-  } else {
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libQCustomPlotQt6.so/ {print \"-lQCustomPlotQt6\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplot2qt6.so/ {print \"-lqcustomplot2qt6\"}'")
-    linux:LIBS += $$system("/sbin/ldconfig -p | awk '/libqcustomplotqt6.so/ {print \"-lqcustomplotqt6\"}'")
-  }
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L../opus/win32/VS2015/x64/ReleaseDLL/
-      LIBS += -L../qcustomplot/x64 -lqcustomplot2
       LIBS += -L../portaudio/msvc/X64/Release/ -lportaudio_x64
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\amd64 -lftd2xx
         LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64 -lLibFT4222-64
         QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-release $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\x64\qcustomplot2.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Release\portaudio_x64.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
@@ -256,14 +226,12 @@ CONFIG(debug, release|debug) {
       }
     } else {
       LIBS += -L../opus/win32/VS2015/win32/ReleaseDLL/
-      LIBS += -L../qcustomplot/win32 -lqcustomplot2
       LIBS += -L../portaudio/msvc/Win32/Release/ -lportaudio_x86
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\i386 -lftd2xx
         LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\i386 -lLibFT4222
         QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-release $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\win32\qcustomplot2.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Release\portaudio_x86.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
@@ -289,10 +257,6 @@ contains(DEFINES,FTDI_SUPPORT){
   !win32:LIBS += -lft4222
 }
 
-#macx:SOURCES += ../qcustomplot/qcustomplot.cpp 
-#macx:HEADERS += ../qcustomplot/qcustomplot.h
-
-win32:INCLUDEPATH += ../qcustomplot
 win32:INCLUDEPATH += ../hidapi/hidapi
 
 contains(DEFINES,FTDI_SUPPORT){
@@ -309,6 +273,7 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/resampler
 
 SOURCES += \
+    src/CWSenderController.cpp \
     src/DebugController.cpp \
     src/LogModel.cpp \
     src/LoggingController.cpp \
@@ -338,10 +303,8 @@ SOURCES += \
     src/cluster.cpp \
     src/commhandler.cpp \
     src/controllersetup.cpp \
-    src/cwsender.cpp \
     src/cwsidetone.cpp \
     src/database.cpp \
-    src/firsttimesetup.cpp \
     src/freqctrlquick.cpp \
     src/freqmemory.cpp \
     src/frequencyinputwidget.cpp \
@@ -381,6 +344,7 @@ SOURCES += \
     src/waterfallitem.cpp
 
 HEADERS  += \
+    include/CWSenderController.h \
     include/DebugController.h \
     include/LogModel.h \
     include/LoggingController.h \
@@ -421,10 +385,8 @@ HEADERS  += \
     include/colorprefs.h \
     include/commhandler.h \
     include/controllersetup.h \
-    include/cwsender.h \
     include/cwsidetone.h \
     include/database.h \
-    include/firsttimesetup.h \
     include/freqmemory.h \
     include/frequencyinputwidget.h \
     include/ft4222handler.h \
@@ -468,8 +430,6 @@ HEADERS  += \
 
 FORMS    += \
     src/calibrationwindow.ui \
-    src/cwsender.ui \
-    src/firsttimesetup.ui \
     src/frequencyinputwidget.ui \
     src/satellitesetup.ui \
     src/repeatersetup.ui \

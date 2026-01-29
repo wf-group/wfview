@@ -1,5 +1,6 @@
 #include "SettingsController.h"
 #include "logcategories.h"
+#include "waterfallitem.h" // To get the theme
 
 
 static inline QVariant qColorToVariant(const QColor& c) {
@@ -244,6 +245,8 @@ void SettingsController::load()
                 p->presetName->clear();
                 p->presetName->append(tempName);
             }
+            p->foreground = colorFromString(settings->value("foreground", p->foreground.name(QColor::HexArgb)).toString());
+            p->background = colorFromString(settings->value("background", p->background.name(QColor::HexArgb)).toString());
             p->gridColor = colorFromString(settings->value("gridColor", p->gridColor.name(QColor::HexArgb)).toString());
             p->axisColor = colorFromString(settings->value("axisColor", p->axisColor.name(QColor::HexArgb)).toString());
             p->textColor = colorFromString(settings->value("textColor", p->textColor.name(QColor::HexArgb)).toString());
@@ -900,6 +903,8 @@ void SettingsController::save()
         settings->setArrayIndex(pn);
         settings->setValue("presetNum", p->presetNum);
         settings->setValue("presetName", *(p->presetName));
+        settings->setValue("foreground", p->foreground.name(QColor::HexArgb));
+        settings->setValue("background", p->foreground.name(QColor::HexArgb));
         settings->setValue("gridColor", p->gridColor.name(QColor::HexArgb));
         settings->setValue("axisColor", p->axisColor.name(QColor::HexArgb));
         settings->setValue("textColor", p->textColor.name(QColor::HexArgb));
@@ -1155,11 +1160,11 @@ void SettingsController::setDefPrefs()
     defPrefs.virtualSerialPort = QString("none");
     defPrefs.localAFgain = 255;
     defPrefs.mainWflength = 160;
-    defPrefs.mainWfTheme = static_cast<int>(QCPColorGradient::gpJet);
+    defPrefs.mainWfTheme = static_cast<int>(WaterfallItem::Theme::Jet);
     defPrefs.mainPlotFloor = 0;
     defPrefs.mainPlotCeiling = 160;
     defPrefs.subWflength = 160;
-    defPrefs.subWfTheme = static_cast<int>(QCPColorGradient::gpJet);
+    defPrefs.subWfTheme = static_cast<int>(WaterfallItem::Theme::Jet);
     defPrefs.subPlotFloor = 0;
     defPrefs.subPlotCeiling = 160;
     defPrefs.scopeScrollX = 120;
@@ -1241,6 +1246,8 @@ void SettingsController::setDefPrefs()
         p->presetName->clear();
         p->presetName->append(QString("%1").arg(pn));
         p->presetNum = pn;
+        p->background = QColor(0x31,0x31,0x31,255);
+        p->foreground = QColor(0xef,0xf0,0xf1,255);
         p->gridColor = QColor(0,0,0,255);
         p->axisColor = QColor(Qt::white);
         p->textColor = QColor(Qt::white);
@@ -1276,6 +1283,8 @@ void SettingsController::setDefPrefs()
             // Dark
             p->presetName->clear();
             p->presetName->append("Dark");
+            p->background = QColor(0x31,0x31,0x31,255);
+            p->foreground = QColor(0xef,0xf0,0xf1,255);
             p->plotBackground = QColor(0,0,0,255);
             p->axisColor = QColor(Qt::white);
             p->textColor = QColor(255,255,255,255);
@@ -1310,6 +1319,8 @@ void SettingsController::setDefPrefs()
             p->presetName->clear();
             p->presetName->append("Bright");
             p->plotBackground = QColor(Qt::white);
+            p->background = QColor(0xef,0xf0,0xf1,255);
+            p->foreground = QColor(0x31,0x31,0x31,255);
             p->axisColor = QColor(200,200,200,255);
             p->gridColor = QColor(255,255,255,0);
             p->textColor = QColor(Qt::black);
@@ -1822,6 +1833,12 @@ void SettingsController::buildBindings()
 
     WF_I32("Color.PresetNum", curColor().presetNum,
            [this](){ emit colChanged(prefColItems(prefColItem::col_all)); });
+
+
+    WF_COLOR("Color.Background",              curColor().background,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_background)); });
+    WF_COLOR("Color.Foreground",              curColor().foreground,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_foreground)); });
 
     // Spectrum plot
     WF_COLOR("Color.Grid",              curColor().gridColor,

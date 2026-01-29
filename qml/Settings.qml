@@ -1,4 +1,4 @@
-// SettingsWidget.qml
+// Settings.qml
 // Conversion of your QWidget .ui to QML (Qt Quick Controls 2 + Layouts).
 //
 // Notes (tell-it-like-it-is):
@@ -1207,6 +1207,10 @@ Window {
                                     rowSpacing: 6
 
                                     // ---- Row 0: Grid, Tuning line, Meter Scale ----
+                                    ColorRow { key: "Color.Foreground"; label: "Foreground" }
+                                    ColorRow { key: "Color.Background"; label: "Background" }
+                                    Item {}
+
                                     ColorRow { key: "Color.Grid"; label: "Grid" }
                                     ColorRow { key: "Color.TuningLine"; label: "Tuning Line" }
                                     ColorRow { key: "Color.MeterScale"; label: "Meter Scale" }

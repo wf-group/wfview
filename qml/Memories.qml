@@ -3,7 +3,7 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 2.15
-import QtQuick.Dialogs
+import Qt.labs.platform 1.1 as PLATFORM
 import WFVIEW 1.0
 
 Window {
@@ -177,7 +177,7 @@ Window {
                     Layout.fillHeight: true
 
                     clip: true
-                    alternatingRows: true
+                    //alternatingRows: true
                     columnSpacing: 1
                     rowSpacing: 1
 
@@ -511,7 +511,7 @@ Window {
         }
     }
 
-    FileDialog {
+    PLATFORM.FileDialog {
         id: csvImportDialog
         title: qsTr("Select CSV file to import")
         nameFilters: ["CSV files (*.csv)"]
@@ -522,7 +522,7 @@ Window {
         }
     }
 
-    FileDialog {
+    PLATFORM.FileDialog {
         id: csvExportDialog
         title: qsTr("Select CSV file to export")
         nameFilters: ["CSV files (*.csv)"]

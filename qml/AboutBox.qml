@@ -40,7 +40,6 @@ Item {
         let rsCredit = "<br/><br/><a href=\"https://www.speex.org/\"  style=\"color: cyan;\">Speex</a> Resample library Copyright 2003-2008 Jean-Marc Valin";
         let rtaudiocredit = "<br/><br/>RT Audio, from <a href=\"https://www.music.mcgill.ca/~gary/rtaudio/index.html\">Gary P. Scavone</a>";
         let portaudiocredit = "<br/><br/>Port Audio, from <a href=\"http://portaudio.com\">The Port Audio Community</a>";
-        let qcpcredit = "<br/><br/>The waterfall and spectrum plot graphics use QCustomPlot, from  <a href=\"https://www.qcustomplot.com/\">Emanuel Eichhammer</a>";
         let qtcredit = "<br/><br/>This copy of wfview was built against Qt version " + qtVersion;
         let hamlibcredit = "<br/><br/>wfview contains our own implementation of the Hamlib rigctl protocol which uses portions of code from <a href=\"https://hamlib.github.io/\">Hamlib</a><br/>Copyright (C) 2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012 The Hamlib Group";
         let adpcmcredit = "<br/><br/>wfview contains the adpcm-xq audio encoder/decoder - Copyright (c) David Bryant All rights reserved.";
@@ -141,7 +140,7 @@ Item {
         aboutText += "\n" + ssCredit + "\n" + rsCredit + "\n";
         aboutText += rtaudiocredit;
         aboutText += portaudiocredit;
-        aboutText += kappanhangack + kb3mmwCredit + qcpcredit + qtcredit + hamlibcredit + adpcmcredit;
+        aboutText += kappanhangack + kb3mmwCredit + qtcredit + hamlibcredit + adpcmcredit;
         aboutText += "<br/><br/>";
         aboutText += "<pre>" + sxcreditcopyright + freqCtlCredit + ftdiCredit + "</pre>";
         aboutText += "<br/><br/>";
