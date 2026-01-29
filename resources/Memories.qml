@@ -2,8 +2,8 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Layouts 2.15
-import QtQuick.Dialogs
+import QtQuick.Layouts 1.15
+import QtQuick.Dialogs 1.3
 import WFVIEW 1.0
 
 Window {
@@ -177,7 +177,7 @@ Window {
                     Layout.fillHeight: true
 
                     clip: true
-                    alternatingRows: true
+                    // Note: alternatingRows property only available in Qt 6.2+, not in Qt 5
                     columnSpacing: 1
                     rowSpacing: 1
 
@@ -515,7 +515,7 @@ Window {
         id: csvImportDialog
         title: qsTr("Select CSV file to import")
         nameFilters: ["CSV files (*.csv)"]
-        fileMode: FileDialog.OpenFile
+        selectExisting: true  // Qt 5 way (fileMode: FileDialog.OpenFile in Qt 6)
         onAccepted: {
             memoriesModel.importCSV(selectedFile.toString().replace("file:///", ""),
                                    allFieldsCheck.checked)
@@ -526,7 +526,7 @@ Window {
         id: csvExportDialog
         title: qsTr("Select CSV file to export")
         nameFilters: ["CSV files (*.csv)"]
-        fileMode: FileDialog.SaveFile
+        selectExisting: false  // Qt 5 way for save dialog (fileMode: FileDialog.SaveFile in Qt 6)
         onAccepted: {
             memoriesModel.exportCSV(selectedFile.toString().replace("file:///", ""),
                                    allFieldsCheck.checked)

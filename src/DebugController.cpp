@@ -1,4 +1,4 @@
-#include "debugcontroller.h"
+#include "DebugController.h"
 #include <QString>
 
 #include "logcategories.h"

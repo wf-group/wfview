@@ -12,6 +12,8 @@
 #include <QQuickStyle>
 #include <QGuiApplication>
 #include <QTranslator>
+#include <QDir>
+#include <QFile>
 #endif
 
 #ifdef Q_OS_WIN
@@ -390,9 +392,13 @@ int main(int argc, char *argv[])
 
     // Load logging window and install message handler as early as possible
     // Install capture BEFORE engine.load so QML warnings also get captured
+    std::cout << "DEBUG: Creating LoggingController..." << std::endl;
     auto g_log = std::make_unique<LoggingController>(&a);
+    std::cout << "DEBUG: Setting log file path..." << std::endl;
     g_log->setLogFilePath(logFilename);
+    std::cout << "DEBUG: Installing Qt message handler..." << std::endl;
     g_log->installQtMessageHandler();
+    std::cout << "DEBUG: Logging initialized successfully" << std::endl;
 
     // Log initial program information
     qInfo(logSystem()).noquote() << QString("wfview version: %1 (Git:%2 on %3 at %4 by %5@%6)")
@@ -440,14 +446,19 @@ int main(int argc, char *argv[])
     a.setWheelScrollLines(1); // one line per wheel click
 
     // Create MainWindow here
+    std::cout << "DEBUG: Opening MainWindow()" << std::endl;
     qDebug(logSystem()) << "Opening MainWindow()";
 
     //engine.rootContext()->setContextProperty("rig", backend); // shared backend name in QML
 
+    std::cout << "DEBUG: Setting QuickStyle to Fusion" << std::endl;
     QQuickStyle::setStyle("Fusion"); // MUST be before loading any QML that imports Controls
+    std::cout << "DEBUG: Creating QQmlApplicationEngine" << std::endl;
     QQmlApplicationEngine engine;
 
+    std::cout << "DEBUG: Creating MainController" << std::endl;
     auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, &a);
+    std::cout << "DEBUG: MainController created successfully" << std::endl;
     QObject::connect(&a, &QCoreApplication::aboutToQuit, g_mwc.get(), &MainController::shutdown);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)   
@@ -490,6 +501,34 @@ int main(int argc, char *argv[])
                                              [](QQmlEngine*, QJSEngine*) -> QObject* { return new ClipboardProxy; });
 
 
+    std::cout << "DEBUG: Checking if resources are available" << std::endl;
+    // Debug: Check if resources are available
+    QDir resourcesDir(":/resources");
+    std::cout << "DEBUG: Resource directory exists: " << (resourcesDir.exists() ? "true" : "false") << std::endl;
+    qInfo() << "Resource directory exists:" << resourcesDir.exists();
+    qInfo() << "Available resources in :/resources:";
+    QStringList resources = resourcesDir.entryList();
+    for (const QString& res : resources) {
+        qInfo() << "  " << res;
+        std::cout << "  " << res.toStdString() << std::endl;
+    }
+
+    // Debug: Check if MainWindow.qml exists
+    QFile mainWindowFile(":/resources/MainWindow.qml");
+    std::cout << "DEBUG: MainWindow.qml exists: " << (mainWindowFile.exists() ? "true" : "false") << std::endl;
+    qInfo() << "MainWindow.qml exists in resources:" << mainWindowFile.exists();
+
+    // Connect to QML warnings/errors
+    std::cout << "DEBUG: Connecting to QML warnings" << std::endl;
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings,
+                     [](const QList<QQmlError> &warnings) {
+                         for (const QQmlError &warning : warnings) {
+                             std::cout << "QML Warning/Error: " << warning.toString().toStdString() << std::endl;
+                             qWarning() << "QML Warning/Error:" << warning.toString();
+                         }
+                     });
+
+    std::cout << "DEBUG: Connecting to objectCreated" << std::endl;
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &a,
                      [&a](QObject *obj, const QUrl &url) {
@@ -505,7 +544,9 @@ int main(int argc, char *argv[])
                      Qt::QueuedConnection);
 
 
+    std::cout << "DEBUG: About to load MainWindow.qml from resources" << std::endl;
     engine.load(QUrl(QStringLiteral("qrc:/resources/MainWindow.qml")));
+    std::cout << "DEBUG: engine.load() returned" << std::endl;
     if (engine.rootObjects().isEmpty())
     {
         QMessageBox::critical(nullptr, QStringLiteral("Startup error"), "rootObjects is empty");

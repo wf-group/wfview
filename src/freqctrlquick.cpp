@@ -33,6 +33,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <QDebug>
+#include <cmath>
 #include "freqctrlquick.h"
 #include "logcategories.h"
 
