@@ -9,6 +9,28 @@ import WFVIEW 1.0
 ApplicationWindow {
     id: memoriesWindow
 
+    palette {
+        window: MainController.settings.options["Color.Window"]
+        windowText: MainController.settings.options["Color.WindowText"]
+        base: MainController.settings.options["Color.Base"]
+        alternateBase: MainController.settings.options["Color.AlternateBase"]
+        text: MainController.settings.options["Color.MainText"]
+        button: MainController.settings.options["Color.Button"]
+        buttonText: MainController.settings.options["Color.ButtonText"]
+
+        disabled {
+            windowText: Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            buttonText: Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            text: Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            button: Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+        }
+    }
+
+    onClosing: function(close) {
+        close.accepted = false  // Don't actually close
+        visible = false         // Just hide instead
+    }
+
     width: 1113
     height: 520
 
@@ -157,14 +179,14 @@ ApplicationWindow {
 
                 delegate: Rectangle {
                     implicitHeight: 30
-                    //color: palette.button
-                    //border.color: palette.mid
+                    color: palette.button
+                    border.color: palette.mid
 
                     Text {
                         anchors.centerIn: parent
                         text: memoriesModel.getColumnName(index)
                         font.bold: true
-                        //color: palette.buttonText
+                        color: palette.buttonText
                     }
                 }
             }

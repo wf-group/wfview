@@ -399,7 +399,8 @@ ApplicationWindow {
                         spacing: 10
 
                         ColumnLayout {
-                            Slider { id: volumeSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Slider {
+                                id: volumeSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
                             Label { text: "Vol"; horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
@@ -440,7 +441,8 @@ ApplicationWindow {
                         text: "Memories"
                         enabled: (connStatus === 2) // Only enable button if connected
                         onClicked: {
-                            onClicked: MainController.openMemories()
+                            MainController.openMemories()
+                            memoriesLoader.item.visible = true
                         }
                     }
                 }

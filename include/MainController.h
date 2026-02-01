@@ -277,6 +277,7 @@ private:
 
     QVariantMap frequencyDisplay;
     QPalette palette;
+    QPalette systemPalette;
 };
 
 #endif // MAINCONTROLLER_H

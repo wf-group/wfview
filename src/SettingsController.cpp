@@ -1301,7 +1301,8 @@ void SettingsController::setDefPrefs()
             // Dark scheme - improved with better 3D effects and link colors
             p->window = QColor(0x31, 0x31, 0x31, 255);           // Dark gray background
             p->windowText = QColor(0xef, 0xf0, 0xf1, 255);       // Off-white text
-            p->base = QColor(0x23, 0x26, 0x29, 255);             // Darker gray for input fields
+            p->base = QColor(0x2d, 0x2d, 0x2d, 255);
+            //p->base = QColor(0x23, 0x26, 0x29, 255);             // Darker gray for input fields
             p->alternateBase = QColor(0x2d, 0x2d, 0x2d, 255);    // Slightly different for alternating rows
             p->mainText = QColor(0xef, 0xf0, 0xf1, 255);         // Off-white text
             p->button = QColor(0x3d, 0x3d, 0x3d, 255);           // Slightly lighter for buttons
