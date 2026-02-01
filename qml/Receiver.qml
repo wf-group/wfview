@@ -36,21 +36,12 @@ Control {
         return -1
     }
 
-    palette.window: MainController.theme.window
-    palette.windowText: MainController.theme.windowText
-    palette.base: MainController.theme.base
-    palette.text: MainController.theme.text
-    palette.button: MainController.theme.button
-    palette.buttonText: MainController.theme.buttonText
-    palette.highlight: MainController.theme.highlight
-    palette.highlightedText: MainController.theme.highlightedText
-
     background: Rectangle {
-        color: root.palette.window
+        color: palette.window
         radius: 0
         border.width: 1
         border.color: controller ? root.controller.active ? "red"
-            : Qt.darker(root.palette.window, 1.4) : Qt.darker(root.palette.window, 1.4)
+            : Qt.darker(palette.window, 1.4) : Qt.darker(palette.window, 1.4)
         antialiasing: true
     }
 
@@ -138,7 +129,7 @@ Control {
                         id: titleBg
                         anchors.centerIn: parent
                         radius: 2
-                        color: Qt.darker(root.palette.window, 1.05)
+                        color: Qt.darker(palette.window, 1.05)
 
                         // keep it out of the meter area when things get tight
                         readonly property int leftLimit: smeter.width + 8
@@ -570,9 +561,9 @@ Control {
             Rectangle {
                 anchors.fill: parent
                 z: -1                      // sit behind header/content
-                color: root.palette.window
+                color: palette.window
                 opacity: 1.0
-                border.color: root.palette.highlight
+                border.color: palette.highlight
                 border.width: 1
             }
 
@@ -807,8 +798,8 @@ Control {
             Rectangle {
                 anchors.fill: parent
                 z: -1
-                color: Qt.rgba(root.palette.window.r, root.palette.window.g, root.palette.window.b, 1.0)
-                border.color: root.palette.highlight
+                color: Qt.rgba(palette.window.r, palette.window.g, palette.window.b, 1.0)
+                border.color: palette.highlight
                 border.width: 1
             }
 

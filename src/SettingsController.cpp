@@ -245,8 +245,29 @@ void SettingsController::load()
                 p->presetName->clear();
                 p->presetName->append(tempName);
             }
-            p->foreground = colorFromString(settings->value("foreground", p->foreground.name(QColor::HexArgb)).toString());
-            p->background = colorFromString(settings->value("background", p->background.name(QColor::HexArgb)).toString());
+
+
+            p->window = colorFromString(settings->value("window", p->window.name(QColor::HexArgb)).toString());
+            p->windowText = colorFromString(settings->value("windowText", p->windowText.name(QColor::HexArgb)).toString());
+            p->base = colorFromString(settings->value("base", p->base.name(QColor::HexArgb)).toString());
+            p->alternateBase = colorFromString(settings->value("alternateBase", p->alternateBase.name(QColor::HexArgb)).toString());
+            p->mainText = colorFromString(settings->value("mainText", p->mainText.name(QColor::HexArgb)).toString());
+            p->button = colorFromString(settings->value("button", p->button.name(QColor::HexArgb)).toString());
+            p->buttonText = colorFromString(settings->value("buttonText", p->buttonText.name(QColor::HexArgb)).toString());
+            p->brightText = colorFromString(settings->value("brightText", p->brightText.name(QColor::HexArgb)).toString());
+            p->light = colorFromString(settings->value("light", p->light.name(QColor::HexArgb)).toString());
+            p->midLight = colorFromString(settings->value("midLight", p->midLight.name(QColor::HexArgb)).toString());
+            p->dark = colorFromString(settings->value("dark", p->dark.name(QColor::HexArgb)).toString());
+            p->mid = colorFromString(settings->value("mid", p->mid.name(QColor::HexArgb)).toString());
+            p->shadow = colorFromString(settings->value("shadow", p->shadow.name(QColor::HexArgb)).toString());
+            p->highlight = colorFromString(settings->value("highlight", p->highlight.name(QColor::HexArgb)).toString());
+            p->highlightedText = colorFromString(settings->value("highlightedText", p->highlightedText.name(QColor::HexArgb)).toString());
+            p->link = colorFromString(settings->value("link", p->link.name(QColor::HexArgb)).toString());
+            p->linkVisited = colorFromString(settings->value("linkVisited", p->linkVisited.name(QColor::HexArgb)).toString());
+            p->toolTipBase = colorFromString(settings->value("toolTipBase", p->toolTipBase.name(QColor::HexArgb)).toString());
+            p->toolTipText = colorFromString(settings->value("toolTipText", p->toolTipText.name(QColor::HexArgb)).toString());
+            p->placeholder = colorFromString(settings->value("placeholder", p->placeholder.name(QColor::HexArgb)).toString());
+
             p->gridColor = colorFromString(settings->value("gridColor", p->gridColor.name(QColor::HexArgb)).toString());
             p->axisColor = colorFromString(settings->value("axisColor", p->axisColor.name(QColor::HexArgb)).toString());
             p->textColor = colorFromString(settings->value("textColor", p->textColor.name(QColor::HexArgb)).toString());
@@ -900,11 +921,32 @@ void SettingsController::save()
     for(int pn=0; pn < numColorPresetsTotal; pn++)
     {
         p = &(colorPreset[pn]);
+
         settings->setArrayIndex(pn);
         settings->setValue("presetNum", p->presetNum);
-        settings->setValue("presetName", *(p->presetName));
-        settings->setValue("foreground", p->foreground.name(QColor::HexArgb));
-        settings->setValue("background", p->foreground.name(QColor::HexArgb));
+        settings->setValue("presetName", *(p->presetName));     
+
+        settings->setValue("window", p->window.name(QColor::HexArgb));
+        settings->setValue("windowText", p->windowText.name(QColor::HexArgb));
+        settings->setValue("base", p->base.name(QColor::HexArgb));
+        settings->setValue("alternateBase", p->alternateBase.name(QColor::HexArgb));
+        settings->setValue("mainText", p->mainText.name(QColor::HexArgb));
+        settings->setValue("button", p->button.name(QColor::HexArgb));
+        settings->setValue("buttonText", p->buttonText.name(QColor::HexArgb));
+        settings->setValue("brightText", p->brightText.name(QColor::HexArgb));
+        settings->setValue("light", p->light.name(QColor::HexArgb));
+        settings->setValue("midLight", p->midLight.name(QColor::HexArgb));
+        settings->setValue("dark", p->dark.name(QColor::HexArgb));
+        settings->setValue("mid", p->mid.name(QColor::HexArgb));
+        settings->setValue("shadow", p->shadow.name(QColor::HexArgb));
+        settings->setValue("highlight", p->highlight.name(QColor::HexArgb));
+        settings->setValue("highlightedText", p->highlightedText.name(QColor::HexArgb));
+        settings->setValue("link", p->link.name(QColor::HexArgb));
+        settings->setValue("linkVisited", p->linkVisited.name(QColor::HexArgb));
+        settings->setValue("toolTipBase", p->toolTipBase.name(QColor::HexArgb));
+        settings->setValue("toolTipText", p->toolTipText.name(QColor::HexArgb));
+        settings->setValue("placeholder", p->placeholder.name(QColor::HexArgb));
+
         settings->setValue("gridColor", p->gridColor.name(QColor::HexArgb));
         settings->setValue("axisColor", p->axisColor.name(QColor::HexArgb));
         settings->setValue("textColor", p->textColor.name(QColor::HexArgb));
@@ -1246,8 +1288,32 @@ void SettingsController::setDefPrefs()
         p->presetName->clear();
         p->presetName->append(QString("%1").arg(pn));
         p->presetNum = pn;
-        p->background = QColor(0x31,0x31,0x31,255);
-        p->foreground = QColor(0xef,0xf0,0xf1,255);
+
+        /* Window WindowText Base AlternateBase MainText Button ButtonText BrightText
+         * Light MidLight Dark Mid Shadow Highlight HighlightedText Link LinkVisited ToolTipBase ToolTipText Placeholder
+        */
+
+        p->window = QColor(0x31,0x31,0x31,255);
+        p->windowText = QColor(0xef,0xf0,0xf1,255);
+        p->base = QColor(0x23,0x26,0x29,255);
+        p->alternateBase = QColor(0x31,0x31,0x31,255);
+        p->mainText = QColor(0xef,0xf0,0xf1,255);
+        p->button = QColor(0x31,0x31,0x31,255);
+        p->buttonText = QColor(0xef,0xf0,0xf1,255);
+        p->brightText = QColor(0xef,0xf0,0xf1,255);
+        p->light = QColor(0xef,0xf0,0xf1,255);
+        p->midLight = QColor(0xef,0xf0,0xf1,255);
+        p->dark = QColor(0xef,0xf0,0xf1,255);
+        p->mid = QColor(0xef,0xf0,0xf1,255);
+        p->shadow = QColor(0x0,0x0,0x0,255);
+        p->highlight = QColor(0x3d,0xae,0xe9,255);
+        p->highlightedText = QColor(0xef,0xf0,0xf1,255);
+        p->link = QColor(0xef,0xf0,0xf1,255);
+        p->linkVisited = QColor(0xef,0xf0,0xf1,255);
+        p->toolTipBase = QColor(0x5a,0x75,0x66,255);
+        p->toolTipText = QColor(0xff,0xff,0xff,255);
+        p->placeholder = QColor(0x88,0x88,0x88,255);
+
         p->gridColor = QColor(0,0,0,255);
         p->axisColor = QColor(Qt::white);
         p->textColor = QColor(Qt::white);
@@ -1283,8 +1349,26 @@ void SettingsController::setDefPrefs()
             // Dark
             p->presetName->clear();
             p->presetName->append("Dark");
-            p->background = QColor(0x31,0x31,0x31,255);
-            p->foreground = QColor(0xef,0xf0,0xf1,255);
+            p->window = QColor(0x31,0x31,0x31,255);
+            p->windowText = QColor(0xef,0xf0,0xf1,255);
+            p->base = QColor(0x23,0x26,0x29,255);
+            p->alternateBase = QColor(0x31,0x31,0x31,255);
+            p->mainText = QColor(0xef,0xf0,0xf1,255);
+            p->button = QColor(0x31,0x31,0x31,255);
+            p->buttonText = QColor(0xef,0xf0,0xf1,255);
+            p->brightText = QColor(0xef,0xf0,0xf1,255);
+            p->light = QColor(0xef,0xf0,0xf1,255);
+            p->midLight = QColor(0xef,0xf0,0xf1,255);
+            p->dark = QColor(0xef,0xf0,0xf1,255);
+            p->mid = QColor(0xef,0xf0,0xf1,255);
+            p->shadow = QColor(0x0,0x0,0x0,255);
+            p->highlight = QColor(0x3d,0xae,0xe9,255);
+            p->highlightedText = QColor(0xef,0xf0,0xf1,255);
+            p->link = QColor(0xef,0xf0,0xf1,255);
+            p->linkVisited = QColor(0xef,0xf0,0xf1,255);
+            p->toolTipBase = QColor(0x5a,0x75,0x66,255);
+            p->toolTipText = QColor(0xff,0xff,0xff,255);
+            p->placeholder = QColor(0x88,0x88,0x88,255);
             p->plotBackground = QColor(0,0,0,255);
             p->axisColor = QColor(Qt::white);
             p->textColor = QColor(255,255,255,255);
@@ -1319,8 +1403,26 @@ void SettingsController::setDefPrefs()
             p->presetName->clear();
             p->presetName->append("Bright");
             p->plotBackground = QColor(Qt::white);
-            p->background = QColor(0xef,0xf0,0xf1,255);
-            p->foreground = QColor(0x31,0x31,0x31,255);
+            p->window = QColor(0x31,0x31,0x31,255);
+            p->windowText = QColor(0xef,0xf0,0xf1,255);
+            p->base = QColor(0x23,0x26,0x29,255);
+            p->alternateBase = QColor(0x31,0x31,0x31,255);
+            p->mainText = QColor(0xef,0xf0,0xf1,255);
+            p->button = QColor(0x31,0x31,0x31,255);
+            p->buttonText = QColor(0xef,0xf0,0xf1,255);
+            p->brightText = QColor(0xef,0xf0,0xf1,255);
+            p->light = QColor(0xef,0xf0,0xf1,255);
+            p->midLight = QColor(0xef,0xf0,0xf1,255);
+            p->dark = QColor(0xef,0xf0,0xf1,255);
+            p->mid = QColor(0xef,0xf0,0xf1,255);
+            p->shadow = QColor(0x0,0x0,0x0,255);
+            p->highlight = QColor(0x3d,0xae,0xe9,255);
+            p->highlightedText = QColor(0xef,0xf0,0xf1,255);
+            p->link = QColor(0xef,0xf0,0xf1,255);
+            p->linkVisited = QColor(0xef,0xf0,0xf1,255);
+            p->toolTipBase = QColor(0x5a,0x75,0x66,255);
+            p->toolTipText = QColor(0xff,0xff,0xff,255);
+            p->placeholder = QColor(0x88,0x88,0x88,255);
             p->axisColor = QColor(200,200,200,255);
             p->gridColor = QColor(255,255,255,0);
             p->textColor = QColor(Qt::black);
@@ -1834,11 +1936,49 @@ void SettingsController::buildBindings()
     WF_I32("Color.PresetNum", curColor().presetNum,
            [this](){ emit colChanged(prefColItems(prefColItem::col_all)); });
 
+    // Window default colors
 
-    WF_COLOR("Color.Background",              curColor().background,
-             [this](){ emit colChanged(prefColItems(prefColItem::col_background)); });
-    WF_COLOR("Color.Foreground",              curColor().foreground,
-             [this](){ emit colChanged(prefColItems(prefColItem::col_foreground)); });
+
+    WF_COLOR("Color.Window",              curColor().window,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_window)); });
+    WF_COLOR("Color.WindowText",              curColor().windowText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_windowText)); });
+    WF_COLOR("Color.Base",              curColor().base,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_base)); });
+    WF_COLOR("Color.AlternateBase",              curColor().alternateBase,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_alternateBase)); });
+    WF_COLOR("Color.MainText",              curColor().mainText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_mainText)); });
+    WF_COLOR("Color.Button",              curColor().button,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_button)); });
+    WF_COLOR("Color.ButtonText",              curColor().buttonText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_buttonText)); });
+    WF_COLOR("Color.BrightText",              curColor().brightText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_brightText)); });
+    WF_COLOR("Color.light",              curColor().light,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_light)); });
+    WF_COLOR("Color.midLight",              curColor().midLight,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_midLight)); });
+    WF_COLOR("Color.Dark",              curColor().dark,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_dark)); });
+    WF_COLOR("Color.Mid",              curColor().mid,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_mid)); });
+    WF_COLOR("Color.Shadow",              curColor().shadow,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_shadow)); });
+    WF_COLOR("Color.Highlight",              curColor().highlight,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_highlight)); });
+    WF_COLOR("Color.HighlightedText",              curColor().highlightedText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_highlightedText)); });
+    WF_COLOR("Color.Link",              curColor().link,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_link)); });
+    WF_COLOR("Color.LinkVisited",              curColor().linkVisited,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_linkVisited)); });
+    WF_COLOR("Color.ToolTipBase",              curColor().toolTipBase,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_toolTipBase)); });
+    WF_COLOR("Color.ToolTipText",              curColor().toolTipText,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_toolTipText)); });
+    WF_COLOR("Color.Placeholder",              curColor().placeholder,
+             [this](){ emit colChanged(prefColItems(prefColItem::col_placeholder)); });
 
     // Spectrum plot
     WF_COLOR("Color.Grid",              curColor().gridColor,

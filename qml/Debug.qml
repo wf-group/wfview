@@ -5,10 +5,11 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: win
     width: 896
     height: 575
+
     title: "Debug Window"
     visible: false
 

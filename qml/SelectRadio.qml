@@ -3,8 +3,9 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtCharts 2.15
 import QtQuick.Window 2.15
+import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: selectRadioWindow
     title: "Select Radio"
     width: 400
@@ -224,7 +225,7 @@ Window {
                 id: timeDifferenceChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredWidth: parent.width / 3
+                //Layout.preferredWidth: parent.width / 3
 
                 title: "UDP time difference"
                 titleFont.bold: true
@@ -265,7 +266,7 @@ Window {
                 id: waterfallChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredWidth: parent.width / 3
+                //Layout.preferredWidth: parent.width / 3
 
                 title: "Waterfall plot time"
                 titleFont.bold: true
@@ -306,7 +307,6 @@ Window {
                 id: spectrumChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredWidth: parent.width / 3
 
                 title: "Spectrum plot time"
                 titleFont.bold: true

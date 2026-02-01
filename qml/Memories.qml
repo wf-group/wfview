@@ -6,11 +6,12 @@ import QtQuick.Layouts 1.15
 import Qt.labs.platform 1.1 as PLATFORM
 import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: memoriesWindow
 
     width: 1113
     height: 520
+
     minimumWidth: 800
     minimumHeight: 400
 
@@ -39,6 +40,13 @@ Window {
     visible: true
 
     property MemoriesModel memoriesModel
+
+    onVisibleChanged: {
+        if (visible) {
+            // Apply palette when window becomes visible
+            MainController.updateApplicationPalette()
+        }
+    }
 
     Component.onCompleted: {
         if (memoriesModel) {
@@ -149,14 +157,14 @@ Window {
 
                 delegate: Rectangle {
                     implicitHeight: 30
-                    color: palette.button
-                    border.color: palette.mid
+                    //color: palette.button
+                    //border.color: palette.mid
 
                     Text {
                         anchors.centerIn: parent
                         text: memoriesModel.getColumnName(index)
                         font.bold: true
-                        color: palette.buttonText
+                        //color: palette.buttonText
                     }
                 }
             }

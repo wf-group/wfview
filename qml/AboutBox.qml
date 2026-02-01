@@ -6,6 +6,7 @@ Item {
     id: aboutBox
     width: 700
     height: 621
+
     
     // Properties that would be set from outside (like version info)
     property string wfviewVersion: "1.0.0"  // Set this from your application

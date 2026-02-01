@@ -2,13 +2,14 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
+import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: cwSenderWindow
     title: "CW Sender"
     width: 835
     height: 451
-    
+
     property var cwSenderController: null
     
     visible: cwSenderController ? cwSenderController.visible : false
@@ -276,7 +277,7 @@ Window {
                 from: 25
                 to: 45
                 value: cwSenderController ? (cwSenderController.dashRatio * 10) : 30
-                onValueChanged: {
+                onValueModified: {
                     if (cwSenderController) {
                         cwSenderController.dashRatio = value / 10.0
                     }

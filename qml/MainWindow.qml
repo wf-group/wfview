@@ -272,6 +272,7 @@ ApplicationWindow {
                                 rxLoader.item.anchors.fill = undefined
                                 rxLoader.item.parent = visible ? detachedHost : attachedHost
                                 rxLoader.item.anchors.fill = visible ? detachedHost : attachedHost
+                                Qt.callLater(MainController.updateApplicationPalette)
 
                                 if (visible && row.havePendingPos) {
                                     Qt.callLater(function() {
@@ -281,6 +282,7 @@ ApplicationWindow {
                                     })
                                 }
                             }
+
 
                             onClosing: function(close) {
                                 MainController.setReceiverDetached(index, false)
@@ -316,9 +318,9 @@ ApplicationWindow {
                             id: meter1
                             width: 300
                             height: 40
-                            meterType: root.controller ? controller.meter1Type : 0
+                            //meterType: MainController ? MainController.meter1Type : 0
                             // only set the "current" level; MeterItem does peak/avg itself
-                            current: root.controller ? controller.meter1 : 0
+                            //current: MainController ? MainController.meter1 : 0.0
 
                             drawLabels: true
                             Component.onCompleted: meter1.setMeterExtremities(-54, 60, 0)
@@ -327,9 +329,9 @@ ApplicationWindow {
                             id: meter2
                             width: 300
                             height: 40
-                            meterType: root.controller ? controller.meter2Type : 0
+                            //meterType: MainController ? MainController.meter2Type : 0
                             // only set the "current" level; MeterItem does peak/avg itself
-                            current: root.controller ? controller.meter2 : 0
+                            //current: MainController ? MainController.meter2 : 0.0
 
                             drawLabels: true
                             Component.onCompleted: meter2.setMeterExtremities(-54, 60, 0)
@@ -583,7 +585,7 @@ ApplicationWindow {
             buildTime: MainController ? MainController.uiSpecs["program"].buildTime : ""
             buildUser: MainController ? MainController.uiSpecs["program"].buildUser : ""
             buildHost: MainController ? MainController.uiSpecs["program"].buildHost : ""
-            qtVersion: Qt.version
+            qtVersion: Qt.version ? Qt.version : ""
         }
 
         // Optional: Add a close button at the bottom
@@ -591,10 +593,11 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        MainController.updateApplicationPalette();
         // Check if this is the first run
-        if (MainController.isFirstRun()) {
-            firstTimeSetup.visible = true
-        }
+        //if (MainController.isFirstRun()) {
+        //    firstTimeSetup.visible = true
+        //}
     }
 
 }

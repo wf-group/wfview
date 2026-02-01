@@ -7,7 +7,7 @@ import Qt.labs.platform 1.1 as PLATFORM
 import WFVIEW 1.0
 
 
-Window {
+ApplicationWindow {
     id: rigCreator
     title: "Rig Creator"
     RigCreatorController { id: rig }

@@ -19,7 +19,7 @@ import QtQuick.Window 2.15
 import Qt.labs.platform 1.1 as PLATFORM
 import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: window
     title: "Settings"
 
@@ -58,6 +58,7 @@ Window {
 
         property string key: "Color.SpectrumLine"
         property string label: "Spectrum line"
+        property string tooltip: ""  // NEW: tooltip property
 
         // Can be QColor-ish OR a string in some cases; we handle both.
         readonly property var cur: controller ? controller.options[key] : null
@@ -121,6 +122,10 @@ Window {
         Button {
             text: label
             Layout.preferredWidth: 150
+            ToolTip.text: tooltip  // NEW: tooltip on button
+            ToolTip.visible: tooltip && hovered  // NEW: show tooltip on hover if provided
+            ToolTip.delay: 500  // NEW: optional delay before showing
+
             onClicked: {
                 if (!controller) return
                 dlg.color = qmlColor(cur)    // IMPORTANT: use dlg.color (common across dialogs)
@@ -133,7 +138,7 @@ Window {
             Layout.preferredWidth: 110
             placeholderText: "#AARRGGBB"
 
-            // Don’t bind text permanently. We update it when cur changes.
+            // Don't bind text permanently. We update it when cur changes.
             onEditingFinished: {
                 if (!controller) return
                 var c = parseHexToColor(text)
@@ -155,7 +160,7 @@ Window {
         }
 
         // Keep textbox synced when controller changes the color (including preset switches),
-        // but don’t overwrite while user is typing.
+        // but don't overwrite while user is typing.
         onCurChanged: {
             if (!hexField.activeFocus)
                 hexField.text = colorToHexArgb(cur)
@@ -171,7 +176,7 @@ Window {
         PLATFORM.ColorDialog {
             id: dlg
             title: "Select " + label
-            options: ColorDialog.ShowAlphaChannel
+            options: PLATFORM.ColorDialog.ShowAlphaChannel
 
             // This is the key: use dlg.color on accept.
             onAccepted: {
@@ -259,7 +264,8 @@ Window {
                 // =========================
                 Item {
                     id: radioAccess
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -877,7 +883,8 @@ Window {
                 // =========================
                 Item {
                     id: userInterface
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -922,8 +929,6 @@ Window {
 
                             Label {
                                 text: "Region:"
-                                ToolTip.visible: hovered
-                                ToolTip.text: "ITU Region. Used to display band limits. (See the QWidget tooltip text in your .ui.)"
                             }
                             TextField {
                                 id: regionTxt
@@ -931,6 +936,8 @@ Window {
                                 Layout.maximumWidth: 35
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 placeholderText: "1"
+                                ToolTip.visible: hovered
+                                ToolTip.text: "ITU Region. Used to display band limits. (See the QWidget tooltip text in your .ui.)"
                                 text: (controller && controller.options && controller.options["Interface.Region"] !== undefined)
                                       ? controller.options["Interface.Region"]
                                       : ""
@@ -1206,9 +1213,36 @@ Window {
                                     columnSpacing: 40
                                     rowSpacing: 6
 
-                                    // ---- Row 0: Grid, Tuning line, Meter Scale ----
-                                    ColorRow { key: "Color.Foreground"; label: "Foreground" }
-                                    ColorRow { key: "Color.Background"; label: "Background" }
+                                    ColorRow { key: "Color.Window"; label: qsTr("Window"); tooltip: qsTr("General window background color") }
+                                    ColorRow { key: "Color.WindowText"; label: qsTr("Window Text"); tooltip: qsTr("General text color on Window background") }
+                                    ColorRow { key: "Color.Base"; label: qsTr("Base"); tooltip: qsTr("Background for text input fields and item views") }
+
+                                    ColorRow { key: "Color.AlternateBase"; label: qsTr("Alternate Base"); tooltip: qsTr("Alternate background (e.g., striped table rows)") }
+                                    ColorRow { key: "Color.MainText"; label: qsTr("Main Text"); tooltip: qsTr("Text color for Base background (input fields)") }
+                                    ColorRow { key: "Color.BrightText"; label: qsTr("Bright Text"); tooltip: qsTr("High-contrast text for dark backgrounds") }
+
+                                    ColorRow { key: "Color.Button"; label: qsTr("Button"); tooltip: qsTr("Button background color") }
+                                    ColorRow { key: "Color.ButtonText"; label: qsTr("Button Text"); tooltip: qsTr("Button text color") }
+                                    ColorRow { key: "Color.Light"; label: qsTr("Light"); tooltip: qsTr("Lighter edge color for 3D effects") }
+
+                                    ColorRow { key: "Color.MidLight"; label: qsTr("Mid Light"); tooltip: qsTr("Medium-light edge color for 3D effects") }
+                                    ColorRow { key: "Color.Dark"; label: qsTr("Dark"); tooltip: qsTr("Darker edge color for 3D effects") }
+                                    ColorRow { key: "Color.Mid"; label: qsTr("Mid"); tooltip: qsTr("Medium-dark edge color for 3D effects") }
+
+                                    ColorRow { key: "Color.Shadow"; label: qsTr("Shadow"); tooltip: qsTr("Shadow color (darkest, typically black)") }
+                                    ColorRow { key: "Color.Highlight"; label: qsTr("Highlight"); tooltip: qsTr("Selected item background color") }
+                                    ColorRow { key: "Color.HighlightedText"; label: qsTr("Highlighted Text"); tooltip: qsTr("Selected item text color") }
+
+                                    ColorRow { key: "Color.Link"; label: qsTr("Link"); tooltip: qsTr("Unvisited hyperlink color") }
+                                    ColorRow { key: "Color.LinkVisited"; label: qsTr("Link Visited"); tooltip: qsTr("Visited hyperlink color") }
+                                    Item {}
+
+                                    ColorRow { key: "Color.ToolTipBase"; label: qsTr("Tooltip Base"); tooltip: qsTr("Tooltip background color") }
+                                    ColorRow { key: "Color.ToolTipText"; label: qsTr("Tooltip Text"); tooltip: qsTr("Tooltip text color") }
+                                    ColorRow { key: "Color.Placeholder"; label: qsTr("Placeholder"); tooltip: qsTr("Placeholder text in empty input fields") }
+
+                                    Item {}
+                                    Item {}
                                     Item {}
 
                                     ColorRow { key: "Color.Grid"; label: "Grid" }
@@ -1272,7 +1306,8 @@ Window {
                 // =========================
                 Item {
                     id: radioSettings
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -1338,7 +1373,8 @@ Window {
                 // =========================
                 Item {
                     id: radioServer
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -1443,7 +1479,8 @@ Window {
                 // =========================
                 Item {
                     id: externalControl
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -1526,7 +1563,8 @@ Window {
                 // =========================
                 Item {
                     id: clusterPage
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -1626,7 +1664,7 @@ Window {
                                             // Critical for Qt5: give the content item a width
                                             contentItem: ListView {
                                                 id: list
-                                                width: ScrollView.view.width   // forces stable column layout
+                                                width: parent.width   // forces stable column layout
                                                 model: root.clusterModel
                                                 clip: true
                                                 boundsBehavior: Flickable.StopAtBounds
@@ -1770,7 +1808,8 @@ Window {
                 // =========================
                 Item {
                     id: experimental
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -1801,7 +1840,8 @@ Window {
                 // =========================
                 Item {
                     id: audioProcessing
-                    anchors.fill: parent
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     Label { anchors.centerIn: parent; text: "Audio Processing (not implemented in .ui snippet)" }
                 }
             }

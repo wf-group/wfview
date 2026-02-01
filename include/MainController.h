@@ -83,6 +83,8 @@ public:
 
     int receiverCount() const { return receivers.size(); }
 
+    Q_INVOKABLE void updateApplicationPalette();
+
     Q_INVOKABLE QObject* receiver(int i) const {
         if (i < 0 || i >= receivers.size()) return nullptr;
         return receivers[i];
@@ -98,8 +100,9 @@ public:
         if (i < 0 || i >= detached.size()) return;
         if (detached[i] == v) return;
         detached[i] = v;
-        emit receiverDetachedChanged(i, v);
+        emit receiverDetachedChanged(i, v);        
     }
+
     SettingsController* getSettings() const { return m_settings.get(); }
     SelectRadioController* selectRadio() const { return m_selRad.get(); }
     CWSenderController* cwSender() const { return m_cwSender.get(); }
@@ -273,6 +276,7 @@ private:
     bool m_slowLoad = false;
 
     QVariantMap frequencyDisplay;
+    QPalette palette;
 };
 
 #endif // MAINCONTROLLER_H

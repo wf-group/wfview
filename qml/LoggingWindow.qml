@@ -5,21 +5,23 @@ import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: win
     width: 1037
     height: 300
+
+
     visible: false
     title: "Logging"
 
     Shortcut {
-        sequence: StandardKey.Copy
+        sequence: "Ctrl+C"
         enabled: logView.hasSelection()
         onActivated: Clipboard.text = logView.selectedText()
     }
 
     Shortcut {
-        sequence: StandardKey.Cancel
+        sequence: "Escape"
         enabled: logView.hasSelection()
         onActivated: logView.clearSelection()
     }

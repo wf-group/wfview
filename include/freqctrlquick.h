@@ -91,7 +91,6 @@ public:
         } else {
             m_NumDigits = (f < FCTL_MIN_DIGITS) ? FCTL_MIN_DIGITS : (f > FCTL_MAX_DIGITS) ? FCTL_MAX_DIGITS : f;
         }
-        qDebug() << "setFreqDigits called with:" << f << "set" << m_NumDigits;
         emit freqDigitsChanged();
     }
     qint64 getFreqMinStep() const { return m_MaxFreq; }

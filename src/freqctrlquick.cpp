@@ -302,8 +302,8 @@ void FreqCtrlQuick::setFrequencyExt(qint64 freq)
     rem = m_freq;
     m_LeadZeroPos = m_NumDigits;
 
-    qInfo() << "setFrequencyExt: freq=" << freq << "m_NumDigits=" << m_NumDigits
-             << "m_DigStart=" << m_DigStart;
+    //qInfo() << "setFrequencyExt: freq=" << freq << "m_NumDigits=" << m_NumDigits
+    //         << "m_DigStart=" << m_DigStart;
 
     for (i = m_NumDigits - 1; i >= m_DigStart; i--)
     {

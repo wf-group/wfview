@@ -25,8 +25,9 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     udpPrefs = m_settings->getUdpPrefs();
     setManufacturer(prefs->manufacturer);
     setAppTheme(prefs->useSystemTheme);
-    m_theme.syncFromAppPalette();
     qInfo() << "******** Theme colors:" << m_theme.text().name();
+
+    m_theme.syncFromAppPalette();
 
     // We should be the first thing to request the queue so need to delete when finished
     queue = cachingQueue::getInstance(this);
@@ -44,6 +45,92 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     startRigConnection();
 
+}
+
+void MainController::updateApplicationPalette()
+{
+    colorPrefsType colors = m_settings->getCurrentColorPreset();
+
+    // Active (normal) state
+    palette.setColor(QPalette::Active, QPalette::Window, colors.window);
+    palette.setColor(QPalette::Active, QPalette::WindowText, colors.windowText);
+    palette.setColor(QPalette::Active, QPalette::Base, colors.base);
+    palette.setColor(QPalette::Active, QPalette::AlternateBase, colors.alternateBase);
+    palette.setColor(QPalette::Active, QPalette::Text, colors.mainText);
+    palette.setColor(QPalette::Active, QPalette::Button, colors.button);
+    palette.setColor(QPalette::Active, QPalette::ButtonText, colors.buttonText);
+    palette.setColor(QPalette::Active, QPalette::BrightText, colors.brightText);
+    palette.setColor(QPalette::Active, QPalette::Light, colors.light);
+    palette.setColor(QPalette::Active, QPalette::Midlight, colors.midLight);
+    palette.setColor(QPalette::Active, QPalette::Dark, colors.dark);
+    palette.setColor(QPalette::Active, QPalette::Mid, colors.mid);
+    palette.setColor(QPalette::Active, QPalette::Shadow, colors.shadow);
+    palette.setColor(QPalette::Active, QPalette::Highlight, colors.highlight);
+    palette.setColor(QPalette::Active, QPalette::HighlightedText, colors.highlightedText);
+    palette.setColor(QPalette::Active, QPalette::Link, colors.link);
+    palette.setColor(QPalette::Active, QPalette::LinkVisited, colors.linkVisited);
+    palette.setColor(QPalette::Active, QPalette::ToolTipBase, colors.toolTipBase);
+    palette.setColor(QPalette::Active, QPalette::ToolTipText, colors.toolTipText);
+    palette.setColor(QPalette::Active, QPalette::PlaceholderText, colors.placeholder);
+
+    // Inactive state (same as active)
+    palette.setColor(QPalette::Inactive, QPalette::Window, colors.window);
+    palette.setColor(QPalette::Inactive, QPalette::WindowText, colors.windowText);
+    palette.setColor(QPalette::Inactive, QPalette::Base, colors.base);
+    palette.setColor(QPalette::Inactive, QPalette::AlternateBase, colors.alternateBase);
+    palette.setColor(QPalette::Inactive, QPalette::Text, colors.mainText);
+    palette.setColor(QPalette::Inactive, QPalette::Button, colors.button);
+    palette.setColor(QPalette::Inactive, QPalette::ButtonText, colors.buttonText);
+    palette.setColor(QPalette::Inactive, QPalette::BrightText, colors.brightText);
+    palette.setColor(QPalette::Inactive, QPalette::Light, colors.light);
+    palette.setColor(QPalette::Inactive, QPalette::Midlight, colors.midLight);
+    palette.setColor(QPalette::Inactive, QPalette::Dark, colors.dark);
+    palette.setColor(QPalette::Inactive, QPalette::Mid, colors.mid);
+    palette.setColor(QPalette::Inactive, QPalette::Shadow, colors.shadow);
+    palette.setColor(QPalette::Inactive, QPalette::Highlight, colors.highlight);
+    palette.setColor(QPalette::Inactive, QPalette::HighlightedText, colors.highlightedText);
+    palette.setColor(QPalette::Inactive, QPalette::Link, colors.link);
+    palette.setColor(QPalette::Inactive, QPalette::LinkVisited, colors.linkVisited);
+    palette.setColor(QPalette::Inactive, QPalette::ToolTipBase, colors.toolTipBase);
+    palette.setColor(QPalette::Inactive, QPalette::ToolTipText, colors.toolTipText);
+    palette.setColor(QPalette::Inactive, QPalette::PlaceholderText, colors.placeholder);
+
+    // Disabled state - calculate grayed-out versions
+    QColor disabledWindowText = colors.windowText.darker(250);
+    QColor disabledText = colors.mainText.darker(250);
+    QColor disabledButtonText = colors.buttonText.darker(250);
+    QColor disabledButton = colors.button.darker(130);
+    QColor disabledBase = colors.base.darker(110);
+    QColor disabledHighlight = colors.highlight.darker(150);
+    QColor disabledPlaceholder = colors.placeholder.darker(150);
+
+    palette.setColor(QPalette::Disabled, QPalette::Window, colors.window);
+    palette.setColor(QPalette::Disabled, QPalette::WindowText, disabledWindowText);
+    palette.setColor(QPalette::Disabled, QPalette::Base, disabledBase);
+    palette.setColor(QPalette::Disabled, QPalette::AlternateBase, disabledBase);
+    palette.setColor(QPalette::Disabled, QPalette::Text, disabledText);
+    palette.setColor(QPalette::Disabled, QPalette::Button, disabledButton);
+    palette.setColor(QPalette::Disabled, QPalette::ButtonText, disabledButtonText);
+    palette.setColor(QPalette::Disabled, QPalette::BrightText, colors.brightText);  // Usually stays bright
+    palette.setColor(QPalette::Disabled, QPalette::Light, colors.light.darker(120));
+    palette.setColor(QPalette::Disabled, QPalette::Midlight, colors.midLight.darker(120));
+    palette.setColor(QPalette::Disabled, QPalette::Dark, colors.dark);
+    palette.setColor(QPalette::Disabled, QPalette::Mid, colors.mid);
+    palette.setColor(QPalette::Disabled, QPalette::Shadow, colors.shadow);
+    palette.setColor(QPalette::Disabled, QPalette::Highlight, disabledHighlight);
+    palette.setColor(QPalette::Disabled, QPalette::HighlightedText, disabledText);
+    palette.setColor(QPalette::Disabled, QPalette::Link, colors.link.darker(150));
+    palette.setColor(QPalette::Disabled, QPalette::LinkVisited, colors.linkVisited.darker(150));
+    palette.setColor(QPalette::Disabled, QPalette::ToolTipBase, colors.toolTipBase);  // Tooltips usually don't change
+    palette.setColor(QPalette::Disabled, QPalette::ToolTipText, colors.toolTipText);
+    palette.setColor(QPalette::Disabled, QPalette::PlaceholderText, disabledPlaceholder);
+
+    QGuiApplication::setPalette(palette);
+
+    qInfo() << "Normal WindowText:" << palette.color(QPalette::Active, QPalette::WindowText);
+    qInfo() << "Disabled WindowText:" << palette.color(QPalette::Disabled, QPalette::WindowText);
+    qInfo() << "Normal ButtonText:" << palette.color(QPalette::Active, QPalette::ButtonText);
+    qInfo() << "Disabled ButtonText:" << palette.color(QPalette::Disabled, QPalette::ButtonText);
 }
 
 void MainController::ifChanged(prefIfItems items)
@@ -101,10 +188,36 @@ void MainController::ifChanged(prefIfItems items)
 void MainController::colChanged(prefColItems items)
 {
     // No need to step through each color, just update the preset.
+
+    //We need to change the main palette color:
+    colorPrefsType colors = m_settings->getCurrentColorPreset();
+
     qInfo() << "Received changed colors into MainController" << items;
     for (auto *r : std::as_const(receivers)) {
-        if (r) r->setColors(m_settings->getCurrentColorPreset());
+        if (r) r->setColors(colors);
     }
+
+    palette.setColor(QPalette::Window, colors.window);
+    palette.setColor(QPalette::WindowText, colors.windowText);
+    palette.setColor(QPalette::Base, colors.base);
+    palette.setColor(QPalette::AlternateBase, colors.alternateBase);
+    palette.setColor(QPalette::Text, colors.mainText);
+    palette.setColor(QPalette::Button, colors.button);
+    palette.setColor(QPalette::ButtonText, colors.buttonText);
+    palette.setColor(QPalette::BrightText, colors.brightText);
+    palette.setColor(QPalette::Light, colors.light);
+    palette.setColor(QPalette::Midlight, colors.midLight);
+    palette.setColor(QPalette::Dark, colors.dark);
+    palette.setColor(QPalette::Mid, colors.mid);
+    palette.setColor(QPalette::Shadow, colors.shadow);
+    palette.setColor(QPalette::Highlight, colors.highlight);
+    palette.setColor(QPalette::HighlightedText, colors.highlightedText);
+    palette.setColor(QPalette::Link, colors.link);
+    palette.setColor(QPalette::LinkVisited, colors.linkVisited);
+    palette.setColor(QPalette::ToolTipBase, colors.toolTipBase);
+    palette.setColor(QPalette::ToolTipText, colors.toolTipText);
+    palette.setColor(QPalette::PlaceholderText, colors.placeholder);
+    QGuiApplication::setPalette(palette);
 
 }
 

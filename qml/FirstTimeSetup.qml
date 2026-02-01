@@ -2,12 +2,14 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
+import WFVIEW 1.0
 
-Window {
+ApplicationWindow {
     id: firstTimeSetupWindow
     title: "First Time Setup"
     width: 518
     height: 443
+
     modality: Qt.ApplicationModal
     flags: Qt.Dialog | Qt.FramelessWindowHint
     
