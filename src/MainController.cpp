@@ -51,6 +51,17 @@ void MainController::updateApplicationPalette()
 {
     colorPrefsType colors = m_settings->getCurrentColorPreset();
 
+
+    // DEBUG: Check what we actually got
+    qInfo() << "=== Color Preset Values ===";
+    qInfo() << "Window:" << colors.window;
+    qInfo() << "Button:" << colors.button;
+    qInfo() << "ButtonText:" << colors.buttonText;
+
+    for (auto *r : std::as_const(receivers)) {
+        if (r) r->setColors(colors);
+    }
+
     // Active (normal) state
     palette.setColor(QPalette::Active, QPalette::Window, colors.window);
     palette.setColor(QPalette::Active, QPalette::WindowText, colors.windowText);
@@ -187,16 +198,23 @@ void MainController::ifChanged(prefIfItems items)
 
 void MainController::colChanged(prefColItems items)
 {
+    qInfo() << "Received changed colors into MainController" << items;
+
     // No need to step through each color, just update the preset.
 
     //We need to change the main palette color:
+    /*
     colorPrefsType colors = m_settings->getCurrentColorPreset();
 
     qInfo() << "Received changed colors into MainController" << items;
     for (auto *r : std::as_const(receivers)) {
         if (r) r->setColors(colors);
     }
+    */
 
+    updateApplicationPalette();
+
+    /*
     palette.setColor(QPalette::Window, colors.window);
     palette.setColor(QPalette::WindowText, colors.windowText);
     palette.setColor(QPalette::Base, colors.base);
@@ -218,6 +236,7 @@ void MainController::colChanged(prefColItems items)
     palette.setColor(QPalette::ToolTipText, colors.toolTipText);
     palette.setColor(QPalette::PlaceholderText, colors.placeholder);
     QGuiApplication::setPalette(palette);
+    */
 
 }
 

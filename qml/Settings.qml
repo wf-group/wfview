@@ -1241,7 +1241,7 @@ ApplicationWindow {
                                     ColorRow { key: "Color.ToolTipText"; label: qsTr("Tooltip Text"); tooltip: qsTr("Tooltip text color") }
                                     ColorRow { key: "Color.Placeholder"; label: qsTr("Placeholder"); tooltip: qsTr("Placeholder text in empty input fields") }
 
-                                    Item {}
+                                    Item { height: 20}
                                     Item {}
                                     Item {}
 
@@ -1257,7 +1257,7 @@ ApplicationWindow {
                                     ColorRow { key: "Color.PbtIndicator"; label: "PBT Indicator" }
                                     ColorRow { key: "Color.WaterfallBack"; label: "Waterfall Back" }
 
-                                    ColorRow { key: "Color.PlotBackround"; label: "Plot Background" }
+                                    ColorRow { key: "Color.PlotBackground"; label: "Plot Background" }
                                     ColorRow { key: "Color.MeterLevel"; label: "Meter Level" }
                                     ColorRow { key: "Color.WaterfallGrid"; label: "Waterfall Grid" }
 

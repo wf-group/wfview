@@ -445,7 +445,7 @@ private:
 
     void markDirty();
     void emitGroupChange(const Binding& b);
-    void refreshCurrentColorPresetOptions();
+    void refreshCurrentColorPresetOptions(bool loading=true);
 
     colorPrefsType& curColor();
     const colorPrefsType& curColor() const;

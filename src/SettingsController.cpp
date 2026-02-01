@@ -1286,89 +1286,39 @@ void SettingsController::setDefPrefs()
             p->presetName = new QString();
         }
         p->presetName->clear();
-        p->presetName->append(QString("%1").arg(pn));
         p->presetNum = pn;
 
         /* Window WindowText Base AlternateBase MainText Button ButtonText BrightText
          * Light MidLight Dark Mid Shadow Highlight HighlightedText Link LinkVisited ToolTipBase ToolTipText Placeholder
         */
 
-        p->window = QColor(0x31,0x31,0x31,255);
-        p->windowText = QColor(0xef,0xf0,0xf1,255);
-        p->base = QColor(0x23,0x26,0x29,255);
-        p->alternateBase = QColor(0x31,0x31,0x31,255);
-        p->mainText = QColor(0xef,0xf0,0xf1,255);
-        p->button = QColor(0x31,0x31,0x31,255);
-        p->buttonText = QColor(0xef,0xf0,0xf1,255);
-        p->brightText = QColor(0xef,0xf0,0xf1,255);
-        p->light = QColor(0xef,0xf0,0xf1,255);
-        p->midLight = QColor(0xef,0xf0,0xf1,255);
-        p->dark = QColor(0xef,0xf0,0xf1,255);
-        p->mid = QColor(0xef,0xf0,0xf1,255);
-        p->shadow = QColor(0x0,0x0,0x0,255);
-        p->highlight = QColor(0x3d,0xae,0xe9,255);
-        p->highlightedText = QColor(0xef,0xf0,0xf1,255);
-        p->link = QColor(0xef,0xf0,0xf1,255);
-        p->linkVisited = QColor(0xef,0xf0,0xf1,255);
-        p->toolTipBase = QColor(0x5a,0x75,0x66,255);
-        p->toolTipText = QColor(0xff,0xff,0xff,255);
-        p->placeholder = QColor(0x88,0x88,0x88,255);
-
-        p->gridColor = QColor(0,0,0,255);
-        p->axisColor = QColor(Qt::white);
-        p->textColor = QColor(Qt::white);
-        p->spectrumLine = QColor(Qt::yellow);
-        p->spectrumFill = QColor("transparent");
-        p->underlayLine = QColor(20+200/4.0*1,70*(1.6-1/4.0), 150, 150).lighter(200);
-        p->underlayFill = QColor(20+200/4.0*1,70*(1.6-1/4.0), 150, 150);
-        p->plotBackground = QColor(Qt::black);
-        p->tuningLine = QColor(Qt::blue);
-        p->passband = QColor(Qt::blue);
-        p->pbt = QColor(0x32,0xff,0x00,0x00);
-        p->meterLevel = QColor(0x14,0x8c,0xd2).darker();
-        p->meterAverage = QColor(0x2f,0xb7,0xcd);
-        p->meterPeakLevel = QColor(0x3c,0xa0,0xdb).lighter();
-        p->meterPeakScale = QColor(Qt::red);
-        p->meterLowerLine = QColor(0xed,0xf0,0xf1);
-        p->meterLowText = QColor(0xef,0xf0,0xf1);
-
-        p->wfBackground = QColor(Qt::black);
-        p->wfAxis = QColor(Qt::white);
-        p->wfGrid = QColor(Qt::white);
-        p->wfText = QColor(Qt::white);
-
-        p->clusterSpots = QColor(Qt::red);
-
-        p->buttonOff = QColor("transparent");
-        p->buttonOn = QColor(0x50,0x50,0x50);
-
         switch (pn)
         {
         case 0:
         {
             // Dark
-            p->presetName->clear();
             p->presetName->append("Dark");
-            p->window = QColor(0x31,0x31,0x31,255);
-            p->windowText = QColor(0xef,0xf0,0xf1,255);
-            p->base = QColor(0x23,0x26,0x29,255);
-            p->alternateBase = QColor(0x31,0x31,0x31,255);
-            p->mainText = QColor(0xef,0xf0,0xf1,255);
-            p->button = QColor(0x31,0x31,0x31,255);
-            p->buttonText = QColor(0xef,0xf0,0xf1,255);
-            p->brightText = QColor(0xef,0xf0,0xf1,255);
-            p->light = QColor(0xef,0xf0,0xf1,255);
-            p->midLight = QColor(0xef,0xf0,0xf1,255);
-            p->dark = QColor(0xef,0xf0,0xf1,255);
-            p->mid = QColor(0xef,0xf0,0xf1,255);
-            p->shadow = QColor(0x0,0x0,0x0,255);
-            p->highlight = QColor(0x3d,0xae,0xe9,255);
-            p->highlightedText = QColor(0xef,0xf0,0xf1,255);
-            p->link = QColor(0xef,0xf0,0xf1,255);
-            p->linkVisited = QColor(0xef,0xf0,0xf1,255);
-            p->toolTipBase = QColor(0x5a,0x75,0x66,255);
-            p->toolTipText = QColor(0xff,0xff,0xff,255);
-            p->placeholder = QColor(0x88,0x88,0x88,255);
+            // Dark scheme - improved with better 3D effects and link colors
+            p->window = QColor(0x31, 0x31, 0x31, 255);           // Dark gray background
+            p->windowText = QColor(0xef, 0xf0, 0xf1, 255);       // Off-white text
+            p->base = QColor(0x23, 0x26, 0x29, 255);             // Darker gray for input fields
+            p->alternateBase = QColor(0x2d, 0x2d, 0x2d, 255);    // Slightly different for alternating rows
+            p->mainText = QColor(0xef, 0xf0, 0xf1, 255);         // Off-white text
+            p->button = QColor(0x3d, 0x3d, 0x3d, 255);           // Slightly lighter for buttons
+            p->buttonText = QColor(0xef, 0xf0, 0xf1, 255);       // Off-white button text
+            p->brightText = QColor(0xff, 0xff, 0xff, 255);       // Pure white for high contrast
+            p->light = QColor(0x4d, 0x4d, 0x4d, 255);            // Lighter edge (for 3D)
+            p->midLight = QColor(0x42, 0x42, 0x42, 255);         // Mid-light edge
+            p->dark = QColor(0x1f, 0x1f, 0x1f, 255);             // Darker edge (for 3D)
+            p->mid = QColor(0x28, 0x28, 0x28, 255);              // Mid-dark edge
+            p->shadow = QColor(0x0, 0x0, 0x0, 255);              // Pure black shadow
+            p->highlight = QColor(0x3d, 0xae, 0xe9, 255);        // Blue highlight (good)
+            p->highlightedText = QColor(0xff, 0xff, 0xff, 255);  // Pure white on highlight
+            p->link = QColor(0x41, 0xcd, 0x52, 255);             // Green links (more visible)
+            p->linkVisited = QColor(0x9b, 0x59, 0xb6, 255);      // Purple visited links
+            p->toolTipBase = QColor(0x5a, 0x75, 0x66, 255);      // Teal tooltip background (good)
+            p->toolTipText = QColor(0xff, 0xff, 0xff, 255);      // White tooltip text
+            p->placeholder = QColor(0x88, 0x88, 0x88, 255);      // Gray placeholder (good)
             p->plotBackground = QColor(0,0,0,255);
             p->axisColor = QColor(Qt::white);
             p->textColor = QColor(255,255,255,255);
@@ -1400,29 +1350,29 @@ void SettingsController::setDefPrefs()
         case 1:
         {
             // Bright
-            p->presetName->clear();
             p->presetName->append("Bright");
+            // Light scheme - clean and readable
+            p->window = QColor(0xef, 0xef, 0xef, 255);           // Light gray background
+            p->windowText = QColor(0x23, 0x23, 0x23, 255);       // Dark gray text
+            p->base = QColor(0xff, 0xff, 0xff, 255);             // White for input fields
+            p->alternateBase = QColor(0xf5, 0xf5, 0xf5, 255);    // Very light gray for alternating rows
+            p->mainText = QColor(0x23, 0x23, 0x23, 255);         // Dark gray text
+            p->button = QColor(0xe0, 0xe0, 0xe0, 255);           // Light gray button
+            p->buttonText = QColor(0x23, 0x23, 0x23, 255);       // Dark gray button text
+            p->brightText = QColor(0xff, 0xff, 0xff, 255);       // Pure white for high contrast on dark
+            p->light = QColor(0xff, 0xff, 0xff, 255);            // White edge (for 3D)
+            p->midLight = QColor(0xf5, 0xf5, 0xf5, 255);         // Very light gray edge
+            p->dark = QColor(0xa0, 0xa0, 0xa0, 255);             // Medium gray edge (for 3D)
+            p->mid = QColor(0xc8, 0xc8, 0xc8, 255);              // Light-medium gray edge
+            p->shadow = QColor(0x50, 0x50, 0x50, 255);           // Medium-dark gray shadow
+            p->highlight = QColor(0x30, 0x7f, 0xc1, 255);        // Blue highlight
+            p->highlightedText = QColor(0xff, 0xff, 0xff, 255);  // White text on highlight
+            p->link = QColor(0x00, 0x7a, 0xcc, 255);             // Blue links
+            p->linkVisited = QColor(0x85, 0x37, 0x88, 255);      // Purple visited links
+            p->toolTipBase = QColor(0xff, 0xff, 0xdc, 255);      // Light yellow tooltip background
+            p->toolTipText = QColor(0x23, 0x23, 0x23, 255);      // Dark gray tooltip text
+            p->placeholder = QColor(0xa0, 0xa0, 0xa0, 255);      // Medium gray placeholder
             p->plotBackground = QColor(Qt::white);
-            p->window = QColor(0x31,0x31,0x31,255);
-            p->windowText = QColor(0xef,0xf0,0xf1,255);
-            p->base = QColor(0x23,0x26,0x29,255);
-            p->alternateBase = QColor(0x31,0x31,0x31,255);
-            p->mainText = QColor(0xef,0xf0,0xf1,255);
-            p->button = QColor(0x31,0x31,0x31,255);
-            p->buttonText = QColor(0xef,0xf0,0xf1,255);
-            p->brightText = QColor(0xef,0xf0,0xf1,255);
-            p->light = QColor(0xef,0xf0,0xf1,255);
-            p->midLight = QColor(0xef,0xf0,0xf1,255);
-            p->dark = QColor(0xef,0xf0,0xf1,255);
-            p->mid = QColor(0xef,0xf0,0xf1,255);
-            p->shadow = QColor(0x0,0x0,0x0,255);
-            p->highlight = QColor(0x3d,0xae,0xe9,255);
-            p->highlightedText = QColor(0xef,0xf0,0xf1,255);
-            p->link = QColor(0xef,0xf0,0xf1,255);
-            p->linkVisited = QColor(0xef,0xf0,0xf1,255);
-            p->toolTipBase = QColor(0x5a,0x75,0x66,255);
-            p->toolTipText = QColor(0xff,0xff,0xff,255);
-            p->placeholder = QColor(0x88,0x88,0x88,255);
             p->axisColor = QColor(200,200,200,255);
             p->gridColor = QColor(255,255,255,0);
             p->textColor = QColor(Qt::black);
@@ -1448,15 +1398,64 @@ void SettingsController::setDefPrefs()
             p->buttonOn = QColor(0x50,0x50,0x50);
             break;
         }
-
-        case 2:
-        case 3:
-        case 4:
         default:
+            p->presetName->append(QString("%1").arg(pn));
+            p->window = QColor(0xef, 0xef, 0xef, 255);           // Light gray background
+            p->windowText = QColor(0x23, 0x23, 0x23, 255);       // Dark gray text
+            p->base = QColor(0xff, 0xff, 0xff, 255);             // White for input fields
+            p->alternateBase = QColor(0xf5, 0xf5, 0xf5, 255);    // Very light gray for alternating rows
+            p->mainText = QColor(0x23, 0x23, 0x23, 255);         // Dark gray text
+            p->button = QColor(0xe0, 0xe0, 0xe0, 255);           // Light gray button
+            p->buttonText = QColor(0x23, 0x23, 0x23, 255);       // Dark gray button text
+            p->brightText = QColor(0xff, 0xff, 0xff, 255);       // Pure white for high contrast on dark
+            p->light = QColor(0xff, 0xff, 0xff, 255);            // White edge (for 3D)
+            p->midLight = QColor(0xf5, 0xf5, 0xf5, 255);         // Very light gray edge
+            p->dark = QColor(0xa0, 0xa0, 0xa0, 255);             // Medium gray edge (for 3D)
+            p->mid = QColor(0xc8, 0xc8, 0xc8, 255);              // Light-medium gray edge
+            p->shadow = QColor(0x50, 0x50, 0x50, 255);           // Medium-dark gray shadow
+            p->highlight = QColor(0x30, 0x7f, 0xc1, 255);        // Blue highlight
+            p->highlightedText = QColor(0xff, 0xff, 0xff, 255);  // White text on highlight
+            p->link = QColor(0x00, 0x7a, 0xcc, 255);             // Blue links
+            p->linkVisited = QColor(0x85, 0x37, 0x88, 255);      // Purple visited links
+            p->toolTipBase = QColor(0xff, 0xff, 0xdc, 255);      // Light yellow tooltip background
+            p->toolTipText = QColor(0x23, 0x23, 0x23, 255);      // Dark gray tooltip text
+            p->placeholder = QColor(0xa0, 0xa0, 0xa0, 255);      // Medium gray placeholder
+            p->gridColor = QColor(0,0,0,255);
+            p->axisColor = QColor(Qt::white);
+            p->textColor = QColor(Qt::white);
+            p->spectrumLine = QColor(Qt::yellow);
+            p->spectrumFill = QColor("transparent");
+            p->underlayLine = QColor(20+200/4.0*1,70*(1.6-1/4.0), 150, 150).lighter(200);
+            p->underlayFill = QColor(20+200/4.0*1,70*(1.6-1/4.0), 150, 150);
+            p->plotBackground = QColor(Qt::black);
+            p->tuningLine = QColor(Qt::blue);
+            p->passband = QColor(Qt::blue);
+            p->pbt = QColor(0x32,0xff,0x00,0x00);
+            p->meterLevel = QColor(0x14,0x8c,0xd2).darker();
+            p->meterAverage = QColor(0x2f,0xb7,0xcd);
+            p->meterPeakLevel = QColor(0x3c,0xa0,0xdb).lighter();
+            p->meterPeakScale = QColor(Qt::red);
+            p->meterLowerLine = QColor(0xed,0xf0,0xf1);
+            p->meterLowText = QColor(0xef,0xf0,0xf1);
+
+            p->wfBackground = QColor(Qt::black);
+            p->wfAxis = QColor(Qt::white);
+            p->wfGrid = QColor(Qt::white);
+            p->wfText = QColor(Qt::white);
+
+            p->clusterSpots = QColor(Qt::red);
+
+            p->buttonOff = QColor("transparent");
+            p->buttonOn = QColor(0x50,0x50,0x50);
             break;
 
         }
     }
+
+    // ADD THIS DEBUG:
+    qInfo() << "Preset 0 (Dark) button:" << colorPreset[0].button;
+    qInfo() << "Preset 1 (Bright) button:" << colorPreset[1].button;
+    qInfo() << "Preset 2 button:" << colorPreset[2].button;
 }
 
 void SettingsController::markDirty()
@@ -1925,7 +1924,7 @@ void SettingsController::buildBindings()
     WF_I32("Interface.CurrentColorPresetNumber", prefs.currentColorPresetNumber,
            [this](){
                emit ifChanged(prefIfItems(prefIfItem::if_currentColorPresetNumber));
-               refreshCurrentColorPresetOptions(); // IMPORTANT
+               refreshCurrentColorPresetOptions(false); // IMPORTANT
                emit colChanged(prefColItems(prefColItem::col_all));
            });
 
@@ -1955,9 +1954,9 @@ void SettingsController::buildBindings()
              [this](){ emit colChanged(prefColItems(prefColItem::col_buttonText)); });
     WF_COLOR("Color.BrightText",              curColor().brightText,
              [this](){ emit colChanged(prefColItems(prefColItem::col_brightText)); });
-    WF_COLOR("Color.light",              curColor().light,
+    WF_COLOR("Color.Light",              curColor().light,
              [this](){ emit colChanged(prefColItems(prefColItem::col_light)); });
-    WF_COLOR("Color.midLight",              curColor().midLight,
+    WF_COLOR("Color.MidLight",              curColor().midLight,
              [this](){ emit colChanged(prefColItems(prefColItem::col_midLight)); });
     WF_COLOR("Color.Dark",              curColor().dark,
              [this](){ emit colChanged(prefColItems(prefColItem::col_dark)); });
@@ -2058,7 +2057,7 @@ void SettingsController::buildBindings()
 }
 
 
-void SettingsController::refreshCurrentColorPresetOptions()
+void SettingsController::refreshCurrentColorPresetOptions(bool loading)
 {
     // Update ONLY Color.* keys (fast enough, and avoids having to rebuild bindings)
     auto push = [this](const char* key) {
@@ -2069,6 +2068,27 @@ void SettingsController::refreshCurrentColorPresetOptions()
 
     push("Color.PresetName");
     push("Color.PresetNum");
+
+    push("Color.Window");
+    push("Color.WindowText");
+    push("Color.Base");
+    push("Color.AlternateBase");
+    push("Color.MainText");
+    push("Color.Button");
+    push("Color.ButtonText");
+    push("Color.BrightText");
+    push("Color.Light");
+    push("Color.MidLight");
+    push("Color.Dark");
+    push("Color.Mid");
+    push("Color.Shadow");
+    push("Color.Highlight");
+    push("Color.HighlightedText");
+    push("Color.Link");
+    push("Color.LinkVisited");
+    push("Color.ToolTipBase");
+    push("Color.ToolTipText");
+    push("Color.Placeholder");
 
     push("Color.Grid");
     push("Color.Axis");

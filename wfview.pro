@@ -356,7 +356,6 @@ HEADERS  += \
     include/SelectRadioController.h \
     include/SettingsController.h \
     include/freqctrlquick.h \
-    include/paletteproxy.h \
     include/spectrumitem.h \
     include/themebridge.h \
     include/waterfallitem.h \
