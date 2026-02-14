@@ -2369,7 +2369,7 @@ void MainController::setManufacturer(manufacturersType_t man)
                 QString model = rigSettings->value("Model","").toString();
                 QString path = systemRigDir.absoluteFilePath(rig);
 
-                qDebug() << QString("Found Rig %0 with CI-V address of 0x%1 and version %2").arg(model).arg(civ,4,16,QChar('0')).arg(ver,0,'f',2);
+                qInfo() << QString("Found Rig %0 with CI-V address of %1 and version %2").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2);
                 // Any user modified rig files will override system provided ones.
                 this->rigList.insert(civ,rigInfo(civ,model,path,ver));
             }

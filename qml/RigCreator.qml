@@ -523,7 +523,7 @@ ApplicationWindow {
         PLATFORM.ColorDialog {
             id: colorDlg
             color: panel.parseColor(panel._colorCurrentString)
-            options: ColorDialog.ShowAlphaChannel
+            options: PLATFORM.ColorDialog.ShowAlphaChannel
             onAccepted: {
                 if (!panel._colorTargetCellData) return
                 panel._colorTargetCellData.display = panel.toAARRGGBB(colorDlg.color)

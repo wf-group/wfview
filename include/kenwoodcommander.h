@@ -77,7 +77,6 @@ private:
     rtpAudio* rtp = nullptr;
     QThread* rtpThread = nullptr;
 
-    QHash<quint16,rigInfo> rigList;
     quint8 rigCivAddr;
     QString vsp;
     quint16 tcpPort;

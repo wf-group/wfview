@@ -101,7 +101,7 @@ ApplicationWindow {
     Loader {
         id: debugLoader
         active: false
-        source: "qrc:/resources/Debug.qml"
+        source: "qrc:/qml/Debug.qml"
 
         onLoaded: {
             // show + activate

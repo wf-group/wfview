@@ -215,11 +215,16 @@ void rigCommander::determineRigCaps()
     while (!rigList.contains(rigCaps.modelID))
     {
         if (!rigCaps.modelID) {
+            for (const auto &r: rigList)
+            {
+                qInfo(logRig()) << "Rig:" << r.model << "ID:" << r.civ;
+            }
+
             qWarning(logRig()) << "No default rig definition found, cannot continue (sorry!)";
             return;
         }
         // Unknown rig, load default
-        qInfo(logRig()) << QString("No rig definition found for CI-V address: 0x%0, using defaults (some functions may not be available)").arg(rigCaps.modelID,2,16);
+        qInfo(logRig()) << QString("No rig definition found for CI-V address: %0, using defaults (some functions may not be available)").arg(rigCaps.modelID,4,10);
         rigCaps.modelID=0;
     }
     rigCaps.filename = rigList.find(rigCaps.modelID).value().path;

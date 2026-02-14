@@ -97,7 +97,6 @@ private:
     yaesuUdpScope* scope = nullptr;
     QThread* scopeThread = nullptr;
 
-    QHash<quint16,rigInfo> rigList;
     quint16 rigCivAddr;
     QString vsp;
     quint16 tcpPort;
