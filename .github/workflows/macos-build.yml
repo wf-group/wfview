@@ -59,20 +59,31 @@ jobs:
           echo "=== Begin diagnostic output ==="
           echo "=== Top level ==="
           ls qcustomplot/
-          echo "=== Looking for sharedlib ==="
-          find qcustomplot -name "*.pro" | sort
           echo "=== Complete listing ==="
           ls -R
           echo "=== End diagnostic output ==="
 
       - name: Build QCustomPlot shared library
         run: |
+          echo "=== Begin QCP build process ==="
           BREW_PREFIX=$(brew --prefix)
           export PATH="${BREW_PREFIX}/opt/qt@5/bin:$PATH"
-          cd qcustomplot/qcustomplot-sharedlib
+          mkdir -p qcustomplot/qcustomplot-sharedlib/build
+          cd qcustomplot/qcustomplot-sharedlib/build
+          cat > qcustomplot-sharedlib.pro << 'EOF'
+          TEMPLATE = lib
+          TARGET = qcustomplot
+          QT += widgets printsupport
+          CONFIG += release shared
+          DEFINES += QCUSTOMPLOT_COMPILE_LIBRARY
+          SOURCES += ../../qcustomplot.cpp
+          HEADERS += ../../qcustomplot.h
+          EOF
           qmake qcustomplot-sharedlib.pro CONFIG+=release
           make -j$(sysctl -n hw.logicalcpu)
-
+          echo "Checking QCP build..."
+          ls -lR qcustomplot/qcustomplot-sharedlib
+          echo "=== Done with QCP build.==="
       - name: Add Qt5 to PATH
         run: |
           BREW_PREFIX=$(brew --prefix)
