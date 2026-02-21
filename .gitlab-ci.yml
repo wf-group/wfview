@@ -35,7 +35,7 @@ mirror-to-github:
       git config user.name "GitLab Mirror"
 
       # Fetch just the current branch at depth 1 from origin
-      git fetch --depth=1 origin $CI_COMMIT_BRANCH
+      #git fetch --depth=1 origin $CI_COMMIT_BRANCH
 
       # Force push to GitHub
       git push --force \
