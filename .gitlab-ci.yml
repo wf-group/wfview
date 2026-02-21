@@ -1,9 +1,12 @@
+stages:
+  - deploy
+  
 variables:
   # Branches to mirror to GitHub. Edit this list as needed.
   MIRROR_BRANCHES: "master newscope"
 
 mirror-to-github:
-  stage: .pre
+  stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH
   image: alpine/git:latest
