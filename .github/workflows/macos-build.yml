@@ -1,0 +1,81 @@
+name: macOS Build
+
+on:
+  push:
+    branches: [ master, devel ]
+  workflow_dispatch:   # allows manual trigger from GitHub Actions UI
+  schedule:
+    - cron: '0 6 * * 1'  # every Monday 6am UTC, adjust as desired
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout wfview
+        uses: actions/checkout@v4
+        with:
+          path: wfview
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install qt@5 portaudio hidapi opus eigen
+
+      - name: Set up sibling directories
+        run: |
+          BREW_PREFIX=$(brew --prefix)
+
+          # RTAudio - compiled directly into wfview by qmake
+          git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
+
+          # r8brain resampler - headers only
+          git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
+
+          # Eigen - headers only
+          # The .pro expects ../eigen, brew installs it elsewhere so we clone it
+          git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git eigen
+
+          # Opus headers - .pro expects ../opus/include
+          # Brew has them, just symlink into expected location
+          mkdir -p opus
+          ln -s ${BREW_PREFIX}/include/opus opus/include
+
+          # QCustomPlot - clone and build shared library
+          git clone --depth=1 --branch v2.1.1 https://gitlab.com/DerManu/QCustomPlot.git qcustomplot
+
+      - name: Build QCustomPlot shared library
+        run: |
+          BREW_PREFIX=$(brew --prefix)
+          export PATH="${BREW_PREFIX}/opt/qt@5/bin:$PATH"
+          cd qcustomplot/qcustomplot-sharedlib
+          qmake qcustomplot-sharedlib.pro CONFIG+=release
+          make -j$(sysctl -n hw.logicalcpu)
+
+      - name: Add Qt5 to PATH
+        run: |
+          BREW_PREFIX=$(brew --prefix)
+          echo "${BREW_PREFIX}/opt/qt@5/bin" >> $GITHUB_PATH
+          echo "PKG_CONFIG_PATH=${BREW_PREFIX}/opt/qt@5/lib/pkgconfig" >> $GITHUB_ENV
+          echo "BREW_PREFIX=${BREW_PREFIX}" >> $GITHUB_ENV
+
+      - name: Verify qmake
+        run: qmake --version
+
+      - name: Run qmake
+        working-directory: wfview
+        run: |
+          qmake wfview.pro \
+            CONFIG+=release \
+            INCLUDEPATH+="${BREW_PREFIX}/include" \
+            LIBS+="-L${BREW_PREFIX}/lib"
+
+      - name: Build
+        working-directory: wfview
+        run: make -j$(sysctl -n hw.logicalcpu)
+
+      - name: Upload wfview.app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfview-macos
+          path: wfview/wfview.app
+          if-no-files-found: warn
