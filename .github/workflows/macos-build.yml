@@ -45,10 +45,14 @@ jobs:
 
       - name: Inspect QCustomPlot repo structure
         run: |
+          echo "=== Begin diagnostic output ==="
           echo "=== Top level ==="
           ls qcustomplot/
           echo "=== Looking for sharedlib ==="
           find qcustomplot -name "*.pro" | sort
+          echo "=== Complete listing ==="
+          ls -R
+          echo "=== End diagnostic output ==="
 
       - name: Build QCustomPlot shared library
         run: |
