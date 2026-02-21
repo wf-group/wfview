@@ -38,6 +38,9 @@ mirror-to-github:
 
       # Fetch just the current branch at depth 1 from origin
       #git fetch --depth=1 origin $CI_COMMIT_BRANCH
+      git checkout --orphan mirror_branch
+      git add -A
+      git commit -m "Mirror of $CI_COMMIT_SHORT_SHA"
 
       # Force push to GitHub
       git push --force --no-thin \
