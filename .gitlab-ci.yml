@@ -40,7 +40,7 @@ mirror-to-github:
       #git fetch --depth=1 origin $CI_COMMIT_BRANCH
 
       # Force push to GitHub
-      git push --force \
+      git push --force --no-thin \
         "https://x-access-token:${GITHUB_PAT}@github.com/eliggett/wfview.git" \
         "origin/$CI_COMMIT_BRANCH:refs/heads/$CI_COMMIT_BRANCH"
 
