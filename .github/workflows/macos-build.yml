@@ -41,9 +41,20 @@ jobs:
           ln -s ${BREW_PREFIX}/include/opus opus/include
 
           # QCustomPlot - clone and build shared library
-          git clone --depth=1 https://gitlab.com/DerManu/QCustomPlot.git qcustomplot
+          # git clone --depth=1 https://gitlab.com/DerManu/QCustomPlot.git qcustomplot
 
-      - name: Inspect QCustomPlot repo structure
+      - name: Download QCustomPlot tgz
+        run: |
+          echo "=== Downloading QCP tgz file ==="
+          mkdir -p qcustomplot
+          curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
+            -o qcustomplot.tar.gz
+          tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
+          echo "=== QCustomPlot contents after extract ==="
+          ls qcustomplot/
+          echo "=== Finished with QCP downloading step. ==="
+
+      - name: Inspect structure
         run: |
           echo "=== Begin diagnostic output ==="
           echo "=== Top level ==="
