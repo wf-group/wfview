@@ -7,6 +7,8 @@ variables:
 
 mirror-to-github:
   stage: deploy
+  variables:
+    GIT_DEPTH: "1"
   rules:
     - if: $CI_COMMIT_BRANCH
   image: 
