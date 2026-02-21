@@ -1,0 +1,40 @@
+variables:
+  # Branches to mirror to GitHub. Edit this list as needed.
+  MIRROR_BRANCHES: "master newscope"
+
+mirror-to-github:
+  stage: .pre
+  rules:
+    - if: $CI_COMMIT_BRANCH
+  image: alpine/git:latest
+  script:
+    - |
+      # Check if current branch is in the mirror list
+      SHOULD_MIRROR=false
+      for BRANCH in $MIRROR_BRANCHES; do
+        if [ "$CI_COMMIT_BRANCH" = "$BRANCH" ]; then
+          SHOULD_MIRROR=true
+          break
+        fi
+      done
+
+      if [ "$SHOULD_MIRROR" = "false" ]; then
+        echo "Branch '$CI_COMMIT_BRANCH' is not in mirror list, skipping."
+        exit 0
+      fi
+
+      echo "Mirroring branch '$CI_COMMIT_BRANCH' to GitHub..."
+
+      # Set up git identity (required for some git operations)
+      git config user.email "ci@mirror"
+      git config user.name "GitLab Mirror"
+
+      # Fetch just the current branch at depth 1 from origin
+      git fetch --depth=1 origin $CI_COMMIT_BRANCH
+
+      # Force push to GitHub
+      git push --force \
+        "https://x-access-token:${GITHUB_PAT}@github.com/eliggett/wfview.git" \
+        "origin/$CI_COMMIT_BRANCH:refs/heads/$CI_COMMIT_BRANCH"
+
+      echo "Done."
