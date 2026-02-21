@@ -393,7 +393,6 @@ public:
 
     // Flags
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
-    Q_DECLARE_FLAGS(prefColItems, prefColItem)
     Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
     Q_DECLARE_FLAGS(prefRaItems ,prefRaItem)
     Q_DECLARE_FLAGS(prefCtItems, prefCtItem)
@@ -403,7 +402,6 @@ public:
     Q_DECLARE_FLAGS(prefServerItems, prefServerItem)
 
     Q_FLAGS(prefIfItems)
-    Q_FLAGS(prefColItems)
     Q_FLAGS(prefRsItems)
     Q_FLAGS(prefRaItems)
     Q_FLAGS(prefCtItems)
@@ -476,7 +474,6 @@ private:
 
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefIfItems)
-Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefColItems)
 Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefRsItems)
 Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefRaItems)
 Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefCtItems)

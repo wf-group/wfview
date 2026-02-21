@@ -282,6 +282,19 @@ void MainController::shutdown()
         connectionHandler(); // This will disconnect/delete if the radio is connected/connecting
     }
 
+    // rigThread is started unconditionally in startRigConnection() (called from constructor),
+    // but connectionHandler() only runs above when connStatus != connDisconnected.
+    // If we started without ever connecting (connDisconnected throughout), rigThread is still
+    // running and must be explicitly stopped here to avoid "QThread destroyed while running".
+    if (rigThread)
+    {
+        emit sendCloseComm();
+        rigThread->quit();
+        rigThread->wait();
+        rig = nullptr;
+        rigThread = nullptr;
+    }
+
     if (settings)
     {
         delete settings;

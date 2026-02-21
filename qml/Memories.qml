@@ -17,13 +17,6 @@ ApplicationWindow {
         text: MainController.settings.options["Color.MainText"]
         button: MainController.settings.options["Color.Button"]
         buttonText: MainController.settings.options["Color.ButtonText"]
-
-        disabled {
-            windowText: Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
-            buttonText: Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
-            text: Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
-            button: Qt.darker(MainController.settings.options["Color.Button"], 1.3)
-        }
     }
 
     onClosing: function(close) {
@@ -73,6 +66,13 @@ ApplicationWindow {
     Component.onCompleted: {
         if (memoriesModel) {
             memoriesModel.populate()
+        }
+        // palette.disabled sub-group is Qt 6 only; set via JS to avoid parse error on Qt 5
+        if (parseInt(Qt.version.split(".")[0]) >= 6) {
+            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            palette.disabled.text       = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.button     = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
         }
     }
 
@@ -171,22 +171,35 @@ ApplicationWindow {
             anchors.fill: parent
             spacing: 0
 
-            HorizontalHeaderView {
+            // HorizontalHeaderView is Qt 6.1+ only; use a Repeater row for Qt 5 compatibility
+            Row {
                 id: headerView
-                syncView: tableView
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
 
-                delegate: Rectangle {
-                    implicitHeight: 30
-                    color: palette.button
-                    border.color: palette.mid
+                Repeater {
+                    model: memoriesModel ? memoriesModel.columnCount() : 0
+                    Rectangle {
+                        height: 30
+                        width: {
+                            if (!memoriesModel.isColumnVisible(index)) return 0
+                            switch(index) {
+                                case 0: return 80
+                                case 1: return 60
+                                case 2: return 120
+                                case 7: return 100
+                                default: return memoriesModel.visibleColumnCount > 15 ? 60 : 80
+                            }
+                        }
+                        color: palette.button
+                        border.color: palette.mid
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: memoriesModel.getColumnName(index)
-                        font.bold: true
-                        color: palette.buttonText
+                        Text {
+                            anchors.centerIn: parent
+                            text: memoriesModel.getColumnName(index)
+                            font.bold: true
+                            color: palette.buttonText
+                        }
                     }
                 }
             }
@@ -207,8 +220,7 @@ ApplicationWindow {
                     Layout.fillHeight: true
 
                     clip: true
-                    // Note: alternatingRows property only available in Qt 6.2+, not in Qt 5
-                    //alternatingRows: true
+                    // alternatingRows is Qt 6.2+ only; enabled conditionally below
                     columnSpacing: 1
                     rowSpacing: 1
 
@@ -225,6 +237,10 @@ ApplicationWindow {
 
                     Component.onCompleted: {
                         updateColumnWidths()
+                        // alternatingRows is Qt 6.2+ only
+                        if (parseInt(Qt.version.split(".")[0]) >= 6) {
+                            alternatingRows = true
+                        }
                     }
 
                     function updateColumnWidths() {
@@ -280,9 +296,10 @@ ApplicationWindow {
                         }
                         implicitHeight: 35
 
-                        // Cell color
+                        // Cell color (alternatingRows is Qt 6.2+ only, use typeof guard)
                         color: {
-                            if (tableView.alternatingRows && delegateRow % 2) {
+                            if (typeof tableView.alternatingRows !== "undefined"
+                                    && tableView.alternatingRows && delegateRow % 2) {
                                 return Qt.lighter(palette.alternateBase, 1.02)
                             }
                             return palette.base

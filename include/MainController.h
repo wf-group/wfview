@@ -57,7 +57,6 @@ public:
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)    
 
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
-    Q_DECLARE_FLAGS(prefColItems, prefColItem)
     Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
     Q_DECLARE_FLAGS(prefRaItems ,prefRaItem)
     Q_DECLARE_FLAGS(prefCtItems, prefCtItem)
@@ -66,7 +65,6 @@ public:
     Q_DECLARE_FLAGS(prefUDPItems, prefUDPItem)
     Q_DECLARE_FLAGS(prefServerItems, prefServerItem)
     Q_FLAGS(prefIfItems)
-    Q_FLAGS(prefColItems)
     Q_FLAGS(prefRsItems)
     Q_FLAGS(prefRaItems)
     Q_FLAGS(prefCtItems)
