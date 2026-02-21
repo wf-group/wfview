@@ -9,7 +9,9 @@ mirror-to-github:
   stage: deploy
   rules:
     - if: $CI_COMMIT_BRANCH
-  image: alpine/git:latest
+  image: 
+    name: alpine/git:latest
+    entrypoint: [""]
   script:
     - |
       # Check if current branch is in the mirror list
