@@ -41,8 +41,7 @@ jobs:
           ln -s ${BREW_PREFIX}/include/opus opus/include
 
           # QCustomPlot - clone and build shared library
-          git clone --depth=1 --branch v2.1.1 https://gitlab.com/DerManu/QCustomPlot.git qcustomplot
-
+          git clone --depth=1 https://gitlab.com/DerManu/QCustomPlot.git qcustomplot
       - name: Build QCustomPlot shared library
         run: |
           BREW_PREFIX=$(brew --prefix)
