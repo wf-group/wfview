@@ -1,0 +1,140 @@
+name: macOS Universal Qt6 Build
+
+# Required for the GitHub Action bot to publish releases
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ master, devel ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    # We define a global environment variable for our local dependency folder
+    env:
+      SYSROOT: ${{ github.workspace }}/universal_sysroot
+
+    steps:
+      - name: Checkout wfview
+        uses: actions/checkout@v4
+        with:
+          path: wfview
+
+      - name: Install Official Qt6 (Universal)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.2'
+          host: 'mac'
+          target: 'desktop'
+          # Official macOS binaries directly from Qt are Universal by default
+          # This action also automatically adds qmake and macdeployqt to the $PATH
+
+      - name: Create Universal Sysroot
+        run: mkdir -p $SYSROOT
+
+      - name: Build Opus (Universal)
+        run: |
+          git clone --depth 1 https://github.com/xiph/opus.git
+          cd opus
+          cmake -B build \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_INSTALL_PREFIX=$SYSROOT \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target install
+
+      - name: Build PortAudio (Universal)
+        run: |
+          git clone --depth 1 https://github.com/PortAudio/portaudio.git
+          cd portaudio
+          cmake -B build \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_INSTALL_PREFIX=$SYSROOT \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target install
+
+      - name: Build HIDAPI (Universal)
+        run: |
+          git clone --depth 1 https://github.com/libusb/hidapi.git
+          cd hidapi
+          cmake -B build \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+            -DCMAKE_INSTALL_PREFIX=$SYSROOT \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target install
+
+      - name: Set up sibling directories
+        run: |
+          # RTAudio
+          git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
+          
+          # r8brain resampler
+          git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
+          
+          # Eigen
+          git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git eigen
+          
+          # Symlink Opus headers so the wfview .pro file can find them in the expected path
+          mkdir -p opus
+          ln -s $SYSROOT/include/opus opus/include
+          
+          # QCustomPlot
+          git clone --depth=1 https://gitlab.com/DerFlaschengeist/qcustomplot.git qcustomplot
+
+      - name: Build QCustomPlot (Universal)
+        working-directory: qcustomplot/qcustomplot-sharedlib
+        run: |
+          qmake qcustomplot-sharedlib.pro \
+            CONFIG+=release \
+            QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
+            QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Build wfview
+        working-directory: wfview
+        run: |
+          qmake wfview.pro \
+            CONFIG+=release \
+            CONFIG+=sdk_no_version_check \
+            QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
+            QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0 \
+            INCLUDEPATH+="$SYSROOT/include" \
+            INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
+            LIBS+="-L$SYSROOT/lib" \
+            LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build"
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Deploy and Package macOS App
+        run: |
+          echo "=== Fixing QCustomPlot dependency path ==="
+          # Note: If migrating to Qt6 causes the QCP build to output a different version 
+          # number (e.g., libqcustomplot.2.dylib), update the filenames below.
+          install_name_tool -change \
+            "libqcustomplot.1.dylib" \
+            "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
+            wfview/wfview.app/Contents/MacOS/wfview
+            
+          echo "=== Deploying ==="
+          macdeployqt wfview/wfview.app -dmg
+          
+      - name: Publish Beta Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: beta-qt6-mac-${{ github.run_number }}
+          name: "macOS Beta Build #${{ github.run_number }} (Universal / Qt6)"
+          body: |
+            Automated beta build generated from commit ${{ github.sha }}.
+            
+            **Build Details:**
+            * 🏗️ **Architecture:** Universal Binary (Native support for Intel and Apple Silicon)
+            * 🖼️ **Framework:** Qt 6.7
+            * 💻 **Compatibility:** macOS 12 (Monterey) and newer.
+          prerelease: true
+          files: wfview/wfview.dmg
