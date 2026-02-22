@@ -1,6 +1,9 @@
 name: macOS Build
 
 on:
+  # permissions needed to post beta builds
+  permissions:
+    contents: write
   push:
     branches: [ master, devel ]
   workflow_dispatch:   # allows manual trigger from GitHub Actions UI
@@ -50,8 +53,8 @@ jobs:
           curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
             -o qcustomplot.tar.gz
           tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
-          echo "=== QCustomPlot contents after extract ==="
-          ls qcustomplot/
+          #echo "=== QCustomPlot contents after extract ==="
+          #ls qcustomplot/
           echo "=== Finished with QCP downloading step. ==="
 
       - name: Inspect structure
@@ -133,6 +136,15 @@ jobs:
           echo "=== Deploying ==="
           ${BREW_PREFIX}/opt/qt@5/bin/macdeployqt wfview/wfview.app -dmg
           echo "=== DONE deploying ==="
+      - name: Publish Beta Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Creates a unique tag for each run, e.g., "beta-142"
+          tag_name: beta-${{ github.run_number }}
+          name: "macOS Beta Build #${{ github.run_number }}"
+          body: "Automated beta build generated from commit ${{ github.sha }}."
+          prerelease: true # This is the magic flag that marks it as a beta!
+          files: wfview/wfview.dmg
           
       - name: Upload wfview DMG artifact
         uses: actions/upload-artifact@v4
