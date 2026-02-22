@@ -109,6 +109,9 @@ jobs:
             CONFIG+=release \
             CONFIG+=sdk_no_version_check \
             QMAKE_APPLE_DEVICE_ARCHS=arm64 \
+            'QMAKE_CXXFLAGS-=-arch x86_64' \
+            'QMAKE_CFLAGS-=-arch x86_64' \
+            'QMAKE_LFLAGS-=-arch x86_64' \
             INCLUDEPATH+="${BREW_PREFIX}/include" \
             INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L${BREW_PREFIX}/lib"
