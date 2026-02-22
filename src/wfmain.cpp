@@ -3855,6 +3855,37 @@ void wfmain::setAppTheme(bool isCustom)
     }
 }
 
+void wfmain::setAppTheme(bool isCustom)
+{
+    if(isCustom)
+    {
+#ifndef Q_OS_LINUX
+        QFile f(":"+prefs.stylesheetPath); // built-in resource
+#else
+        QFile f(PREFIX "/share/wfview/" + prefs.stylesheetPath);
+        if (!f.exists())
+        {
+            // Fallback to built-in resource (AppImage / non-root installs)
+            f.setFileName(":" + prefs.stylesheetPath);
+        }
+#endif
+        if (!f.exists())
+        {
+            printf("Unable to set stylesheet, file not found\n");
+            printf("Tried to load: [%s]\n", f.fileName().toStdString().c_str() );
+        }
+        else
+        {
+            if (f.open(QFile::ReadOnly | QFile::Text)) {
+                QTextStream ts(&f);
+                qApp->setStyleSheet(ts.readAll());
+            }
+        }
+    } else {
+        qApp->setStyleSheet("");
+    }
+}
+
 void wfmain::setDefaultColors(int presetNumber)
 {
     // These are the default color schemes
