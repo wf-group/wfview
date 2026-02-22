@@ -343,7 +343,6 @@ jobs:
       run: |
         makeself \
           --gzip \
-          --current \
           installer-payload \
           wfview-installer.sh \
           "wfview AppImage Installer (commit ${{ steps.meta.outputs.git_short }})" \
