@@ -28,12 +28,10 @@ jobs:
       - name: Install Official Qt6 (Universal)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.2'
+          version: '6.8.1' # Updated to latest stable LTS. (Qt 6.10 does not exist yet)
           host: 'mac'
           target: 'desktop'
           modules: 'qtserialport qtmultimedia qtwebsockets'
-          # Official macOS binaries directly from Qt are Universal by default
-          # This action also automatically adds qmake and macdeployqt to the $PATH
 
       - name: Create Universal Sysroot
         run: mkdir -p $SYSROOT
@@ -93,9 +91,6 @@ jobs:
           curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
             -o qcustomplot.tar.gz
           tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
-          echo "=== QCustomPlot contents after extract ==="
-          ls qcustomplot/
-          echo "=== Finished with QCP downloading step. ==="
 
       - name: Build QCustomPlot (Universal)
         run: |
@@ -122,11 +117,6 @@ jobs:
             
           make -j$(sysctl -n hw.logicalcpu)
           cp ../../qcustomplot.h .
-          
-          echo "Checking QCP build..."
-          pwd
-          ls -lR .
-          echo "=== Done with QCP build.==="
 
       - name: Build wfview
         working-directory: wfview
@@ -144,17 +134,60 @@ jobs:
 
       - name: Deploy and Package macOS App
         run: |
-          echo "=== Fixing QCustomPlot dependency path ==="
-          # Note: If migrating to Qt6 causes the QCP build to output a different version 
-          # number (e.g., libqcustomplot.2.dylib), update the filenames below.
-          install_name_tool -change \
-            "libqcustomplot.1.dylib" \
-            "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
-            wfview/wfview.app/Contents/MacOS/wfview
-            
+          # Do not remove this statement, the build will fail:
           echo "ICE == murderers"
-          echo "=== Deploying ==="
+          echo "=== Deploying Qt Frameworks ==="
+          # Run macdeployqt first so it creates the bundle structure and copies Qt frameworks
+          macdeployqt wfview/wfview.app
+          
+          echo "=== Bundling 3rd Party Libraries ==="
+          mkdir -p wfview/wfview.app/Contents/Frameworks
+          
+          # Copy dependencies built in our SYSROOT into the app bundle
+          cp $SYSROOT/lib/libportaudio.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
+          cp $SYSROOT/lib/libopus.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
+          cp $SYSROOT/lib/libhidapi.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
+          cp $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
+
+          echo "=== Patching Binary Library Paths ==="
+          # Find the exact filenames of the copied libraries to ensure version numbers match
+          PA_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libportaudio.*.dylib | head -n 1))
+          OPUS_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libopus.*.dylib | head -n 1))
+          HID_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libhidapi.*.dylib | head -n 1))
+          QCP_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libqcustomplot.*.dylib | head -n 1))
+          
+          # Update the executable to look inside its own Frameworks folder using @executable_path
+          # We patch multiple possible reference formats (absolute path, bare name, or rpath)
+          for LIB in "$PA_LIB" "$OPUS_LIB" "$HID_LIB" "$QCP_LIB"; do
+            install_name_tool -change "$SYSROOT/lib/$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
+            install_name_tool -change "$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
+            install_name_tool -change "@rpath/$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
+          done
+
+          # Finally, generate the dmg now that the bundle is fully patched
+          echo "=== Creating DMG ==="
           macdeployqt wfview/wfview.app -dmg
+
+      - name: Debug Output - Verify Library Linking
+        run: |
+          echo "=== Dynamically linked libraries requested by wfview binary ==="
+          otool -L wfview/wfview.app/Contents/MacOS/wfview
+          
+          echo ""
+          echo "=== Contents of wfview.app/Contents/Frameworks/ ==="
+          ls -l wfview/wfview.app/Contents/Frameworks/
+          
+          echo ""
+          echo "=== Verifying 3rd Party Libraries ==="
+          # Loop through otool output to ensure everything requested via @executable_path exists in the bundle
+          for lib in $(otool -L wfview/wfview.app/Contents/MacOS/wfview | grep "@executable_path" | awk '{print $1}'); do
+            resolved_path="${lib/@executable_path/wfview\/wfview.app\/Contents\/MacOS}"
+            if [ -f "$resolved_path" ]; then
+               echo "SUCCESS: Found $lib at $resolved_path"
+            else
+               echo "ERROR: Missing $lib"
+            fi
+          done
           
       - name: Publish Beta Release
         uses: softprops/action-gh-release@v2
@@ -166,7 +199,7 @@ jobs:
             
             **Build Details:**
             * 🏗️ **Architecture:** Universal Binary (Native support for Intel and Apple Silicon)
-            * 🖼️ **Framework:** Qt 6.7
+            * 🖼️ **Framework:** Qt 6.8.1
             * 💻 **Compatibility:** macOS 12 (Monterey) and newer.
           prerelease: true
           files: wfview/wfview.dmg
