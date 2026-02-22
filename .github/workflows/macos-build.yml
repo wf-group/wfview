@@ -59,8 +59,8 @@ jobs:
           echo "=== Begin diagnostic output ==="
           echo "=== Top level ==="
           ls qcustomplot/
-          echo "=== Complete listing ==="
-          ls -R .
+          #echo "=== Complete listing ==="
+          #ls -R .
           echo "=== End diagnostic output ==="
 
       - name: Build QCustomPlot shared library
@@ -81,6 +81,7 @@ jobs:
           EOF
           qmake qcustomplot-sharedlib.pro CONFIG+=release
           make -j$(sysctl -n hw.logicalcpu)
+          cp ../../qcustomplot.h .
           echo "Checking QCP build..."
           pwd
           ls -lR .
@@ -93,8 +94,10 @@ jobs:
           echo "BREW_PREFIX=${BREW_PREFIX}" >> $GITHUB_ENV
 
       - name: Verify qmake
-        run: qmake --version
-
+        run: |
+          qmake --version
+          pwd
+          ls
       - name: Run qmake
         working-directory: wfview
         run: |
