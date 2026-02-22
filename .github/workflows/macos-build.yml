@@ -82,7 +82,7 @@ jobs:
           qmake qcustomplot-sharedlib.pro CONFIG+=release
           make -j$(sysctl -n hw.logicalcpu)
           echo "Checking QCP build..."
-          ls -lR qcustomplot/qcustomplot-sharedlib
+          ls -lR .
           echo "=== Done with QCP build.==="
       - name: Add Qt5 to PATH
         run: |
