@@ -84,18 +84,48 @@ jobs:
           # Symlink Opus headers so the wfview .pro file can find them in the expected path
           mkdir -p opus
           ln -s $SYSROOT/include/opus opus/include
-          
-          # QCustomPlot
-          git clone --depth=1 https://gitlab.com/DerFlaschengeist/qcustomplot.git qcustomplot
+
+      - name: Download QCustomPlot tgz
+        run: |
+          echo "=== Downloading QCP tgz file ==="
+          mkdir -p qcustomplot
+          curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
+            -o qcustomplot.tar.gz
+          tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
+          echo "=== QCustomPlot contents after extract ==="
+          ls qcustomplot/
+          echo "=== Finished with QCP downloading step. ==="
 
       - name: Build QCustomPlot (Universal)
-        working-directory: qcustomplot/qcustomplot-sharedlib
         run: |
+          echo "=== Begin QCP build process ==="
+          mkdir -p qcustomplot/qcustomplot-sharedlib/build
+          cd qcustomplot/qcustomplot-sharedlib/build
+          
+          # Generate the .pro file on the fly
+          cat > qcustomplot-sharedlib.pro << 'EOF'
+          TEMPLATE = lib
+          TARGET = qcustomplot
+          QT += widgets printsupport
+          CONFIG += release shared
+          DEFINES += QCUSTOMPLOT_COMPILE_LIBRARY
+          SOURCES += ../../qcustomplot.cpp
+          HEADERS += ../../qcustomplot.h
+          EOF
+          
+          # Build it with Universal and macOS 12 target flags
           qmake qcustomplot-sharedlib.pro \
             CONFIG+=release \
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
             QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0
-          make -j$(sysctl -n hw.ncpu)
+            
+          make -j$(sysctl -n hw.logicalcpu)
+          cp ../../qcustomplot.h .
+          
+          echo "Checking QCP build..."
+          pwd
+          ls -lR .
+          echo "=== Done with QCP build.==="
 
       - name: Build wfview
         working-directory: wfview
@@ -109,7 +139,7 @@ jobs:
             INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L$SYSROOT/lib" \
             LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build"
-          make -j$(sysctl -n hw.ncpu)
+          make -j$(sysctl -n hw.logicalcpu)
 
       - name: Deploy and Package macOS App
         run: |
