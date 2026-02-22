@@ -105,16 +105,14 @@ jobs:
         run: |
           # Note, you can change QMAKE_APPLE_DEVICE_ARCHS to "x86_64 arm64"
           # Must also change this on QCP. 
+          sed -i '' 's/x86_64 arm64/arm64/g' wfview.pro
           qmake wfview.pro \
             CONFIG+=release \
             CONFIG+=sdk_no_version_check \
-            QMAKE_APPLE_DEVICE_ARCHS=arm64 \
-            'QMAKE_CXXFLAGS-=-arch x86_64' \
-            'QMAKE_CFLAGS-=-arch x86_64' \
-            'QMAKE_LFLAGS-=-arch x86_64' \
+            QMAKE_APPLE_DEVICE_ARCHS="arm64" \
             INCLUDEPATH+="${BREW_PREFIX}/include" \
             INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
-            LIBS+="-L${BREW_PREFIX}/lib"
+            LIBS+="-L${BREW_PREFIX}/lib" \
             LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build"
 
       - name: Build
