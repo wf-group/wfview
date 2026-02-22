@@ -121,6 +121,14 @@ jobs:
 
       - name: Deploy and Package macOS App
         run: |
+          echo "=== Fixing QCustomPlot dependency path ==="
+          # Point the executable to the absolute path of our locally built QCustomPlot library
+          # so macdeployqt can find it, bundle it, and fix the internal relative paths.
+          install_name_tool -change \
+            "libqcustomplot.1.dylib" \
+            "$PWD/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
+            wfview/wfview.app/Contents/MacOS/wfview
+
           # Use Qt's deployment tool to bundle libraries and create a .dmg
           echo "=== Deploying ==="
           ${BREW_PREFIX}/opt/qt@5/bin/macdeployqt wfview/wfview.app -dmg
