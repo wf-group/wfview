@@ -1,9 +1,10 @@
 name: macOS Build
 
+# permissions needed for release mechanism
+permissions:
+  contents: write
+
 on:
-  # permissions needed to post beta builds
-  permissions:
-    contents: write
   push:
     branches: [ master, devel ]
   workflow_dispatch:   # allows manual trigger from GitHub Actions UI
