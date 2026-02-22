@@ -103,8 +103,11 @@ jobs:
         run: |
           qmake wfview.pro \
             CONFIG+=release \
+            CONFIG+=sdk_no_version_check \
             INCLUDEPATH+="${BREW_PREFIX}/include" \
+            INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L${BREW_PREFIX}/lib"
+            LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build"
 
       - name: Build
         working-directory: wfview
