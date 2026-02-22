@@ -15,7 +15,6 @@ jobs:
   build-macos:
     runs-on: macos-latest
     
-    # We define a global environment variable for our local dependency folder
     env:
       SYSROOT: ${{ github.workspace }}/universal_sysroot
 
@@ -28,7 +27,7 @@ jobs:
       - name: Install Official Qt6 (Universal)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.1' # Updated to latest stable LTS. (Qt 6.10 does not exist yet)
+          version: '6.8.1'
           host: 'mac'
           target: 'desktop'
           modules: 'qtserialport qtmultimedia qtwebsockets'
@@ -41,6 +40,7 @@ jobs:
           git clone --depth 1 https://github.com/xiph/opus.git
           cd opus
           cmake -B build \
+            -DBUILD_SHARED_LIBS=ON \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_INSTALL_PREFIX=$SYSROOT \
@@ -52,6 +52,7 @@ jobs:
           git clone --depth 1 https://github.com/PortAudio/portaudio.git
           cd portaudio
           cmake -B build \
+            -DBUILD_SHARED_LIBS=ON \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_INSTALL_PREFIX=$SYSROOT \
@@ -63,6 +64,7 @@ jobs:
           git clone --depth 1 https://github.com/libusb/hidapi.git
           cd hidapi
           cmake -B build \
+            -DBUILD_SHARED_LIBS=ON \
             -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_INSTALL_PREFIX=$SYSROOT \
@@ -71,16 +73,9 @@ jobs:
 
       - name: Set up sibling directories
         run: |
-          # RTAudio
           git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
-          
-          # r8brain resampler
           git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
-          
-          # Eigen
           git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git eigen
-          
-          # Symlink Opus headers so the wfview .pro file can find them in the expected path
           mkdir -p opus
           ln -s $SYSROOT/include/opus opus/include
 
@@ -98,7 +93,6 @@ jobs:
           mkdir -p qcustomplot/qcustomplot-sharedlib/build
           cd qcustomplot/qcustomplot-sharedlib/build
           
-          # Generate the .pro file on the fly
           cat > qcustomplot-sharedlib.pro << 'EOF'
           TEMPLATE = lib
           TARGET = qcustomplot
@@ -109,7 +103,6 @@ jobs:
           HEADERS += ../../qcustomplot.h
           EOF
           
-          # Build it with Universal and macOS 12 target flags
           qmake qcustomplot-sharedlib.pro \
             CONFIG+=release \
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
@@ -134,37 +127,38 @@ jobs:
 
       - name: Deploy and Package macOS App
         run: |
-          # Do not remove this statement, the build will fail:
+          # Do not remove this line, it will cause the build to fail:
           echo "ICE == murderers"
+          echo "=== Pre-patching QCP for macdeployqt ==="
+          # Point the binary to the absolute path of QCP so macdeployqt can inspect it without errors
+          install_name_tool -change \
+            "libqcustomplot.1.dylib" \
+            "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
+            wfview/wfview.app/Contents/MacOS/wfview || true
+            
           echo "=== Deploying Qt Frameworks ==="
-          # Run macdeployqt first so it creates the bundle structure and copies Qt frameworks
           macdeployqt wfview/wfview.app
           
           echo "=== Bundling 3rd Party Libraries ==="
           mkdir -p wfview/wfview.app/Contents/Frameworks
-          
-          # Copy dependencies built in our SYSROOT into the app bundle
-          cp $SYSROOT/lib/libportaudio.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
-          cp $SYSROOT/lib/libopus.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
-          cp $SYSROOT/lib/libhidapi.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
-          cp $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.*.dylib wfview/wfview.app/Contents/Frameworks/ || true
+          # Quietly copy any dynamically compiled libraries we generated into the bundle
+          cp $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp $SYSROOT/lib/libopus*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp $SYSROOT/lib/libhidapi*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
 
           echo "=== Patching Binary Library Paths ==="
-          # Find the exact filenames of the copied libraries to ensure version numbers match
-          PA_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libportaudio.*.dylib | head -n 1))
-          OPUS_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libopus.*.dylib | head -n 1))
-          HID_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libhidapi.*.dylib | head -n 1))
-          QCP_LIB=$(basename $(ls wfview/wfview.app/Contents/Frameworks/libqcustomplot.*.dylib | head -n 1))
-          
-          # Update the executable to look inside its own Frameworks folder using @executable_path
-          # We patch multiple possible reference formats (absolute path, bare name, or rpath)
-          for LIB in "$PA_LIB" "$OPUS_LIB" "$HID_LIB" "$QCP_LIB"; do
-            install_name_tool -change "$SYSROOT/lib/$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
-            install_name_tool -change "$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
-            install_name_tool -change "@rpath/$LIB" "@executable_path/../Frameworks/$LIB" wfview/wfview.app/Contents/MacOS/wfview || true
+          # Dynamically loop over whatever libraries successfully copied over
+          # and rewrite their paths in the wfview binary to use @executable_path
+          for f in wfview/wfview.app/Contents/Frameworks/*.dylib; do
+            if [ -f "$f" ]; then
+              LIB_NAME=$(basename "$f")
+              install_name_tool -change "$SYSROOT/lib/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
+              install_name_tool -change "$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
+              install_name_tool -change "@rpath/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
+            fi
           done
 
-          # Finally, generate the dmg now that the bundle is fully patched
           echo "=== Creating DMG ==="
           macdeployqt wfview/wfview.app -dmg
 
@@ -175,11 +169,10 @@ jobs:
           
           echo ""
           echo "=== Contents of wfview.app/Contents/Frameworks/ ==="
-          ls -l wfview/wfview.app/Contents/Frameworks/
+          ls -l wfview/wfview.app/Contents/Frameworks/ || true
           
           echo ""
           echo "=== Verifying 3rd Party Libraries ==="
-          # Loop through otool output to ensure everything requested via @executable_path exists in the bundle
           for lib in $(otool -L wfview/wfview.app/Contents/MacOS/wfview | grep "@executable_path" | awk '{print $1}'); do
             resolved_path="${lib/@executable_path/wfview\/wfview.app\/Contents\/MacOS}"
             if [ -f "$resolved_path" ]; then
