@@ -181,10 +181,18 @@ jobs:
             fi
           done
           
+      - name: Upload DMG Artifact (Failsafe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfview-macos-beta-${{ github.run_number }}
+          path: wfview/wfview.dmg
+          if-no-files-found: warn
+
       - name: Publish Beta Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: beta-qt6-mac-${{ github.run_number }}
+          target_commitish: ${{ github.sha }} # Forces the action to use this exact commit
           name: "macOS Beta Build #${{ github.run_number }} (Universal / Qt6)"
           body: |
             Automated beta build generated from commit ${{ github.sha }}.
@@ -195,3 +203,4 @@ jobs:
             * 💻 **Compatibility:** macOS 12 (Monterey) and newer.
           prerelease: true
           files: wfview/wfview.dmg
+          token: ${{ secrets.GITHUB_TOKEN }} # Explicitly provides the permission token
