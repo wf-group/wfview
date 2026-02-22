@@ -70,6 +70,8 @@ jobs:
           export PATH="${BREW_PREFIX}/opt/qt@5/bin:$PATH"
           mkdir -p qcustomplot/qcustomplot-sharedlib/build
           cd qcustomplot/qcustomplot-sharedlib/build
+          # Note, add QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" for universal build
+          # Otherwise will default to just arm64.
           cat > qcustomplot-sharedlib.pro << 'EOF'
           TEMPLATE = lib
           TARGET = qcustomplot
@@ -101,9 +103,12 @@ jobs:
       - name: Run qmake
         working-directory: wfview
         run: |
+          # Note, you can change QMAKE_APPLE_DEVICE_ARCHS to "x86_64 arm64"
+          # Must also change this on QCP. 
           qmake wfview.pro \
             CONFIG+=release \
             CONFIG+=sdk_no_version_check \
+            QMAKE_APPLE_DEVICE_ARCHS=arm64 \
             INCLUDEPATH+="${BREW_PREFIX}/include" \
             INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L${BREW_PREFIX}/lib"
