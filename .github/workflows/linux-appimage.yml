@@ -1,0 +1,411 @@
+# .github/workflows/linux-appimage.yml
+# Build wfview AppImage and create a makeself self-extracting installer
+# Triggered on every push to any branch
+
+name: Linux AppImage Build
+
+on:
+  push:
+    branches: ['**']
+
+env:
+  QT_SELECT: qt5
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  build-appimage:
+    runs-on: ubuntu-22.04
+    # Build on 22.04 for maximum glibc portability (AppImages built on
+    # older glibc run on newer distros, but not vice-versa).
+
+    steps:
+    # ─── Checkout ───────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0   # full history so git describe / rev-parse work
+
+    # ─── Capture metadata ───────────────────────────────────────────────
+    - name: Gather build metadata
+      id: meta
+      run: |
+        echo "git_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        echo "git_msg<<EOF" >> "$GITHUB_OUTPUT"
+        git log -1 --pretty=format:"%s" >> "$GITHUB_OUTPUT"
+        echo "" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+        echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
+
+    # ─── Install dependencies ───────────────────────────────────────────
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install \
+          build-essential \
+          qt5-qmake \
+          libqt5core5a \
+          qtbase5-dev \
+          libqt5serialport5 libqt5serialport5-dev \
+          libqt5multimedia5 libqt5multimedia5-plugins qtmultimedia5-dev \
+          libqt5gamepad5 libqt5gamepad5-dev \
+          libqt5websockets5 libqt5websockets5-dev \
+          libhidapi-dev \
+          libopus-dev \
+          libeigen3-dev \
+          libportaudio2 libportaudiocpp0 portaudio19-dev \
+          librtaudio-dev \
+          libudev-dev \
+          libpulse-dev \
+          git \
+          file \
+          fuse libfuse2 \
+          makeself
+
+        # QCustomPlot — try each version, at least one must succeed
+        QCPLOT_OK=0
+        sudo apt-get -y install libqcustomplot2.1 libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
+        if [ "$QCPLOT_OK" -eq 0 ]; then
+          sudo apt-get -y install libqcustomplot2.0 libqcustomplot-doc libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
+        fi
+        if [ "$QCPLOT_OK" -eq 0 ]; then
+          sudo apt-get -y install libqcustomplot1.3 libqcustomplot-doc libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
+        fi
+        if [ "$QCPLOT_OK" -eq 0 ]; then
+          echo "::error::Could not install any version of libqcustomplot"
+          exit 1
+        fi
+        echo "QCustomPlot installed successfully"
+
+    # ─── DEBUG: Verify toolchain & library availability ─────────────────
+    - name: "DEBUG: Verify toolchain"
+      run: |
+        echo "=== Compiler ==="
+        g++ --version | head -1
+        echo ""
+        echo "=== qmake ==="
+        qmake --version
+        echo ""
+        echo "=== Qt pkg-config modules ==="
+        pkg-config --list-all 2>/dev/null | grep -i qt || true
+        echo ""
+        echo "=== QCustomPlot libraries ==="
+        /sbin/ldconfig -p | grep -i qcustomplot || true
+        echo ""
+        echo "=== Key shared libraries ==="
+        for lib in librtaudio libopus libportaudio libhidapi libudev libpulse; do
+          /sbin/ldconfig -p | grep "$lib" | head -2
+        done
+
+    # ─── Build ──────────────────────────────────────────────────────────
+    - name: Run qmake
+      run: |
+        qmake wfview.pro \
+          CONFIG+=release \
+          PREFIX=/usr
+
+    - name: Build with make
+      run: |
+        make -j$(nproc)
+
+    # ─── DEBUG: Verify build output ─────────────────────────────────────
+    - name: "DEBUG: Inspect build artifacts"
+      run: |
+        echo "=== Binary info ==="
+        file wfview
+        ls -lh wfview
+        echo ""
+        echo "=== ldd output ==="
+        ldd wfview
+        echo ""
+        echo "=== Checking for missing libraries ==="
+        ldd wfview | grep "not found" && echo "::warning::Some libraries are missing!" || echo "All libraries found."
+
+    # ─── Prepare AppDir ─────────────────────────────────────────────────
+    - name: Prepare AppDir structure
+      run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        mkdir -p AppDir/usr/share/metainfo
+        mkdir -p AppDir/usr/share/wfview/rigs
+        mkdir -p AppDir/usr/share/wfview/qdarkstyle
+
+        cp wfview                                       AppDir/usr/bin/
+        cp resources/wfview.desktop                     AppDir/usr/share/applications/
+        cp resources/icons/bitmap/wfview.png            AppDir/usr/share/icons/hicolor/256x256/apps/
+        cp resources/org.wfview.wfview.metainfo.xml     AppDir/usr/share/metainfo/ || true
+        cp -r rigs/*                                    AppDir/usr/share/wfview/rigs/
+        cp -r qdarkstyle/*                              AppDir/usr/share/wfview/qdarkstyle/
+
+        # linuxdeploy expects these at the AppDir root as well
+        cp resources/wfview.desktop                     AppDir/
+        cp resources/icons/bitmap/wfview.png            AppDir/
+
+    # ─── DEBUG: Show AppDir contents ────────────────────────────────────
+    - name: "DEBUG: List AppDir"
+      run: |
+        echo "=== AppDir tree ==="
+        find AppDir -type f | sort
+        echo ""
+        echo "=== AppDir size ==="
+        du -sh AppDir
+
+    # ─── Download linuxdeploy ───────────────────────────────────────────
+    - name: Download linuxdeploy and Qt plugin
+      run: |
+        wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" \
+          -O linuxdeploy
+        wget -q "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage" \
+          -O linuxdeploy-plugin-qt
+        chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+    # ─── Create AppImage ────────────────────────────────────────────────
+    - name: Build AppImage
+      run: |
+        export QMAKE=$(which qmake)
+        export PATH="$(pwd):$PATH"
+        # linuxdeploy with the Qt plugin bundles all Qt libs/plugins
+        ./linuxdeploy \
+          --appdir AppDir \
+          --desktop-file AppDir/usr/share/applications/wfview.desktop \
+          --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
+          --plugin qt \
+          --output appimage
+
+        # linuxdeploy names it something like wfview-x86_64.AppImage
+        APPIMAGE_FILE=$(ls wfview*.AppImage 2>/dev/null | head -1)
+        if [ -z "$APPIMAGE_FILE" ]; then
+          echo "::error::AppImage was not created!"
+          ls -la
+          exit 1
+        fi
+        echo "AppImage created: $APPIMAGE_FILE"
+        mv "$APPIMAGE_FILE" wfview.AppImage
+
+    # ─── DEBUG: Verify AppImage ─────────────────────────────────────────
+    - name: "DEBUG: Verify AppImage"
+      run: |
+        ls -lh wfview.AppImage
+        file wfview.AppImage
+        echo ""
+        echo "=== AppImage contents (first 40 entries) ==="
+        ./wfview.AppImage --appimage-list 2>/dev/null | head -40 || true
+        echo "..."
+
+    # ─── Assemble makeself payload ──────────────────────────────────────
+    - name: Assemble installer payload
+      run: |
+        mkdir -p installer-payload
+
+        cp wfview.AppImage                              installer-payload/
+        cp resources/wfview.desktop                     installer-payload/
+        cp resources/icons/bitmap/wfview.png            installer-payload/
+        cp resources/org.wfview.wfview.metainfo.xml     installer-payload/ || true
+        cp -r rigs                                      installer-payload/
+        cp -r qdarkstyle                                installer-payload/
+
+        # Install script embedded in the payload
+        cat > installer-payload/install.sh << 'INSTALLER_EOF'
+        #!/bin/bash
+        # wfview AppImage Installer
+        # This script runs from within the makeself self-extracting archive.
+        #
+        # Usage:
+        #   ./wfview-installer.sh          # non-root install to ~/.local
+        #   sudo ./wfview-installer.sh     # root install to /usr/local
+        #
+        set -e
+
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        APPIMAGE_NAME="wfview.AppImage"
+
+        # ─── Detect root vs non-root ──────────────────────────────────
+        if [ "$(id -u)" -eq 0 ]; then
+            IS_ROOT=true
+            PREFIX="/usr/local"
+            echo "=== wfview installer (root mode) ==="
+        else
+            IS_ROOT=false
+            PREFIX="${HOME}/.local"
+            echo "=== wfview installer (user mode) ==="
+        fi
+        echo "Installing to ${PREFIX}"
+
+        BIN_DIR="${PREFIX}/bin"
+        SHARE_DIR="${PREFIX}/share"
+        DESKTOP_DIR="${SHARE_DIR}/applications"
+        ICON_DIR="${SHARE_DIR}/icons/hicolor/256x256/apps"
+        METAINFO_DIR="${SHARE_DIR}/metainfo"
+        WFVIEW_SHARE_DIR="${SHARE_DIR}/wfview"
+        RIGS_DIR="${WFVIEW_SHARE_DIR}/rigs"
+        STYLE_DIR="${WFVIEW_SHARE_DIR}/qdarkstyle"
+
+        # ─── Create directories ───────────────────────────────────────
+        echo "Creating directories..."
+        mkdir -p "${BIN_DIR}"
+        mkdir -p "${DESKTOP_DIR}"
+        mkdir -p "${ICON_DIR}"
+        mkdir -p "${METAINFO_DIR}"
+        mkdir -p "${WFVIEW_SHARE_DIR}"
+        mkdir -p "${RIGS_DIR}"
+        mkdir -p "${STYLE_DIR}"
+
+        # ─── Backup existing rig files (non-root only) ────────────────
+        if [ "${IS_ROOT}" = false ] && [ -d "${RIGS_DIR}" ] && [ "$(ls -A "${RIGS_DIR}" 2>/dev/null)" ]; then
+            BACKUP_NAME="wfview-rigs-backup-$(date +%Y%m%d-%H%M%S).tgz"
+            BACKUP_PATH="${WFVIEW_SHARE_DIR}/${BACKUP_NAME}"
+            echo "Backing up existing rig files to ${BACKUP_PATH} ..."
+            tar czf "${BACKUP_PATH}" -C "${WFVIEW_SHARE_DIR}" rigs/
+            echo "Backup created."
+        fi
+
+        # ─── Install AppImage ─────────────────────────────────────────
+        echo "Installing AppImage to ${BIN_DIR}/wfview ..."
+        cp "${SCRIPT_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/wfview"
+        chmod +x "${BIN_DIR}/wfview"
+
+        # ─── Install rig files ────────────────────────────────────────
+        if [ -d "${SCRIPT_DIR}/rigs" ]; then
+            echo "Installing rig files to ${RIGS_DIR}/ ..."
+            cp -r "${SCRIPT_DIR}/rigs/"* "${RIGS_DIR}/"
+        fi
+
+        # ─── Install stylesheets ─────────────────────────────────────
+        if [ -d "${SCRIPT_DIR}/qdarkstyle" ]; then
+            echo "Installing stylesheets to ${STYLE_DIR}/ ..."
+            cp -r "${SCRIPT_DIR}/qdarkstyle/"* "${STYLE_DIR}/"
+        fi
+
+        # ─── Install icon ────────────────────────────────────────────
+        if [ -f "${SCRIPT_DIR}/wfview.png" ]; then
+            echo "Installing icon ..."
+            cp "${SCRIPT_DIR}/wfview.png" "${ICON_DIR}/wfview.png"
+        fi
+
+        # ─── Install metainfo ────────────────────────────────────────
+        if [ -f "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" ]; then
+            echo "Installing metainfo ..."
+            cp "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" "${METAINFO_DIR}/"
+        fi
+
+        # ─── Install desktop file (rewrite Exec/Icon paths) ──────────
+        if [ -f "${SCRIPT_DIR}/wfview.desktop" ]; then
+            echo "Installing desktop launcher ..."
+            sed -e "s|^Exec=.*|Exec=${BIN_DIR}/wfview|" \
+                -e "s|^Icon=.*|Icon=${ICON_DIR}/wfview.png|" \
+                "${SCRIPT_DIR}/wfview.desktop" > "${DESKTOP_DIR}/wfview.desktop"
+            chmod +x "${DESKTOP_DIR}/wfview.desktop"
+        fi
+
+        # ─── Update desktop database (best-effort) ────────────────────
+        if command -v update-desktop-database &>/dev/null; then
+            update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
+        fi
+        if command -v gtk-update-icon-cache &>/dev/null; then
+            gtk-update-icon-cache "${SHARE_DIR}/icons/hicolor" 2>/dev/null || true
+        fi
+
+        # ─── Summary ─────────────────────────────────────────────────
+        echo ""
+        echo "════════════════════════════════════════════════"
+        echo "  wfview installed successfully!"
+        echo "════════════════════════════════════════════════"
+        echo "  Binary:      ${BIN_DIR}/wfview"
+        echo "  Rig files:   ${RIGS_DIR}/"
+        echo "  Stylesheets: ${STYLE_DIR}/"
+        echo "  Desktop:     ${DESKTOP_DIR}/wfview.desktop"
+        echo "  Icon:        ${ICON_DIR}/wfview.png"
+        echo "════════════════════════════════════════════════"
+        echo ""
+        if [ "${IS_ROOT}" = false ]; then
+            echo "NOTE: Make sure ${BIN_DIR} is in your PATH."
+            echo "  export PATH=\"${BIN_DIR}:\${PATH}\""
+        fi
+        echo "Run wfview with:  wfview"
+        INSTALLER_EOF
+
+        chmod +x installer-payload/install.sh
+
+    # ─── DEBUG: Show payload contents ───────────────────────────────────
+    - name: "DEBUG: List installer payload"
+      run: |
+        echo "=== Payload contents ==="
+        find installer-payload -type f | sort
+        echo ""
+        du -sh installer-payload
+
+    # ─── Build makeself installer ───────────────────────────────────────
+    - name: Create makeself installer
+      run: |
+        makeself \
+          --gzip \
+          --current \
+          installer-payload \
+          wfview-installer.sh \
+          "wfview AppImage Installer (commit ${{ steps.meta.outputs.git_short }})" \
+          ./install.sh
+
+        ls -lh wfview-installer.sh
+
+    # ─── Upload artifact (available even if release step fails) ─────────
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wfview-linux-appimage-installer
+        path: wfview-installer.sh
+        retention-days: 30
+
+    # ─── Publish Beta Release ───────────────────────────────────────────
+    - name: Publish Beta Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: linux-appimage-beta-${{ github.run_number }}
+        name: "wfview Linux AppImage Beta #${{ github.run_number }}"
+        prerelease: true
+        make_latest: false
+        files: wfview-installer.sh
+        body: |
+          ## wfview Linux AppImage — Beta Build #${{ github.run_number }}
+
+          | Field | Value |
+          |-------|-------|
+          | **Architecture** | x86_64 |
+          | **Target OS** | Linux (glibc 2.35+, Ubuntu 22.04 and newer) |
+          | **Framework** | Qt 5 |
+          | **Commit** | `${{ steps.meta.outputs.git_short }}` |
+          | **Built** | ${{ steps.meta.outputs.timestamp }} |
+
+          **Commit message:** ${{ steps.meta.outputs.git_msg }}
+
+          ---
+
+          ### Install instructions
+
+          ```bash
+          cd ~/Downloads
+          chmod +x wfview-installer.sh
+
+          # User install (to ~/.local):
+          ./wfview-installer.sh
+
+          # System-wide install (to /usr/local):
+          sudo ./wfview-installer.sh
+          ```
+
+          **User install notes:**
+          - The AppImage binary is placed in `~/.local/bin/wfview`
+          - Rig files go to `~/.local/share/wfview/rigs/`
+          - If existing rig files are found, a timestamped `.tgz` backup is created before replacement
+          - Ensure `~/.local/bin` is in your `PATH`
+
+          **System-wide install notes:**
+          - The AppImage binary is placed in `/usr/local/bin/wfview`
+          - Rig files go to `/usr/local/share/wfview/rigs/`
+          - Existing rig files in the system location are left as-is (not backed up)
+
+          **Requirements:** FUSE must be available to run AppImages. On Ubuntu/Debian:
+          ```bash
+          sudo apt install libfuse2
+          ```
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
