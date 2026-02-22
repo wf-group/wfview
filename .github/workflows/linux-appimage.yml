@@ -3,6 +3,10 @@
 # Triggered on every push to any branch
 
 name: Linux AppImage Build
+  #
+# Required for the GitHub Action bot to publish releases
+permissions:
+  contents: write
 
 on:
   push:
