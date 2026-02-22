@@ -119,9 +119,17 @@ jobs:
         working-directory: wfview
         run: make -j$(sysctl -n hw.logicalcpu)
 
-      - name: Upload wfview.app artifact
+      - name: Deploy and Package macOS App
+        run: |
+          # Use Qt's deployment tool to bundle libraries and create a .dmg
+          echo "=== Deploying ==="
+          ${BREW_PREFIX}/opt/qt@5/bin/macdeployqt wfview/wfview.app -dmg
+          echo "=== DONE deploying ==="
+          
+      - name: Upload wfview DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wfview-macos
-          path: wfview/wfview.app
+          name: wfview-macos-installer
+          path: wfview/wfview.dmg  # Uploads the single .dmg file
           if-no-files-found: warn
+
