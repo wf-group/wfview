@@ -60,7 +60,7 @@ jobs:
           echo "=== Top level ==="
           ls qcustomplot/
           echo "=== Complete listing ==="
-          ls -R
+          ls -R .
           echo "=== End diagnostic output ==="
 
       - name: Build QCustomPlot shared library
