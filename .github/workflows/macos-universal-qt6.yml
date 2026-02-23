@@ -141,27 +141,30 @@ jobs:
           
           echo "=== Bundling 3rd Party Libraries ==="
           mkdir -p wfview/wfview.app/Contents/Frameworks
-          cp $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
-          cp $SYSROOT/lib/libopus*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
-          cp $SYSROOT/lib/libhidapi*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
-          cp $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          # Use cp -a to safely preserve symlinks instead of creating massive duplicate files
+          cp -a $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libopus*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libhidapi*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
 
           echo "=== Patching Binary Library Paths ==="
           for f in wfview/wfview.app/Contents/Frameworks/*.dylib; do
             if [ -f "$f" ]; then
               LIB_NAME=$(basename "$f")
-              # Standard paths
+              
+              # 1. Fix the internal ID of the library itself so macdeployqt doesn't search /usr/lib
+              install_name_tool -id "@executable_path/../Frameworks/$LIB_NAME" "$f" || true
+              
+              # 2. Patch the wfview executable to look in the right place
               install_name_tool -change "$SYSROOT/lib/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
               install_name_tool -change "$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
               install_name_tool -change "@rpath/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
-              # Specific catch for the absolute QCP path we set earlier
               install_name_tool -change "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
             fi
           done
 
           echo "=== Creating DMG ==="
           macdeployqt wfview/wfview.app -dmg
-
       - name: Debug Output - Verify Library Linking
         run: |
           echo "=== Dynamically linked libraries requested by wfview binary ==="
