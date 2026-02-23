@@ -192,7 +192,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: beta-qt6-mac-${{ github.run_number }}
-          target_commitish: ${{ github.sha }} # Forces the action to use this exact commit
+          #target_commitish: ${{ github.sha }} # Forces the action to use this exact commit
           name: "macOS Beta Build #${{ github.run_number }} (Universal / Qt6)"
           body: |
             Automated beta build generated from commit ${{ github.sha }}.
@@ -202,5 +202,6 @@ jobs:
             * 🖼️ **Framework:** Qt 6.8.1
             * 💻 **Compatibility:** macOS 12 (Monterey) and newer.
           prerelease: true
+          make_latest: false
           files: wfview/wfview.dmg
           token: ${{ secrets.GITHUB_TOKEN }} # Explicitly provides the permission token
