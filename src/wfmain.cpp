@@ -5452,8 +5452,12 @@ void wfmain::connectionHandler(bool connect)
         enableRigCtl(false);
         removeRig();
         // Stop time sync timer if running.
-        if (timeSync->isActive())
-            timeSync->stop();
+        if(timeSync != Q_NULLPTR) {
+            if (timeSync->isActive())
+                timeSync->stop();
+        } else {
+            qWarning(logSystem()) << "In handling connection status, did not find valid timeSync timer. Connect: " << connect;
+        }
     }
 
     // Whatever happened, make sure we delete the memories window.

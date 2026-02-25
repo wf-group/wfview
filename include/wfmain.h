@@ -576,7 +576,7 @@ private:
 
     cachingQueue* queue;
     // Radio time sync:
-    QTimer *timeSync;
+    QTimer *timeSync = Q_NULLPTR;
     bool waitingToSetTimeDate;
     void setRadioTimeDatePrep();
     timekind timesetpoint;
