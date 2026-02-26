@@ -304,6 +304,7 @@ bool ft4222Handler::setup()
     if (FT_OK != ftStatus)
     {
         qInfo(logRig()) << "Could not open FT4222 device";
+        qInfo(logRig()) << "The specific error was error number " << (int)ftStatus; // see ft4222handler.h
         device = nullptr;
         return false;
     }
