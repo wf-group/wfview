@@ -1292,20 +1292,20 @@ void receiverWidget::showHideControls(uchar mode)
         if (rigCaps->manufacturer == manufYaesu) {
             switch (mode)
             {
-            case 0:
-            case 3:
-            case 4:
+            case '0':
+            case '3':
+            case '4':
                 edgeCombo->hide();
                 edgeButton->hide();
                 toFixedButton->show();
                 spanCombo->show();
                 break;
-            case 1:
-            case 2:
-            case 6:
-            case 7:
-            case 9:
-            case 10:
+            case '1':
+            case '2':
+            case '6':
+            case '7':
+            case '9':
+            case 'A':
                 toFixedButton->hide();
                 spanCombo->hide();
                 edgeCombo->show();

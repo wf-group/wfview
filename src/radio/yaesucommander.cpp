@@ -185,7 +185,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
     fb.MHzDouble=fb.Hz/1000000.0;
 
     //.toString().back().toLatin1()
-    quint8 scopemode = QString::number(data.at(17)).at(0).toLatin1();
+    quint8 scopemode = QString::number(data.at(17), 16).toUpper().at(0).toLatin1();
     //quint8 mode = quint8(QString::number(data.at(60)).at(0).toLatin1()) + 1;
     quint8 span = quint8(data.mid(32,1).toHex().toUShort(nullptr,16));
 
