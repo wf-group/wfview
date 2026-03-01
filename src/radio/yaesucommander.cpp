@@ -834,18 +834,31 @@ void yaesuCommander::parseData(QByteArray data)
         // These are numbers, as they might contain other info, only extract type.bytes len of data.
         case funcTunerStatus:
         {
+            // AC P1 P2 P3; — P1 is always 0 per FT-710 CAT spec.
+            // P2: 0=bypass, 1=standard ATU, 2=ATAS motorised antenna tuner.
+            // P3: 0=not tuning, 1=tuning (standard ATU), 3=tuning (ATAS).
             uchar s = d.mid(0, type.bytes).toUShort();
             switch(s)  {
-            case 000:
-                // 000: not enabled
+            case 0:
+                // 000: ATU bypass/off
                 value.setValue<uchar>(0);
                 break;
-            case 010:
-                // 010: tuned and enabled
+            case 10:
+                // 010: standard ATU on, not tuning (decimal 10, not octal)
                 value.setValue<uchar>(1);
                 break;
-            case 013:
-                // 011: tuning, we think
+            case 11:
+                // 011: standard ATU on, tuning in progress
+                value.setValue<uchar>(2);
+                break;
+            case 20:
+                // 020: ATAS motorised ATU on, not tuning
+                qDebug(logRig()) << "ATAS-style motorised ATU detected (P2=2)";
+                value.setValue<uchar>(1);
+                break;
+            case 23:
+                // 023: ATAS motorised ATU on, tuning in progress (P3=3)
+                qDebug(logRig()) << "ATAS-style motorised ATU detected, tuning (P2=2, P3=3)";
                 value.setValue<uchar>(2);
                 break;
             }
@@ -1202,6 +1215,7 @@ bool yaesuCommander::parseMemory(QByteArray d,QVector<memParserFormat>* memParse
             break;
         case 'V':
             memcpy(mem->R2B,data.data(),qMin(int(sizeof mem->R2B),data.size()));
+            // Warning, this case can fall through, did we mean to do that? 
         // Clarifier.
         case 'W':
             mem->clarifier = data.left(parse.len).toShort();
@@ -1827,18 +1841,19 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             {
                 // This is a simple number
                 if(func==funcTunerStatus) {
+                    // AC P1 P2 P3; — P1 is always 0 per FT-710 CAT spec.
                     switch(value.value<uchar>()) {
                     case 0:
-                        // Turn it off
-                        payload.append(QString::number(100).rightJustified(3, QChar('0')).toLatin1());
+                        // Turn ATU off/bypass: P1=0, P2=0, P3=0
+                        payload.append(QString::number(0).rightJustified(3, QChar('0')).toLatin1());
                         break;
                     case 1:
-                        // Turn it on
-                        payload.append(QString::number(110).rightJustified(3, QChar('0')).toLatin1());
+                        // Turn standard ATU on: P1=0, P2=1, P3=0
+                        payload.append(QString::number(10).rightJustified(3, QChar('0')).toLatin1());
                         break;
                     case 2:
-                        // Run the tuning cycle
-                        payload.append(QString::number(111).rightJustified(3, QChar('0')).toLatin1());
+                        // Run standard ATU tuning cycle: P1=0, P2=1, P3=1
+                        payload.append(QString::number(11).rightJustified(3, QChar('0')).toLatin1());
                         break;
                     default:
                         break;
