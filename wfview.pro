@@ -301,6 +301,7 @@ SOURCES += \
     src/audio/audiohandlerbase.cpp \
     src/audio/plugins/dyson_compress.cpp \
     src/audio/plugins/mbeq.cpp \
+    src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
     src/audioprocessingwidget.cpp \
     src/audio/audiohandlerpainput.cpp \
@@ -375,7 +376,9 @@ HEADERS  += \
     src/audio/resampler/speex_resampler.h \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
+    src/audio/sliding_dft.hpp \
     include/aboutbox.h \
+    include/spectrumwidget.h \
     include/audioconverter.h \
     include/audiodevices.h \
     include/audiohandler.h \

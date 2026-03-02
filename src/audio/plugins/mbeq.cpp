@@ -18,6 +18,7 @@
 #ifdef __linux__
 #  include <eigen3/unsupported/Eigen/FFT>
 #else
+// TODO: Verify macOS and Windows path
 #  include <unsupported/Eigen/FFT>
 #endif
 

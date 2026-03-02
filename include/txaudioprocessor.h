@@ -3,7 +3,9 @@
 
 #include <QObject>
 #include <QMutex>
+#include <QVector>
 #include <memory>
+#include <atomic>
 
 #ifndef Q_OS_LINUX
 #  include <Eigen/Dense>
@@ -57,6 +59,8 @@ public:
     void setSidetoneEnabled(bool enabled);
     void setSidetoneLevel(float level);     // 0‥1 linear gain
     void setMuteRx(bool muted);             // mute RX while self-monitoring
+    // Enable/disable spectrum capture (thread-safe; main thread).
+    void setSpectrumEnabled(bool en);
 
     // ── Getters (main thread) ─────────────────────────────────────────────────
     bool bypassed()       const;
@@ -84,6 +88,13 @@ signals:
     void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate);
     // Emitted when the RX mute state changes; connect to audio class setRxMuted().
     void haveRxMuted(bool muted);
+    // Emitted ~30 Hz when spectrum capture is enabled.
+    // inputSamples:  audio after input gain, before DSP (matches input meter).
+    // outputSamples: audio after output gain + clip (matches output meter).
+    // In bypass mode both carry the unmodified microphone signal.
+    void txSpectrumSamples(QVector<float> inputSamples,
+                           QVector<float> outputSamples,
+                           float sampleRate);
 
 private:
     // ── Thread-safe parameter block ──────────────────────────────────────────
@@ -114,6 +125,17 @@ private:
 
     // Helper: apply linear gain to samples in-place
     static void applyGainDB(Eigen::VectorXf& s, float dB);
+
+    // ── Spectrum capture state (converter thread only after construction) ─────
+    // Enable flag is atomic so the main thread can toggle it safely.
+    std::atomic<bool> m_specEnabled { false };
+    QVector<float>    m_specInBuf;   // input  accumulator
+    QVector<float>    m_specOutBuf;  // output accumulator
+    int               m_specThresh = 0;  // samples per 30 Hz frame (sr/30)
+
+    // Append one audio block to the accumulators; emit when threshold reached.
+    void appendSpectrumSamples(const Eigen::VectorXf& in,
+                               const Eigen::VectorXf& out);
 };
 
 #endif // TXAUDIOPROCESSOR_H

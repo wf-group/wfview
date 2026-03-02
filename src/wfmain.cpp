@@ -468,7 +468,7 @@ void wfmain::openRig()
     // Attach TX audio processor to the TX input setup
     if (!txProc) {
         txProc = new TxAudioProcessor(this);
-        // Wire meter and sidetone signals to the AudioProc widget (if already open)
+        // Wire meter, sidetone and spectrum signals to the AudioProc widget (if already open)
         if (audioProcWin) {
             connect(txProc, &TxAudioProcessor::txInputLevel,
                     audioProcWin, &AudioProcessingWidget::updateInputLevel);
@@ -476,6 +476,8 @@ void wfmain::openRig()
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
+            connect(txProc, &TxAudioProcessor::txSpectrumSamples,
+                    audioProcWin, &AudioProcessingWidget::onSpectrumSamples);
         }
     }
     applyAudioProcPrefs(prefs.audioProc);
@@ -2104,8 +2106,10 @@ void wfmain::loadSettings()
     prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
     prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.5f).toFloat();
     prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.3f).toFloat();
-    prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",   false).toBool();
-    prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel", 0.5f).toFloat();
+    prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
+    prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
+    prefs.audioProc.spectrumEnabled = settings->value("TxProcSpectrumEnabled", false).toBool();
+    prefs.audioProc.spectrumFPS     = settings->value("TxProcSpectrumFps",     10).toInt();
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
         prefs.audioProc.eqBands[i] = settings->value(
             QString("TxProcEqBand%1").arg(i), 0.0f).toFloat();
@@ -3377,8 +3381,10 @@ void wfmain::saveSettings()
     settings->setValue("TxProcCompRelease",   prefs.audioProc.compRelease);
     settings->setValue("TxProcCompFast",      prefs.audioProc.compFastRatio);
     settings->setValue("TxProcCompSlow",      prefs.audioProc.compSlowRatio);
-    settings->setValue("TxProcSidetone",      prefs.audioProc.sidetoneEnabled);
-    settings->setValue("TxProcSidetoneLevel", prefs.audioProc.sidetoneLevel);
+    settings->setValue("TxProcSidetone",         prefs.audioProc.sidetoneEnabled);
+    settings->setValue("TxProcSidetoneLevel",    prefs.audioProc.sidetoneLevel);
+    settings->setValue("TxProcSpectrumEnabled",  prefs.audioProc.spectrumEnabled);
+    settings->setValue("TxProcSpectrumFps",      prefs.audioProc.spectrumFPS);
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
         settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.audioProc.eqBands[i]);
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
@@ -5619,6 +5625,10 @@ void wfmain::on_audioProcBtn_clicked()
         connect(audioProcWin, &AudioProcessingWidget::prefsChanged,
                 this, &wfmain::onAudioProcPrefsChanged);
 
+        connect(this, &wfmain::connectionStatus,
+                audioProcWin, &AudioProcessingWidget::setConnected);
+        audioProcWin->setConnected(connStatus == connConnected);
+
         if (txProc) {
             connect(txProc, &TxAudioProcessor::txInputLevel,
                     audioProcWin, &AudioProcessingWidget::updateInputLevel);
@@ -5626,6 +5636,8 @@ void wfmain::on_audioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
+            connect(txProc, &TxAudioProcessor::txSpectrumSamples,
+                    audioProcWin, &AudioProcessingWidget::onSpectrumSamples);
         }
     }
     audioProcWin->show();
@@ -5658,6 +5670,7 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setSidetoneLevel(p.sidetoneLevel);
     txProc->setBypassed(p.bypass);
     txProc->setMuteRx(p.muteRx);
+    txProc->setSpectrumEnabled(p.spectrumEnabled);
 }
 void wfmain::receiveValue(cacheItem val){
 

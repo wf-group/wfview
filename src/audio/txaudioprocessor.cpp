@@ -4,11 +4,20 @@
 #include "txaudioprocessor.h"
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 
 TxAudioProcessor::TxAudioProcessor(QObject* parent)
     : QObject(parent)
 {
     qRegisterMetaType<Eigen::VectorXf>("Eigen::VectorXf");
+    qRegisterMetaType<QVector<float>>("QVector<float>");
+}
+
+void TxAudioProcessor::setSpectrumEnabled(bool en)
+{
+    m_specEnabled.store(en, std::memory_order_relaxed);
+    // Accumulators are cleared from the converter thread on the next block
+    // when it observes the flag as false (avoids cross-thread writes).
 }
 
 // ─── processAudio ─────────────────────────────────────────────────────────────
@@ -30,6 +39,18 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
         m_activeSR = sampleRate;
         m_comp = std::make_unique<DysonCompressor>(sampleRate);
         m_eq   = std::make_unique<MbeqProcessor>(sampleRate);
+        // Recalculate spectrum emit threshold and reset accumulators.
+        m_specThresh = static_cast<int>(sampleRate / 10.0f);
+        m_specInBuf.clear();
+        m_specOutBuf.clear();
+    }
+
+    // ── Spectrum flag (read once per block) ──────────────────────────────────
+    const bool specActive = m_specEnabled.load(std::memory_order_relaxed);
+    // If spectrum was disabled, drain stale accumulators (converter thread only).
+    if (!specActive && !m_specInBuf.isEmpty()) {
+        m_specInBuf.clear();
+        m_specOutBuf.clear();
     }
 
     // ── Master bypass — pass audio through, still meter and sidetone ─────────
@@ -42,6 +63,8 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
             Eigen::VectorXf st = samples * p.sidetoneLevel;
             emit haveSidetoneFloat(std::move(st), static_cast<quint32>(m_activeSR));
         }
+        if (specActive)
+            appendSpectrumSamples(samples, samples); // input == output in bypass
         return samples;
     }
 
@@ -54,6 +77,11 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     m_comp->setReleaseTime(p.compRelease);
     m_comp->setFastRatio(p.compFastRatio);
     m_comp->setSlowRatio(p.compSlowRatio);
+
+    // Snapshot for spectrum input (before input gain — raw microphone signal).
+    Eigen::VectorXf specInCapture;
+    if (specActive)
+        specInCapture = samples;
 
     // ── Input gain ───────────────────────────────────────────────────────────
     applyGainDB(samples, p.inputGainDB);
@@ -111,7 +139,34 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
         emit haveSidetoneFloat(std::move(st), static_cast<quint32>(m_activeSR));
     }
 
+    // ── Spectrum emission ────────────────────────────────────────────────────
+    if (specActive)
+        appendSpectrumSamples(specInCapture, samples);
+
     return samples;
+}
+
+// ─── appendSpectrumSamples ───────────────────────────────────────────────────
+// Converter thread only.  Accumulates samples and emits txSpectrumSamples when
+// enough have been collected for one ~30 Hz display frame.
+
+void TxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
+                                              const Eigen::VectorXf& out)
+{
+    const int n      = static_cast<int>(in.size());
+    const int oldSz  = m_specInBuf.size();
+
+    m_specInBuf.resize(oldSz + n);
+    std::memcpy(m_specInBuf.data()  + oldSz, in.data(),  n * sizeof(float));
+
+    m_specOutBuf.resize(oldSz + n);
+    std::memcpy(m_specOutBuf.data() + oldSz, out.data(), n * sizeof(float));
+
+    if (m_specThresh > 0 && m_specInBuf.size() >= m_specThresh) {
+        emit txSpectrumSamples(m_specInBuf, m_specOutBuf, m_activeSR);
+        m_specInBuf.clear();
+        m_specOutBuf.clear();
+    }
 }
 
 // ─── Parameter setters ────────────────────────────────────────────────────────

@@ -187,6 +187,8 @@ struct audioProcessingPrefs {
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
     bool  muteRx          = false; // mute RX audio while self-monitoring
+    bool  spectrumEnabled = false; // enable TX spectrum display
+    int   spectrumFPS     = 10;   // repaint rate; 10 FPS matches 100ms audio batch rate
 };
 
 struct preferences {

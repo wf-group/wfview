@@ -13,9 +13,25 @@
 #include <QFormLayout>
 #include <QGridLayout>
 
+#include <QVector>
+#include <QElapsedTimer>
+#include <memory>
+#include <vector>
+
 #include "prefs.h"
 #include "meter.h"
+#include "spectrumwidget.h"
 #include "txaudioprocessor.h"
+
+// Eigen FFT for the block-FFT spectrum analyser
+// Use the compiler-builtin __linux__ rather than Qt's Q_OS_LINUX so that
+// this file can be compiled without pulling in any Qt headers.
+#ifdef __linux__
+#  include <eigen3/unsupported/Eigen/FFT>
+#else
+// TODO: Verify macOS and Windows path
+#  include <unsupported/Eigen/FFT>
+#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AudioProcessingWidget — modal-less dialog for TX audio processing.
@@ -42,17 +58,24 @@ public slots:
     void updateInputLevel(float peak);      // 0.0–1.0
     void updateOutputLevel(float peak);     // 0.0–1.0
     void updateGainReduction(float linear); // 1.0 = no reduction
+    // Receives batches of raw audio from TxAudioProcessor (~30 Hz).
+    void onSpectrumSamples(QVector<float> inputSamples,
+                           QVector<float> outputSamples,
+                           float sampleRate);
+    void setConnected(bool connected);      // clears spectrum when disconnected
 
 private slots:
     void onAnyControlChanged();
     void onBypassToggled(bool bypassed);
     void onClearEq();
+    void onSpecEnableToggled(bool enabled);
 
 private:
     void buildUi();
     void blockAll(bool block);
     void populateFromPrefs(const audioProcessingPrefs& p);
     void setProcessingControlsEnabled(bool enabled);
+    void updateEqBandVisibility(float sampleRate); // hide bands above Nyquist
 
     // ── Master bypass ────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck   {nullptr};
@@ -63,6 +86,7 @@ private:
     QPushButton*  clearEqBtn    {nullptr};
     QSlider*      eqSliders [EQ_BANDS] {};
     QLabel*       eqValues  [EQ_BANDS] {};  // shows dB value text
+    QWidget*      eqColumns [EQ_BANDS] {};  // column containers for show/hide
 
     // ── Compressor ──────────────────────────────────────────────────────────
     QCheckBox*    compEnable    {nullptr};
@@ -97,10 +121,41 @@ private:
     QGroupBox*    sidetoneGrp   {nullptr};
     QWidget*      orderRow      {nullptr};
 
+    // ── Spectrum display ─────────────────────────────────────────────────────
+    // Block FFT analyser: input decimated to ~16 kHz effective rate.
+    // One FFT per received batch (O(N log N)) vs. SlidingDFT's O(N) per sample
+    // (O(N×M) per batch).  N=1024 gives 15.6 Hz/bin, 512 bins up to 8 kHz.
+    static constexpr int SPEC_FFT_LEN = 1024;
+
+    QGroupBox*    specGrp       {nullptr};
+    QCheckBox*    specEnable    {nullptr};
+    SpectrumWidget* specWidget  {nullptr};
+
+    // Ring buffers hold the most recent SPEC_FFT_LEN decimated samples.
+    // One Hanning-windowed FFT is computed per incoming batch.
+    Eigen::FFT<float>  m_fft;
+    std::vector<float> m_specWindow;    // precomputed Hanning coefficients
+    std::vector<float> m_specInRing;    // input  ring buffer
+    std::vector<float> m_specOutRing;   // output ring buffer
+    int                m_specRingPos  = 0;
+    float              m_specSampleRate  = 0.0f;
+    int                m_specDecimFactor = 1;
+    int                m_specDecimCount  = 0;
+    int                m_specFftTrigger  = 0;   // decimated-sample counter; runs FFT every triggerEvery samples
+    float              m_audioSampleRate = 0.0f;  // raw audio SR; drives EQ visibility
+    bool               m_radioConnected  = false; // set by setConnected()
+    int                m_spectrumFps     = 10;   // stored from prefs; no UI control yet
+
     // ── Meters ──────────────────────────────────────────────────────────────
     meter*        inputMeter    {nullptr};
     meter*        outputMeter   {nullptr};
     meter*        grMeter       {nullptr};  // gain reduction
+
+    // ── Spectrum timing (debug profiling) ────────────────────────────────────
+    QElapsedTimer m_dftCallTimer;   // times individual FFT pair runs
+    QElapsedTimer m_dftLogTimer;    // 1-second reporting interval
+    qint64        m_dftTotalNs   = 0;
+    int           m_dftCallCount = 0;
 };
 
 #endif // AUDIOPROCESSINGWIDGET_H

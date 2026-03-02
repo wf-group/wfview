@@ -1,7 +1,9 @@
 // AudioProcessingWidget — TX audio processing settings dialog
 
 #include "audioprocessingwidget.h"
+#include "logcategories.h"
 #include <cmath>
+#include <complex>
 
 // MBEQ band centre frequencies (Hz) — must match MbeqProcessor::bandFreqs
 static const float kBandFreqs[TxAudioProcessor::EQ_BANDS] = {
@@ -23,6 +25,7 @@ AudioProcessingWidget::AudioProcessingWidget(QWidget* parent)
     setWindowTitle(tr("TX Audio Processing"));
     setWindowFlags(windowFlags() | Qt::Window);
     buildUi();
+    m_dftLogTimer.start();
 }
 
 // ─── setPrefs / getPrefs ─────────────────────────────────────────────────────
@@ -57,6 +60,9 @@ audioProcessingPrefs AudioProcessingWidget::getPrefs() const
     p.sidetoneEnabled = sidetoneEnable->isChecked();
     p.sidetoneLevel   = sidetoneLevel->value() * 0.01f;
     p.muteRx          = muteRxCheck->isChecked();
+
+    p.spectrumEnabled = specEnable->isChecked();
+    p.spectrumFPS     = m_spectrumFps;
 
     return p;
 }
@@ -121,6 +127,160 @@ void AudioProcessingWidget::onClearEq()
     }
     blockAll(false);
     emit prefsChanged(getPrefs());
+}
+
+void AudioProcessingWidget::onSpecEnableToggled(bool enabled)
+{
+    specWidget->setVisible(enabled);
+    if (!enabled) {
+        // Clear stale data so the widget doesn't show an old trace on re-enable.
+        specWidget->spectrumPrimary.clear();
+        specWidget->spectrumSecondary.clear();
+        m_specInRing.clear();
+        m_specOutRing.clear();
+        m_specRingPos     = 0;
+        m_specFftTrigger  = 0;
+        m_specSampleRate  = 0.0f;
+    }
+    adjustSize();
+    emit prefsChanged(getPrefs());
+}
+
+void AudioProcessingWidget::setConnected(bool connected)
+{
+    m_radioConnected = connected;
+    if (!connected) {
+        // Clear ring buffers and spectrum traces so stale data isn't shown
+        // when the widget is later re-opened after a reconnect.
+        specWidget->spectrumPrimary.clear();
+        specWidget->spectrumSecondary.clear();
+        m_specInRing.clear();
+        m_specOutRing.clear();
+        m_specRingPos     = 0;
+        m_specFftTrigger  = 0;
+        m_specSampleRate  = 0.0f;
+        m_audioSampleRate = 0.0f;
+    }
+}
+
+// ─── onSpectrumSamples ────────────────────────────────────────────────────────
+// Received from TxAudioProcessor (~10 Hz) via queued connection.
+// Decimates the input to an ~16 kHz effective rate before feeding the sliding
+// DFTs, keeping computation low (~128 output bins, 10 Hz refresh).
+
+void AudioProcessingWidget::onSpectrumSamples(QVector<float> inSamples,
+                                               QVector<float> outSamples,
+                                               float sampleRate)
+{
+    if (!isVisible()) return;
+    if (!m_radioConnected) return;
+    if (!specEnable->isChecked()) return;
+
+    m_dftCallTimer.start();
+
+    // Decimation factor K: take every Kth sample to target ~16 kHz effective SR.
+    const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
+
+    // Update EQ band visibility the first time we learn the sample rate
+    // and whenever it changes (Nyquist determines which bands are relevant).
+    if (sampleRate != m_audioSampleRate) {
+        m_audioSampleRate = sampleRate;
+        updateEqBandVisibility(sampleRate);
+    }
+
+    // (Re)initialise on sample-rate change or first call.
+    if (sampleRate != m_specSampleRate || m_specInRing.empty()) {
+        m_specSampleRate  = sampleRate;
+        m_specDecimFactor = K;
+        m_specDecimCount  = 0;
+        m_specRingPos     = 0;
+        m_specFftTrigger  = 0;
+        m_specInRing.assign (SPEC_FFT_LEN, 0.0f);
+        m_specOutRing.assign(SPEC_FFT_LEN, 0.0f);
+
+        // Precompute Hanning window coefficients.
+        m_specWindow.resize(SPEC_FFT_LEN);
+        for (int i = 0; i < SPEC_FFT_LEN; ++i)
+            m_specWindow[i] = 0.5f - 0.5f * std::cos(2.0f * float(M_PI) * i
+                                                       / (SPEC_FFT_LEN - 1));
+
+        specWidget->sampleRate = static_cast<double>(sampleRate) / K;
+        specWidget->fftLength  = SPEC_FFT_LEN;
+    }
+
+    // ── FFT scratch buffers (allocated once per batch, reused per trigger) ────
+    // Normaliser: Hanning coherent gain = 0.5, unnormalized Eigen FFT →
+    // full-scale sine gives |bin[k]| = N/4.
+    static constexpr int    N     = SPEC_FFT_LEN;
+    static constexpr int    halfN = N / 2;
+    static constexpr double kNorm = N / 4.0;
+    std::vector<float>               timeBuf(N);
+    std::vector<std::complex<float>> freqBins(N);
+
+    auto runFFT = [&](const std::vector<float>& ring, std::vector<double>& out) {
+        for (int i = 0; i < N; ++i)
+            timeBuf[i] = m_specWindow[i] * ring[(m_specRingPos + i) % N];
+        m_fft.fwd(freqBins, timeBuf);
+        out.resize(halfN);
+        for (int k = 0; k < halfN; ++k)
+            out[k] = 20.0 * std::log10(std::abs(freqBins[k]) / kNorm + 1e-10);
+    };
+
+    // ── How often to fire the FFT to meet the target frame rate ──────────────
+    // decimSampleRate ≈ sampleRate / K ≈ 16 kHz.
+    // triggerEvery = decimSampleRate / targetFps — e.g. at 48 kHz, K=3, 30 fps:
+    //   16000 / 30 ≈ 533 decimated samples per FFT → 3 FFTs per 100 ms batch.
+    // At 10 fps (default): 1600 — one FFT per batch, same as before.
+    // At <10 fps: counter accumulates across batches (member persists).
+    const float decimSampleRate = static_cast<float>(sampleRate) / m_specDecimFactor;
+    const int   triggerEvery    = qMax(1, static_cast<int>(
+                                    std::round(decimSampleRate / m_spectrumFps)));
+
+    // ── Fill ring buffers; trigger FFT every triggerEvery decimated samples ──
+    const int n = inSamples.size();
+    for (int i = 0; i < n; ++i) {
+        if (++m_specDecimCount >= m_specDecimFactor) {
+            m_specDecimCount = 0;
+            m_specInRing [m_specRingPos] = inSamples [i];
+            m_specOutRing[m_specRingPos] = outSamples[i];
+            m_specRingPos = (m_specRingPos + 1) % SPEC_FFT_LEN;
+
+            if (++m_specFftTrigger >= triggerEvery) {
+                m_specFftTrigger = 0;
+                m_dftCallTimer.start();
+                runFFT(m_specInRing,  specWidget->spectrumPrimary);
+                runFFT(m_specOutRing, specWidget->spectrumSecondary);
+                m_dftTotalNs += m_dftCallTimer.nsecsElapsed();
+                ++m_dftCallCount;
+            }
+        }
+    }
+
+    // ── FFT timing (logged every second via logAudio) ────────────────────────
+    if (m_dftLogTimer.elapsed() >= 1000) {
+        const bool fpsMiss = m_dftCallCount < (m_spectrumFps * 8 / 10);
+        qCDebug(logAudio) << "[SpectrumFFT]"
+                          << m_dftCallCount << "ffts/s"
+                          << "(target" << m_spectrumFps << "fps)"
+                          << (fpsMiss ? "*** FPS NOT MET ***" : "")
+                          << ", avg"
+                          << (m_dftCallCount > 0
+                                  ? m_dftTotalNs / m_dftCallCount / 1000
+                                  : 0LL)
+                          << "us/fft, total" << m_dftTotalNs / 1000000 << "ms/s,"
+                          << "samples/batch" << n;
+        m_dftTotalNs   = 0;
+        m_dftCallCount = 0;
+        m_dftLogTimer.restart();
+    }
+}
+
+void AudioProcessingWidget::updateEqBandVisibility(float sampleRate)
+{
+    if (sampleRate <= 0.0f) return;
+    const float nyquist = sampleRate * 0.5f;
+    for (int i = 0; i < EQ_BANDS; ++i)
+        eqColumns[i]->setVisible(kBandFreqs[i] <= nyquist);
 }
 
 void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
@@ -188,50 +348,6 @@ void AudioProcessingWidget::buildUi()
         mainLayout->addWidget(grp);
     }
 
-    // ── Multiband EQ ─────────────────────────────────────────────────────────
-    {
-        eqGrp = new QGroupBox(tr("Multiband EQ"));
-        auto* grp = eqGrp;
-        auto* vbox = new QVBoxLayout(grp);
-
-        auto* eqEnableRow = new QHBoxLayout;
-        eqEnable = new QCheckBox(tr("Enable EQ"));
-        clearEqBtn = new QPushButton(tr("Clear"));
-        clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
-        eqEnableRow->addWidget(eqEnable);
-        eqEnableRow->addWidget(clearEqBtn);
-        eqEnableRow->addStretch();
-        vbox->addLayout(eqEnableRow);
-
-        auto* sliderRow = new QHBoxLayout;
-        for (int i = 0; i < EQ_BANDS; ++i) {
-            auto* col = new QVBoxLayout;
-
-            eqSliders[i] = new QSlider(Qt::Vertical);
-            eqSliders[i]->setRange(-100, 100);  // ×0.1 dB → -10..+10 dB
-            eqSliders[i]->setValue(0);
-            eqSliders[i]->setTickPosition(QSlider::TicksRight);
-            eqSliders[i]->setTickInterval(10); // 1.0 dB ticks
-            eqSliders[i]->setMinimumHeight(120);
-
-            eqValues[i] = new QLabel("0.0");
-            eqValues[i]->setAlignment(Qt::AlignHCenter);
-
-            auto* freqLbl = new QLabel(freqLabel(kBandFreqs[i]));
-            freqLbl->setAlignment(Qt::AlignHCenter);
-
-            col->addWidget(eqValues[i]);
-            col->addWidget(eqSliders[i]);
-            col->addWidget(freqLbl);
-
-            sliderRow->addLayout(col);
-            connect(eqSliders[i], &QSlider::valueChanged,
-                    this, &AudioProcessingWidget::onAnyControlChanged);
-        }
-        vbox->addLayout(sliderRow);
-        mainLayout->addWidget(grp);
-    }
-
     // ── Compressor ──────────────────────────────────────────────────────────
     {
         compGrp = new QGroupBox(tr("Compressor (Dyson)"));
@@ -289,6 +405,79 @@ void AudioProcessingWidget::buildUi()
         }
 
         mainLayout->addWidget(grp);
+    }
+
+    // ── Multiband EQ ─────────────────────────────────────────────────────────
+    {
+        eqGrp = new QGroupBox(tr("Multiband EQ"));
+        auto* grp = eqGrp;
+        auto* vbox = new QVBoxLayout(grp);
+
+        auto* eqEnableRow = new QHBoxLayout;
+        eqEnable = new QCheckBox(tr("Enable EQ"));
+        clearEqBtn = new QPushButton(tr("Clear"));
+        clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
+        eqEnableRow->addWidget(eqEnable);
+        eqEnableRow->addWidget(clearEqBtn);
+        eqEnableRow->addStretch();
+        vbox->addLayout(eqEnableRow);
+
+        auto* sliderRow = new QHBoxLayout;
+        for (int i = 0; i < EQ_BANDS; ++i) {
+            // Wrap each band in a QWidget so it can be hidden when its
+            // centre frequency exceeds the audio Nyquist.
+            eqColumns[i] = new QWidget;
+            auto* col = new QVBoxLayout(eqColumns[i]);
+            col->setContentsMargins(1, 0, 1, 0);
+
+            eqSliders[i] = new QSlider(Qt::Vertical);
+            eqSliders[i]->setRange(-100, 100);  // ×0.1 dB → -10..+10 dB
+            eqSliders[i]->setValue(0);
+            eqSliders[i]->setTickPosition(QSlider::TicksRight);
+            eqSliders[i]->setTickInterval(10); // 1.0 dB ticks
+            eqSliders[i]->setMinimumHeight(120);
+
+            eqValues[i] = new QLabel("0.0");
+            eqValues[i]->setAlignment(Qt::AlignHCenter);
+
+            auto* freqLbl = new QLabel(freqLabel(kBandFreqs[i]));
+            freqLbl->setAlignment(Qt::AlignHCenter);
+
+            col->addWidget(eqValues[i]);
+            col->addWidget(eqSliders[i]);
+            col->addWidget(freqLbl);
+
+            sliderRow->addWidget(eqColumns[i]);
+            connect(eqSliders[i], &QSlider::valueChanged,
+                    this, &AudioProcessingWidget::onAnyControlChanged);
+        }
+        vbox->addLayout(sliderRow);
+        mainLayout->addWidget(grp);
+    }
+
+    // ── TX Spectrum ──────────────────────────────────────────────────────────
+    {
+        specGrp = new QGroupBox(tr("TX Spectrum"));
+        auto* grp  = specGrp;
+        auto* vbox = new QVBoxLayout(grp);
+
+        specEnable = new QCheckBox(tr("Enable spectrum display"));
+        specEnable->setToolTip(tr("Show TX audio spectrum (input: green, output: orange). "
+                                  "Uses a 1024-point sliding DFT, 100 Hz – 8 kHz."));
+        vbox->addWidget(specEnable);
+
+        specWidget = new SpectrumWidget;
+        specWidget->fftLength  = SPEC_FFT_LEN;
+        specWidget->sampleRate = 48000.0;
+        specWidget->showSecondary = true;
+        specWidget->setMinimumHeight(120);
+        specWidget->setVisible(false);   // hidden until checkbox is ticked
+        vbox->addWidget(specWidget);
+
+        mainLayout->addWidget(grp);
+
+        connect(specEnable, &QCheckBox::toggled,
+                this, &AudioProcessingWidget::onSpecEnableToggled);
     }
 
     // ── Sidetone ────────────────────────────────────────────────────────────
@@ -394,6 +583,7 @@ void AudioProcessingWidget::blockAll(bool block)
     sidetoneEnable->blockSignals(block);
     sidetoneLevel->blockSignals(block);
     muteRxCheck->blockSignals(block);
+    specEnable->blockSignals(block);
 }
 
 void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
@@ -421,6 +611,12 @@ void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
     sidetoneEnable->setChecked(p.sidetoneEnabled);
     sidetoneLevel->setValue(static_cast<int>(std::round(p.sidetoneLevel * 100.0f)));
     muteRxCheck->setChecked(p.muteRx);
+
+    specEnable->setChecked(p.spectrumEnabled);
+    specWidget->setVisible(p.spectrumEnabled);
+
+    m_spectrumFps = qBound(1, p.spectrumFPS, 60);
+    specWidget->setFps(m_spectrumFps);
 
     // Update labels
     lblPeak->setText(QString::number(p.compPeakLimit, 'f', 1) + " dB");
