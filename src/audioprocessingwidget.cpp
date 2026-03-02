@@ -25,7 +25,10 @@ AudioProcessingWidget::AudioProcessingWidget(QWidget* parent)
     setWindowTitle(tr("TX Audio Processing"));
     setWindowFlags(windowFlags() | Qt::Window);
     buildUi();
-    m_dftLogTimer.start();
+    connect(&m_specDiagTimer, &QTimer::timeout,
+            this, &AudioProcessingWidget::onSpecDiagTimer);
+    m_specDiagTimer.setInterval(1000);
+    m_specDiagTimer.start();
 }
 
 // ─── setPrefs / getPrefs ─────────────────────────────────────────────────────
@@ -176,7 +179,10 @@ void AudioProcessingWidget::onSpectrumSamples(QVector<float> inSamples,
     if (!m_radioConnected) return;
     if (!specEnable->isChecked()) return;
 
-    m_dftCallTimer.start();
+    // Count how many batches actually reach the processing code.
+    // onSpecDiagTimer() reads this every second to distinguish "no audio
+    // arriving" from "FFT trigger math is wrong".
+    ++m_batchCount;
 
     // Decimation factor K: take every Kth sample to target ~16 kHz effective SR.
     const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
@@ -235,9 +241,11 @@ void AudioProcessingWidget::onSpectrumSamples(QVector<float> inSamples,
     const float decimSampleRate = static_cast<float>(sampleRate) / m_specDecimFactor;
     const int   triggerEvery    = qMax(1, static_cast<int>(
                                     std::round(decimSampleRate / m_spectrumFps)));
+    m_lastTriggerEvery = triggerEvery;
 
     // ── Fill ring buffers; trigger FFT every triggerEvery decimated samples ──
     const int n = inSamples.size();
+    m_lastBatchSize = n;
     for (int i = 0; i < n; ++i) {
         if (++m_specDecimCount >= m_specDecimFactor) {
             m_specDecimCount = 0;
@@ -256,23 +264,6 @@ void AudioProcessingWidget::onSpectrumSamples(QVector<float> inSamples,
         }
     }
 
-    // ── FFT timing (logged every second via logAudio) ────────────────────────
-    if (m_dftLogTimer.elapsed() >= 1000) {
-        const bool fpsMiss = m_dftCallCount < (m_spectrumFps * 8 / 10);
-        qCDebug(logAudio) << "[SpectrumFFT]"
-                          << m_dftCallCount << "ffts/s"
-                          << "(target" << m_spectrumFps << "fps)"
-                          << (fpsMiss ? "*** FPS NOT MET ***" : "")
-                          << ", avg"
-                          << (m_dftCallCount > 0
-                                  ? m_dftTotalNs / m_dftCallCount / 1000
-                                  : 0LL)
-                          << "us/fft, total" << m_dftTotalNs / 1000000 << "ms/s,"
-                          << "samples/batch" << n;
-        m_dftTotalNs   = 0;
-        m_dftCallCount = 0;
-        m_dftLogTimer.restart();
-    }
 }
 
 void AudioProcessingWidget::updateEqBandVisibility(float sampleRate)
@@ -281,6 +272,70 @@ void AudioProcessingWidget::updateEqBandVisibility(float sampleRate)
     const float nyquist = sampleRate * 0.5f;
     for (int i = 0; i < EQ_BANDS; ++i)
         eqColumns[i]->setVisible(kBandFreqs[i] <= nyquist);
+}
+
+// ─── onSpecDiagTimer ──────────────────────────────────────────────────────────
+// Fires every second from m_specDiagTimer regardless of whether audio is
+// arriving.  This guarantees a log line appears even when onSpectrumSamples
+// is never called (signal not connected, guard returning early, etc.).
+//
+// FPS NOT MET logic:
+//   The achievable FFT rate = batches/s × floor(decimSamples/triggerEvery).
+//   We warn only when batches > 0 (TX audio IS flowing) but actual FFTs fall
+//   below 80% of that achievable rate — meaning the trigger math is wrong or
+//   the processing is too slow.  We do NOT warn when batches = 0 because that
+//   just means the user is not transmitting.
+
+void AudioProcessingWidget::onSpecDiagTimer()
+{
+    if (!specEnable || !specEnable->isChecked()) {
+        // Spectrum disabled — reset counters silently and return.
+        m_dftCallCount = 0;
+        m_dftTotalNs   = 0;
+        m_batchCount   = 0;
+        return;
+    }
+
+    // Achievable FFT pairs per second given the actual audio delivery rate.
+    // decimSamplesPerBatch ≈ lastBatchSize / triggerEvery batches of decimated samples.
+    const int decimPerBatch     = (m_specDecimFactor > 0)
+                                      ? m_lastBatchSize / m_specDecimFactor : 0;
+    const int fftsPerBatch      = (m_lastTriggerEvery > 0)
+                                      ? qMax(1, decimPerBatch / m_lastTriggerEvery) : 1;
+    const int achievableFfts    = m_batchCount * fftsPerBatch;
+
+    // FPS NOT MET: audio IS arriving but FFTs are below 80% of achievable.
+    const bool audioArriving    = (m_batchCount > 0);
+    const bool fpsMiss          = audioArriving &&
+                                  (m_dftCallCount < achievableFfts * 8 / 10);
+
+    // Visibility/connection diagnostics shown when no audio arrives.
+    QString noDataReason;
+    if (!audioArriving) {
+        if (!isVisible())             noDataReason = "widget hidden";
+        else if (!m_radioConnected)   noDataReason = "radio not connected";
+        else                          noDataReason = "no TX audio (not transmitting?)";
+    }
+
+    qCDebug(logAudio) << "[SpectrumFFT]"
+                      << m_batchCount   << "batches/s,"
+                      << m_dftCallCount << "ffts/s"
+                      << "(target" << m_spectrumFps << "fps,"
+                      << "achievable" << achievableFfts << ")"
+                      << (fpsMiss      ? "*** FPS NOT MET ***"  : "")
+                      << (!noDataReason.isEmpty() ? "— " + noDataReason : "")
+                      << (audioArriving && m_dftCallCount > 0
+                              ? QString(", avg %1 us/fft, total %2 ms/s")
+                                    .arg(m_dftTotalNs / m_dftCallCount / 1000)
+                                    .arg(m_dftTotalNs / 1000000)
+                              : QString())
+                      << (m_lastBatchSize > 0
+                              ? QString(", samples/batch %1").arg(m_lastBatchSize)
+                              : QString());
+
+    m_dftCallCount = 0;
+    m_dftTotalNs   = 0;
+    m_batchCount   = 0;
 }
 
 void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)

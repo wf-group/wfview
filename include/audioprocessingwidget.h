@@ -15,6 +15,7 @@
 
 #include <QVector>
 #include <QElapsedTimer>
+#include <QTimer>
 #include <memory>
 #include <vector>
 
@@ -69,6 +70,7 @@ private slots:
     void onBypassToggled(bool bypassed);
     void onClearEq();
     void onSpecEnableToggled(bool enabled);
+    void onSpecDiagTimer();  // 1 Hz diagnostic log for spectrum FFT stats
 
 private:
     void buildUi();
@@ -151,11 +153,16 @@ private:
     meter*        outputMeter   {nullptr};
     meter*        grMeter       {nullptr};  // gain reduction
 
-    // ── Spectrum timing (debug profiling) ────────────────────────────────────
-    QElapsedTimer m_dftCallTimer;   // times individual FFT pair runs
-    QElapsedTimer m_dftLogTimer;    // 1-second reporting interval
-    qint64        m_dftTotalNs   = 0;
-    int           m_dftCallCount = 0;
+    // ── Spectrum diagnostics (always-on 1 Hz timer) ───────────────────────────
+    // m_specDiagTimer fires regardless of whether audio is arriving, so
+    // "no FFT output" is itself a visible diagnostic state.
+    QTimer        m_specDiagTimer;           // 1 Hz — logs FFT rate always
+    QElapsedTimer m_dftCallTimer;            // times each individual FFT pair
+    qint64        m_dftTotalNs      = 0;     // accumulated FFT CPU time
+    int           m_dftCallCount    = 0;     // FFT pairs computed this second
+    int           m_batchCount      = 0;     // onSpectrumSamples calls past guards
+    int           m_lastTriggerEvery = 1;    // cached triggerEvery for diag
+    int           m_lastBatchSize   = 0;     // last n (raw samples per batch)
 };
 
 #endif // AUDIOPROCESSINGWIDGET_H
