@@ -177,7 +177,7 @@ struct audioProcessingPrefs {
     bool  compEnabled   = false;
     bool  eqEnabled     = false;
     bool  eqFirst       = true;    // true = EQ→Comp, false = Comp→EQ
-    float inputGainDB   = 0.0f;    // -20 to +20 dB
+    float inputGainDB   = 10.0f;    // -20 to +20 dB
     float outputGainDB  = 0.0f;    // -20 to +20 dB
     float eqBands[TxAudioProcessor::EQ_BANDS] = {};  // dB, default all 0
     float compPeakLimit = -10.0f;  // dB, -30 to 0

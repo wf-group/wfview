@@ -2100,7 +2100,7 @@ void wfmain::loadSettings()
     prefs.audioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
     prefs.audioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
     prefs.audioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
-    prefs.audioProc.inputGainDB   = settings->value("TxProcInputGain",     0.0f).toFloat();
+    prefs.audioProc.inputGainDB   = settings->value("TxProcInputGain",     10.0f).toFloat();
     prefs.audioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
     prefs.audioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
     prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
