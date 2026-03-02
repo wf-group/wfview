@@ -345,16 +345,18 @@ void AudioProcessingWidget::buildUi()
 
         form->addRow(tr("Input gain:"),  makeGainSlider(inputGain,  lblInputGain));
         form->addRow(tr("Output gain:"), makeGainSlider(outputGain, lblOutputGain));
+        inputGain->setToolTip(tr("Tip: Increase to around +10dB to drive the compressor into harder compression."));
+        outputGain->setToolTip(tr("Tip: Use the output gain to makeup for lost amplitude from the compression stage."));
         mainLayout->addWidget(grp);
     }
 
     // ── Compressor ──────────────────────────────────────────────────────────
     {
-        compGrp = new QGroupBox(tr("Compressor (Dyson)"));
+        compGrp = new QGroupBox(tr("Dyson Compressor"));
         auto* grp = compGrp;
         auto* form = new QFormLayout(grp);
 
-        compEnable = new QCheckBox(tr("Enable compressor"));
+        compEnable = new QCheckBox(tr("Enable Compressor"));
         form->addRow(compEnable);
 
         auto makeSlider = [](int lo, int hi, int val) {
@@ -463,7 +465,7 @@ void AudioProcessingWidget::buildUi()
 
         specEnable = new QCheckBox(tr("Enable spectrum display"));
         specEnable->setToolTip(tr("Show TX audio spectrum (input: green, output: orange). "
-                                  "Uses a 1024-point sliding DFT, 100 Hz – 8 kHz."));
+                                  "Uses a 1024-point sliding DFT, 50 Hz – 8 kHz."));
         vbox->addWidget(specEnable);
 
         specWidget = new SpectrumWidget;
@@ -480,9 +482,9 @@ void AudioProcessingWidget::buildUi()
                 this, &AudioProcessingWidget::onSpecEnableToggled);
     }
 
-    // ── Sidetone ────────────────────────────────────────────────────────────
+    // ── Monitoring (via SideTone) ────────────────────────────────────────────
     {
-        sidetoneGrp = new QGroupBox(tr("Self-monitor"));
+        sidetoneGrp = new QGroupBox(tr("Self-Monitor"));
         auto* grp = sidetoneGrp;
         auto* form = new QFormLayout(grp);
 
@@ -524,6 +526,7 @@ void AudioProcessingWidget::buildUi()
             m->setMeterExtremities(lo, hi, red);
             m->setMinimumWidth(150);
             m->setMinimumHeight(40);
+            m->enableCombo(false);
             vbox->addWidget(m);
             return vbox;
         };
