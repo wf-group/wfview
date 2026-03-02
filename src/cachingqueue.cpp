@@ -422,6 +422,7 @@ void cachingQueue::updateCache(bool reply, queueItem item)
             rigState.vfo = vfo_t::vfoSub;
             rigState.receiver=1;
         }
+
     }
 
     auto cv = cache.find(item.command);
@@ -454,8 +455,10 @@ void cachingQueue::updateCache(bool reply, queueItem item)
 
     if (reply) {
         c.reply = QDateTime::currentDateTime();
+        c.retries = 0;
     } else {
         c.req = QDateTime::currentDateTime();
+        c.retries++;
     }
     // If we are sending an actual value, update the cache with it
     // Value will be replaced if invalid on next get()
@@ -498,7 +501,7 @@ cacheItem cachingQueue::getCache(funcs func, uchar receiver)
     }
     // If the cache is more than 5-20 seconds old, re-request it as it may be stale (maybe make this a config option?)
     // Using priorityhighest WILL slow down the S-Meter when a command intensive client is connected to rigctl
-    if (func != funcNone && func != funcPowerControl && func != funcSelectVFO && (!ret.value.isValid() || ret.command == funcSWRMeter || ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= QDateTime::currentDateTime())) {
+    if (func != funcPowerControl && func != funcSelectVFO && ((!ret.value.isValid() && ret.retries < 5)|| ret.command == funcSWRMeter || ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= QDateTime::currentDateTime())) {
         qInfo() << "No (or expired) cache found for" << funcString[func] << "requesting" << ret.reply;
         add(priorityImmediate,func,false,receiver);
     }

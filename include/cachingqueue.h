@@ -63,6 +63,7 @@ struct cacheItem {
     QDateTime reply;
     QVariant value;
     uchar receiver;
+    uchar retries=0;
 
     /*
     cacheItem &operator=(const cacheItem &i) {

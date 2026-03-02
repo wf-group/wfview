@@ -63,6 +63,7 @@
 
 #include "usbcontroller.h"
 #include "controllersetup.h"
+#include "ControllerController.h"
 
 #include "MainController.h"
 #include "ReceiverController.h"
@@ -485,6 +486,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<SelectRadioController>("WFVIEW", 1, 0, "SelectRadioController");
     qmlRegisterType<CWSenderController>("WFVIEW", 1, 0, "CWSenderController");
     qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
+    qmlRegisterType<ControllerController>("WFVIEW", 1, 0, "ControllerController");
 
     // Members of ReceiverController
     qmlRegisterType<SpectrumItem>("WFVIEW", 1, 0, "SpectrumItem");

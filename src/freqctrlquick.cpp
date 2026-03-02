@@ -228,7 +228,7 @@ void FreqCtrlQuick::setup(int NumDigits, qint64 Minf, qint64 Maxf, int MinStep,
     m_NumSeps = (m_NumDigits - 1) / 3 - m_DigStart / 3;
 
     // At the end of setup(), line 227, add:
-    qInfo() << "After setup: m_NumDigits=" << m_NumDigits << "m_DigStart=" << m_DigStart;
+    //qInfo() << "After setup: m_NumDigits=" << m_NumDigits << "m_DigStart=" << m_DigStart;
 }
 
 void FreqCtrlQuick::setMinFrequency(qint64 freq)
@@ -837,8 +837,8 @@ void FreqCtrlQuick::drawDigits(QPainter &Painter)
                                  QString("-0"));
             } else {
                 if (i == 6 || i == 7) {
-                    qInfo() << "Drawing digit" << i << "value:" << m_DigitInfo[i].val
-                             << "rect:" << m_DigitInfo[i].dQRect;
+                    //qInfo() << "Drawing digit" << i << "value:" << m_DigitInfo[i].val
+                    //         << "rect:" << m_DigitInfo[i].dQRect;
                 }
                 Painter.drawText(m_DigitInfo[i].dQRect,
                                  Qt::AlignHCenter | Qt::AlignVCenter,

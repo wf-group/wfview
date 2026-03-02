@@ -11,5 +11,6 @@
         <file>SelectRadio.qml</file>
         <file>CWSender.qml</file>
         <file>FirstTimeSetup.qml</file>
+        <file>ControllerSettings.qml</file>
     </qresource>
 </RCC>

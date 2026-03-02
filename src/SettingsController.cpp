@@ -16,7 +16,9 @@ static inline QColor variantToQColor(const QVariant& v) {
 }
 
 
-SettingsController::SettingsController(QString file, QObject *p) : QObject(p)
+SettingsController::SettingsController(QString file, QObject *p) :
+    QObject(p),
+    m_controllerController(new ControllerController(this))
 {
     qInfo(logSystem) << "Creating SettingsController() to load settings";
 

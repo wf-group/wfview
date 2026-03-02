@@ -260,6 +260,7 @@ INCLUDEPATH += src/audio/resampler
 
 SOURCES += \
     src/CWSenderController.cpp \
+    src/ControllerController.cpp \
     src/DebugController.cpp \
     src/LogModel.cpp \
     src/LoggingController.cpp \
@@ -331,6 +332,7 @@ SOURCES += \
 
 HEADERS  += \
     include/CWSenderController.h \
+    include/ControllerController.h \
     include/DebugController.h \
     include/LogModel.h \
     include/LoggingController.h \

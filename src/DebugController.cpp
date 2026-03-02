@@ -80,6 +80,7 @@ void DebugController::refreshCache()
         row["id"]    = QString::number(ci.command).rightJustified(3, '0');
         row["func"]  = funcString[ci.command];
         row["value"] = getValue(ci.value);
+        row["retries"] = getValue(ci.retries);
         row["rx"]    = QString::number(ci.receiver);
         row["req"]   = ci.req.isValid()   ? ci.req.toString("hh:mm:ss.zzz")   : "<none>";
         row["reply"] = ci.reply.isValid() ? ci.reply.toString("hh:mm:ss.zzz") : "<none>";

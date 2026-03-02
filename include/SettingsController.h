@@ -24,6 +24,8 @@
 #include "audiodevices.h"
 #include "freqctrlquick.h"
 
+#include "ControllerController.h"
+
 
 class ClusterSettingsModel : public QAbstractTableModel
 {
@@ -470,6 +472,15 @@ private:
     QHash<QString, Binding> m_bindings;
 
     QVariantMap uiSpecs;
+
+    ControllerController* m_controllerController;
+
+    // Your existing USB controller data
+    usbDevMap* m_devices;
+    QVector<BUTTON>* m_buttons;
+    QVector<KNOB>* m_knobs;
+    QVector<COMMAND>* m_commands;
+    QMutex* m_mutex;
 
 };
 

@@ -512,7 +512,7 @@ ApplicationWindow {
                 }
                 Button {
                     text: "Save Settings"
-                    onClicked: settings.save()
+                    onClicked: MainController.settings.save()
                 }
 
                 Button {

@@ -65,6 +65,7 @@ ApplicationWindow {
                                 { t:"Function", w:160 },
                                 { t:"Value", w:260 },
                                 { t:"RX", w:50 },
+                                { t:"Retries", w:50 },
                                 { t:"Request", w:120 },
                                 { t:"Reply", w:120 }
                             ]
@@ -104,6 +105,7 @@ ApplicationWindow {
                                 Label { Layout.preferredWidth: 160; text: modelData.func; elide: Text.ElideRight }
                                 Label { Layout.preferredWidth: 260; text: modelData.value; elide: Text.ElideRight }
                                 Label { Layout.preferredWidth: 50;  text: modelData.rx; elide: Text.ElideRight }
+                                Label { Layout.preferredWidth: 50;  text: modelData.retries; elide: Text.ElideRight }
                                 Label { Layout.preferredWidth: 120; text: modelData.req; elide: Text.ElideRight }
                                 Label { Layout.preferredWidth: 120; text: modelData.reply; elide: Text.ElideRight }
 

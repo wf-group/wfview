@@ -237,6 +237,7 @@ ApplicationWindow {
                     { title: "Radio Settings" },
                     { title: "Radio Server" },
                     { title: "External Control" },
+                    { title: "Controllers" },
                     { title: "DX Cluster" },
                     { title: "Experimental" },
                     { title: "Audio Processing" }
@@ -1544,22 +1545,42 @@ ApplicationWindow {
                             Item { Layout.fillWidth: true }
                         }
 
-                        RowLayout {
-                            spacing: 8
-                            CheckBox { id: enableUsbChk; text: "Enable USB Controllers"; Accessible.name: "Enable USB Controllers Checkbox" }
-                            Button { id: usbControllersSetup; text: "Setup USB Controller"; Accessible.name: "Setup USB Controller button" }
-                            Item { width: 20 }
-                            Button { id: usbControllersReset; text: "Reset Buttons"; Accessible.name: "Reset USB Controllers Button" }
-                            Label { id: usbResetLbl; text: "Only reset buttons/commands if you have issues." }
-                            Item { Layout.fillWidth: true }
-                        }
-
                         Item { Layout.fillHeight: true }
                     }
                 }
 
                 // =========================
-                // Page 5: DX Cluster
+                // Page 5: Controllers
+                // =========================
+                Item {
+                    id: controllers
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 10
+                        RowLayout {
+                            spacing: 8
+                            CheckBox { id: enableUsbChk; text: "Enable USB Controllers"; Accessible.name: "Enable USB Controllers Checkbox" }
+                            Item { width: 20 }
+                            Button { id: usbControllersReset; text: "Reset Buttons"; Accessible.name: "Reset USB Controllers Button" }
+                            Label { id: usbResetLbl; text: "Only reset buttons/commands if you have issues." }
+                            Item { Layout.fillWidth: true }
+                        }
+                        // Add the controller settings
+                        ControllerSettings {
+                            enabled: enableUsbChk.checked
+                            Layout.fillHeight: true
+                            Layout.fillWidth: true
+                            id: controllerSettings
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+                // =========================
+                // Page 6: DX Cluster
                 // =========================
                 Item {
                     id: clusterPage
@@ -1804,7 +1825,7 @@ ApplicationWindow {
                 }
 
                 // =========================
-                // Page 6: Experimental
+                // Page 7: Experimental
                 // =========================
                 Item {
                     id: experimental
@@ -1836,13 +1857,13 @@ ApplicationWindow {
                 }
 
                 // =========================
-                // Page 7: Audio Processing (empty in .ui)
+                // Page 8: Audio Processing (empty in .ui)
                 // =========================
                 Item {
                     id: audioProcessing
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Label { anchors.centerIn: parent; text: "Audio Processing (not implemented in .ui snippet)" }
+                    Label { anchors.centerIn: parent; text: "Audio Processing (not implemented)" }
                 }
             }
         }
@@ -1893,4 +1914,5 @@ ApplicationWindow {
     Shortcut { sequence: "Shift+F5"; onActivated: settingsStack.currentIndex = 4 }
     Shortcut { sequence: "Shift+F6"; onActivated: settingsStack.currentIndex = 5 }
     Shortcut { sequence: "Shift+F7"; onActivated: settingsStack.currentIndex = 6 }
+    Shortcut { sequence: "Shift+F8"; onActivated: settingsStack.currentIndex = 7 }
 }
