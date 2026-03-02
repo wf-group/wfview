@@ -94,6 +94,7 @@ enum prefColItem : qint64 {
     col_placeholder = 1LL << 48,
     col_all = ~0LL
 };
+using prefColItems = qint64;
 
 enum prefRsItem {
     rs_dataOffMod = 1 << 0,

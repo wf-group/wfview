@@ -26,7 +26,7 @@ ApplicationWindow {
     width: 1193
     height: 625
 
-    required property var controller
+    property var controller  // 'required' keyword is Qt 6 only
 
 
     property int connStatus: Number(MainController.connStatus)
@@ -289,7 +289,7 @@ ApplicationWindow {
                                     ComboBox {
                                         id: manufacturerCombo
                                         Accessible.name: "Radio Manufacturer Select"
-                                        textRole: "item"
+                                        textRole: "text"
                                         valueRole: "value"
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(manufacturerCombo,controller.options["Radio.Manufacturer"])
@@ -297,9 +297,9 @@ ApplicationWindow {
 
                                         onActivated: if (controller) controller.setOption("Radio.Manufacturer", currentValue)
                                         model: [
-                                            { item: "Icom", value: 0 },
-                                            { item: "Kenwood", value: 1 },
-                                            { item: "Yaesu", value: 2 }
+                                            { text: "Icom", value: 0 },
+                                            { text: "Kenwood", value: 1 },
+                                            { text: "Yaesu", value: 2 }
                                         ]
                                     }
 

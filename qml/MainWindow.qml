@@ -370,7 +370,7 @@ ApplicationWindow {
                         textRole: spec ? spec.textRole : "text"
                         valueRole: spec ? spec.valueRole : "value"
                         visible: spec ? (spec.visible ?? true) : false
-                        currentIndex: controller ? indexFromValue(tuningStepCombo,controller.stepSize) : -1
+                        currentIndex: MainController ? indexFromValue(tuningStepCombo, MainController.stepSize) : -1
                         onActivated: MainController.stepSize = currentValue
                     }
 
@@ -560,7 +560,7 @@ ApplicationWindow {
     footer: ToolBar {
         RowLayout {
             anchors.fill: parent
-            Label { text: "memoriesActive: " + MainController ? MainController.memoriesActive : "none"}
+            Label { text: "memoriesActive: " + (MainController && MainController.memoriesModel ? MainController.memoriesModel.memoryModeActive : false) }
             //Label { text: rig.statusText ?? "" }
             Item { Layout.fillWidth: true }
             //Label { text: audio.statusText ?? "" }

@@ -46,7 +46,7 @@ class FreqCtrlQuick : public QQuickPaintedItem
     Q_PROPERTY(qint64 maxFrequency READ getMaxFrequency WRITE setMaxFrequency NOTIFY rangeChanged)
     Q_PROPERTY(bool resetLowerDigits READ getResetLowerDigits WRITE setResetLowerDigits NOTIFY resetLowerDigitsChanged)
     Q_PROPERTY(bool invertScrolling READ getInvertScrolling WRITE setInvertScrolling NOTIFY invertScrollingChanged)
-    Q_PROPERTY(FctlUnit unit READ getUnit WRITE setUnit NOTIFY unitChanged)
+    Q_PROPERTY(int unit READ getUnitInt WRITE setUnitInt NOTIFY unitChanged)
     Q_PROPERTY(QColor digitColor READ getDigitColor WRITE setDigitColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor backgroundColor READ getBgColor WRITE setBgColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor unitsColor READ getUnitsColor WRITE setUnitsColor NOTIFY colorsChanged)
@@ -108,6 +108,8 @@ public:
     bool getInvertScrolling() const { return m_InvertScrolling; }
 
     FctlUnit getUnit() const { return m_Unit; }
+    int getUnitInt() const { return static_cast<int>(m_Unit); }
+    void setUnitInt(int u) { setUnit(static_cast<FctlUnit>(u)); }
 
     QColor getDigitColor() const { return m_DigitColor; }
     QColor getBgColor() const { return m_BkColor; }

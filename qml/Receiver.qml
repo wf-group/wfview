@@ -883,7 +883,7 @@ Control {
                         from: spec ? spec.from : 0
                         Layout.fillWidth: true
                         to: spec ? spec.to : 0
-                        value: controller && controller.ref
+                        value: controller ? controller.ref : 0
                         onMoved: controller.ref = value
                         visible: spec ? spec.visible : false
                         implicitHeight: 25
@@ -1029,7 +1029,7 @@ Control {
                         Layout.fillWidth: true
                         from: spec ? spec.from : 0
                         to: spec ? spec.to : 0
-                        value: controller && controller.pbtInner
+                        value: controller ? controller.pbtInner : 0
                         onMoved: controller.pbtInner = value
                         visible: spec ? spec.visible : false
 
@@ -1057,7 +1057,7 @@ Control {
                         Layout.fillWidth: true
                         from: spec ? spec.from : 0
                         to: spec ? spec.to : 0
-                        value: controller && controller.pbtOuter
+                        value: controller ? controller.pbtOuter : 0
                         onMoved: controller.pbtOuter = value
                         visible: spec ? spec.visible : false
 
@@ -1085,7 +1085,7 @@ Control {
                         Slider {
                             id: ifShiftSlider
                             objectName: "ifShift"
-                            value: controller && controller.ifShift
+                            value: controller ? controller.ifShift : 0
                             onMoved: controller.ifShift = value
                             Layout.fillWidth: true
                             // onValueChanged: backend.ifShift = value
@@ -1108,7 +1108,7 @@ Control {
                     Slider {
                         id: filterWidthSlider
                         objectName: "filterWidth"
-                        value: controller && controller.filterWidth
+                        value: controller ? controller.filterWidth : 0
                         onMoved: controller.filterWidth = value
                         //Layout.preferredWidth: 120
                         Layout.fillWidth: true
