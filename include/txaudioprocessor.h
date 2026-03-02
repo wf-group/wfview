@@ -15,6 +15,7 @@
 
 #include "plugins/dysoncompress.h"
 #include "plugins/mbeq.h"
+#include "plugins/noisegate.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TxAudioProcessor
@@ -61,6 +62,15 @@ public:
     void setMuteRx(bool muted);             // mute RX while self-monitoring
     // Enable/disable spectrum capture (thread-safe; main thread).
     void setSpectrumEnabled(bool en);
+    // Noise gate (runs before input gain)
+    void setGateEnabled(bool enabled);
+    void setGateThreshold(float dB);        // -70‥0, default -40
+    void setGateAttack(float ms);           // 0.01‥1000, default 10
+    void setGateHold(float ms);             // 2‥2000, default 100
+    void setGateDecay(float ms);            // 2‥4000, default 200
+    void setGateRange(float dB);            // -90‥0, default -90
+    void setGateLfCutoff(float hz);         // 20‥4000, default 80
+    void setGateHfCutoff(float hz);         // 200‥20000, default 8000
 
     // ── Getters (main thread) ─────────────────────────────────────────────────
     bool bypassed()       const;
@@ -77,6 +87,14 @@ public:
     bool sidetoneEnabled()  const;
     float sidetoneLevel()   const;
     bool muteRx()           const;
+    bool gateEnabled()      const;
+    float gateThreshold()   const;
+    float gateAttack()      const;
+    float gateHold()        const;
+    float gateDecay()       const;
+    float gateRange()       const;
+    float gateLfCutoff()    const;
+    float gateHfCutoff()    const;
 
 signals:
     // Peak amplitude values 0.0–1.0, emitted each processed block.
@@ -113,6 +131,15 @@ private:
         bool  sidetoneEnabled = false;
         float sidetoneLevel   = 0.5f;
         bool  muteRx          = false;
+        // Noise gate
+        bool  gateEnabled    = false;
+        float gateThreshold  = -40.0f;
+        float gateAttack     =  10.0f;
+        float gateHold       = 100.0f;
+        float gateDecay      = 200.0f;
+        float gateRange      = -90.0f;
+        float gateLfCutoff   =  80.0f;
+        float gateHfCutoff   = 8000.0f;
     };
 
     mutable QMutex            m_mutex;
@@ -120,6 +147,7 @@ private:
 
     // ── DSP state (converter thread only after first call) ───────────────────
     float                     m_activeSR  = 0.0f;
+    std::unique_ptr<NoiseGate>       m_gate;
     std::unique_ptr<DysonCompressor> m_comp;
     std::unique_ptr<MbeqProcessor>   m_eq;
 

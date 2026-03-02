@@ -42,7 +42,7 @@ aboutbox::aboutbox(QWidget *parent) :
 
     // Short credit strings:
     QString pluginDysonCredit = QString("<br/><br/>Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.");
-    QString pluginMBEQCredit = QString("<br/><br/>Multiband EQ (c) Steve Harris, GNU/GPL licensed.");
+    QString pluginMBEQCredit = QString("<br/><br/>Multiband EQ and Gate 1410 processors (c) Steve Harris, GNU/GPL licensed.");
     QString rsCredit = QString("<br/><br/><a href=\"https://www.speex.org/\"  style=\"color: cyan;\">Speex</a> Resample library Copyright 2003-2008 Jean-Marc Valin");
     QString rtaudiocredit = QString("<br/><br/>RT Audio, from <a href=\"https://www.music.mcgill.ca/~gary/rtaudio/index.html\">Gary P. Scavone</a>");
     QString portaudiocredit = QString("<br/><br/>Port Audio, from <a href=\"http://portaudio.com\">The Port Audio Community</a>");

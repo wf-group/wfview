@@ -84,6 +84,24 @@ private:
     // ── Master bypass ────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck   {nullptr};
 
+    // ── Noise gate ───────────────────────────────────────────────────────────
+    QGroupBox*    gateGrp         {nullptr};
+    QCheckBox*    gateEnable      {nullptr};
+    QSlider*      gateThreshold   {nullptr};  // -70..0 dB (×1)
+    QSlider*      gateAttack      {nullptr};  // 1..500 ms (×1)
+    QSlider*      gateHold        {nullptr};  // 2..2000 ms (×1)
+    QSlider*      gateDecay       {nullptr};  // 2..2000 ms (×1)
+    QSlider*      gateRange       {nullptr};  // -90..0 dB (×1)
+    QSlider*      gateLfCutoff    {nullptr};  // 20..4000 Hz (×1)
+    QSlider*      gateHfCutoff    {nullptr};  // 200..20000 Hz (×1)
+    QLabel*       lblGateThreshold{nullptr};
+    QLabel*       lblGateAttack   {nullptr};
+    QLabel*       lblGateHold     {nullptr};
+    QLabel*       lblGateDecay    {nullptr};
+    QLabel*       lblGateRange    {nullptr};
+    QLabel*       lblGateLfCutoff {nullptr};
+    QLabel*       lblGateHfCutoff {nullptr};
+
     // ── EQ ─────────────────────────────────────────────────────────────────
     static constexpr int EQ_BANDS = TxAudioProcessor::EQ_BANDS;
     QCheckBox*    eqEnable      {nullptr};

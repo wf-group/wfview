@@ -37,6 +37,7 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     // ── (Re)create plugins if sample rate changed ────────────────────────────
     if (sampleRate != m_activeSR) {
         m_activeSR = sampleRate;
+        m_gate = std::make_unique<NoiseGate>(sampleRate);
         m_comp = std::make_unique<DysonCompressor>(sampleRate);
         m_eq   = std::make_unique<MbeqProcessor>(sampleRate);
         // Recalculate spectrum emit threshold and reset accumulators.
@@ -78,10 +79,26 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     m_comp->setFastRatio(p.compFastRatio);
     m_comp->setSlowRatio(p.compSlowRatio);
 
+    // Push noise gate parameters
+    m_gate->setThreshold(p.gateThreshold);
+    m_gate->setAttack(p.gateAttack);
+    m_gate->setHold(p.gateHold);
+    m_gate->setDecay(p.gateDecay);
+    m_gate->setRange(p.gateRange);
+    m_gate->setLfCutoff(p.gateLfCutoff);
+    m_gate->setHfCutoff(p.gateHfCutoff);
+
     // Snapshot for spectrum input (before input gain — raw microphone signal).
     Eigen::VectorXf specInCapture;
     if (specActive)
         specInCapture = samples;
+
+    // ── Noise gate (before input gain, on raw microphone signal) ─────────────
+    if (p.gateEnabled) {
+        Eigen::VectorXf tmp(samples.size());
+        m_gate->process(samples.data(), tmp.data(), static_cast<unsigned long>(samples.size()));
+        samples = std::move(tmp);
+    }
 
     // ── Input gain ───────────────────────────────────────────────────────────
     applyGainDB(samples, p.inputGainDB);
@@ -196,6 +213,15 @@ void TxAudioProcessor::setEqBand(int idx, float gainDB)
     m_params.eqBands[idx] = gainDB;
 }
 
+void TxAudioProcessor::setGateEnabled(bool en)      { QMutexLocker lk(&m_mutex); m_params.gateEnabled   = en;  }
+void TxAudioProcessor::setGateThreshold(float dB)   { QMutexLocker lk(&m_mutex); m_params.gateThreshold = dB;  }
+void TxAudioProcessor::setGateAttack(float ms)      { QMutexLocker lk(&m_mutex); m_params.gateAttack    = ms;  }
+void TxAudioProcessor::setGateHold(float ms)        { QMutexLocker lk(&m_mutex); m_params.gateHold      = ms;  }
+void TxAudioProcessor::setGateDecay(float ms)       { QMutexLocker lk(&m_mutex); m_params.gateDecay     = ms;  }
+void TxAudioProcessor::setGateRange(float dB)       { QMutexLocker lk(&m_mutex); m_params.gateRange     = dB;  }
+void TxAudioProcessor::setGateLfCutoff(float hz)    { QMutexLocker lk(&m_mutex); m_params.gateLfCutoff  = hz;  }
+void TxAudioProcessor::setGateHfCutoff(float hz)    { QMutexLocker lk(&m_mutex); m_params.gateHfCutoff  = hz;  }
+
 // ─── Getters ──────────────────────────────────────────────────────────────────
 
 bool  TxAudioProcessor::bypassed()       const { QMutexLocker lk(&m_mutex); return m_params.bypass;        }
@@ -218,6 +244,15 @@ float TxAudioProcessor::eqBand(int idx) const
     QMutexLocker lk(&m_mutex);
     return m_params.eqBands[idx];
 }
+
+bool  TxAudioProcessor::gateEnabled()   const { QMutexLocker lk(&m_mutex); return m_params.gateEnabled;   }
+float TxAudioProcessor::gateThreshold() const { QMutexLocker lk(&m_mutex); return m_params.gateThreshold; }
+float TxAudioProcessor::gateAttack()    const { QMutexLocker lk(&m_mutex); return m_params.gateAttack;    }
+float TxAudioProcessor::gateHold()      const { QMutexLocker lk(&m_mutex); return m_params.gateHold;      }
+float TxAudioProcessor::gateDecay()     const { QMutexLocker lk(&m_mutex); return m_params.gateDecay;     }
+float TxAudioProcessor::gateRange()     const { QMutexLocker lk(&m_mutex); return m_params.gateRange;     }
+float TxAudioProcessor::gateLfCutoff()  const { QMutexLocker lk(&m_mutex); return m_params.gateLfCutoff;  }
+float TxAudioProcessor::gateHfCutoff()  const { QMutexLocker lk(&m_mutex); return m_params.gateHfCutoff;  }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 

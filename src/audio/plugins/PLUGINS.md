@@ -1,6 +1,6 @@
 # TX Audio Processing Plugins
 
-These files implement two classic LADSPA DSP algorithms as standalone C++ classes,
+These files implement three classic LADSPA DSP algorithms as standalone C++ classes,
 independent of LADSPA, FFTW, or any external audio framework.
 
 ---
@@ -13,9 +13,13 @@ independent of LADSPA, FFTW, or any external audio framework.
 | `dyson_compress.cpp` | `DysonCompressor` implementation |
 | `mbeq.h` | `MbeqProcessor` class header |
 | `mbeq.cpp` | `MbeqProcessor` implementation |
+| `noisegate.h` | `NoiseGate` class header |
+| `noisegate.cpp` | `NoiseGate` implementation |
 | `dyson_compress_1403.xml` | Original LADSPA metadata (reference only) |
 | `mbeq_1197.xml` | Original LADSPA metadata (reference only) |
 | `mbeq_1197.so.c` | Original LADSPA C source (reference only) |
+| `gate_1921.xml` | Original LADSPA metadata (reference only) |
+| `gate_1921.so.c` | Original LADSPA C source (reference only) |
 
 ---
 
@@ -115,6 +119,62 @@ The DC bin is always zeroed; the Nyquist bin uses `coefs[FFT_LEN/2 − 1]`.
 - `rfftw` API removed entirely — replaced with `Eigen::FFT<float>` (unsupported module).
 - Band table remapped: top band 8 kHz instead of 20 kHz; 15 bands chosen for voice clarity.
 - All LADSPA port pointers and `plugin_data` struct removed; state is class members.
+
+---
+
+## NoiseGate
+
+**Origin:** LADSPA plugin #1921 ("gate") by Steve Harris (GPL).
+Stereo variant removed — TX audio is mono.  Key-filter output-select port
+(key-listen / gate / bypass) not exposed; always runs in gate mode.
+
+**Class:** `NoiseGate` (in `noisegate.h`)
+
+**Position in chain:** Applied **before** input gain, on the raw microphone signal.
+
+### Parameters
+
+| Setter | Range | Default | Description |
+|--------|-------|---------|-------------|
+| `setThreshold(float dB)` | −70 … 0 | −40 | Level at which the gate opens |
+| `setAttack(float ms)` | 0.01 … 1000 | 10 | Time for gate to fully open |
+| `setHold(float ms)` | 2 … 2000 | 100 | Minimum time gate stays open |
+| `setDecay(float ms)` | 2 … 4000 | 200 | Time for gate to fully close |
+| `setRange(float dB)` | −90 … 0 | −90 | Attenuation when gate is closed |
+| `setLfCutoff(float hz)` | 20 … 4000 | 80 | Key detector highpass frequency |
+| `setHfCutoff(float hz)` | 200 … 20000 | 8000 | Key detector lowpass frequency |
+
+### Key methods
+
+```cpp
+NoiseGate gate(48000.0f);          // construct at sample rate
+gate.setThreshold(-40.0f);
+gate.process(inPtr, outPtr, nSamples);
+float g = gate.getGain();          // 0.0 = fully closed, 1.0 = fully open
+gate.reset();                      // clear envelope and filter state
+```
+
+### Algorithm
+
+State machine with four states — CLOSED → OPENING → OPEN → CLOSING:
+
+- **Key detector:** The input is passed through a low-shelf biquad (LF cut, −40 dB gain,
+  acting as highpass) then a high-shelf biquad (HF cut, −50 dB gain, acting as lowpass).
+  This bandpass key signal is envelope-followed to drive the state machine.
+- **Envelope follower:** Peak-hold with slow exponential release (τ = `ENV_TR` = 0.0001).
+- **Gate coefficient:** Linear ramp from 0 → 1 during OPENING, 1 → 0 during CLOSING.
+- **Output mix:** `in * (range_linear * (1 − gate) + gate)` — fully open passes signal
+  unmodified; fully closed attenuates by `range` dB.
+
+### Porting notes (vs. original LADSPA)
+
+- LADSPA `plugin_data` struct and port pointers replaced by class members.
+- `biquad.h` / `ladspa-util.h` inlined directly — no external headers.
+- `lf_fc` / `hf_fc` changed from fraction-of-sample-rate to Hz; conversion to radians
+  happens inside the shelving-filter coefficient helpers.
+- `output select` port removed; always operates in normal gate mode (op = 0).
+- Stereo variant (`stereo_gate`, id 1922) not ported — not needed for mono TX audio.
+- `getGain()` added for optional gate-activity metering.
 
 ---
 

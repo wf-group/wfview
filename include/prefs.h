@@ -189,6 +189,16 @@ struct audioProcessingPrefs {
     bool  muteRx          = false; // mute RX audio while self-monitoring
     bool  spectrumEnabled = false; // enable TX spectrum display
     int   spectrumFPS     = 10;   // repaint rate; 10 FPS matches 100ms audio batch rate
+
+    // Noise gate — runs before input gain on the raw microphone signal.
+    bool  gateEnabled   = false;
+    float gateThreshold = -65.0f; // dBFS, -70 .. 0
+    float gateAttack    =  5.0f; // ms, 0.01 .. 1000
+    float gateHold      = 40.0f; // ms, 2 .. 2000
+    float gateDecay     = 20.0f; // ms, 2 .. 4000
+    float gateRange     = -90.0f; // dB attenuation when closed, -90 .. 0
+    float gateLfCutoff  =  380.0f; // Hz, key highpass, 20 .. 4000
+    float gateHfCutoff  = 2700.0f;// Hz, key lowpass,  200 .. 20000
 };
 
 struct preferences {

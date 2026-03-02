@@ -67,6 +67,15 @@ audioProcessingPrefs AudioProcessingWidget::getPrefs() const
     p.spectrumEnabled = specEnable->isChecked();
     p.spectrumFPS     = m_spectrumFps;
 
+    p.gateEnabled   = gateEnable->isChecked();
+    p.gateThreshold = static_cast<float>(gateThreshold->value());
+    p.gateAttack    = static_cast<float>(gateAttack->value());
+    p.gateHold      = static_cast<float>(gateHold->value());
+    p.gateDecay     = static_cast<float>(gateDecay->value());
+    p.gateRange     = static_cast<float>(gateRange->value());
+    p.gateLfCutoff  = static_cast<float>(gateLfCutoff->value());
+    p.gateHfCutoff  = static_cast<float>(gateHfCutoff->value());
+
     return p;
 }
 
@@ -109,6 +118,13 @@ void AudioProcessingWidget::onAnyControlChanged()
     lblInputGain->setText(QString::number(inputGain->value() * 0.1f, 'f', 1) + " dB");
     lblOutputGain->setText(QString::number(outputGain->value() * 0.1f, 'f', 1) + " dB");
     lblSidetone->setText(QString::number(sidetoneLevel->value()) + "%");
+    lblGateThreshold->setText(QString::number(gateThreshold->value()) + " dB");
+    lblGateAttack->setText(QString::number(gateAttack->value()) + " ms");
+    lblGateHold->setText(QString::number(gateHold->value()) + " ms");
+    lblGateDecay->setText(QString::number(gateDecay->value()) + " ms");
+    lblGateRange->setText(QString::number(gateRange->value()) + " dB");
+    lblGateLfCutoff->setText(QString::number(gateLfCutoff->value()) + " Hz");
+    lblGateHfCutoff->setText(QString::number(gateHfCutoff->value()) + " Hz");
 
     emit prefsChanged(getPrefs());
 }
@@ -362,6 +378,7 @@ void AudioProcessingWidget::onSpecDiagTimer()
 void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     orderRow->setEnabled(enabled);
+    gateGrp->setEnabled(enabled);
     gainGrp->setEnabled(enabled);
     eqGrp->setEnabled(enabled);
     compGrp->setEnabled(enabled);
@@ -383,6 +400,109 @@ void AudioProcessingWidget::buildUi()
         mainLayout->addWidget(bypassCheck);
         connect(bypassCheck, &QCheckBox::toggled,
                 this, &AudioProcessingWidget::onBypassToggled);
+    }
+
+    // ── Noise gate (runs first — before input gain) ──────────────────────────
+    {
+        gateGrp = new QGroupBox(tr("Noise Gate  (pre-gain)"));
+        auto* grp  = gateGrp;
+        auto* form = new QFormLayout(grp);
+
+        gateEnable = new QCheckBox(tr("Enable Noise Gate"));
+        gateEnable->setToolTip(tr("Gate attenuates audio below threshold before input gain. "
+                                  "Use to eliminate background noise between speech bursts."));
+        form->addRow(gateEnable);
+
+        auto makeGateSlider = [](int lo, int hi, int val) {
+            auto* s = new QSlider(Qt::Horizontal);
+            s->setRange(lo, hi);
+            s->setValue(val);
+            return s;
+        };
+
+        // Threshold: -70..0 dB
+        gateThreshold  = makeGateSlider(-70, 0, -40);
+        lblGateThreshold = new QLabel("-40 dB");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateThreshold);
+            row->addWidget(lblGateThreshold);
+            form->addRow(tr("Threshold:"), row);
+        }
+        gateThreshold->setToolTip(tr("Signal level at which the gate opens. "
+                                     "Lower = gate opens for quieter signals."));
+
+        // Attack: 1..500 ms
+        gateAttack  = makeGateSlider(1, 500, 10);
+        lblGateAttack = new QLabel("10 ms");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateAttack);
+            row->addWidget(lblGateAttack);
+            form->addRow(tr("Attack:"), row);
+        }
+        gateAttack->setToolTip(tr("How quickly the gate fully opens after threshold is crossed (ms)."));
+
+        // Hold: 2..1000 ms
+        gateHold  = makeGateSlider(2, 1000, 100);
+        lblGateHold = new QLabel("100 ms");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateHold);
+            row->addWidget(lblGateHold);
+            form->addRow(tr("Hold:"), row);
+        }
+        gateHold->setToolTip(tr("Minimum time the gate stays open after signal drops below threshold (ms). "
+                                "Prevents rapid chattering."));
+
+        // Decay: 2..2000 ms
+        gateDecay  = makeGateSlider(2, 1000, 200);
+        lblGateDecay = new QLabel("200 ms");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateDecay);
+            row->addWidget(lblGateDecay);
+            form->addRow(tr("Decay:"), row);
+        }
+        gateDecay->setToolTip(tr("How quickly the gate closes after hold time expires (ms)."));
+
+        // Range: -90..0 dB
+        gateRange  = makeGateSlider(-90, 0, -60);
+        lblGateRange = new QLabel("-90 dB");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateRange);
+            row->addWidget(lblGateRange);
+            form->addRow(tr("Range:"), row);
+        }
+        gateRange->setToolTip(tr("Attenuation applied when the gate is closed. "
+                                 "-90 dB = virtually silent; 0 dB = no gating effect."));
+
+        // LF key filter cutoff: 20..4000 Hz
+        gateLfCutoff  = makeGateSlider(20, 500, 380);
+        lblGateLfCutoff = new QLabel("380 Hz");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateLfCutoff);
+            row->addWidget(lblGateLfCutoff);
+            form->addRow(tr("Key LF cut:"), row);
+        }
+        gateLfCutoff->setToolTip(tr("High-pass frequency of the gate key detector (Hz). "
+                                    "Raise to prevent low-frequency rumble from triggering the gate."));
+
+        // HF key filter cutoff: 200..20000 Hz
+        gateHfCutoff  = makeGateSlider(200, 4000, 2700);
+        lblGateHfCutoff = new QLabel("8000 Hz");
+        {
+            auto* row = new QHBoxLayout;
+            row->addWidget(gateHfCutoff);
+            row->addWidget(lblGateHfCutoff);
+            form->addRow(tr("Key HF cut:"), row);
+        }
+        gateHfCutoff->setToolTip(tr("Low-pass frequency of the gate key detector (Hz). "
+                                    "Lower to prevent high-frequency noise from triggering the gate."));
+
+        mainLayout->addWidget(grp);
     }
 
     // ── Plugin order ────────────────────────────────────────────────────────
@@ -649,6 +769,22 @@ void AudioProcessingWidget::buildUi()
             this, &AudioProcessingWidget::onAnyControlChanged);
     connect(compSlowRatio, &QSlider::valueChanged,
             this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateEnable,    &QCheckBox::toggled,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateThreshold, &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateAttack,    &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateHold,      &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateDecay,     &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateRange,     &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateLfCutoff,  &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
+    connect(gateHfCutoff,  &QSlider::valueChanged,
+            this, &AudioProcessingWidget::onAnyControlChanged);
 
     adjustSize();
 }
@@ -672,6 +808,14 @@ void AudioProcessingWidget::blockAll(bool block)
     sidetoneLevel->blockSignals(block);
     muteRxCheck->blockSignals(block);
     specEnable->blockSignals(block);
+    gateEnable->blockSignals(block);
+    gateThreshold->blockSignals(block);
+    gateAttack->blockSignals(block);
+    gateHold->blockSignals(block);
+    gateDecay->blockSignals(block);
+    gateRange->blockSignals(block);
+    gateLfCutoff->blockSignals(block);
+    gateHfCutoff->blockSignals(block);
 }
 
 void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
@@ -715,4 +859,20 @@ void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
     lblInputGain->setText(QString::number(p.inputGainDB, 'f', 1) + " dB");
     lblOutputGain->setText(QString::number(p.outputGainDB, 'f', 1) + " dB");
     lblSidetone->setText(QString::number(static_cast<int>(p.sidetoneLevel * 100.0f)) + "%");
+
+    gateEnable->setChecked(p.gateEnabled);
+    gateThreshold->setValue(static_cast<int>(std::round(p.gateThreshold)));
+    gateAttack->setValue(static_cast<int>(std::round(p.gateAttack)));
+    gateHold->setValue(static_cast<int>(std::round(p.gateHold)));
+    gateDecay->setValue(static_cast<int>(std::round(p.gateDecay)));
+    gateRange->setValue(static_cast<int>(std::round(p.gateRange)));
+    gateLfCutoff->setValue(static_cast<int>(std::round(p.gateLfCutoff)));
+    gateHfCutoff->setValue(static_cast<int>(std::round(p.gateHfCutoff)));
+    lblGateThreshold->setText(QString::number(static_cast<int>(p.gateThreshold)) + " dB");
+    lblGateAttack->setText(QString::number(static_cast<int>(p.gateAttack)) + " ms");
+    lblGateHold->setText(QString::number(static_cast<int>(p.gateHold)) + " ms");
+    lblGateDecay->setText(QString::number(static_cast<int>(p.gateDecay)) + " ms");
+    lblGateRange->setText(QString::number(static_cast<int>(p.gateRange)) + " dB");
+    lblGateLfCutoff->setText(QString::number(static_cast<int>(p.gateLfCutoff)) + " Hz");
+    lblGateHfCutoff->setText(QString::number(static_cast<int>(p.gateHfCutoff)) + " Hz");
 }

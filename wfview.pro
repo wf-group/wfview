@@ -301,6 +301,7 @@ SOURCES += \
     src/audio/audiohandlerbase.cpp \
     src/audio/plugins/dyson_compress.cpp \
     src/audio/plugins/mbeq.cpp \
+    src/audio/plugins/noisegate.cpp \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
     src/audioprocessingwidget.cpp \
@@ -387,6 +388,7 @@ HEADERS  += \
     include/txaudioprocessor.h \
     src/audio/plugins/dysoncompress.h \
     src/audio/plugins/mbeq.h \
+    src/audio/plugins/noisegate.h \
     include/audiohandlerpainput.h \
     include/audiohandlerpaoutput.h \
     include/audiohandlerqtinput.h \

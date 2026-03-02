@@ -2113,6 +2113,14 @@ void wfmain::loadSettings()
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
         prefs.audioProc.eqBands[i] = settings->value(
             QString("TxProcEqBand%1").arg(i), 0.0f).toFloat();
+    prefs.audioProc.gateEnabled   = settings->value("TxProcGateEnabled",   false).toBool();
+    prefs.audioProc.gateThreshold = settings->value("TxProcGateThreshold", -60.0f).toFloat();
+    prefs.audioProc.gateAttack    = settings->value("TxProcGateAttack",     5.0f).toFloat();
+    prefs.audioProc.gateHold      = settings->value("TxProcGateHold",      40.0f).toFloat();
+    prefs.audioProc.gateDecay     = settings->value("TxProcGateDecay",     20.0f).toFloat();
+    prefs.audioProc.gateRange     = settings->value("TxProcGateRange",     -90.0f).toFloat();
+    prefs.audioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
+    prefs.audioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
 
     if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
 
@@ -3387,6 +3395,14 @@ void wfmain::saveSettings()
     settings->setValue("TxProcSpectrumFps",      prefs.audioProc.spectrumFPS);
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
         settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.audioProc.eqBands[i]);
+    settings->setValue("TxProcGateEnabled",   prefs.audioProc.gateEnabled);
+    settings->setValue("TxProcGateThreshold", prefs.audioProc.gateThreshold);
+    settings->setValue("TxProcGateAttack",    prefs.audioProc.gateAttack);
+    settings->setValue("TxProcGateHold",      prefs.audioProc.gateHold);
+    settings->setValue("TxProcGateDecay",     prefs.audioProc.gateDecay);
+    settings->setValue("TxProcGateRange",     prefs.audioProc.gateRange);
+    settings->setValue("TxProcGateLfCutoff",  prefs.audioProc.gateLfCutoff);
+    settings->setValue("TxProcGateHfCutoff",  prefs.audioProc.gateHfCutoff);
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
     settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
     settings->setValue("ConnectionType", udpPrefs.connectionType);
@@ -5671,6 +5687,14 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setBypassed(p.bypass);
     txProc->setMuteRx(p.muteRx);
     txProc->setSpectrumEnabled(p.spectrumEnabled);
+    txProc->setGateEnabled(p.gateEnabled);
+    txProc->setGateThreshold(p.gateThreshold);
+    txProc->setGateAttack(p.gateAttack);
+    txProc->setGateHold(p.gateHold);
+    txProc->setGateDecay(p.gateDecay);
+    txProc->setGateRange(p.gateRange);
+    txProc->setGateLfCutoff(p.gateLfCutoff);
+    txProc->setGateHfCutoff(p.gateHfCutoff);
 }
 void wfmain::receiveValue(cacheItem val){
 
