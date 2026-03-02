@@ -176,7 +176,7 @@ struct audioProcessingPrefs {
     bool  bypass        = false;   // master bypass — skips all DSP and gain
     bool  compEnabled   = false;
     bool  eqEnabled     = false;
-    bool  eqFirst       = true;    // true = EQ→Comp, false = Comp→EQ
+    bool  eqFirst       = false;    // true = EQ→Comp, false = Comp→EQ
     float inputGainDB   = 10.0f;    // -20 to +20 dB
     float outputGainDB  = 0.0f;    // -20 to +20 dB
     float eqBands[TxAudioProcessor::EQ_BANDS] = {};  // dB, default all 0

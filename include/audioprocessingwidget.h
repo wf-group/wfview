@@ -71,6 +71,7 @@ private slots:
     void onClearEq();
     void onSpecEnableToggled(bool enabled);
     void onSpecDiagTimer();  // 1 Hz diagnostic log for spectrum FFT stats
+    void onPluginOrderChanged(int index); // reorders eqGrp/compGrp visually
 
 private:
     void buildUi();
@@ -78,6 +79,7 @@ private:
     void populateFromPrefs(const audioProcessingPrefs& p);
     void setProcessingControlsEnabled(bool enabled);
     void updateEqBandVisibility(float sampleRate); // hide bands above Nyquist
+    void reorderDspGroups(bool eqFirst);           // swaps eqGrp/compGrp in m_dspOrderLayout
 
     // ── Master bypass ────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck   {nullptr};
@@ -122,6 +124,9 @@ private:
     QGroupBox*    compGrp       {nullptr};
     QGroupBox*    sidetoneGrp   {nullptr};
     QWidget*      orderRow      {nullptr};
+
+    // ── DSP order layout (contains eqGrp + compGrp, swapped on combo change) ─
+    QVBoxLayout*  m_dspOrderLayout {nullptr};
 
     // ── Spectrum display ─────────────────────────────────────────────────────
     // Block FFT analyser: input decimated to ~16 kHz effective rate.

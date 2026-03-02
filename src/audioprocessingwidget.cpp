@@ -132,6 +132,27 @@ void AudioProcessingWidget::onClearEq()
     emit prefsChanged(getPrefs());
 }
 
+void AudioProcessingWidget::reorderDspGroups(bool eqFirst)
+{
+    // Remove both widgets from the sub-layout, then re-add in the chosen order.
+    m_dspOrderLayout->removeWidget(eqGrp);
+    m_dspOrderLayout->removeWidget(compGrp);
+    if (eqFirst) {
+        m_dspOrderLayout->addWidget(eqGrp);
+        m_dspOrderLayout->addWidget(compGrp);
+    } else {
+        m_dspOrderLayout->addWidget(compGrp);
+        m_dspOrderLayout->addWidget(eqGrp);
+    }
+}
+
+void AudioProcessingWidget::onPluginOrderChanged(int index)
+{
+    // index 0 = "EQ → Compressor" (EQ on top), 1 = "Compressor → EQ"
+    reorderDspGroups(index == 0);
+    emit prefsChanged(getPrefs());
+}
+
 void AudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
     specWidget->setVisible(enabled);
@@ -461,7 +482,6 @@ void AudioProcessingWidget::buildUi()
             form->addRow(tr("Slow ratio:"), row);
         }
 
-        mainLayout->addWidget(grp);
     }
 
     // ── Multiband EQ ─────────────────────────────────────────────────────────
@@ -509,7 +529,17 @@ void AudioProcessingWidget::buildUi()
                     this, &AudioProcessingWidget::onAnyControlChanged);
         }
         vbox->addLayout(sliderRow);
-        mainLayout->addWidget(grp);
+    }
+
+    // ── DSP order container: holds eqGrp + compGrp in combo-selected order ──
+    {
+        auto* dspContainer = new QWidget;
+        m_dspOrderLayout = new QVBoxLayout(dspContainer);
+        m_dspOrderLayout->setContentsMargins(0, 0, 0, 0);
+        // Default index 0 = "EQ → Compressor": EQ on top.
+        m_dspOrderLayout->addWidget(eqGrp);
+        m_dspOrderLayout->addWidget(compGrp);
+        mainLayout->addWidget(dspContainer);
     }
 
     // ── TX Spectrum ──────────────────────────────────────────────────────────
@@ -603,7 +633,7 @@ void AudioProcessingWidget::buildUi()
     connect(eqEnable,      &QCheckBox::toggled, this, &AudioProcessingWidget::onAnyControlChanged);
     connect(compEnable,    &QCheckBox::toggled, this, &AudioProcessingWidget::onAnyControlChanged);
     connect(orderCombo,    QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &AudioProcessingWidget::onAnyControlChanged);
+            this, &AudioProcessingWidget::onPluginOrderChanged);
     connect(sidetoneEnable,&QCheckBox::toggled, this, &AudioProcessingWidget::onAnyControlChanged);
     connect(sidetoneLevel, &QSlider::valueChanged,
             this, &AudioProcessingWidget::onAnyControlChanged);
@@ -652,6 +682,7 @@ void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
     eqEnable->setChecked(p.eqEnabled);
     compEnable->setChecked(p.compEnabled);
     orderCombo->setCurrentIndex(p.eqFirst ? 0 : 1);
+    reorderDspGroups(p.eqFirst);
 
     for (int i = 0; i < EQ_BANDS; ++i) {
         eqSliders[i]->setValue(static_cast<int>(std::round(p.eqBands[i] * 10.0f)));
