@@ -36,6 +36,8 @@
 
 #include "packettypes.h"
 
+#include <functional>
+
 using MapFUn   = Eigen::Map<Eigen::VectorXf,   Eigen::Unaligned>;
 using MapI16Un = Eigen::Map<Eigen::Matrix<qint16, Eigen::Dynamic, 1>, Eigen::Unaligned>;
 using MapI32Un = Eigen::Map<Eigen::Matrix<qint32, Eigen::Dynamic, 1>, Eigen::Unaligned>;
@@ -51,6 +53,9 @@ struct audioPacket {
     float amplitudeRMS;
     qreal volume = 1.0;
 };
+
+// Forward declaration — defined in txaudioprocessor.h
+class TxAudioProcessor;
 
 struct audioSetup {
     audioType type;
@@ -71,6 +76,8 @@ struct audioSetup {
     quint16 blockSize = 20; // Each 'block' of audio is 20ms long by default.
     quint8 guid[GUIDLEN];
     void* tci = Q_NULLPTR;
+    // Optional TX processing engine; non-null only for TX input handlers.
+    TxAudioProcessor* txProc = nullptr;
 };
 
 class audioConverter : public QObject
@@ -84,6 +91,9 @@ public:
 public slots:
     bool init(QAudioFormat inFormat, codecType inCodec, QAudioFormat outFormat, codecType outCodec, quint8 opusComplexity, quint8 resampleQuality);
     bool convert(audioPacket audio);
+    // Install (or clear) a synchronous audio processing hook.
+    // The hook is called after resampling and before encoding, in the converter thread.
+    void setProcessingHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook);
 
 signals:
     void converted(audioPacket audio);
@@ -105,6 +115,9 @@ protected:
     QByteArray scratchIn;
     QByteArray scratchOut;
     Eigen::VectorXf scratchF;
+
+    // TX processing hook — null when disabled
+    std::function<Eigen::VectorXf(Eigen::VectorXf)> processingHook;
 };
 
 
@@ -114,6 +127,9 @@ typedef Eigen::Matrix<quint8, Eigen::Dynamic, 1> VectorXuint8;
 typedef Eigen::Matrix<qint8, Eigen::Dynamic, 1> VectorXint8;
 typedef Eigen::Matrix<qint16, Eigen::Dynamic, 1> VectorXint16;
 typedef Eigen::Matrix<qint32, Eigen::Dynamic, 1> VectorXint32;
+
+// Register VectorXf for queued cross-thread signal delivery
+Q_DECLARE_METATYPE(Eigen::VectorXf)
 
 static inline QAudioFormat toQAudioFormat(quint8 codec, quint32 sampleRate)
 {

@@ -858,6 +858,15 @@ void kenwoodCommander::parseData(QByteArray data)
                 connect(rtpThread, SIGNAL(finished()), rtp, SLOT(deleteLater()));
                 connect(this, SIGNAL(haveChangeLatency(quint16)), rtp, SLOT(changeLatency(quint16)));
                 connect(this, SIGNAL(haveSetVolume(quint8)), rtp, SLOT(setVolume(quint8)));
+                // Sidetone and RX mute from TX processor
+                if (txSetup.txProc) {
+                    connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                            rtp, &rtpAudio::injectSidetone,
+                            Qt::QueuedConnection);
+                    connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
+                            rtp, &rtpAudio::setRxMuted,
+                            Qt::QueuedConnection);
+                }
                 // Audio from UDP
                 connect(rtp, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
                 QObject::connect(rtp, SIGNAL(haveOutLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));

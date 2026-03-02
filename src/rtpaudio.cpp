@@ -150,10 +150,52 @@ void rtpAudio::dataReceived()
         tempAudio.time = QTime::currentTime().addMSecs(0);
         tempAudio.sent = 0;
         tempAudio.data = d.mid(12);
+
+        // When RX is muted (self-monitor mode), silence the radio audio.
+        if (m_rxMuted)
+            tempAudio.data.fill(0);
+
+        // Mix any buffered sidetone into the RX packet (saturating int16 add).
+        if (!m_sidetoneBuf.isEmpty()) {
+            const int mixBytes   = std::min(tempAudio.data.size(), m_sidetoneBuf.size());
+            const int mixSamples = mixBytes / int(sizeof(qint16));
+            qint16*       rx = reinterpret_cast<qint16*>(tempAudio.data.data());
+            const qint16* st = reinterpret_cast<const qint16*>(m_sidetoneBuf.constData());
+            for (int i = 0; i < mixSamples; ++i) {
+                const int32_t sum = int32_t(rx[i]) + int32_t(st[i]);
+                rx[i] = static_cast<qint16>(qBound<int32_t>(-32768, sum, 32767));
+            }
+            m_sidetoneBuf.remove(0, mixSamples * int(sizeof(qint16)));
+        }
+
         emit haveAudioData(tempAudio);
         packetCount++;
         size = size + tempAudio.data.size();
     }
+}
+
+void rtpAudio::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate)
+{
+    Q_UNUSED(sampleRate)
+    if (samples.size() == 0) return;
+
+    // Convert float → PCM16 and buffer for mixing into incoming RX packets.
+    const int n = static_cast<int>(samples.size());
+    QByteArray pcm(n * static_cast<int>(sizeof(qint16)), Qt::Uninitialized);
+    qint16* dst = reinterpret_cast<qint16*>(pcm.data());
+    for (int i = 0; i < n; ++i) {
+        float s = std::max(-1.0f, std::min(1.0f, samples[i]));
+        dst[i] = static_cast<qint16>(s * 32767.0f);
+    }
+
+    constexpr int kMaxBufBytes = 48000 * 2 / 2;  // 0.5 s at 48 kHz mono PCM16
+    if (m_sidetoneBuf.size() < kMaxBufBytes)
+        m_sidetoneBuf.append(pcm);
+}
+
+void rtpAudio::setRxMuted(bool muted)
+{
+    m_rxMuted = muted;
 }
 
 void rtpAudio::changeLatency(quint16 value)

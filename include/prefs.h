@@ -8,6 +8,7 @@
 #include "cluster.h"
 #include "rigidentities.h"
 #include "wfviewtypes.h"
+#include "txaudioprocessor.h"  // for EQ_BANDS constant
 
 enum prefIfItem {
     if_useFullScreen = 1 << 0,
@@ -167,6 +168,27 @@ enum prefUDPItem {
 
 
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TX Audio Processing preferences
+// All defaults produce a flat/bypass signal (no DSP applied).
+// ─────────────────────────────────────────────────────────────────────────────
+struct audioProcessingPrefs {
+    bool  bypass        = false;   // master bypass — skips all DSP and gain
+    bool  compEnabled   = false;
+    bool  eqEnabled     = false;
+    bool  eqFirst       = true;    // true = EQ→Comp, false = Comp→EQ
+    float inputGainDB   = 0.0f;    // -20 to +20 dB
+    float outputGainDB  = 0.0f;    // -20 to +20 dB
+    float eqBands[TxAudioProcessor::EQ_BANDS] = {};  // dB, default all 0
+    float compPeakLimit = -10.0f;  // dB, -30 to 0
+    float compRelease   = 0.1f;    // seconds, 0.01 to 1.0
+    float compFastRatio = 0.5f;    // 0.0 to 1.0
+    float compSlowRatio = 0.3f;    // 0.0 to 1.0
+    bool  sidetoneEnabled = false;
+    float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
+    bool  muteRx          = false; // mute RX audio while self-monitoring
+};
+
 struct preferences {
     // Program:
     QString version;
@@ -266,6 +288,7 @@ struct preferences {
 
     audioSetup rxSetup;
     audioSetup txSetup;
+    audioProcessingPrefs audioProc;
 
     QChar decimalSeparator;
     QChar groupSeparator;

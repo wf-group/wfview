@@ -158,6 +158,19 @@ bool audioHandlerBase::init(const audioSetup& setup)
         return false;
     }
 
+    // Install TX processing hook if a processor was provided.
+    // The hook must be installed on the converter's thread; QueuedConnection
+    // dispatches the lambda as soon as the converter thread processes events.
+    if (setup.isinput && setup.txProc) {
+        TxAudioProcessor* proc = setup.txProc;
+        const float sr = static_cast<float>(nativeFormat.sampleRate());
+        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
+            converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
+                return proc->processAudio(std::move(s), sr);
+            });
+        }, Qt::QueuedConnection);
+    }
+
     initialized = true;
     qInfo(logAudio()) << role() << "thread id" << QThread::currentThreadId();
     return true;

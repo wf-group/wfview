@@ -1,5 +1,8 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
+#include "txaudioprocessor.h"
+#include <algorithm>
+#include <cstring>
 
 yaesuUdpAudio::yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port, audioSetup rxAudio, audioSetup txAudio) :
     rxSetup(rxAudio),txSetup(txAudio)
@@ -127,6 +130,16 @@ void yaesuUdpAudio::init()
     connect(txaudio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
     connect(txaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
     connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
+
+    if (txSetup.txProc) {
+        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                this, &yaesuUdpAudio::injectSidetone,
+                Qt::QueuedConnection);
+        connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
+                this, &yaesuUdpAudio::setRxMuted,
+                Qt::QueuedConnection);
+    }
+
     emit setupTxAudio(txSetup);
 
     qInfo(logUdp()) << "Sending connect packet";
@@ -206,7 +219,27 @@ void yaesuUdpAudio::incomingUdp(void* buf, size_t bufLen)
                     tempAudio.seq = (quint32)seqPrefix << 16 | r->data.seqNum;
                     tempAudio.time = QTime::currentTime();
                     tempAudio.sent = 0;
-                    tempAudio.data = QByteArray::fromRawData((char *)r->data.pcmData,r->data.pcmDataLen);
+                    // Deep copy (fromRawData would be a non-owning view; we need to modify).
+                    tempAudio.data = QByteArray(reinterpret_cast<const char*>(r->data.pcmData),
+                                               r->data.pcmDataLen);
+
+                    // When RX is muted (self-monitor mode), silence the radio audio.
+                    if (m_rxMuted)
+                        tempAudio.data.fill(0);
+
+                    // Mix any buffered sidetone into the RX packet (saturating int16 add).
+                    if (!m_sidetoneBuf.isEmpty()) {
+                        const int mixBytes   = std::min(tempAudio.data.size(), m_sidetoneBuf.size());
+                        const int mixSamples = mixBytes / int(sizeof(qint16));
+                        qint16*       rx = reinterpret_cast<qint16*>(tempAudio.data.data());
+                        const qint16* st = reinterpret_cast<const qint16*>(m_sidetoneBuf.constData());
+                        for (int i = 0; i < mixSamples; ++i) {
+                            const int32_t sum = int32_t(rx[i]) + int32_t(st[i]);
+                            rx[i] = static_cast<qint16>(qBound<int32_t>(-32768, sum, 32767));
+                        }
+                        m_sidetoneBuf.remove(0, mixSamples * int(sizeof(qint16)));
+                    }
+
                     emit haveAudioData(tempAudio);
                 }
             }
@@ -354,4 +387,30 @@ void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
             outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
         }
     }
+}
+
+void yaesuUdpAudio::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate)
+{
+    Q_UNUSED(sampleRate)
+    if (samples.size() == 0) return;
+
+    // Yaesus use PCM16 (ShortLE) — convert float → int16 and buffer for mixing.
+    const int n = static_cast<int>(samples.size());
+    QByteArray pcm(n * static_cast<int>(sizeof(qint16)), Qt::Uninitialized);
+    qint16* dst = reinterpret_cast<qint16*>(pcm.data());
+    for (int i = 0; i < n; ++i) {
+        float s = std::max(-1.0f, std::min(1.0f, samples[i]));
+        dst[i] = static_cast<qint16>(s * 32767.0f);
+    }
+
+    // Buffer the PCM16 data; it will be mixed into the next arriving RX packet(s).
+    // Cap the buffer to ~0.5 s to prevent growth when the radio is disconnected.
+    constexpr int kMaxBufBytes = 48000 * 2 / 2;  // 0.5 s at 48 kHz mono PCM16
+    if (m_sidetoneBuf.size() < kMaxBufBytes)
+        m_sidetoneBuf.append(pcm);
+}
+
+void yaesuUdpAudio::setRxMuted(bool muted)
+{
+    m_rxMuted = muted;
 }

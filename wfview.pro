@@ -288,7 +288,9 @@ win32:INCLUDEPATH += ../hidapi/hidapi
 
 INCLUDEPATH += include
 INCLUDEPATH += src/audio
+INCLUDEPATH += src/audio/plugins
 INCLUDEPATH += src/audio/resampler
+INCLUDEPATH += src
 
 SOURCES += \
     src/aboutbox.cpp \
@@ -297,6 +299,10 @@ SOURCES += \
     src/audio/audioconverter.cpp \
     src/audio/audiodevices.cpp \
     src/audio/audiohandlerbase.cpp \
+    src/audio/plugins/dyson_compress.cpp \
+    src/audio/plugins/mbeq.cpp \
+    src/audio/txaudioprocessor.cpp \
+    src/audioprocessingwidget.cpp \
     src/audio/audiohandlerpainput.cpp \
     src/audio/audiohandlerpaoutput.cpp \
     src/audio/audiohandlerqtinput.cpp \
@@ -374,6 +380,10 @@ HEADERS  += \
     include/audiodevices.h \
     include/audiohandler.h \
     include/audiohandlerbase.h \
+    include/audioprocessingwidget.h \
+    include/txaudioprocessor.h \
+    src/audio/plugins/dysoncompress.h \
+    src/audio/plugins/mbeq.h \
     include/audiohandlerpainput.h \
     include/audiohandlerpaoutput.h \
     include/audiohandlerqtinput.h \

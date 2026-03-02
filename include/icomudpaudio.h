@@ -55,9 +55,11 @@ signals:
 public slots:
 	void changeLatency(quint16 value);
 	void setVolume(quint8 value);
+    void setRxMuted(bool muted);
     void getRxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void receiveAudioData(audioPacket audio);
+    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate);
 
 
 private:
@@ -81,6 +83,9 @@ private:
 	bool enableTx = true;
 
 	QMutex audioMutex;
+
+    QByteArray   m_sidetoneBuf;  // PCM16 sidetone samples pending mix into RX packets
+    bool         m_rxMuted = false;
 
     QElapsedTimer audioClock;
     bool   audioHaveBase = false;

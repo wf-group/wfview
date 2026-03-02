@@ -1301,6 +1301,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="audioProcBtn">
+         <property name="focusPolicy">
+          <enum>Qt::FocusPolicy::NoFocus</enum>
+         </property>
+         <property name="text">
+          <string>Audio Proc</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <spacer name="horizontalSpacer_32">
          <property name="orientation">
           <enum>Qt::Orientation::Horizontal</enum>

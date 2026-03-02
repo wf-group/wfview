@@ -67,6 +67,8 @@
 #include "controllersetup.h"
 #include "rigcreator.h"
 #include "cachingqueue.h"
+#include "txaudioprocessor.h"
+#include "audioprocessingwidget.h"
 
 #include <deque>
 #include <memory>
@@ -453,6 +455,9 @@ private slots:
 
     void on_rigCreatorBtn_clicked();
 
+    void on_audioProcBtn_clicked();
+    void onAudioProcPrefsChanged(audioProcessingPrefs p);
+
     void on_scopeMainSubBtn_clicked();
     void on_scopeDualBtn_toggled(bool en);
     void on_dualWatchBtn_toggled(bool en);
@@ -663,6 +668,8 @@ private:
     selectRadio *selRad = Q_NULLPTR;
     loggingWindow *logWindow = Q_NULLPTR;
     rigCreator *creator = Q_NULLPTR;
+    TxAudioProcessor* txProc = Q_NULLPTR;
+    AudioProcessingWidget* audioProcWin = Q_NULLPTR;
     bandbuttons* bandbtns;
     frequencyinputwidget* finputbtns;
     settingswidget* setupui;
@@ -715,6 +722,7 @@ private:
 
     QString currentRegion = "1";
     funcType getInputTypeCommand(inputTypes input);
+    void applyAudioProcPrefs(const audioProcessingPrefs& p);
 
 #if defined (USB_CONTROLLER)
     usbController *usbControllerDev = Q_NULLPTR;

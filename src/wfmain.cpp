@@ -465,6 +465,22 @@ void wfmain::openRig()
         prefs.txSetup.tci = tci;
     }
 
+    // Attach TX audio processor to the TX input setup
+    if (!txProc) {
+        txProc = new TxAudioProcessor(this);
+        // Wire meter and sidetone signals to the AudioProc widget (if already open)
+        if (audioProcWin) {
+            connect(txProc, &TxAudioProcessor::txInputLevel,
+                    audioProcWin, &AudioProcessingWidget::updateInputLevel);
+            connect(txProc, &TxAudioProcessor::txOutputLevel,
+                    audioProcWin, &AudioProcessingWidget::updateOutputLevel);
+            connect(txProc, &TxAudioProcessor::txGainReduction,
+                    audioProcWin, &AudioProcessingWidget::updateGainReduction);
+        }
+    }
+    applyAudioProcPrefs(prefs.audioProc);
+    prefs.txSetup.txProc = txProc;
+
     makeRig();
 
 
@@ -2078,6 +2094,22 @@ void wfmain::loadSettings()
     prefs.rxSetup.resampleQuality = settings->value("ResampleQuality", defPrefs.rxSetup.resampleQuality).toInt();
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
 
+    // TX audio processing prefs
+    prefs.audioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
+    prefs.audioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
+    prefs.audioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
+    prefs.audioProc.inputGainDB   = settings->value("TxProcInputGain",     0.0f).toFloat();
+    prefs.audioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
+    prefs.audioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
+    prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
+    prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.5f).toFloat();
+    prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.3f).toFloat();
+    prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",   false).toBool();
+    prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel", 0.5f).toFloat();
+    for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
+        prefs.audioProc.eqBands[i] = settings->value(
+            QString("TxProcEqBand%1").arg(i), 0.0f).toFloat();
+
     if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
 
         tci = new tciServer();
@@ -3334,6 +3366,21 @@ void wfmain::saveSettings()
         settings->setValue("AudioInput", prefs.txSetup.name);
     settings->setValue("ResampleQuality", prefs.rxSetup.resampleQuality);
     settings->setValue("ClientName", udpPrefs.clientName);
+
+    // TX audio processing prefs
+    settings->setValue("TxProcCompEnabled",   prefs.audioProc.compEnabled);
+    settings->setValue("TxProcEqEnabled",     prefs.audioProc.eqEnabled);
+    settings->setValue("TxProcEqFirst",       prefs.audioProc.eqFirst);
+    settings->setValue("TxProcInputGain",     prefs.audioProc.inputGainDB);
+    settings->setValue("TxProcOutputGain",    prefs.audioProc.outputGainDB);
+    settings->setValue("TxProcCompPeak",      prefs.audioProc.compPeakLimit);
+    settings->setValue("TxProcCompRelease",   prefs.audioProc.compRelease);
+    settings->setValue("TxProcCompFast",      prefs.audioProc.compFastRatio);
+    settings->setValue("TxProcCompSlow",      prefs.audioProc.compSlowRatio);
+    settings->setValue("TxProcSidetone",      prefs.audioProc.sidetoneEnabled);
+    settings->setValue("TxProcSidetoneLevel", prefs.audioProc.sidetoneLevel);
+    for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
+        settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.audioProc.eqBands[i]);
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
     settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
     settings->setValue("ConnectionType", udpPrefs.connectionType);
@@ -5561,6 +5608,56 @@ void wfmain::on_rigCreatorBtn_clicked()
     rigCreator* create = new rigCreator();
     create->setAttribute(Qt::WA_DeleteOnClose);
     create->show();
+}
+
+void wfmain::on_audioProcBtn_clicked()
+{
+    if (!audioProcWin) {
+        audioProcWin = new AudioProcessingWidget(this);
+        audioProcWin->setPrefs(prefs.audioProc);
+
+        connect(audioProcWin, &AudioProcessingWidget::prefsChanged,
+                this, &wfmain::onAudioProcPrefsChanged);
+
+        if (txProc) {
+            connect(txProc, &TxAudioProcessor::txInputLevel,
+                    audioProcWin, &AudioProcessingWidget::updateInputLevel);
+            connect(txProc, &TxAudioProcessor::txOutputLevel,
+                    audioProcWin, &AudioProcessingWidget::updateOutputLevel);
+            connect(txProc, &TxAudioProcessor::txGainReduction,
+                    audioProcWin, &AudioProcessingWidget::updateGainReduction);
+        }
+    }
+    audioProcWin->show();
+    audioProcWin->raise();
+    audioProcWin->activateWindow();
+}
+
+void wfmain::onAudioProcPrefsChanged(audioProcessingPrefs p)
+{
+    prefs.audioProc = p;
+    applyAudioProcPrefs(p);
+}
+
+void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
+{
+    if (!txProc) return;
+
+    txProc->setCompEnabled(p.compEnabled);
+    txProc->setEqEnabled(p.eqEnabled);
+    txProc->setEqFirst(p.eqFirst);
+    txProc->setInputGainDB(p.inputGainDB);
+    txProc->setOutputGainDB(p.outputGainDB);
+    for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
+        txProc->setEqBand(i, p.eqBands[i]);
+    txProc->setCompPeakLimit(p.compPeakLimit);
+    txProc->setCompRelease(p.compRelease);
+    txProc->setCompFastRatio(p.compFastRatio);
+    txProc->setCompSlowRatio(p.compSlowRatio);
+    txProc->setSidetoneEnabled(p.sidetoneEnabled);
+    txProc->setSidetoneLevel(p.sidetoneLevel);
+    txProc->setBypassed(p.bypass);
+    txProc->setMuteRx(p.muteRx);
 }
 void wfmain::receiveValue(cacheItem val){
 

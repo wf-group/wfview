@@ -6,6 +6,11 @@ audioConverter::audioConverter(QObject* parent) : QObject(parent)
 {
 }
 
+void audioConverter::setProcessingHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook)
+{
+    processingHook = std::move(hook);
+}
+
 bool audioConverter::init(QAudioFormat inFormat, codecType inCodec, QAudioFormat outFormat, codecType outCodec, quint8 opusComplexity, quint8 resampleQuality)
 {
 
@@ -289,6 +294,10 @@ bool audioConverter::convert(audioPacket audio)
                 }
                 samplesF = Eigen::Map<Eigen::VectorXf>(reinterpret_cast<float*>(scratchOut.data()), scratchOut.size() / int(sizeof(float)));
             }
+
+            // ── TX audio processing hook (EQ / compression) ──────────────────
+            if (processingHook && samplesF.size() > 0)
+                samplesF = processingHook(samplesF);
 
             /*
                 We now have samplesF which contains float samples, and can apply any encoding needed.

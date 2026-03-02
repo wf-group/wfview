@@ -47,12 +47,16 @@ public slots:
     void init();
     void incomingUdp(void* buf, size_t bufLen);
 
+public slots:
+    void setRxMuted(bool muted);
+
 private slots:
     void sendHeartbeat();
     void setVolume(quint8 vol);
     void getRxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void receiveAudioData(audioPacket audio);
+    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate);
 
 signals:
     void haveAudioData(audioPacket data);
@@ -94,6 +98,9 @@ private:
     quint8 findMean(quint8 *d);
     quint8 findMax(quint8 *d);
     networkStatus status;
+
+    QByteArray   m_sidetoneBuf;  // PCM16 sidetone samples pending mix into RX packets
+    bool         m_rxMuted = false;
 
 
 };
