@@ -243,8 +243,10 @@ bool audioConverter::convert(audioPacket audio)
             // samplesF is currently raw samples as received from the radio:
             emit floatAudio(samplesF);
 
-            audio.amplitudePeak = samplesF.array().abs().maxCoeff();
-            audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            if(!processingHook) {
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            }
 
             // Set the volume
             samplesF *= audio.volume;
@@ -296,8 +298,11 @@ bool audioConverter::convert(audioPacket audio)
             }
 
             // ── TX audio processing hook (EQ / compression) ──────────────────
-            if (processingHook && samplesF.size() > 0)
+            if (processingHook && samplesF.size() > 0) {
                 samplesF = processingHook(samplesF);
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            }
 
             /*
                 We now have samplesF which contains float samples, and can apply any encoding needed.
