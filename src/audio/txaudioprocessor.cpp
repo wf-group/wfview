@@ -101,11 +101,11 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     }
 
     // ── Input gain ───────────────────────────────────────────────────────────
-    applyGainDB(samples, p.inputGainDB);
-
-    // ── Measure input peak ───────────────────────────────────────────────────
     const float inputPeak = samples.array().abs().maxCoeff();
     emit txInputLevel(inputPeak);
+
+    // ── Measure input peak ───────────────────────────────────────────────────
+    applyGainDB(samples, p.inputGainDB);
 
     // ── DSP processing ───────────────────────────────────────────────────────
     if (p.eqFirst) {
