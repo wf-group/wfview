@@ -3,6 +3,10 @@
 #include <vector>
 #include <complex>
 
+#ifndef M_PIf
+#define M_PIf 3.14159265358979323846f
+#endif
+
 // Multiband EQ — standalone C++ class using Eigen FFT
 // Ported from LADSPA plugin #1197 (Steve Harris, GPL)
 // Band range remapped to 50 Hz – 8 kHz for voice/ham-radio TX use.
