@@ -3,7 +3,7 @@ stages:
   
 variables:
   # Branches to mirror to GitHub. Edit this list as needed.
-  MIRROR_BRANCHES: "master newscope"
+  MIRROR_BRANCHES: "master newscope audioprocessing"
 
 mirror-to-github:
   stage: deploy
