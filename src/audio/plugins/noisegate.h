@@ -97,5 +97,4 @@ private:
     static constexpr int   OPENING = 2;
     static constexpr int   OPEN    = 3;
     static constexpr int   CLOSING = 4;
-    static constexpr float ENV_TR  = 0.0001f;  // envelope release time constant
 };

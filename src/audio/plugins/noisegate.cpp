@@ -95,8 +95,8 @@ void NoiseGate::setHfCutoff(float hz)  { m_hfCutoff  = hz; }
 void NoiseGate::process(const float* in, float* out, unsigned long nSamples)
 {
     // Clamp parameters to safe ranges before computing derived rates.
-    const float attack = std::max(0.01f, m_attack);
-    const float decay  = std::max(2.0f,  m_decay);
+    const float attack = std::max(0.001f, m_attack);
+    const float decay  = std::max(0.01f,  m_decay);
 
     const float cut     = DB_CO(m_range);
     const float t_level = DB_CO(m_threshold);
@@ -112,6 +112,13 @@ void NoiseGate::process(const float* in, float* out, unsigned long nSamples)
     setLowShelf (m_lf, lfHz, -40.0f, 0.6f, m_fs);
     setHighShelf(m_hf, hfHz, -50.0f, 0.6f, m_fs);
 
+    // Envelope release time constant: ~10 ms, derived from sample rate.
+    // The one-pole IIR is: env = akey * env_tr + env * (1 - env_tr)
+    // Time constant τ = -1/ln(1-env_tr) ≈ 1/(env_tr * fs).
+    // 10 ms at any sample rate keeps the envelope responsive so the hold timer
+    // (not the envelope decay) governs how long the gate stays open.
+    const float env_tr = 1.0f - std::exp(-1.0f / (0.010f * m_fs));
+
     // Local copies of state variables (matches original LADSPA style).
     float env       = m_env;
     float gate      = m_gate;
@@ -124,11 +131,11 @@ void NoiseGate::process(const float* in, float* out, unsigned long nSamples)
         key       = m_hf.run(key);
         const float akey = std::fabs(key);
 
-        // ── Envelope follower (peak with slow release) ────────────────────
+        // ── Envelope follower (peak with fast attack, ~10 ms release) ─────
         if (akey > env)
             env = akey;
         else
-            env = akey * ENV_TR + env * (1.0f - ENV_TR);
+            env = akey * env_tr + env * (1.0f - env_tr);
 
         // ── Gate state machine ────────────────────────────────────────────
         if (state == CLOSED) {
