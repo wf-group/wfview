@@ -86,6 +86,7 @@ protected:
         ++m_paintCallCount;
         if (m_paintLogTimer.elapsed() >= 1000) {
             const bool fpsMiss = m_paintCallCount < (m_targetFps * 8 / 10); // warn below 80%
+            /*
             qCDebug(logAudio) << "[SpectrumPaint]"
                               << m_paintCallCount << "paints/s"
                               << "(target" << m_targetFps << "fps)"
@@ -95,6 +96,7 @@ protected:
                                       ? m_paintTotalNs / m_paintCallCount / 1000
                                       : 0LL)
                               << "us/paint, total" << m_paintTotalNs / 1000000 << "ms/s";
+            */
             m_paintTotalNs   = 0;
             m_paintCallCount = 0;
             m_paintLogTimer.restart();

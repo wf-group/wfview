@@ -5685,7 +5685,7 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setSidetoneEnabled(p.sidetoneEnabled);
     txProc->setSidetoneLevel(p.sidetoneLevel);
     txProc->setBypassed(p.bypass);
-    txProc->setMuteRx(p.muteRx);
+    txProc->setMuteRx(false); // we do not restore this as it will only confuse people.
     txProc->setSpectrumEnabled(p.spectrumEnabled);
     txProc->setSpectrumFps(p.spectrumFPS);
     txProc->setGateEnabled(p.gateEnabled);

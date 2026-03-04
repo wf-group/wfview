@@ -186,9 +186,8 @@ struct audioProcessingPrefs {
     float compSlowRatio = 0.3f;    // 0.0 to 1.0
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
-    bool  muteRx          = false; // mute RX audio while self-monitoring
     bool  spectrumEnabled = false; // enable TX spectrum display
-    int   spectrumFPS     = 30;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
+    int   spectrumFPS     = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
 
     // Noise gate — runs before input gain on the raw microphone signal.
     bool  gateEnabled   = false;

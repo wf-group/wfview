@@ -61,7 +61,6 @@ audioProcessingPrefs AudioProcessingWidget::getPrefs() const
 
     p.sidetoneEnabled = sidetoneEnable->isChecked();
     p.sidetoneLevel   = sidetoneLevel->value() * 0.01f;
-    p.muteRx          = muteRxCheck->isChecked();
 
     p.spectrumEnabled = specEnable->isChecked();
     p.spectrumFPS     = m_spectrumFps;
@@ -243,12 +242,13 @@ void AudioProcessingWidget::onSpecDiagTimer()
         else                                 noDataReason = "no TX audio (not transmitting?)";
     }
 
+    /*
     qCDebug(logAudio) << "[SpectrumBins]"
                       << m_batchCount << "bin-sets/s"
                       << "(target" << m_spectrumFps << "fps)"
                       << (fpsMiss             ? "*** FPS NOT MET ***" : "")
                       << (!noDataReason.isEmpty() ? "— " + noDataReason : "");
-
+    */
     m_batchCount = 0;
 }
 
@@ -720,7 +720,7 @@ void AudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
 
     sidetoneEnable->setChecked(p.sidetoneEnabled);
     sidetoneLevel->setValue(static_cast<int>(std::round(p.sidetoneLevel * 100.0f)));
-    muteRxCheck->setChecked(p.muteRx);
+    muteRxCheck->setChecked(false);
 
     specEnable->setChecked(p.spectrumEnabled);
     specWidget->setVisible(p.spectrumEnabled);
