@@ -476,8 +476,8 @@ void wfmain::openRig()
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
-            connect(txProc, &TxAudioProcessor::txSpectrumSamples,
-                    audioProcWin, &AudioProcessingWidget::onSpectrumSamples);
+            connect(txProc, &TxAudioProcessor::txSpectrumBins,
+                    audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
     applyAudioProcPrefs(prefs.audioProc);
@@ -5652,8 +5652,8 @@ void wfmain::on_audioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
-            connect(txProc, &TxAudioProcessor::txSpectrumSamples,
-                    audioProcWin, &AudioProcessingWidget::onSpectrumSamples);
+            connect(txProc, &TxAudioProcessor::txSpectrumBins,
+                    audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
     audioProcWin->show();
@@ -5687,6 +5687,7 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setBypassed(p.bypass);
     txProc->setMuteRx(p.muteRx);
     txProc->setSpectrumEnabled(p.spectrumEnabled);
+    txProc->setSpectrumFps(p.spectrumFPS);
     txProc->setGateEnabled(p.gateEnabled);
     txProc->setGateThreshold(p.gateThreshold);
     txProc->setGateAttack(p.gateAttack);

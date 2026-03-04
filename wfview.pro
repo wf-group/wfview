@@ -289,6 +289,7 @@ win32:INCLUDEPATH += ../hidapi/hidapi
 INCLUDEPATH += include
 INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/plugins
+INCLUDEPATH += src/audio/pocketfft
 INCLUDEPATH += src/audio/resampler
 INCLUDEPATH += src
 
@@ -302,6 +303,7 @@ SOURCES += \
     src/audio/plugins/dyson_compress.cpp \
     src/audio/plugins/mbeq.cpp \
     src/audio/plugins/noisegate.cpp \
+    src/audio/pocketfft/pocketfft.c \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
     src/audioprocessingwidget.cpp \
@@ -377,7 +379,6 @@ HEADERS  += \
     src/audio/resampler/speex_resampler.h \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
-    src/audio/sliding_dft.hpp \
     include/aboutbox.h \
     include/spectrumwidget.h \
     include/audioconverter.h \

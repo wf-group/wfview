@@ -3,7 +3,6 @@
 #include "audioprocessingwidget.h"
 #include "logcategories.h"
 #include <cmath>
-#include <complex>
 
 // MBEQ band centre frequencies (Hz) — must match MbeqProcessor::bandFreqs
 static const float kBandFreqs[TxAudioProcessor::EQ_BANDS] = {
@@ -173,14 +172,8 @@ void AudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
     specWidget->setVisible(enabled);
     if (!enabled) {
-        // Clear stale data so the widget doesn't show an old trace on re-enable.
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
-        m_specInRing.clear();
-        m_specOutRing.clear();
-        m_specRingPos     = 0;
-        m_specFftTrigger  = 0;
-        m_specSampleRate  = 0.0f;
     }
     adjustSize();
     emit prefsChanged(getPrefs());
@@ -190,117 +183,36 @@ void AudioProcessingWidget::setConnected(bool connected)
 {
     m_radioConnected = connected;
     if (!connected) {
-        // Clear ring buffers and spectrum traces so stale data isn't shown
-        // when the widget is later re-opened after a reconnect.
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
-        m_specInRing.clear();
-        m_specOutRing.clear();
-        m_specRingPos     = 0;
-        m_specFftTrigger  = 0;
-        m_specSampleRate  = 0.0f;
         m_audioSampleRate = 0.0f;
     }
 }
 
-// ─── onSpectrumSamples ────────────────────────────────────────────────────────
-// Received from TxAudioProcessor (~10 Hz) via queued connection.
-// Decimates the input to an ~16 kHz effective rate before feeding the sliding
-// DFTs, keeping computation low (~128 output bins, 10 Hz refresh).
+// ─── onSpectrumBins ───────────────────────────────────────────────────────────
+// Receives pre-computed dBFS spectrum bins from TxAudioProcessor (runs FFT on
+// the converter thread at TimeCriticalPriority).  This slot only needs to
+// update EQ band visibility on SR change and forward bins to SpectrumWidget.
 
-void AudioProcessingWidget::onSpectrumSamples(QVector<float> inSamples,
-                                               QVector<float> outSamples,
-                                               float sampleRate)
+void AudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
+                                            QVector<double> outBins,
+                                            float rawSR)
 {
-    if (!isVisible()) return;
     if (!m_radioConnected) return;
-    if (!specEnable->isChecked()) return;
-
-    // Count how many batches actually reach the processing code.
-    // onSpecDiagTimer() reads this every second to distinguish "no audio
-    // arriving" from "FFT trigger math is wrong".
+    if (!specEnable || !specEnable->isChecked()) return;
     ++m_batchCount;
 
-    // Decimation factor K: take every Kth sample to target ~16 kHz effective SR.
-    const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
-
-    // Update EQ band visibility the first time we learn the sample rate
-    // and whenever it changes (Nyquist determines which bands are relevant).
-    if (sampleRate != m_audioSampleRate) {
-        m_audioSampleRate = sampleRate;
-        updateEqBandVisibility(sampleRate);
+    if (rawSR != m_audioSampleRate) {
+        m_audioSampleRate = rawSR;
+        updateEqBandVisibility(rawSR);
+        // Effective sample rate after decimation to ~16 kHz.
+        const int K = qMax(1, static_cast<int>(std::round(rawSR / 16000.0f)));
+        specWidget->sampleRate = static_cast<double>(rawSR) / K;
+        specWidget->fftLength  = TxAudioProcessor::SPEC_FFT_LEN;
     }
 
-    // (Re)initialise on sample-rate change or first call.
-    if (sampleRate != m_specSampleRate || m_specInRing.empty()) {
-        m_specSampleRate  = sampleRate;
-        m_specDecimFactor = K;
-        m_specDecimCount  = 0;
-        m_specRingPos     = 0;
-        m_specFftTrigger  = 0;
-        m_specInRing.assign (SPEC_FFT_LEN, 0.0f);
-        m_specOutRing.assign(SPEC_FFT_LEN, 0.0f);
-
-        // Precompute Hanning window coefficients.
-        m_specWindow.resize(SPEC_FFT_LEN);
-        for (int i = 0; i < SPEC_FFT_LEN; ++i)
-            m_specWindow[i] = 0.5f - 0.5f * std::cos(2.0f * float(M_PI) * i
-                                                       / (SPEC_FFT_LEN - 1));
-
-        specWidget->sampleRate = static_cast<double>(sampleRate) / K;
-        specWidget->fftLength  = SPEC_FFT_LEN;
-    }
-
-    // ── FFT scratch buffers (allocated once per batch, reused per trigger) ────
-    // Normaliser: Hanning coherent gain = 0.5, unnormalized Eigen FFT →
-    // full-scale sine gives |bin[k]| = N/4.
-    static constexpr int    N     = SPEC_FFT_LEN;
-    static constexpr int    halfN = N / 2;
-    static constexpr double kNorm = N / 4.0;
-    std::vector<float>               timeBuf(N);
-    std::vector<std::complex<float>> freqBins(N);
-
-    auto runFFT = [&](const std::vector<float>& ring, std::vector<double>& out) {
-        for (int i = 0; i < N; ++i)
-            timeBuf[i] = m_specWindow[i] * ring[(m_specRingPos + i) % N];
-        m_fft.fwd(freqBins, timeBuf);
-        out.resize(halfN);
-        for (int k = 0; k < halfN; ++k)
-            out[k] = 20.0 * std::log10(std::abs(freqBins[k]) / kNorm + 1e-10);
-    };
-
-    // ── How often to fire the FFT to meet the target frame rate ──────────────
-    // decimSampleRate ≈ sampleRate / K ≈ 16 kHz.
-    // triggerEvery = decimSampleRate / targetFps — e.g. at 48 kHz, K=3, 30 fps:
-    //   16000 / 30 ≈ 533 decimated samples per FFT → 3 FFTs per 100 ms batch.
-    // At 10 fps (default): 1600 — one FFT per batch, same as before.
-    // At <10 fps: counter accumulates across batches (member persists).
-    const float decimSampleRate = static_cast<float>(sampleRate) / m_specDecimFactor;
-    const int   triggerEvery    = qMax(1, static_cast<int>(
-                                    std::round(decimSampleRate / m_spectrumFps)));
-    m_lastTriggerEvery = triggerEvery;
-
-    // ── Fill ring buffers; trigger FFT every triggerEvery decimated samples ──
-    const int n = inSamples.size();
-    m_lastBatchSize = n;
-    for (int i = 0; i < n; ++i) {
-        if (++m_specDecimCount >= m_specDecimFactor) {
-            m_specDecimCount = 0;
-            m_specInRing [m_specRingPos] = inSamples [i];
-            m_specOutRing[m_specRingPos] = outSamples[i];
-            m_specRingPos = (m_specRingPos + 1) % SPEC_FFT_LEN;
-
-            if (++m_specFftTrigger >= triggerEvery) {
-                m_specFftTrigger = 0;
-                m_dftCallTimer.start();
-                runFFT(m_specInRing,  specWidget->spectrumPrimary);
-                runFFT(m_specOutRing, specWidget->spectrumSecondary);
-                m_dftTotalNs += m_dftCallTimer.nsecsElapsed();
-                ++m_dftCallCount;
-            }
-        }
-    }
-
+    specWidget->spectrumPrimary.assign(inBins.cbegin(),   inBins.cend());
+    specWidget->spectrumSecondary.assign(outBins.cbegin(), outBins.cend());
 }
 
 void AudioProcessingWidget::updateEqBandVisibility(float sampleRate)
@@ -312,67 +224,32 @@ void AudioProcessingWidget::updateEqBandVisibility(float sampleRate)
 }
 
 // ─── onSpecDiagTimer ──────────────────────────────────────────────────────────
-// Fires every second from m_specDiagTimer regardless of whether audio is
-// arriving.  This guarantees a log line appears even when onSpectrumSamples
-// is never called (signal not connected, guard returning early, etc.).
-//
-// FPS NOT MET logic:
-//   The achievable FFT rate = batches/s × floor(decimSamples/triggerEvery).
-//   We warn only when batches > 0 (TX audio IS flowing) but actual FFTs fall
-//   below 80% of that achievable rate — meaning the trigger math is wrong or
-//   the processing is too slow.  We do NOT warn when batches = 0 because that
-//   just means the user is not transmitting.
+// Fires every second.  FFT now runs on the converter thread (TxAudioProcessor);
+// we just log how many bin-sets per second reach this widget.
 
 void AudioProcessingWidget::onSpecDiagTimer()
 {
     if (!specEnable || !specEnable->isChecked()) {
-        // Spectrum disabled — reset counters silently and return.
-        m_dftCallCount = 0;
-        m_dftTotalNs   = 0;
-        m_batchCount   = 0;
+        m_batchCount = 0;
         return;
     }
 
-    // Achievable FFT pairs per second given the actual audio delivery rate.
-    // decimSamplesPerBatch ≈ lastBatchSize / triggerEvery batches of decimated samples.
-    const int decimPerBatch     = (m_specDecimFactor > 0)
-                                      ? m_lastBatchSize / m_specDecimFactor : 0;
-    const int fftsPerBatch      = (m_lastTriggerEvery > 0)
-                                      ? qMax(1, decimPerBatch / m_lastTriggerEvery) : 1;
-    const int achievableFfts    = m_batchCount * fftsPerBatch;
+    const bool audioArriving = (m_batchCount > 0);
+    const bool fpsMiss       = audioArriving && (m_batchCount < m_spectrumFps * 8 / 10);
 
-    // FPS NOT MET: audio IS arriving but FFTs are below 80% of achievable.
-    const bool audioArriving    = (m_batchCount > 0);
-    const bool fpsMiss          = audioArriving &&
-                                  (m_dftCallCount < achievableFfts * 8 / 10);
-
-    // Visibility/connection diagnostics shown when no audio arrives.
     QString noDataReason;
     if (!audioArriving) {
-        if (!isVisible())             noDataReason = "widget hidden";
-        else if (!m_radioConnected)   noDataReason = "radio not connected";
-        else                          noDataReason = "no TX audio (not transmitting?)";
+        if      (!m_radioConnected)          noDataReason = "radio not connected";
+        else                                 noDataReason = "no TX audio (not transmitting?)";
     }
 
-    qCDebug(logAudio) << "[SpectrumFFT]"
-                      << m_batchCount   << "batches/s,"
-                      << m_dftCallCount << "ffts/s"
-                      << "(target" << m_spectrumFps << "fps,"
-                      << "achievable" << achievableFfts << ")"
-                      << (fpsMiss      ? "*** FPS NOT MET ***"  : "")
-                      << (!noDataReason.isEmpty() ? "— " + noDataReason : "")
-                      << (audioArriving && m_dftCallCount > 0
-                              ? QString(", avg %1 us/fft, total %2 ms/s")
-                                    .arg(m_dftTotalNs / m_dftCallCount / 1000)
-                                    .arg(m_dftTotalNs / 1000000)
-                              : QString())
-                      << (m_lastBatchSize > 0
-                              ? QString(", samples/batch %1").arg(m_lastBatchSize)
-                              : QString());
+    qCDebug(logAudio) << "[SpectrumBins]"
+                      << m_batchCount << "bin-sets/s"
+                      << "(target" << m_spectrumFps << "fps)"
+                      << (fpsMiss             ? "*** FPS NOT MET ***" : "")
+                      << (!noDataReason.isEmpty() ? "— " + noDataReason : "");
 
-    m_dftCallCount = 0;
-    m_dftTotalNs   = 0;
-    m_batchCount   = 0;
+    m_batchCount = 0;
 }
 
 void AudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
@@ -674,7 +551,7 @@ void AudioProcessingWidget::buildUi()
         vbox->addWidget(specEnable);
 
         specWidget = new SpectrumWidget;
-        specWidget->fftLength  = SPEC_FFT_LEN;
+        specWidget->fftLength  = TxAudioProcessor::SPEC_FFT_LEN;
         specWidget->sampleRate = 48000.0;
         specWidget->showSecondary = true;
         specWidget->setMinimumHeight(120);

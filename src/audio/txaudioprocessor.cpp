@@ -6,18 +6,36 @@
 #include <algorithm>
 #include <cstring>
 
+extern "C" {
+#  include "pocketfft.h"
+}
+
 TxAudioProcessor::TxAudioProcessor(QObject* parent)
     : QObject(parent)
 {
     qRegisterMetaType<Eigen::VectorXf>("Eigen::VectorXf");
     qRegisterMetaType<QVector<float>>("QVector<float>");
+    qRegisterMetaType<QVector<double>>("QVector<double>");
+    m_specFftPlan = make_rfft_plan(SPEC_FFT_LEN);
+    m_specFftBuf.resize(SPEC_FFT_LEN, 0.0);
+}
+
+TxAudioProcessor::~TxAudioProcessor()
+{
+    if (m_specFftPlan)
+        destroy_rfft_plan(m_specFftPlan);
 }
 
 void TxAudioProcessor::setSpectrumEnabled(bool en)
 {
     m_specEnabled.store(en, std::memory_order_relaxed);
-    // Accumulators are cleared from the converter thread on the next block
+    // Ring buffers are cleared from the converter thread on the next block
     // when it observes the flag as false (avoids cross-thread writes).
+}
+
+void TxAudioProcessor::setSpectrumFps(int fps)
+{
+    m_specTargetFps.store(qBound(1, fps, 60), std::memory_order_relaxed);
 }
 
 // ─── processAudio ─────────────────────────────────────────────────────────────
@@ -40,18 +58,30 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
         m_gate = std::make_unique<NoiseGate>(sampleRate);
         m_comp = std::make_unique<DysonCompressor>(sampleRate);
         m_eq   = std::make_unique<MbeqProcessor>(sampleRate);
-        // Recalculate spectrum emit threshold and reset accumulators.
-        m_specThresh = static_cast<int>(sampleRate / 10.0f);
-        m_specInBuf.clear();
-        m_specOutBuf.clear();
+
+        // ── Spectrum ring-buffer + FFT state reset ───────────────────────────
+        // Decimate to ~16 kHz effective rate: K = round(sr / 16000), min 1.
+        const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
+        m_specDecimFactor = K;
+        m_specDecimCount  = 0;
+        m_specFftTrigger  = 0;
+        m_specRingPos     = 0;
+        m_specInRing.assign(SPEC_FFT_LEN, 0.0f);
+        m_specOutRing.assign(SPEC_FFT_LEN, 0.0f);
+        // Precompute Hanning window for the FFT length.
+        m_specWindow.resize(SPEC_FFT_LEN);
+        for (int i = 0; i < SPEC_FFT_LEN; ++i)
+            m_specWindow[i] = 0.5 - 0.5 * std::cos(2.0 * M_PI * i / (SPEC_FFT_LEN - 1));
     }
 
     // ── Spectrum flag (read once per block) ──────────────────────────────────
     const bool specActive = m_specEnabled.load(std::memory_order_relaxed);
-    // If spectrum was disabled, drain stale accumulators (converter thread only).
-    if (!specActive && !m_specInBuf.isEmpty()) {
-        m_specInBuf.clear();
-        m_specOutBuf.clear();
+    // If spectrum was disabled, silence the ring buffers so stale data
+    // doesn't appear on re-enable (converter thread only — no locking needed).
+    if (!specActive && !m_specInRing.empty()) {
+        std::fill(m_specInRing.begin(),  m_specInRing.end(),  0.0f);
+        std::fill(m_specOutRing.begin(), m_specOutRing.end(), 0.0f);
+        m_specFftTrigger = 0;
     }
 
     // ── Master bypass — pass audio through, still meter and sidetone ─────────
@@ -164,25 +194,59 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
 }
 
 // ─── appendSpectrumSamples ───────────────────────────────────────────────────
-// Converter thread only.  Accumulates samples and emits txSpectrumSamples when
-// enough have been collected for one ~30 Hz display frame.
+// Converter thread only.  Decimates input to ~16 kHz, maintains sliding ring
+// buffers of SPEC_FFT_LEN decimated samples, and fires a Hanning-windowed FFT
+// every triggerEvery decimated samples (= activeSR / K / targetFps).
+// With 4800-sample blocks at 48 kHz (K=3, 1600 decimated samples/block):
+//   30 fps → triggerEvery ≈ 533 → 3 FFTs per block
+//   10 fps → triggerEvery = 1600 → 1 FFT per block
 
 void TxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
                                               const Eigen::VectorXf& out)
 {
-    const int n      = static_cast<int>(in.size());
-    const int oldSz  = m_specInBuf.size();
+    if (m_specInRing.empty()) return;  // ring not yet initialised (pre-first SR)
 
-    m_specInBuf.resize(oldSz + n);
-    std::memcpy(m_specInBuf.data()  + oldSz, in.data(),  n * sizeof(float));
+    static constexpr int    N     = SPEC_FFT_LEN;
+    static constexpr int    halfN = N / 2;
+    static constexpr double kNorm = N / 4.0;  // Hanning coherent gain 0.5 → |bin| = N/4 at 0 dBFS
 
-    m_specOutBuf.resize(oldSz + n);
-    std::memcpy(m_specOutBuf.data() + oldSz, out.data(), n * sizeof(float));
+    // Recompute trigger threshold each block (cheap; respects live fps changes).
+    const int fps         = m_specTargetFps.load(std::memory_order_relaxed);
+    const double decimSR  = static_cast<double>(m_activeSR) / m_specDecimFactor;
+    const int triggerEvery = qMax(1, static_cast<int>(std::round(decimSR / fps)));
 
-    if (m_specThresh > 0 && m_specInBuf.size() >= m_specThresh) {
-        emit txSpectrumSamples(m_specInBuf, m_specOutBuf, m_activeSR);
-        m_specInBuf.clear();
-        m_specOutBuf.clear();
+    // Lambda: window + FFT on one ring buffer → fill bins vector.
+    auto runFFT = [&](const std::vector<float>& ring, QVector<double>& bins) {
+        for (int j = 0; j < N; ++j)
+            m_specFftBuf[j] = m_specWindow[j]
+                              * static_cast<double>(ring[(m_specRingPos + j) % N]);
+        rfft_forward(m_specFftPlan, m_specFftBuf.data(), 1.0);
+        // pocketfft half-complex layout: buf[0]=DC, buf[2k-1]/buf[2k]=re/im of bin k (k=1..N/2-1)
+        bins.resize(halfN);
+        bins[0] = 20.0 * std::log10(std::abs(m_specFftBuf[0]) / kNorm + 1e-10);
+        for (int k = 1; k < halfN; ++k) {
+            const double re = m_specFftBuf[2*k - 1];
+            const double im = m_specFftBuf[2*k];
+            bins[k] = 20.0 * std::log10(std::sqrt(re*re + im*im) / kNorm + 1e-10);
+        }
+    };
+
+    const int n = static_cast<int>(in.size());
+    for (int i = 0; i < n; ++i) {
+        if (++m_specDecimCount >= m_specDecimFactor) {
+            m_specDecimCount = 0;
+            m_specInRing [m_specRingPos] = in [i];
+            m_specOutRing[m_specRingPos] = out[i];
+            m_specRingPos = (m_specRingPos + 1) % N;
+
+            if (++m_specFftTrigger >= triggerEvery) {
+                m_specFftTrigger = 0;
+                runFFT(m_specInRing,  m_specInBins);
+                runFFT(m_specOutRing, m_specOutBins);
+                // Qt deep-copies both QVectors into the queued event payload.
+                emit txSpectrumBins(m_specInBins, m_specOutBins, m_activeSR);
+            }
+        }
     }
 }
 

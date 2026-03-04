@@ -163,7 +163,10 @@ bool audioHandlerBase::init(const audioSetup& setup)
     // dispatches the lambda as soon as the converter thread processes events.
     if (setup.isinput && setup.txProc) {
         TxAudioProcessor* proc = setup.txProc;
-        const float sr = static_cast<float>(nativeFormat.sampleRate());
+        // Use the radio codec rate (post-resample), not the mic's native rate.
+        // The hook is invoked after audioConverter resamples mic→codec, so
+        // samplesF carries radioFormat.sampleRate() samples, not nativeFormat.
+        const float sr = static_cast<float>(radioFormat.sampleRate());
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
             converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
                 return proc->processAudio(std::move(s), sr);

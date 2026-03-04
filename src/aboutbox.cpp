@@ -43,6 +43,8 @@ aboutbox::aboutbox(QWidget *parent) :
     // Short credit strings:
     QString pluginDysonCredit = QString("<br/><br/>Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.");
     QString pluginMBEQCredit = QString("<br/><br/>Multiband EQ and Gate 1410 processors (c) Steve Harris, GNU/GPL licensed.");
+    QString pocketFFTCredit = QString("<br/><br/><a href=\"https://gitlab.mpcdf.mpg.de/mtr/pocketfft\">PocketFFT</a> is from Martin Reinecke and used under a BSD 3-Clause New or Revised License. It is (c) 2010-2019 Max-Planck-Society and is based on FFT Pack (FORTRAN) which was written by Paul N. Swarztrauber in 1985, and is copyright by the National Center for Atmospheric Research, Boulder, CO");
+
     QString rsCredit = QString("<br/><br/><a href=\"https://www.speex.org/\"  style=\"color: cyan;\">Speex</a> Resample library Copyright 2003-2008 Jean-Marc Valin");
     QString rtaudiocredit = QString("<br/><br/>RT Audio, from <a href=\"https://www.music.mcgill.ca/~gary/rtaudio/index.html\">Gary P. Scavone</a>");
     QString portaudiocredit = QString("<br/><br/>Port Audio, from <a href=\"http://portaudio.com\">The Port Audio Community</a>");
@@ -149,7 +151,7 @@ aboutbox::aboutbox(QWidget *parent) :
 
     aboutText.append(portaudiocredit);
 
-    aboutText.append(kappanhangack + kb3mmwCredit + qcpcredit + pluginDysonCredit + pluginMBEQCredit + qtcredit + hamlibcredit + adpcmcredit );
+    aboutText.append(kappanhangack + kb3mmwCredit + qcpcredit + pluginDysonCredit + pluginMBEQCredit + pocketFFTCredit + qtcredit + hamlibcredit + adpcmcredit );
     aboutText.append("<br/><br/>");
     aboutText.append("<pre>" + sxcreditcopyright + freqCtlCredit + ftdiCredit + "</pre>");
     aboutText.append("<br/><br/>");

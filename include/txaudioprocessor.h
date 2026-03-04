@@ -17,6 +17,11 @@
 #include "plugins/mbeq.h"
 #include "plugins/noisegate.h"
 
+// Forward-declare pocketfft plan so the full C header isn't pulled into every
+// translation unit that includes this header.
+struct rfft_plan_i;
+using rfft_plan = rfft_plan_i*;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TxAudioProcessor
 //
@@ -35,9 +40,11 @@ class TxAudioProcessor : public QObject
     Q_OBJECT
 
 public:
-    static constexpr int EQ_BANDS = MbeqProcessor::BANDS; // 15
+    static constexpr int EQ_BANDS    = MbeqProcessor::BANDS; // 15
+    static constexpr int SPEC_FFT_LEN = 1024;               // bins = SPEC_FFT_LEN/2
 
     explicit TxAudioProcessor(QObject* parent = nullptr);
+    ~TxAudioProcessor();
 
     // ── Called from the audioConverter thread ────────────────────────────────
     // Processes one block of float samples.  Returns the processed block.
@@ -60,8 +67,9 @@ public:
     void setSidetoneEnabled(bool enabled);
     void setSidetoneLevel(float level);     // 0‥1 linear gain
     void setMuteRx(bool muted);             // mute RX while self-monitoring
-    // Enable/disable spectrum capture (thread-safe; main thread).
+    // Enable/disable spectrum capture and set target frame rate (thread-safe; main thread).
     void setSpectrumEnabled(bool en);
+    void setSpectrumFps(int fps);       // 1–60; default 30
     // Noise gate (runs before input gain)
     void setGateEnabled(bool enabled);
     void setGateThreshold(float dB);        // -70‥0, default -40
@@ -106,13 +114,12 @@ signals:
     void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate);
     // Emitted when the RX mute state changes; connect to audio class setRxMuted().
     void haveRxMuted(bool muted);
-    // Emitted ~30 Hz when spectrum capture is enabled.
-    // inputSamples:  audio after input gain, before DSP (matches input meter).
-    // outputSamples: audio after output gain + clip (matches output meter).
-    // In bypass mode both carry the unmodified microphone signal.
-    void txSpectrumSamples(QVector<float> inputSamples,
-                           QVector<float> outputSamples,
-                           float sampleRate);
+    // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
+    // inBins/outBins: SPEC_FFT_LEN/2 dBFS values (bins 0..511, bin k = k*effectiveSR/SPEC_FFT_LEN Hz).
+    // rawSR: original audio sample rate (use to set EQ band visibility / derive effective SR).
+    void txSpectrumBins(QVector<double> inBins,
+                        QVector<double> outBins,
+                        float rawSR);
 
 private:
     // ── Thread-safe parameter block ──────────────────────────────────────────
@@ -154,14 +161,25 @@ private:
     // Helper: apply linear gain to samples in-place
     static void applyGainDB(Eigen::VectorXf& s, float dB);
 
-    // ── Spectrum capture state (converter thread only after construction) ─────
-    // Enable flag is atomic so the main thread can toggle it safely.
-    std::atomic<bool> m_specEnabled { false };
-    QVector<float>    m_specInBuf;   // input  accumulator
-    QVector<float>    m_specOutBuf;  // output accumulator
-    int               m_specThresh = 0;  // samples per 30 Hz frame (sr/30)
+    // ── Spectrum capture state ────────────────────────────────────────────────
+    // m_specEnabled / m_specTargetFps are atomic: written from main thread,
+    // read from converter thread.  All other members are converter-thread-only.
+    std::atomic<bool> m_specEnabled    { false };
+    std::atomic<int>  m_specTargetFps  { 30 };
 
-    // Append one audio block to the accumulators; emit when threshold reached.
+    rfft_plan              m_specFftPlan  { nullptr };  // pocketfft real-FFT plan
+    std::vector<double>    m_specFftBuf;                // in-place work buffer for rfft_forward
+    std::vector<double>    m_specWindow;                // Hanning coefficients
+    std::vector<float>     m_specInRing;                // input  ring buffer (SPEC_FFT_LEN floats)
+    std::vector<float>     m_specOutRing;               // output ring buffer
+    int                    m_specRingPos     = 0;
+    int                    m_specDecimFactor = 1;       // K = round(activeSR / 16000)
+    int                    m_specDecimCount  = 0;
+    int                    m_specFftTrigger  = 0;       // decimated-sample counter
+    QVector<double>        m_specInBins;                // reused output bins (deep-copied on emit)
+    QVector<double>        m_specOutBins;
+
+    // Decimates, fills ring buffers, triggers FFT and emits txSpectrumBins.
     void appendSpectrumSamples(const Eigen::VectorXf& in,
                                const Eigen::VectorXf& out);
 };

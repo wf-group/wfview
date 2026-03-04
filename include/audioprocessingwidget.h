@@ -24,16 +24,6 @@
 #include "spectrumwidget.h"
 #include "txaudioprocessor.h"
 
-// Eigen FFT for the block-FFT spectrum analyser
-// Use the compiler-builtin __linux__ rather than Qt's Q_OS_LINUX so that
-// this file can be compiled without pulling in any Qt headers.
-#ifdef __linux__
-#  include <eigen3/unsupported/Eigen/FFT>
-#else
-// TODO: Verify macOS and Windows path
-#  include <unsupported/Eigen/FFT>
-#endif
-
 // ─────────────────────────────────────────────────────────────────────────────
 // AudioProcessingWidget — modal-less dialog for TX audio processing.
 //
@@ -59,10 +49,10 @@ public slots:
     void updateInputLevel(float peak);      // 0.0–1.0
     void updateOutputLevel(float peak);     // 0.0–1.0
     void updateGainReduction(float linear); // 1.0 = no reduction
-    // Receives batches of raw audio from TxAudioProcessor (~30 Hz).
-    void onSpectrumSamples(QVector<float> inputSamples,
-                           QVector<float> outputSamples,
-                           float sampleRate);
+    // Receives pre-computed spectrum bins from TxAudioProcessor (audio thread).
+    void onSpectrumBins(QVector<double> inBins,
+                        QVector<double> outBins,
+                        float rawSR);
     void setConnected(bool connected);      // clears spectrum when disconnected
 
 private slots:
@@ -147,45 +137,24 @@ private:
     QVBoxLayout*  m_dspOrderLayout {nullptr};
 
     // ── Spectrum display ─────────────────────────────────────────────────────
-    // Block FFT analyser: input decimated to ~16 kHz effective rate.
-    // One FFT per received batch (O(N log N)) vs. SlidingDFT's O(N) per sample
-    // (O(N×M) per batch).  N=1024 gives 15.6 Hz/bin, 512 bins up to 8 kHz.
-    static constexpr int SPEC_FFT_LEN = 1024;
-
-    QGroupBox*    specGrp       {nullptr};
-    QCheckBox*    specEnable    {nullptr};
+    // FFT is computed by TxAudioProcessor on the converter thread; this widget
+    // only receives pre-computed bins and forwards them to SpectrumWidget.
+    QGroupBox*      specGrp     {nullptr};
+    QCheckBox*      specEnable  {nullptr};
     SpectrumWidget* specWidget  {nullptr};
 
-    // Ring buffers hold the most recent SPEC_FFT_LEN decimated samples.
-    // One Hanning-windowed FFT is computed per incoming batch.
-    Eigen::FFT<float>  m_fft;
-    std::vector<float> m_specWindow;    // precomputed Hanning coefficients
-    std::vector<float> m_specInRing;    // input  ring buffer
-    std::vector<float> m_specOutRing;   // output ring buffer
-    int                m_specRingPos  = 0;
-    float              m_specSampleRate  = 0.0f;
-    int                m_specDecimFactor = 1;
-    int                m_specDecimCount  = 0;
-    int                m_specFftTrigger  = 0;   // decimated-sample counter; runs FFT every triggerEvery samples
-    float              m_audioSampleRate = 0.0f;  // raw audio SR; drives EQ visibility
-    bool               m_radioConnected  = false; // set by setConnected()
-    int                m_spectrumFps     = 10;   // stored from prefs; no UI control yet
+    float m_audioSampleRate = 0.0f;  // raw audio SR — drives EQ band visibility
+    bool  m_radioConnected  = false; // set by setConnected()
+    int   m_spectrumFps     = 30;   // stored from prefs; no UI control yet
 
     // ── Meters ──────────────────────────────────────────────────────────────
     meter*        inputMeter    {nullptr};
     meter*        outputMeter   {nullptr};
     meter*        grMeter       {nullptr};  // gain reduction
 
-    // ── Spectrum diagnostics (always-on 1 Hz timer) ───────────────────────────
-    // m_specDiagTimer fires regardless of whether audio is arriving, so
-    // "no FFT output" is itself a visible diagnostic state.
-    QTimer        m_specDiagTimer;           // 1 Hz — logs FFT rate always
-    QElapsedTimer m_dftCallTimer;            // times each individual FFT pair
-    qint64        m_dftTotalNs      = 0;     // accumulated FFT CPU time
-    int           m_dftCallCount    = 0;     // FFT pairs computed this second
-    int           m_batchCount      = 0;     // onSpectrumSamples calls past guards
-    int           m_lastTriggerEvery = 1;    // cached triggerEvery for diag
-    int           m_lastBatchSize   = 0;     // last n (raw samples per batch)
+    // ── Spectrum diagnostics (1 Hz timer) ────────────────────────────────────
+    QTimer        m_specDiagTimer;
+    int           m_batchCount = 0;  // onSpectrumBins calls past guards, per second
 };
 
 #endif // AUDIOPROCESSINGWIDGET_H
