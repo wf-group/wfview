@@ -182,11 +182,11 @@ struct audioProcessingPrefs {
     float eqBands[TxAudioProcessor::EQ_BANDS] = {};  // dB, default all 0
     float compPeakLimit = -10.0f;  // dB, -30 to 0
     float compRelease   = 0.1f;    // seconds, 0.01 to 1.0
-    float compFastRatio = 0.5f;    // 0.0 to 1.0
-    float compSlowRatio = 0.3f;    // 0.0 to 1.0
+    float compFastRatio = 0.2f;    // 0.0 to 1.0, higher values are less compressed
+    float compSlowRatio = 0.2f;    // 0.0 to 1.0, higher values are less compressed
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
-    bool  muteRx          = false; // mute RX audio while self-monitoring
+    bool  muteRx          = false; // mute RX audio while self-monitoring, not saved to preferences
     bool  spectrumEnabled = false; // enable TX spectrum display
     int   spectrumFPS     = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
 

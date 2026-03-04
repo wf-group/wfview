@@ -2110,8 +2110,8 @@ void wfmain::loadSettings()
     prefs.audioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
     prefs.audioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
     prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
-    prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.5f).toFloat();
-    prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.3f).toFloat();
+    prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.2f).toFloat();
+    prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.2f).toFloat();
     prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
     prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
     prefs.audioProc.spectrumEnabled = settings->value("TxProcSpectrumEnabled", false).toBool();
