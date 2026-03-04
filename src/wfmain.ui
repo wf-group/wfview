@@ -1302,6 +1302,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="audioProcBtn">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="focusPolicy">
           <enum>Qt::FocusPolicy::NoFocus</enum>
          </property>

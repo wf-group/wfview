@@ -6480,6 +6480,11 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
         ui->transmitBtn->setEnabled(rigCaps->hasTransmit);
         ui->micGainSlider->setEnabled(rigCaps->hasTransmit);
         ui->txPowerSlider->setEnabled(rigCaps->hasTransmit);
+        const bool audioProcAvail = rigCaps->hasTransmit && prefs.enableLAN;
+        ui->audioProcBtn->setEnabled(audioProcAvail);
+        if (!audioProcAvail && audioProcWin) {
+            audioProcWin->close();
+        }
 
         if (rigCaps->commands.contains(funcSendCW)) {
             // We have a send CW function, so enable the window.
