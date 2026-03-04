@@ -61,6 +61,7 @@ audioProcessingPrefs AudioProcessingWidget::getPrefs() const
 
     p.sidetoneEnabled = sidetoneEnable->isChecked();
     p.sidetoneLevel   = sidetoneLevel->value() * 0.01f;
+    p.muteRx = muteRxCheck->isChecked();
 
     p.spectrumEnabled = specEnable->isChecked();
     p.spectrumFPS     = m_spectrumFps;
