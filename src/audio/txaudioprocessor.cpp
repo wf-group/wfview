@@ -131,8 +131,15 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     }
 
     // ── Input gain ───────────────────────────────────────────────────────────
+
     const float inputPeak = samples.array().abs().maxCoeff();
-    emit txInputLevel(inputPeak);
+    if(p.showRMSValues) {
+        const float inputRMS = std::sqrt(samples.array().square().mean());
+        emit txInputLevels(inputRMS, inputPeak);
+    } else {
+        emit txInputLevel(inputPeak);
+    }
+
 
     // ── Measure input peak ───────────────────────────────────────────────────
     applyGainDB(samples, p.inputGainDB);
@@ -178,7 +185,12 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
 
     // ── Measure output peak ──────────────────────────────────────────────────
     const float outputPeak = samples.array().abs().maxCoeff();
-    emit txOutputLevel(outputPeak);
+    if(p.showRMSValues) {
+        const float outputRMS = std::sqrt(samples.array().square().mean());
+        emit txOutputLevels(outputRMS, outputPeak);
+    } else {
+        emit txOutputLevel(outputPeak);
+    }
 
     // ── Sidetone ─────────────────────────────────────────────────────────────
     if (p.sidetoneEnabled && m_activeSR > 0.0f) {

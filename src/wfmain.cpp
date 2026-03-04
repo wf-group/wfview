@@ -474,6 +474,12 @@ void wfmain::openRig()
                     audioProcWin, &AudioProcessingWidget::updateInputLevel);
             connect(txProc, &TxAudioProcessor::txOutputLevel,
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
+
+            connect(txProc, &TxAudioProcessor::txInputLevels,
+                    audioProcWin, &AudioProcessingWidget::updateInputLevels);
+            connect(txProc, &TxAudioProcessor::txOutputLevels,
+                    audioProcWin, &AudioProcessingWidget::updateOutputLevels);
+
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
             connect(txProc, &TxAudioProcessor::txSpectrumBins,
@@ -5650,6 +5656,10 @@ void wfmain::on_audioProcBtn_clicked()
                     audioProcWin, &AudioProcessingWidget::updateInputLevel);
             connect(txProc, &TxAudioProcessor::txOutputLevel,
                     audioProcWin, &AudioProcessingWidget::updateOutputLevel);
+            connect(txProc, &TxAudioProcessor::txInputLevels,
+                    audioProcWin, &AudioProcessingWidget::updateInputLevels);
+            connect(txProc, &TxAudioProcessor::txOutputLevels,
+                    audioProcWin, &AudioProcessingWidget::updateOutputLevels);
             connect(txProc, &TxAudioProcessor::txGainReduction,
                     audioProcWin, &AudioProcessingWidget::updateGainReduction);
             connect(txProc, &TxAudioProcessor::txSpectrumBins,

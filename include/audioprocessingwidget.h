@@ -48,6 +48,9 @@ signals:
 public slots:
     void updateInputLevel(float peak);      // 0.0–1.0
     void updateOutputLevel(float peak);     // 0.0–1.0
+    void updateInputLevels(float RMS, float peak);      // 0.0–1.0
+    void updateOutputLevels(float RMS, float peak);     // 0.0–1.0
+
     void updateGainReduction(float linear); // 1.0 = no reduction
     // Receives pre-computed spectrum bins from TxAudioProcessor (audio thread).
     void onSpectrumBins(QVector<double> inBins,

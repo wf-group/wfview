@@ -108,6 +108,8 @@ signals:
     // Peak amplitude values 0.0–1.0, emitted each processed block.
     void txInputLevel(float peak);
     void txOutputLevel(float peak);
+    void txOutputLevels(float RMS, float peak);
+    void txInputLevels(float RMS, float peak);
     // Linear gain from compressor (1.0 = no gain reduction; 0.0 = −∞ dB).
     void txGainReduction(float linearGain);
     // Sidetone: processed float audio at given sample rate.
@@ -147,6 +149,7 @@ private:
         float gateRange      = -90.0f;
         float gateLfCutoff   =  80.0f;
         float gateHfCutoff   = 8000.0f;
+        bool showRMSValues   = false;
     };
 
     mutable QMutex            m_mutex;

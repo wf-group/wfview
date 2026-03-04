@@ -90,6 +90,16 @@ void AudioProcessingWidget::updateOutputLevel(float peak)
     outputMeter->setLevel(static_cast<double>(peak) * 255.0);
 }
 
+void AudioProcessingWidget::updateInputLevels(float rms, float peak)
+{
+    inputMeter->setLevels(static_cast<double>(rms) * 255.0, static_cast<double>(peak) * 255.0);
+}
+
+void AudioProcessingWidget::updateOutputLevels(float rms, float peak)
+{
+    outputMeter->setLevels(static_cast<double>(rms) * 255.0, static_cast<double>(peak) * 255.0);
+}
+
 void AudioProcessingWidget::updateGainReduction(float linear)
 {
     // Gain reduction meter: 0 dB = no reduction (1.0), shown on meterComp scale.
