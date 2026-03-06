@@ -1759,7 +1759,7 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                     .arg(QString::number(p.username.length()).rightJustified(2, QChar('0')))
                     .arg(QString::number(p.password.length()).rightJustified(2, QChar('0')))
                     .arg(p.username).arg(p.password).toLatin1());
-                qInfo(logRig()) << "Sending login for user:" << p.username << "raw" << payload;
+                // qDebug(logRig()) << "Sending login for user:" << p.username << "raw" << payload;
             }
             else if(!strcmp(value.typeName(),"toneInfo"))
             {
