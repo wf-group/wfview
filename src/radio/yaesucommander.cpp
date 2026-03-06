@@ -1849,11 +1849,13 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                         break;
                     case 1:
                         // Turn standard ATU on: P1=0, P2=1, P3=0
-                        payload.append(QString::number(10).rightJustified(3, QChar('0')).toLatin1());
+			payload.append(QString::number(1).rightJustified(3, QChar('0')).toLatin1());
+                        // payload.append(QString::number(10).rightJustified(3, QChar('0')).toLatin1());
                         break;
                     case 2:
                         // Run standard ATU tuning cycle: P1=0, P2=1, P3=1
-                        payload.append(QString::number(11).rightJustified(3, QChar('0')).toLatin1());
+			payload.append(QString::number(3).rightJustified(3, QChar('0')).toLatin1());
+                        //payload.append(QString::number(11).rightJustified(3, QChar('0')).toLatin1());
                         break;
                     default:
                         break;

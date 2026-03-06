@@ -2878,8 +2878,9 @@ void wfmain::setManufacturer(manufacturersType_t man)
     QDir systemRigDir(systemRigLocation);
 
     if (!systemRigDir.exists()) {
-        qWarning() << "********* Rig directory does not exist ********";
+        qWarning() << "********* Rig directory " << systemRigLocation << "does not exist ********";
     } else {
+        qDebug(logRig()) << "Loaded rigs from directory " << systemRigLocation;
         QStringList rigs = systemRigDir.entryList(QStringList() << "*.rig" << "*.RIG", QDir::Files);
         for (QString &rig: rigs) {
             QSettings* rigSettings = new QSettings(systemRigDir.absoluteFilePath(rig), QSettings::Format::IniFormat);
