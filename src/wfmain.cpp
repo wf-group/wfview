@@ -2864,15 +2864,15 @@ void wfmain::setManufacturer(manufacturersType_t man)
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
 #ifndef Q_OS_LINUX
-    QString systemRigLocation = QCoreApplication::applicationDirPath();
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
 #else
-    QString systemRigLocation = PREFIX;
-#endif
-
-#ifdef Q_OS_LINUX
-    systemRigLocation += "/share/wfview/rigs";
-#else
-    systemRigLocation +="/rigs";
+    // When running as an AppImage the runtime sets APPDIR.  In that case the
+    // compile-time PREFIX (/usr) is meaningless; use the XDG user-data
+    // location (~/.local/share/wfview/rigs) where the AppImage installer
+    // places the rig files.
+    QString systemRigLocation = qEnvironmentVariable("APPDIR").isEmpty()
+        ? QString(PREFIX "/share/wfview/rigs")
+        : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/rigs";
 #endif
 
     QDir systemRigDir(systemRigLocation);
