@@ -7,6 +7,10 @@
 #include <memory>
 #include <atomic>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #ifndef Q_OS_LINUX
 #  include <Eigen/Dense>
 #else
