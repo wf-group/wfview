@@ -2872,7 +2872,7 @@ void wfmain::setManufacturer(manufacturersType_t man)
     // places the rig files.
     QString systemRigLocation = qEnvironmentVariable("APPDIR").isEmpty()
         ? QString(PREFIX "/share/wfview/rigs")
-        : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/rigs";
+        : QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/wfview/rigs";
 #endif
 
     QDir systemRigDir(systemRigLocation);
