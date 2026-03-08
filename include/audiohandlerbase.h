@@ -34,6 +34,7 @@
 #include "audioconverter.h"
 #include "logcategories.h"
 #include "txaudioprocessor.h"
+#include "rxaudioprocessor.h"
 
 class audioHandlerBase : public QObject
 {
@@ -49,8 +50,9 @@ public:
     virtual void start();
     virtual void stop();
 
-    // Returns the TX processor pointer set in audioSetup (null for non-TX or unset).
+    // Returns the TX/RX processor pointers set in audioSetup (null when not set).
     TxAudioProcessor* txProcessor() const { return setupData.txProc; }
+    RxAudioProcessor* rxProcessor() const { return setupData.rxProc; }
 
 signals:
     void audioMessage(QString message);

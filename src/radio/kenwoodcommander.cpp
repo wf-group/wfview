@@ -858,11 +858,19 @@ void kenwoodCommander::parseData(QByteArray data)
                 connect(rtpThread, SIGNAL(finished()), rtp, SLOT(deleteLater()));
                 connect(this, SIGNAL(haveChangeLatency(quint16)), rtp, SLOT(changeLatency(quint16)));
                 connect(this, SIGNAL(haveSetVolume(quint8)), rtp, SLOT(setVolume(quint8)));
-                // Sidetone and RX mute from TX processor
+                // Sidetone and RX mute from TX processor.
+                // Route sidetone through RxAudioProcessor when available so it
+                // is mixed AFTER noise reduction.
                 if (txSetup.txProc) {
-                    connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                            rtp, &rtpAudio::injectSidetone,
-                            Qt::QueuedConnection);
+                    if (rxSetup.rxProc) {
+                        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                                rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
+                                Qt::QueuedConnection);
+                    } else {
+                        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                                rtp, &rtpAudio::injectSidetone,
+                                Qt::QueuedConnection);
+                    }
                     connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
                             rtp, &rtpAudio::setRxMuted,
                             Qt::QueuedConnection);

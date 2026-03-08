@@ -291,7 +291,15 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/plugins
 INCLUDEPATH += src/audio/pocketfft
 INCLUDEPATH += src/audio/resampler
+INCLUDEPATH += src/audio/speexdspmini/src
+INCLUDEPATH += src/audio/speexdspmini/include
+INCLUDEPATH += src/audio/spac
 INCLUDEPATH += src
+
+# speexdspmini: self-contained Speex preprocessor (no system libspeexdsp needed)
+DEFINES += FLOATING_POINT
+DEFINES += USE_KISS_FFT
+DEFINES += "EXPORT="
 
 SOURCES += \
     src/aboutbox.cpp \
@@ -306,7 +314,14 @@ SOURCES += \
     src/audio/pocketfft/pocketfft.c \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
-    src/audioprocessingwidget.cpp \
+    src/audio/rxaudioprocessor.cpp \
+    src/audio/speexdspmini/src/preprocess.c \
+    src/audio/speexdspmini/src/fftwrap.c \
+    src/audio/speexdspmini/src/filterbank.c \
+    src/audio/speexdspmini/src/kiss_fft.c \
+    src/audio/speexdspmini/src/kiss_fftr.c \
+    src/txaudioprocessingwidget.cpp \
+    src/rxaudioprocessingwidget.cpp \
     src/audio/audiohandlerpainput.cpp \
     src/audio/audiohandlerpaoutput.cpp \
     src/audio/audiohandlerqtinput.cpp \
@@ -386,7 +401,12 @@ HEADERS  += \
     include/audiohandler.h \
     include/audiohandlerbase.h \
     include/audioprocessingwidget.h \
+    include/txaudioprocessingwidget.h \
     include/txaudioprocessor.h \
+    include/rxaudioprocessor.h \
+    include/rxaudioprocessingwidget.h \
+    src/audio/speexnrprocessor.h \
+    src/audio/spacnrprocessor.h \
     src/audio/plugins/dysoncompress.h \
     src/audio/plugins/mbeq.h \
     src/audio/plugins/noisegate.h \

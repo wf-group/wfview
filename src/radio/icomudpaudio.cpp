@@ -1,6 +1,7 @@
 #include "icomudpaudio.h"
 #include "logcategories.h"
 #include "txaudioprocessor.h"
+#include "rxaudioprocessor.h"
 #include <algorithm>
 #include <cstring>
 
@@ -317,11 +318,19 @@ void icomUdpAudio::startAudio() {
 
         connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
 
-        // Connect sidetone and RX mute from TX processor
+        // Connect sidetone and RX mute from TX processor.
+        // When an RX NR processor is active, route sidetone there so it is
+        // mixed AFTER noise reduction (the user's own voice is not NR-processed).
         if (txSetup.txProc) {
-            connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                    this, &icomUdpAudio::injectSidetone,
-                    Qt::QueuedConnection);
+            if (rxSetup.rxProc) {
+                connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                        rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
+                        Qt::QueuedConnection);
+            } else {
+                connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                        this, &icomUdpAudio::injectSidetone,
+                        Qt::QueuedConnection);
+            }
             connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
                     this, &icomUdpAudio::setRxMuted,
                     Qt::QueuedConnection);

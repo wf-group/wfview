@@ -1,6 +1,7 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
 #include "txaudioprocessor.h"
+#include "rxaudioprocessor.h"
 #include <algorithm>
 #include <cstring>
 
@@ -132,9 +133,15 @@ void yaesuUdpAudio::init()
     connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
 
     if (txSetup.txProc) {
-        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                this, &yaesuUdpAudio::injectSidetone,
-                Qt::QueuedConnection);
+        if (rxSetup.rxProc) {
+            connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                    rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
+                    Qt::QueuedConnection);
+        } else {
+            connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                    this, &yaesuUdpAudio::injectSidetone,
+                    Qt::QueuedConnection);
+        }
         connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
                 this, &yaesuUdpAudio::setRxMuted,
                 Qt::QueuedConnection);

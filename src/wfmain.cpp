@@ -489,6 +489,19 @@ void wfmain::openRig()
     applyAudioProcPrefs(prefs.audioProc);
     prefs.txSetup.txProc = txProc;
 
+    // Attach RX audio processor to the RX output setup
+    if (!rxProc) {
+        rxProc = new RxAudioProcessor(this);
+        if (rxAudioProcWin) {
+            connect(rxProc, &RxAudioProcessor::rxInputLevel,
+                    rxAudioProcWin, &RxAudioProcessingWidget::updateInputLevel);
+            connect(rxProc, &RxAudioProcessor::rxOutputLevel,
+                    rxAudioProcWin, &RxAudioProcessingWidget::updateOutputLevel);
+        }
+    }
+    applyRxAudioProcPrefs(prefs.rxAudioProc);
+    prefs.rxSetup.rxProc = rxProc;
+
     makeRig();
 
 
@@ -2128,6 +2141,26 @@ void wfmain::loadSettings()
     prefs.audioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
     prefs.audioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
 
+    // RX audio processing prefs
+    prefs.rxAudioProc.bypass           = settings->value("RxProcBypass",           false).toBool();
+    prefs.rxAudioProc.nrEnabled        = settings->value("RxProcNrEnabled",         false).toBool();
+    prefs.rxAudioProc.nrMode           = static_cast<RxNrMode>(settings->value("RxProcNrMode", 0).toInt());
+    prefs.rxAudioProc.channelSelect    = settings->value("RxProcChannelSelect",     0).toInt();
+    prefs.rxAudioProc.speexSuppression = settings->value("RxProcSpeexSuppression", -30).toInt();
+    prefs.rxAudioProc.speexBandsPreset = settings->value("RxProcSpeexBandsPreset",   3).toInt();
+    prefs.rxAudioProc.speexFrameMs     = settings->value("RxProcSpeexFrameMs",      20).toInt();
+    prefs.rxAudioProc.speexDereverb    = settings->value("RxProcSpeexDereverb",    false).toBool();
+    prefs.rxAudioProc.speexDereverbLevel = settings->value("RxProcSpeexDereverbLevel", 0.0f).toFloat();
+    prefs.rxAudioProc.speexDereverbDecay = settings->value("RxProcSpeexDereverbDecay", 0.0f).toFloat();
+    prefs.rxAudioProc.speexAgc         = settings->value("RxProcSpeexAgc",         false).toBool();
+    prefs.rxAudioProc.speexAgcLevel    = settings->value("RxProcSpeexAgcLevel",  8000.0f).toFloat();
+    prefs.rxAudioProc.speexAgcMaxGain  = settings->value("RxProcSpeexAgcMaxGain",    30).toInt();
+    prefs.rxAudioProc.spacFrameMs      = settings->value("RxProcSpacFrameMs",     20.0f).toFloat();
+    prefs.rxAudioProc.spacVoicingThr   = settings->value("RxProcSpacVoicingThr",  0.20f).toFloat();
+    prefs.rxAudioProc.spacVoicingFull  = settings->value("RxProcSpacVoicingFull", 0.55f).toFloat();
+    prefs.rxAudioProc.spacAttenDb      = settings->value("RxProcSpacAttenDb",     80.0f).toFloat();
+    prefs.rxAudioProc.outputGainDB     = settings->value("RxProcOutputGainDB",     0.0f).toFloat();
+
     if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
 
         tci = new tciServer();
@@ -3410,6 +3443,27 @@ void wfmain::saveSettings()
     settings->setValue("TxProcGateRange",     prefs.audioProc.gateRange);
     settings->setValue("TxProcGateLfCutoff",  prefs.audioProc.gateLfCutoff);
     settings->setValue("TxProcGateHfCutoff",  prefs.audioProc.gateHfCutoff);
+
+    // RX audio processing prefs
+    settings->setValue("RxProcBypass",           prefs.rxAudioProc.bypass);
+    settings->setValue("RxProcNrEnabled",         prefs.rxAudioProc.nrEnabled);
+    settings->setValue("RxProcNrMode",            static_cast<int>(prefs.rxAudioProc.nrMode));
+    settings->setValue("RxProcChannelSelect",     prefs.rxAudioProc.channelSelect);
+    settings->setValue("RxProcSpeexSuppression",  prefs.rxAudioProc.speexSuppression);
+    settings->setValue("RxProcSpeexBandsPreset",  prefs.rxAudioProc.speexBandsPreset);
+    settings->setValue("RxProcSpeexFrameMs",      prefs.rxAudioProc.speexFrameMs);
+    settings->setValue("RxProcSpeexDereverb",     prefs.rxAudioProc.speexDereverb);
+    settings->setValue("RxProcSpeexDereverbLevel",prefs.rxAudioProc.speexDereverbLevel);
+    settings->setValue("RxProcSpeexDereverbDecay",prefs.rxAudioProc.speexDereverbDecay);
+    settings->setValue("RxProcSpeexAgc",          prefs.rxAudioProc.speexAgc);
+    settings->setValue("RxProcSpeexAgcLevel",     prefs.rxAudioProc.speexAgcLevel);
+    settings->setValue("RxProcSpeexAgcMaxGain",   prefs.rxAudioProc.speexAgcMaxGain);
+    settings->setValue("RxProcSpacFrameMs",       prefs.rxAudioProc.spacFrameMs);
+    settings->setValue("RxProcSpacVoicingThr",    prefs.rxAudioProc.spacVoicingThr);
+    settings->setValue("RxProcSpacVoicingFull",   prefs.rxAudioProc.spacVoicingFull);
+    settings->setValue("RxProcSpacAttenDb",       prefs.rxAudioProc.spacAttenDb);
+    settings->setValue("RxProcOutputGainDB",      prefs.rxAudioProc.outputGainDB);
+
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
     settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
     settings->setValue("ConnectionType", udpPrefs.connectionType);
@@ -5639,7 +5693,7 @@ void wfmain::on_rigCreatorBtn_clicked()
     create->show();
 }
 
-void wfmain::on_audioProcBtn_clicked()
+void wfmain::on_TXaudioProcBtn_clicked()
 {
     if (!audioProcWin) {
         audioProcWin = new AudioProcessingWidget(this);
@@ -5708,6 +5762,62 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setGateLfCutoff(p.gateLfCutoff);
     txProc->setGateHfCutoff(p.gateHfCutoff);
 }
+
+void wfmain::on_RXaudioProcBtn_clicked()
+{
+    if (!rxAudioProcWin) {
+        rxAudioProcWin = new RxAudioProcessingWidget(this);
+        rxAudioProcWin->setPrefs(prefs.rxAudioProc);
+
+        connect(rxAudioProcWin, &RxAudioProcessingWidget::prefsChanged,
+                this, &wfmain::onRxAudioProcPrefsChanged);
+
+        connect(this, &wfmain::connectionStatus,
+                rxAudioProcWin, &RxAudioProcessingWidget::setConnected);
+        rxAudioProcWin->setConnected(connStatus == connConnected);
+
+        if (rxProc) {
+            connect(rxProc, &RxAudioProcessor::rxInputLevel,
+                    rxAudioProcWin, &RxAudioProcessingWidget::updateInputLevel);
+            connect(rxProc, &RxAudioProcessor::rxOutputLevel,
+                    rxAudioProcWin, &RxAudioProcessingWidget::updateOutputLevel);
+        }
+    }
+    rxAudioProcWin->show();
+    rxAudioProcWin->raise();
+    rxAudioProcWin->activateWindow();
+}
+
+void wfmain::onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p)
+{
+    prefs.rxAudioProc = p;
+    applyRxAudioProcPrefs(p);
+}
+
+void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
+{
+    if (!rxProc) return;
+
+    rxProc->setBypassed(p.bypass);
+    rxProc->setNrEnabled(p.nrEnabled);
+    rxProc->setNrMode(p.nrMode);
+    rxProc->setChannelSelect(p.channelSelect);
+    rxProc->setSpeexSuppression(p.speexSuppression);
+    rxProc->setSpeexBandsPreset(p.speexBandsPreset);
+    rxProc->setSpeexFrameMs(p.speexFrameMs);
+    rxProc->setSpeexDereverb(p.speexDereverb);
+    rxProc->setSpeexDereverbLevel(p.speexDereverbLevel);
+    rxProc->setSpeexDereverbDecay(p.speexDereverbDecay);
+    rxProc->setSpeexAgc(p.speexAgc);
+    rxProc->setSpeexAgcLevel(p.speexAgcLevel);
+    rxProc->setSpeexAgcMaxGain(p.speexAgcMaxGain);
+    rxProc->setSpacFrameMs(p.spacFrameMs);
+    rxProc->setSpacVoicingThr(p.spacVoicingThr);
+    rxProc->setSpacVoicingFull(p.spacVoicingFull);
+    rxProc->setSpacAttenDb(p.spacAttenDb);
+    rxProc->setOutputGainDB(p.outputGainDB);
+}
+
 void wfmain::receiveValue(cacheItem val){
 
     uchar vfo=0;
@@ -6482,9 +6592,14 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
         ui->micGainSlider->setEnabled(rigCaps->hasTransmit);
         ui->txPowerSlider->setEnabled(rigCaps->hasTransmit);
         const bool audioProcAvail = rigCaps->hasTransmit && prefs.enableLAN;
-        ui->audioProcBtn->setEnabled(audioProcAvail);
+        ui->TXaudioProcBtn->setEnabled(audioProcAvail);
         if (!audioProcAvail && audioProcWin) {
             audioProcWin->close();
+        }
+        const bool rxAudioProcAvail = prefs.enableLAN;
+        ui->RXaudioProcBtn->setEnabled(rxAudioProcAvail);
+        if (!rxAudioProcAvail && rxAudioProcWin) {
+            rxAudioProcWin->close();
         }
 
         if (rigCaps->commands.contains(funcSendCW)) {

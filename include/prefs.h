@@ -201,6 +201,44 @@ struct audioProcessingPrefs {
     float gateHfCutoff  = 2700.0f;// Hz, key lowpass,  200 .. 20000
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RX Audio Processing preferences
+// Defaults mirror the algorithm defaults from the demo programs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Which NR algorithm is active
+enum class RxNrMode { Speex = 0, Spac = 1 };
+
+struct rxAudioProcessingPrefs {
+    bool       bypass      = false;  // master bypass — skips NR and output gain
+    bool       nrEnabled   = false;  // enable noise reduction
+    RxNrMode   nrMode      = RxNrMode::Speex;
+
+    // ── Channel selection ────────────────────────────────────────────────────
+    // 0=auto (mono pass-through / sum if stereo), 1=ch1 only, 2=ch2 only, 3=ch1+ch2 sum
+    int  channelSelect = 0;
+
+    // ── Speex parameters ─────────────────────────────────────────────────────
+    int  speexSuppression  = -30;    // max noise attenuation dB (negative, e.g. -30)
+    int  speexBandsPreset  =  3;     // index into band_presets[] in filterbank.h
+    int  speexFrameMs      = 20;     // frame size in ms (10 or 20 typical)
+    bool speexDereverb     = false;
+    float speexDereverbLevel = 0.0f; // 0.0–1.0
+    float speexDereverbDecay = 0.0f; // 0.0–1.0
+    bool speexAgc            = false;
+    float speexAgcLevel      = 8000.0f;
+    int   speexAgcMaxGain    = 30;   // dB
+
+    // ── SPAC parameters ──────────────────────────────────────────────────────
+    float spacFrameMs      = 20.0f;  // autocorrelation frame size (ms)
+    float spacVoicingThr   = 0.20f;  // voicing threshold (0.0–1.0)
+    float spacVoicingFull  = 0.55f;  // full-blend upper bound (> voicingThr)
+    float spacAttenDb      = 80.0f;  // unvoiced attenuation (positive dB)
+
+    // ── Output gain ──────────────────────────────────────────────────────────
+    float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain
+};
+
 struct preferences {
     // Program:
     QString version;
@@ -301,6 +339,7 @@ struct preferences {
     audioSetup rxSetup;
     audioSetup txSetup;
     audioProcessingPrefs audioProc;
+    rxAudioProcessingPrefs rxAudioProc;
 
     QChar decimalSeparator;
     QChar groupSeparator;

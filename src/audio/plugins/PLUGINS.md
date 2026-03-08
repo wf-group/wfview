@@ -227,19 +227,20 @@ inside these classes.
 
 ---
 
-## UI — Audio Processor settings window
+## UI — TX Audio Processor settings window
 
 | Role | File | Class |
 |------|------|-------|
-| Dialog (UI, slots, meters) | `src/audioprocessingwidget.cpp` / `include/audioprocessingwidget.h` | `AudioProcessingWidget` |
-| Parameter bridge | `src/wfmain.cpp` — `on_audioProcBtn_clicked()`, `onAudioProcPrefsChanged()`, `applyAudioProcPrefs()` | `wfmain` |
+| Dialog (UI, slots, meters) | `src/txaudioprocessingwidget.cpp` / `include/txaudioprocessingwidget.h` | `TxAudioProcessingWidget` |
+| Compatibility alias | `include/audioprocessingwidget.h` | `using AudioProcessingWidget = TxAudioProcessingWidget` |
+| Parameter bridge | `src/wfmain.cpp` — `on_TXaudioProcBtn_clicked()`, `onAudioProcPrefsChanged()`, `applyAudioProcPrefs()` | `wfmain` |
 | DSP engine | `src/audio/txaudioprocessor.cpp` / `include/txaudioprocessor.h` | `TxAudioProcessor` |
 | Level meter widget | `src/meter.cpp` / `include/meter.h` | `meter` |
 
 ### Window lifetime
 
-`AudioProcessingWidget` is created lazily when the user first clicks the
-**Audio Processing** button (`on_audioProcBtn_clicked()`, `src/wfmain.cpp`).
+`TxAudioProcessingWidget` is created lazily when the user first clicks the
+**TX Audio Proc** button (`on_TXaudioProcBtn_clicked()`, `src/wfmain.cpp`).
 `TxAudioProcessor` is created when the radio connection is set up
 (same file, just before `makeRig()`).  Both paths check whether the other
 object already exists and connect the level-meter signals at that point, so
@@ -269,7 +270,7 @@ call works (e.g. `0, 255, 241`).  For `meterComp` the linear bar path uses
 
 ---
 
-## Audio pipeline — where the plugins are inserted
+## Transmit Audio pipeline — where the plugins are inserted
 
 ```
 Microphone (QAudioSource)
@@ -302,3 +303,114 @@ The hook is installed via a `QMetaObject::invokeMethod` queued call so that it
 runs on the converter's own thread, avoiding any lock-order issues.  Plugin
 objects (`MbeqProcessor`, `DysonCompressor`) are owned by `TxAudioProcessor`
 and are (re)created whenever the sample rate changes.
+
+---
+
+## RX Noise Reduction
+
+Two algorithms are provided.  Both are selected from the **RX Audio Proc** dialog
+(`on_RXaudioProcBtn_clicked()`).
+
+### SpeexNrProcessor (Speex preprocessor)
+
+**Origin:** `speexdspmini/` — a self-contained copy of the Speex DSP preprocessor
+(no system `libspeexdsp` required).
+
+**File:** `src/audio/speexnrprocessor.h` (header-only C++ wrapper)
+
+**Build flags:** `FLOATING_POINT`, `USE_KISS_FFT`, `EXPORT=` (set in `wfview.pro`).
+
+#### Parameters (exposed via RxAudioProcessor setters)
+
+| Setter | Range | Default | Description |
+|--------|-------|---------|-------------|
+| `setSuppression(int dB)` | −70 … −1 | −30 | Target noise suppression level |
+| `setBandsPreset(int p)` | 0 … N−1 | 3 | Number of Speex filter bands (from `filterbank.h`) |
+| `setFrameMs(int ms)` | 10, 20 | 20 | Speex processing frame size |
+| `setDereverb(bool)` | — | false | Enable dereverberation |
+| `setDereverbLevel(float)` | 0 … 1 | 0 | Dereverb strength |
+| `setDereverbDecay(float)` | 0 … 1 | 0 | Dereverb tail decay |
+| `setAgc(bool)` | — | false | Enable automatic gain control |
+| `setAgcLevel(float)` | 1000 … 32000 | 8000 | AGC target level |
+| `setAgcMaxGain(int dB)` | 0 … 60 | 30 | AGC max gain |
+
+Band presets are driven at compile time from `filterbank.h` `band_presets[]` and
+`FILTERBANK_NUM_PRESETS`, so adding presets to that header automatically extends the combo
+box without any other code changes.
+
+### SpacNrProcessor (SPAC — Splicing of AutoCorrelation)
+
+**Origin:** Based on the SPAC algorithm by Jouji Suzuki (1970s), as implemented in the
+Kenwood TS-890S speech processor.  Ported to streaming C++ with eight improvements (A–H).
+
+**File:** `src/audio/spacnrprocessor.h` (header-only C++ class; `spac_nr.c` in `src/audio/spac/`
+is reference material only and is not compiled into the build).
+
+**Algorithm:** 50 % overlap-add.  Each frame: autocorrelation → pitch detection
+(parabolic interpolation, prominence check, continuity tracking) → voiced/unvoiced
+classification → cycle tiling with cosine crossfade → soft-blend attenuation.
+
+#### Parameters
+
+| Setter | Range | Default | Description |
+|--------|-------|---------|-------------|
+| `setFrameMs(float ms)` | 10 … 50 | 20 | Analysis frame size |
+| `setVoicingThr(float)` | 0 … 1 | 0.20 | Min correlation score to classify as voiced |
+| `setVoicingFull(float)` | 0 … 1 | 0.55 | Score at which blend is 100 % voiced |
+| `setAttenDb(float dB)` | 0 … 120 | 80 | Unvoiced attenuation depth |
+
+---
+
+## Receive Audio pipeline
+
+```
+Radio UDP RX path  (icomUdpAudio / yaesuUdpAudio / rtpAudio)
+    ↓  emit haveAudioData(audioPacket)
+audioHandlerBase (output / playback handler)
+    ↓  slot incomingAudio(audioPacket)
+audioConverter  (TimeCriticalPriority thread)
+    src/audio/audioconverter.cpp
+    1. Decode (Opus / PCM / ADPCM / uLaw)
+    2. ── processingHook ──────────────────────────────────────────
+          RxAudioProcessor::processAudio(samples, sampleRate, channels)
+              a. Snapshot parameters (QMutex, brief)
+              b. emit rxInputLevel → Input level display
+              c. Apply noise reduction (SpeexNrProcessor or SpacNrProcessor)
+                 on selected channel(s) per channelSelect
+              d. Apply output gain, clip to [−1, 1]
+              e. Mix sidetone (AFTER NR so user's own voice is untouched)
+              f. emit rxOutputLevel → Output level display
+    3. Resample to native audio device rate
+    4. Write to QAudioSink / PortAudio / RtAudio output device
+```
+
+### Sidetone intercept point
+
+When `RxAudioProcessor` is active (LAN connection only), the sidetone signal from
+`TxAudioProcessor::haveSidetoneFloat` is routed to
+`RxAudioProcessor::injectSidetone` **instead of** the UDP audio class's own
+`injectSidetone`.  This ensures the user hears their own voice **after** noise
+reduction, not before.
+
+Connection sites: `icomudpaudio.cpp`, `yaesuudpaudio.cpp`, `kenwoodcommander.cpp`.
+The conditional branch checks `rxSetup.rxProc != nullptr`.
+
+### Where the hook is installed
+
+`audioHandlerBase::init()` (`src/audio/audiohandlerbase.cpp`) installs the hook via
+`QMetaObject::invokeMethod(..., Qt::QueuedConnection)` when
+`!setup.isinput && setup.rxProc` is non-null.
+
+### UI
+
+| Role | File | Class |
+|------|------|-------|
+| Dialog | `src/rxaudioprocessingwidget.cpp` / `include/rxaudioprocessingwidget.h` | `RxAudioProcessingWidget` |
+| Parameter bridge | `src/wfmain.cpp` — `on_RXaudioProcBtn_clicked()`, `onRxAudioProcPrefsChanged()`, `applyRxAudioProcPrefs()` | `wfmain` |
+| DSP engine | `src/audio/rxaudioprocessor.cpp` / `include/rxaudioprocessor.h` | `RxAudioProcessor` |
+| NR back-ends | `src/audio/speexnrprocessor.h`, `src/audio/spacnrprocessor.h` | `SpeexNrProcessor`, `SpacNrProcessor` |
+
+The **RX Audio Proc** button is enabled only for LAN connections (`prefs.enableLAN`).
+`RxAudioProcessor` is created once when the first radio connection is set up and
+reused across reconnects.
+

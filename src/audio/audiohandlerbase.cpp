@@ -158,18 +158,32 @@ bool audioHandlerBase::init(const audioSetup& setup)
         return false;
     }
 
-    // Install TX processing hook if a processor was provided.
-    // The hook must be installed on the converter's thread; QueuedConnection
-    // dispatches the lambda as soon as the converter thread processes events.
+    // Install TX processing hook (input converters only).
+    // The hook is invoked after resampling mic→codec rate.
     if (setup.isinput && setup.txProc) {
         TxAudioProcessor* proc = setup.txProc;
-        // Use the radio codec rate (post-resample), not the mic's native rate.
-        // The hook is invoked after audioConverter resamples mic→codec, so
-        // samplesF carries radioFormat.sampleRate() samples, not nativeFormat.
         const float sr = static_cast<float>(radioFormat.sampleRate());
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
             converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
                 return proc->processAudio(std::move(s), sr);
+            });
+        }, Qt::QueuedConnection);
+    }
+
+    // Install RX processing hook (output converters only).
+    // Uses setPreResampleHook so the hook runs BEFORE channel conversion and
+    // resampling.  The samples therefore arrive at the radio's codec rate and
+    // channel count — matching the TX sidetone rate — which avoids the 2×-pitch
+    // bug that would occur if we mixed 8 kHz sidetone into 48 kHz (post-resample)
+    // audio.  Sidetone is mixed inside RxAudioProcessor AFTER noise reduction,
+    // ensuring the user's voice is not NR-processed.
+    if (!setup.isinput && setup.rxProc) {
+        RxAudioProcessor* proc = setup.rxProc;
+        const float sr = static_cast<float>(radioFormat.sampleRate());
+        const int   ch = radioFormat.channelCount();
+        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr, ch]{
+            converter->setPreResampleHook([proc, sr, ch](Eigen::VectorXf s){
+                return proc->processAudio(std::move(s), sr, ch);
             });
         }, Qt::QueuedConnection);
     }
