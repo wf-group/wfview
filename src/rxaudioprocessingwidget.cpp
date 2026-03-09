@@ -52,9 +52,6 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
         p.speexBandsPreset = speexBandsCombo->itemData(idx).toInt();
     }
     p.speexFrameMs       = (speexFrameCombo->currentIndex() == 0) ? 10 : 20;
-    p.speexDereverb      = speexDerevCheck->isChecked();
-    p.speexDereverbLevel = speexDRLevel->value()    * 0.01f;
-    p.speexDereverbDecay = speexDRDecay->value()    * 0.01f;
     p.speexAgc           = speexAgcCheck->isChecked();
     p.speexAgcLevel      = static_cast<float>(speexAgcLevel->value());
     p.speexAgcMaxGain    = speexAgcMaxGain->value();
@@ -122,8 +119,6 @@ void RxAudioProcessingWidget::onAnyControlChanged()
 {
     // Update value labels
     lblSpeexSuppress->setText(QString::number(speexSuppress->value()) + " dB");
-    lblDRLevel->setText(QString::number(speexDRLevel->value() * 0.01f, 'f', 2));
-    lblDRDecay->setText(QString::number(speexDRDecay->value() * 0.01f, 'f', 2));
     lblAgcLevel->setText(QString::number(speexAgcLevel->value()));
     lblAgcMaxGain->setText(QString::number(speexAgcMaxGain->value()) + " dB");
     lblSpacFrameMs->setText(QString::number(spacFrameMs->value()) + " ms");
@@ -135,11 +130,6 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     // Value labels
     lblVadProbStart->setText(QString::number(speexVadProbStart->value()) + " %");
     lblVadProbCont->setText(QString::number(speexVadProbCont->value())   + " %");
-
-    // Dereverb controls visible only when checkbox is ticked
-    bool drVis = speexDerevCheck->isChecked();
-    speexDRLevel->setVisible(drVis); lblDRLevel->setVisible(drVis);
-    speexDRDecay->setVisible(drVis); lblDRDecay->setVisible(drVis);
 
     // AGC controls visible only when checkbox is ticked
     bool agcVis = speexAgcCheck->isChecked();
@@ -316,25 +306,6 @@ void RxAudioProcessingWidget::buildUi()
                     this, &RxAudioProcessingWidget::onAnyControlChanged);
         }
 
-        // Dereverberation
-        {
-            speexDerevCheck = new QCheckBox(tr("Enable dereverberation"));
-            speexDerevCheck->setToolTip(tr(
-                "Applies late-reverberation suppression.\n"
-                "Useful for indoor or room-echo conditions."));
-            form->addRow(speexDerevCheck);
-
-            auto* rowLv = makeSliderRow(speexDRLevel, lblDRLevel, 0, 100, 0, 70);
-            speexDRLevel->setToolTip(tr("Dereverb level: amount of late echo to suppress (0.0–1.0)."));
-            lblDRLevel->setText("0.00");
-            form->addRow(tr("  DR level:"), rowLv);
-
-            auto* rowDc = makeSliderRow(speexDRDecay, lblDRDecay, 0, 100, 0, 70);
-            speexDRDecay->setToolTip(tr("Dereverb decay: estimated room-echo decay factor (0.0–1.0)."));
-            lblDRDecay->setText("0.00");
-            form->addRow(tr("  DR decay:"), rowDc);
-        }
-
         // AGC
         {
             speexAgcCheck = new QCheckBox(tr("Enable automatic gain control (AGC)"));
@@ -389,9 +360,6 @@ void RxAudioProcessingWidget::buildUi()
 
         mainLayout->addWidget(speexGrp);
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDerevCheck,   &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDRLevel,      &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDRDecay,      &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcMaxGain,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -519,9 +487,6 @@ void RxAudioProcessingWidget::blockAll(bool block)
     speexSuppress->blockSignals(block);
     speexBandsCombo->blockSignals(block);
     speexFrameCombo->blockSignals(block);
-    speexDerevCheck->blockSignals(block);
-    speexDRLevel->blockSignals(block);
-    speexDRDecay->blockSignals(block);
     speexAgcCheck->blockSignals(block);
     speexAgcLevel->blockSignals(block);
     speexAgcMaxGain->blockSignals(block);
@@ -571,16 +536,6 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     }
 
     speexFrameCombo->setCurrentIndex((p.speexFrameMs <= 10) ? 0 : 1);
-
-    speexDerevCheck->setChecked(p.speexDereverb);
-    speexDRLevel->setValue(qRound(p.speexDereverbLevel * 100.0f));
-    speexDRDecay->setValue(qRound(p.speexDereverbDecay * 100.0f));
-    lblDRLevel->setText(QString::number(p.speexDereverbLevel, 'f', 2));
-    lblDRDecay->setText(QString::number(p.speexDereverbDecay, 'f', 2));
-
-    bool drVis = p.speexDereverb;
-    speexDRLevel->setVisible(drVis); lblDRLevel->setVisible(drVis);
-    speexDRDecay->setVisible(drVis); lblDRDecay->setVisible(drVis);
 
     speexAgcCheck->setChecked(p.speexAgc);
     speexAgcLevel->setValue(qBound(500, static_cast<int>(p.speexAgcLevel), 32000));

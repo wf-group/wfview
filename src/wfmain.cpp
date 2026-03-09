@@ -2149,9 +2149,6 @@ void wfmain::loadSettings()
     prefs.rxAudioProc.speexSuppression = settings->value("RxProcSpeexSuppression", -30).toInt();
     prefs.rxAudioProc.speexBandsPreset = settings->value("RxProcSpeexBandsPreset",   3).toInt();
     prefs.rxAudioProc.speexFrameMs     = settings->value("RxProcSpeexFrameMs",      20).toInt();
-    prefs.rxAudioProc.speexDereverb    = settings->value("RxProcSpeexDereverb",    false).toBool();
-    prefs.rxAudioProc.speexDereverbLevel = settings->value("RxProcSpeexDereverbLevel", 0.0f).toFloat();
-    prefs.rxAudioProc.speexDereverbDecay = settings->value("RxProcSpeexDereverbDecay", 0.0f).toFloat();
     prefs.rxAudioProc.speexAgc         = settings->value("RxProcSpeexAgc",         false).toBool();
     prefs.rxAudioProc.speexAgcLevel    = settings->value("RxProcSpeexAgcLevel",  8000.0f).toFloat();
     prefs.rxAudioProc.speexAgcMaxGain  = settings->value("RxProcSpeexAgcMaxGain",    30).toInt();
@@ -3455,9 +3452,6 @@ void wfmain::saveSettings()
     settings->setValue("RxProcSpeexSuppression",  prefs.rxAudioProc.speexSuppression);
     settings->setValue("RxProcSpeexBandsPreset",  prefs.rxAudioProc.speexBandsPreset);
     settings->setValue("RxProcSpeexFrameMs",      prefs.rxAudioProc.speexFrameMs);
-    settings->setValue("RxProcSpeexDereverb",     prefs.rxAudioProc.speexDereverb);
-    settings->setValue("RxProcSpeexDereverbLevel",prefs.rxAudioProc.speexDereverbLevel);
-    settings->setValue("RxProcSpeexDereverbDecay",prefs.rxAudioProc.speexDereverbDecay);
     settings->setValue("RxProcSpeexAgc",          prefs.rxAudioProc.speexAgc);
     settings->setValue("RxProcSpeexAgcLevel",     prefs.rxAudioProc.speexAgcLevel);
     settings->setValue("RxProcSpeexAgcMaxGain",   prefs.rxAudioProc.speexAgcMaxGain);
@@ -5811,9 +5805,6 @@ void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
     rxProc->setSpeexSuppression(p.speexSuppression);
     rxProc->setSpeexBandsPreset(p.speexBandsPreset);
     rxProc->setSpeexFrameMs(p.speexFrameMs);
-    rxProc->setSpeexDereverb(p.speexDereverb);
-    rxProc->setSpeexDereverbLevel(p.speexDereverbLevel);
-    rxProc->setSpeexDereverbDecay(p.speexDereverbDecay);
     rxProc->setSpeexAgc(p.speexAgc);
     rxProc->setSpeexAgcLevel(p.speexAgcLevel);
     rxProc->setSpeexAgcMaxGain(p.speexAgcMaxGain);

@@ -40,9 +40,6 @@ public:
     void setSuppression(int dB)         { m_suppression  = dB;    }
     void setBandsPreset(int p)          { m_bandsPreset  = p;     }
     void setFrameMs(int ms)             { m_frameMs      = ms;    }
-    void setDereverb(bool en)           { m_dereverb     = en;    }
-    void setDereverbLevel(float v)      { m_dereverbLevel = v;    }
-    void setDereverbDecay(float v)      { m_dereverbDecay = v;    }
     void setAgc(bool en)                { m_agc          = en;    }
     void setAgcLevel(float v)           { m_agcLevel     = v;     }
     void setAgcMaxGain(int dB)          { m_agcMaxGain   = dB;    }
@@ -156,11 +153,6 @@ private:
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_AGC_LEVEL,      &m_agcLevel);
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_AGC_MAX_GAIN,   &m_agcMaxGain);
 
-        int dr = m_dereverb ? 1 : 0;
-        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_DEREVERB,       &dr);
-        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_DEREVERB_LEVEL, &m_dereverbLevel);
-        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_DEREVERB_DECAY, &m_dereverbDecay);
-
         // Band preset — bounds-checked; out-of-range preset is silently ignored.
         if (m_bandsPreset >= 0 && m_bandsPreset < FILTERBANK_NUM_PRESETS) {
             speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_NB_BANDS, &m_bandsPreset);
@@ -192,9 +184,6 @@ private:
     int    m_suppression    = -30;
     int    m_bandsPreset    =  3;
     int    m_frameMs        = 20;
-    bool   m_dereverb       = false;
-    float  m_dereverbLevel  = 0.0f;
-    float  m_dereverbDecay  = 0.0f;
     bool   m_agc            = false;
     float  m_agcLevel       = 8000.0f;
     int    m_agcMaxGain     = 30;

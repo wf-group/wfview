@@ -91,12 +91,6 @@ private:
 
     QComboBox*    speexFrameCombo{nullptr};   // 10 ms / 20 ms
 
-    QCheckBox*    speexDerevCheck{nullptr};
-    QSlider*      speexDRLevel   {nullptr};   // 0..100 (×0.01)
-    QLabel*       lblDRLevel     {nullptr};
-    QSlider*      speexDRDecay   {nullptr};   // 0..100 (×0.01)
-    QLabel*       lblDRDecay     {nullptr};
-
     QCheckBox*    speexAgcCheck  {nullptr};
     QSlider*      speexAgcLevel  {nullptr};   // 1000..32000
     QLabel*       lblAgcLevel    {nullptr};

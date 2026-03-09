@@ -63,9 +63,6 @@ public:
     void setSpeexSuppression(int dB);
     void setSpeexBandsPreset(int preset);
     void setSpeexFrameMs(int ms);
-    void setSpeexDereverb(bool en);
-    void setSpeexDereverbLevel(float v);
-    void setSpeexDereverbDecay(float v);
     void setSpeexAgc(bool en);
     void setSpeexAgcLevel(float v);
     void setSpeexAgcMaxGain(int dB);
@@ -117,9 +114,6 @@ private:
         int   speexSuppression    = -30;
         int   speexBandsPreset    =  3;
         int   speexFrameMs        = 20;
-        bool  speexDereverb       = false;
-        float speexDereverbLevel  = 0.0f;
-        float speexDereverbDecay  = 0.0f;
         bool  speexAgc            = false;
         float speexAgcLevel       = 8000.0f;
         int   speexAgcMaxGain     = 30;
@@ -153,8 +147,6 @@ private:
     int    m_cachedSpeexSuppress = 0;
     int    m_cachedSpeexBands    = -1;
     int    m_cachedSpeexFrameMs  = 0;
-    bool   m_cachedSpeexDereverb = false;
-    float  m_cachedDRLevel = 0.0f, m_cachedDRDecay = 0.0f;
     bool   m_cachedAgc          = false;
     float  m_cachedAgcLevel     = 0.0f;
     int    m_cachedAgcMax       = 0;

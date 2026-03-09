@@ -195,9 +195,6 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
         p.speexSuppression   != m_cachedSpeexSuppress  ||
         p.speexBandsPreset   != m_cachedSpeexBands     ||
         p.speexFrameMs       != m_cachedSpeexFrameMs   ||
-        p.speexDereverb      != m_cachedSpeexDereverb  ||
-        p.speexDereverbLevel != m_cachedDRLevel        ||
-        p.speexDereverbDecay != m_cachedDRDecay        ||
         p.speexAgc           != m_cachedAgc            ||
         p.speexAgcLevel      != m_cachedAgcLevel       ||
         p.speexAgcMaxGain    != m_cachedAgcMax         ||
@@ -210,9 +207,6 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_cachedSpeexSuppress  = p.speexSuppression;
     m_cachedSpeexBands     = p.speexBandsPreset;
     m_cachedSpeexFrameMs   = p.speexFrameMs;
-    m_cachedSpeexDereverb  = p.speexDereverb;
-    m_cachedDRLevel        = p.speexDereverbLevel;
-    m_cachedDRDecay        = p.speexDereverbDecay;
     m_cachedAgc            = p.speexAgc;
     m_cachedAgcLevel       = p.speexAgcLevel;
     m_cachedAgcMax         = p.speexAgcMaxGain;
@@ -223,9 +217,6 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_speex->setSuppression(p.speexSuppression);
     m_speex->setBandsPreset(p.speexBandsPreset);
     m_speex->setFrameMs(p.speexFrameMs);
-    m_speex->setDereverb(p.speexDereverb);
-    m_speex->setDereverbLevel(p.speexDereverbLevel);
-    m_speex->setDereverbDecay(p.speexDereverbDecay);
     m_speex->setAgc(p.speexAgc);
     m_speex->setAgcLevel(p.speexAgcLevel);
     m_speex->setAgcMaxGain(p.speexAgcMaxGain);
@@ -254,9 +245,6 @@ void RxAudioProcessor::setChannelSelect(int v)           { QMutexLocker lk(&m_mu
 void RxAudioProcessor::setSpeexSuppression(int v)        { QMutexLocker lk(&m_mutex); m_params.speexSuppression= v; }
 void RxAudioProcessor::setSpeexBandsPreset(int v)        { QMutexLocker lk(&m_mutex); m_params.speexBandsPreset= v; }
 void RxAudioProcessor::setSpeexFrameMs(int v)            { QMutexLocker lk(&m_mutex); m_params.speexFrameMs   = v; }
-void RxAudioProcessor::setSpeexDereverb(bool v)          { QMutexLocker lk(&m_mutex); m_params.speexDereverb  = v; }
-void RxAudioProcessor::setSpeexDereverbLevel(float v)    { QMutexLocker lk(&m_mutex); m_params.speexDereverbLevel = v; }
-void RxAudioProcessor::setSpeexDereverbDecay(float v)    { QMutexLocker lk(&m_mutex); m_params.speexDereverbDecay = v; }
 void RxAudioProcessor::setSpeexAgc(bool v)               { QMutexLocker lk(&m_mutex); m_params.speexAgc       = v; }
 void RxAudioProcessor::setSpeexAgcLevel(float v)         { QMutexLocker lk(&m_mutex); m_params.speexAgcLevel  = v; }
 void RxAudioProcessor::setSpeexAgcMaxGain(int v)         { QMutexLocker lk(&m_mutex); m_params.speexAgcMaxGain= v; }

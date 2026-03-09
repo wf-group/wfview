@@ -222,9 +222,6 @@ struct rxAudioProcessingPrefs {
     int  speexSuppression  = -30;    // max noise attenuation dB (negative, e.g. -30)
     int  speexBandsPreset  =  3;     // index into band_presets[] in filterbank.h
     int  speexFrameMs      = 20;     // frame size in ms (10 or 20 typical)
-    bool speexDereverb     = false;
-    float speexDereverbLevel = 0.0f; // 0.0–1.0
-    float speexDereverbDecay = 0.0f; // 0.0–1.0
     bool speexAgc            = false;
     float speexAgcLevel      = 8000.0f;
     int   speexAgcMaxGain    = 30;   // dB
