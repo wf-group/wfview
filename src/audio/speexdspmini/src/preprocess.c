@@ -671,6 +671,7 @@ static void update_noise_prob(SpeexPreprocessState *st)
 
 EXPORT int speex_preprocess(SpeexPreprocessState *st, spx_int16_t *x, spx_int32_t *echo)
 {
+   (void)echo;
    return speex_preprocess_run(st, x);
 }
 
@@ -1026,7 +1027,7 @@ EXPORT int speex_preprocess_ctl(SpeexPreprocessState *state, int request, void *
       break;
 #endif
    case SPEEX_PREPROCESS_SET_VAD:
-      speex_warning("The VAD has been replaced by a hack pending a complete rewrite");
+      // speex_warning("The VAD has been replaced by a hack pending a complete rewrite");
       st->vad_enabled = (*(spx_int32_t*)ptr);
       break;
    case SPEEX_PREPROCESS_GET_VAD:
