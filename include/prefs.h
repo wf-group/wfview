@@ -228,6 +228,9 @@ struct rxAudioProcessingPrefs {
     bool speexAgc            = false;
     float speexAgcLevel      = 8000.0f;
     int   speexAgcMaxGain    = 30;   // dB
+    bool  speexVad           = false;
+    int   speexVadProbStart  = 85;   // 0–100 %; probability to enter voice state
+    int   speexVadProbCont   = 65;   // 0–100 %; probability to stay in voice state
 
     // ── SPAC parameters ──────────────────────────────────────────────────────
     float spacFrameMs      = 20.0f;  // autocorrelation frame size (ms)

@@ -192,27 +192,33 @@ void RxAudioProcessor::injectSidetone(Eigen::VectorXf samples, quint32 sampleRat
 void RxAudioProcessor::pushSpeexParams(const Params& p)
 {
     bool changed =
-        p.speexSuppression   != m_cachedSpeexSuppress ||
-        p.speexBandsPreset   != m_cachedSpeexBands    ||
-        p.speexFrameMs       != m_cachedSpeexFrameMs  ||
-        p.speexDereverb      != m_cachedSpeexDereverb ||
-        p.speexDereverbLevel != m_cachedDRLevel       ||
-        p.speexDereverbDecay != m_cachedDRDecay       ||
-        p.speexAgc           != m_cachedAgc           ||
-        p.speexAgcLevel      != m_cachedAgcLevel      ||
-        p.speexAgcMaxGain    != m_cachedAgcMax;
+        p.speexSuppression   != m_cachedSpeexSuppress  ||
+        p.speexBandsPreset   != m_cachedSpeexBands     ||
+        p.speexFrameMs       != m_cachedSpeexFrameMs   ||
+        p.speexDereverb      != m_cachedSpeexDereverb  ||
+        p.speexDereverbLevel != m_cachedDRLevel        ||
+        p.speexDereverbDecay != m_cachedDRDecay        ||
+        p.speexAgc           != m_cachedAgc            ||
+        p.speexAgcLevel      != m_cachedAgcLevel       ||
+        p.speexAgcMaxGain    != m_cachedAgcMax         ||
+        p.speexVad           != m_cachedVad            ||
+        p.speexVadProbStart  != m_cachedVadProbStart   ||
+        p.speexVadProbCont   != m_cachedVadProbCont;
 
     if (!changed) return;
 
-    m_cachedSpeexSuppress = p.speexSuppression;
-    m_cachedSpeexBands    = p.speexBandsPreset;
-    m_cachedSpeexFrameMs  = p.speexFrameMs;
-    m_cachedSpeexDereverb = p.speexDereverb;
-    m_cachedDRLevel       = p.speexDereverbLevel;
-    m_cachedDRDecay       = p.speexDereverbDecay;
-    m_cachedAgc           = p.speexAgc;
-    m_cachedAgcLevel      = p.speexAgcLevel;
-    m_cachedAgcMax        = p.speexAgcMaxGain;
+    m_cachedSpeexSuppress  = p.speexSuppression;
+    m_cachedSpeexBands     = p.speexBandsPreset;
+    m_cachedSpeexFrameMs   = p.speexFrameMs;
+    m_cachedSpeexDereverb  = p.speexDereverb;
+    m_cachedDRLevel        = p.speexDereverbLevel;
+    m_cachedDRDecay        = p.speexDereverbDecay;
+    m_cachedAgc            = p.speexAgc;
+    m_cachedAgcLevel       = p.speexAgcLevel;
+    m_cachedAgcMax         = p.speexAgcMaxGain;
+    m_cachedVad            = p.speexVad;
+    m_cachedVadProbStart   = p.speexVadProbStart;
+    m_cachedVadProbCont    = p.speexVadProbCont;
 
     m_speex->setSuppression(p.speexSuppression);
     m_speex->setBandsPreset(p.speexBandsPreset);
@@ -223,6 +229,9 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_speex->setAgc(p.speexAgc);
     m_speex->setAgcLevel(p.speexAgcLevel);
     m_speex->setAgcMaxGain(p.speexAgcMaxGain);
+    m_speex->setVad(p.speexVad);
+    m_speex->setVadProbStart(p.speexVadProbStart);
+    m_speex->setVadProbCont(p.speexVadProbCont);
     // Changing key structural params (frame size, bands) requires state reset
     m_speex->reset();
 }
@@ -251,6 +260,9 @@ void RxAudioProcessor::setSpeexDereverbDecay(float v)    { QMutexLocker lk(&m_mu
 void RxAudioProcessor::setSpeexAgc(bool v)               { QMutexLocker lk(&m_mutex); m_params.speexAgc       = v; }
 void RxAudioProcessor::setSpeexAgcLevel(float v)         { QMutexLocker lk(&m_mutex); m_params.speexAgcLevel  = v; }
 void RxAudioProcessor::setSpeexAgcMaxGain(int v)         { QMutexLocker lk(&m_mutex); m_params.speexAgcMaxGain= v; }
+void RxAudioProcessor::setSpeexVad(bool v)               { QMutexLocker lk(&m_mutex); m_params.speexVad       = v; }
+void RxAudioProcessor::setSpeexVadProbStart(int v)       { QMutexLocker lk(&m_mutex); m_params.speexVadProbStart = v; }
+void RxAudioProcessor::setSpeexVadProbCont(int v)        { QMutexLocker lk(&m_mutex); m_params.speexVadProbCont  = v; }
 void RxAudioProcessor::setSpacFrameMs(float v)           { QMutexLocker lk(&m_mutex); m_params.spacFrameMs    = v; }
 void RxAudioProcessor::setSpacVoicingThr(float v)        { QMutexLocker lk(&m_mutex); m_params.spacVoicingThr = v; }
 void RxAudioProcessor::setSpacVoicingFull(float v)       { QMutexLocker lk(&m_mutex); m_params.spacVoicingFull= v; }

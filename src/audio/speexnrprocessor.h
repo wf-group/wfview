@@ -46,6 +46,9 @@ public:
     void setAgc(bool en)                { m_agc          = en;    }
     void setAgcLevel(float v)           { m_agcLevel     = v;     }
     void setAgcMaxGain(int dB)          { m_agcMaxGain   = dB;    }
+    void setVad(bool en)                { m_vad          = en;    }
+    void setVadProbStart(int pct)       { m_vadProbStart = pct;   }  // 0–100
+    void setVadProbCont(int pct)        { m_vadProbCont  = pct;   }  // 0–100
 
     // Returns the number of Bark bands active for the current preset.
     // Returns 0 if the state has never been initialised.
@@ -163,6 +166,11 @@ private:
             speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_NB_BANDS, &m_bandsPreset);
         }
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_GET_NB_BANDS, &m_activeBands);
+
+        int vad = m_vad ? 1 : 0;
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_VAD,          &vad);
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_PROB_START,    &m_vadProbStart);
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_PROB_CONTINUE, &m_vadProbCont);
     }
 
     void destroyState()
@@ -190,6 +198,9 @@ private:
     bool   m_agc            = false;
     float  m_agcLevel       = 8000.0f;
     int    m_agcMaxGain     = 30;
+    bool   m_vad            = false;
+    int    m_vadProbStart   = 85;   // Speex default
+    int    m_vadProbCont    = 65;   // Speex default
 
     // Sample buffers (int16 domain)
     std::vector<int16_t> m_inBuf;

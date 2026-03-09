@@ -2155,6 +2155,9 @@ void wfmain::loadSettings()
     prefs.rxAudioProc.speexAgc         = settings->value("RxProcSpeexAgc",         false).toBool();
     prefs.rxAudioProc.speexAgcLevel    = settings->value("RxProcSpeexAgcLevel",  8000.0f).toFloat();
     prefs.rxAudioProc.speexAgcMaxGain  = settings->value("RxProcSpeexAgcMaxGain",    30).toInt();
+    prefs.rxAudioProc.speexVad         = settings->value("RxProcSpeexVad",         false).toBool();
+    prefs.rxAudioProc.speexVadProbStart= settings->value("RxProcSpeexVadProbStart",   85).toInt();
+    prefs.rxAudioProc.speexVadProbCont = settings->value("RxProcSpeexVadProbCont",    65).toInt();
     prefs.rxAudioProc.spacFrameMs      = settings->value("RxProcSpacFrameMs",     20.0f).toFloat();
     prefs.rxAudioProc.spacVoicingThr   = settings->value("RxProcSpacVoicingThr",  0.20f).toFloat();
     prefs.rxAudioProc.spacVoicingFull  = settings->value("RxProcSpacVoicingFull", 0.55f).toFloat();
@@ -3458,6 +3461,9 @@ void wfmain::saveSettings()
     settings->setValue("RxProcSpeexAgc",          prefs.rxAudioProc.speexAgc);
     settings->setValue("RxProcSpeexAgcLevel",     prefs.rxAudioProc.speexAgcLevel);
     settings->setValue("RxProcSpeexAgcMaxGain",   prefs.rxAudioProc.speexAgcMaxGain);
+    settings->setValue("RxProcSpeexVad",          prefs.rxAudioProc.speexVad);
+    settings->setValue("RxProcSpeexVadProbStart", prefs.rxAudioProc.speexVadProbStart);
+    settings->setValue("RxProcSpeexVadProbCont",  prefs.rxAudioProc.speexVadProbCont);
     settings->setValue("RxProcSpacFrameMs",       prefs.rxAudioProc.spacFrameMs);
     settings->setValue("RxProcSpacVoicingThr",    prefs.rxAudioProc.spacVoicingThr);
     settings->setValue("RxProcSpacVoicingFull",   prefs.rxAudioProc.spacVoicingFull);
@@ -5799,7 +5805,7 @@ void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
     if (!rxProc) return;
 
     rxProc->setBypassed(p.bypass);
-    rxProc->setNrEnabled(p.nrEnabled);
+    rxProc->setNrEnabled(!p.bypass);   // NR active whenever bypass is off
     rxProc->setNrMode(p.nrMode);
     rxProc->setChannelSelect(p.channelSelect);
     rxProc->setSpeexSuppression(p.speexSuppression);
@@ -5811,6 +5817,9 @@ void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
     rxProc->setSpeexAgc(p.speexAgc);
     rxProc->setSpeexAgcLevel(p.speexAgcLevel);
     rxProc->setSpeexAgcMaxGain(p.speexAgcMaxGain);
+    rxProc->setSpeexVad(p.speexVad);
+    rxProc->setSpeexVadProbStart(p.speexVadProbStart);
+    rxProc->setSpeexVadProbCont(p.speexVadProbCont);
     rxProc->setSpacFrameMs(p.spacFrameMs);
     rxProc->setSpacVoicingThr(p.spacVoicingThr);
     rxProc->setSpacVoicingFull(p.spacVoicingFull);

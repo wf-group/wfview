@@ -69,6 +69,9 @@ public:
     void setSpeexAgc(bool en);
     void setSpeexAgcLevel(float v);
     void setSpeexAgcMaxGain(int dB);
+    void setSpeexVad(bool en);
+    void setSpeexVadProbStart(int pct);  // 0–100
+    void setSpeexVadProbCont(int pct);   // 0–100
 
     // SPAC
     void setSpacFrameMs(float ms);
@@ -120,6 +123,9 @@ private:
         bool  speexAgc            = false;
         float speexAgcLevel       = 8000.0f;
         int   speexAgcMaxGain     = 30;
+        bool  speexVad            = false;
+        int   speexVadProbStart   = 85;
+        int   speexVadProbCont    = 65;
 
         // SPAC
         float spacFrameMs    = 20.0f;
@@ -149,9 +155,12 @@ private:
     int    m_cachedSpeexFrameMs  = 0;
     bool   m_cachedSpeexDereverb = false;
     float  m_cachedDRLevel = 0.0f, m_cachedDRDecay = 0.0f;
-    bool   m_cachedAgc     = false;
-    float  m_cachedAgcLevel= 0.0f;
-    int    m_cachedAgcMax  = 0;
+    bool   m_cachedAgc          = false;
+    float  m_cachedAgcLevel     = 0.0f;
+    int    m_cachedAgcMax       = 0;
+    bool   m_cachedVad          = false;
+    int    m_cachedVadProbStart = -1;
+    int    m_cachedVadProbCont  = -1;
 
     std::unique_ptr<SpeexNrProcessor> m_speex;
     std::unique_ptr<SpacNrProcessor>  m_spac;

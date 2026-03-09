@@ -41,9 +41,8 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.bypass        = bypassCheck->isChecked();
     p.channelSelect = channelCombo->currentIndex();  // 0=auto,1=ch1,2=ch2,3=ch1+ch2
     p.nrMode        = (algoGroup->checkedId() == 0) ? RxNrMode::Speex : RxNrMode::Spac;
-    p.nrEnabled     = (p.nrMode == RxNrMode::Speex)
-                      ? speexNrEnable->isChecked()
-                      : spacNrEnable->isChecked();
+    // nrEnabled follows master bypass: DSP is active whenever bypass is off
+    p.nrEnabled     = !p.bypass;
 
     // Speex
     p.speexSuppression   = speexSuppress->value();          // already negative dB
@@ -59,6 +58,9 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.speexAgc           = speexAgcCheck->isChecked();
     p.speexAgcLevel      = static_cast<float>(speexAgcLevel->value());
     p.speexAgcMaxGain    = speexAgcMaxGain->value();
+    p.speexVad           = speexVadCheck->isChecked();
+    p.speexVadProbStart  = speexVadProbStart->value();
+    p.speexVadProbCont   = speexVadProbCont->value();
 
     // SPAC
     p.spacFrameMs    = static_cast<float>(spacFrameMs->value());
@@ -130,6 +132,10 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     lblSpacAtten->setText(QString::number(spacAttenDb->value()) + " dB");
     lblOutputGain->setText(QString::number(outputGain->value() * 0.1f, 'f', 1) + " dB");
 
+    // Value labels
+    lblVadProbStart->setText(QString::number(speexVadProbStart->value()) + " %");
+    lblVadProbCont->setText(QString::number(speexVadProbCont->value())   + " %");
+
     // Dereverb controls visible only when checkbox is ticked
     bool drVis = speexDerevCheck->isChecked();
     speexDRLevel->setVisible(drVis); lblDRLevel->setVisible(drVis);
@@ -139,6 +145,11 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     bool agcVis = speexAgcCheck->isChecked();
     speexAgcLevel->setVisible(agcVis);   lblAgcLevel->setVisible(agcVis);
     speexAgcMaxGain->setVisible(agcVis); lblAgcMaxGain->setVisible(agcVis);
+
+    // VAD prob sliders visible only when VAD is ticked
+    bool vadVis = speexVadCheck->isChecked();
+    speexVadProbStart->setVisible(vadVis); lblVadProbStart->setVisible(vadVis);
+    speexVadProbCont->setVisible(vadVis);  lblVadProbCont->setVisible(vadVis);
 
     emit prefsChanged(getPrefs());
 }
@@ -264,12 +275,6 @@ void RxAudioProcessingWidget::buildUi()
         speexGrp = new QGroupBox(tr("Speex Noise Suppressor"));
         auto* form = new QFormLayout(speexGrp);
 
-        speexNrEnable = new QCheckBox(tr("Enable Speex noise suppression"));
-        speexNrEnable->setToolTip(tr(
-            "Enables the Speex Ephraim-Malah noise suppressor.\n"
-            "A short silence at start-up allows the noise estimator to prime."));
-        form->addRow(speexNrEnable);
-
         // Suppression
         {
             auto* row = makeSliderRow(speexSuppress, lblSpeexSuppress, -70, -1, -30, 80);
@@ -358,29 +363,47 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  AGC max gain:"), rowMG);
         }
 
-        mainLayout->addWidget(speexGrp);
+        // VAD
+        {
+            speexVadCheck = new QCheckBox(tr("Enable voice activity detection (VAD)"));
+            speexVadCheck->setToolTip(tr(
+                "Speex VAD classifies each frame as speech or non-speech.\n"
+                "When active, non-speech frames are suppressed more aggressively.\n"
+                "Adjust prob-start and prob-continue to control sensitivity."));
+            form->addRow(speexVadCheck);
 
-        connect(speexNrEnable,  &QCheckBox::toggled, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexSuppress,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDerevCheck,&QCheckBox::toggled, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDRLevel,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexDRDecay,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexAgcCheck,  &QCheckBox::toggled, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexAgcLevel,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(speexAgcMaxGain,&QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+            auto* rowPS = makeSliderRow(speexVadProbStart, lblVadProbStart, 0, 100, 85, 60);
+            speexVadProbStart->setToolTip(tr(
+                "Probability required to switch from silence to voice state (%).\n"
+                "Higher = harder to trigger voice detection."));
+            lblVadProbStart->setText("85 %");
+            form->addRow(tr("  Prob-start:"), rowPS);
+
+            auto* rowPC = makeSliderRow(speexVadProbCont, lblVadProbCont, 0, 100, 65, 60);
+            speexVadProbCont->setToolTip(tr(
+                "Probability required to remain in voice state (%).\n"
+                "Lower = voice state is held longer; higher = drops out faster."));
+            lblVadProbCont->setText("65 %");
+            form->addRow(tr("  Prob-cont:"), rowPC);
+        }
+
+        mainLayout->addWidget(speexGrp);
+        connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexDerevCheck,   &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexDRLevel,      &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexDRDecay,      &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexAgcMaxGain,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexVadCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexVadProbStart, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexVadProbCont,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
     // ── SPAC controls ─────────────────────────────────────────────────────────
     {
         spacGrp  = new QGroupBox(tr("SPAC Noise Reducer  (voiced speech enhancement)"));
         auto* form = new QFormLayout(spacGrp);
-
-        spacNrEnable = new QCheckBox(tr("Enable SPAC noise reduction"));
-        spacNrEnable->setToolTip(tr(
-            "SPAC reconstructs voiced speech from the autocorrelation of each frame.\n"
-            "Unvoiced segments (noise, hiss, breath) are attenuated.\n"
-            "Best suited for SSB voice; may distort digital modes."));
-        form->addRow(spacNrEnable);
 
         // Frame size: 10–50 ms
         {
@@ -428,7 +451,6 @@ void RxAudioProcessingWidget::buildUi()
         spacGrp->setVisible(false);  // shown when SPAC radio button is selected
         mainLayout->addWidget(spacGrp);
 
-        connect(spacNrEnable,   &QCheckBox::toggled,   this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(spacFrameMs,    &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(spacVoicingThr, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(spacVoicingFull,&QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -494,7 +516,6 @@ void RxAudioProcessingWidget::blockAll(bool block)
     channelCombo->blockSignals(block);
     algoSpeex->blockSignals(block);
     algoSpac->blockSignals(block);
-    speexNrEnable->blockSignals(block);
     speexSuppress->blockSignals(block);
     speexBandsCombo->blockSignals(block);
     speexFrameCombo->blockSignals(block);
@@ -504,7 +525,9 @@ void RxAudioProcessingWidget::blockAll(bool block)
     speexAgcCheck->blockSignals(block);
     speexAgcLevel->blockSignals(block);
     speexAgcMaxGain->blockSignals(block);
-    spacNrEnable->blockSignals(block);
+    speexVadCheck->blockSignals(block);
+    speexVadProbStart->blockSignals(block);
+    speexVadProbCont->blockSignals(block);
     spacFrameMs->blockSignals(block);
     spacVoicingThr->blockSignals(block);
     spacVoicingFull->blockSignals(block);
@@ -529,10 +552,6 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     algoSpac->setChecked(!isSpeex);
     speexGrp->setVisible(isSpeex);
     spacGrp->setVisible(!isSpeex);
-
-    // Which NR enable checkbox is set
-    if (isSpeex) speexNrEnable->setChecked(p.nrEnabled);
-    else         spacNrEnable->setChecked(p.nrEnabled);
 
     // Speex
     speexSuppress->setValue(qBound(-70, p.speexSuppression, -1));
@@ -572,6 +591,15 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     bool agcVis = p.speexAgc;
     speexAgcLevel->setVisible(agcVis);   lblAgcLevel->setVisible(agcVis);
     speexAgcMaxGain->setVisible(agcVis); lblAgcMaxGain->setVisible(agcVis);
+
+    speexVadCheck->setChecked(p.speexVad);
+    speexVadProbStart->setValue(qBound(0, p.speexVadProbStart, 100));
+    speexVadProbCont->setValue(qBound(0, p.speexVadProbCont, 100));
+    lblVadProbStart->setText(QString::number(p.speexVadProbStart) + " %");
+    lblVadProbCont->setText(QString::number(p.speexVadProbCont)   + " %");
+    bool vadVis = p.speexVad;
+    speexVadProbStart->setVisible(vadVis); lblVadProbStart->setVisible(vadVis);
+    speexVadProbCont->setVisible(vadVis);  lblVadProbCont->setVisible(vadVis);
 
     // SPAC
     spacFrameMs->setValue(qBound(10, static_cast<int>(p.spacFrameMs), 50));

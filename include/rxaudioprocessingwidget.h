@@ -83,7 +83,6 @@ private:
 
     // ── Speex controls ────────────────────────────────────────────────────────
     QGroupBox*    speexGrp       {nullptr};
-    QCheckBox*    speexNrEnable  {nullptr};
 
     QSlider*      speexSuppress  {nullptr};   // -70..-1 dB
     QLabel*       lblSpeexSuppress{nullptr};
@@ -104,9 +103,14 @@ private:
     QSlider*      speexAgcMaxGain{nullptr};   // 0..60 dB
     QLabel*       lblAgcMaxGain  {nullptr};
 
+    QCheckBox*    speexVadCheck  {nullptr};
+    QSlider*      speexVadProbStart {nullptr}; // 0..100 %
+    QLabel*       lblVadProbStart   {nullptr};
+    QSlider*      speexVadProbCont  {nullptr}; // 0..100 %
+    QLabel*       lblVadProbCont    {nullptr};
+
     // ── SPAC controls ─────────────────────────────────────────────────────────
     QGroupBox*    spacGrp        {nullptr};
-    QCheckBox*    spacNrEnable   {nullptr};
 
     QSlider*      spacFrameMs    {nullptr};   // 10..50 ms (×1)
     QLabel*       lblSpacFrameMs {nullptr};

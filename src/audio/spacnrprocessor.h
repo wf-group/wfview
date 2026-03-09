@@ -50,7 +50,7 @@ public:
         m_hop        = 0;
         m_inBuf.clear();
         m_outAccum.clear();
-        m_outPos    = 0;
+        m_readyBuf.clear();
         m_ready     = false;
         m_tracker   = { 0.0, 0, 0 };
     }
@@ -81,15 +81,12 @@ public:
             processFrame();
         }
 
-        // Drain output accumulator
-        int toDrain = std::min(nSamples, static_cast<int>(m_outAccum.size()) - m_outPos);
-        if (toDrain < 0) toDrain = 0;
+        // Drain completed hop samples from the ready buffer
+        int toDrain = std::min(nSamples, static_cast<int>(m_readyBuf.size()));
         for (int i = 0; i < toDrain; ++i)
-            out[i] = static_cast<float>(m_outAccum[m_outPos + i]);
-        // Shift out what we consumed
-        if (toDrain > 0) {
-            m_outAccum.erase(m_outAccum.begin(), m_outAccum.begin() + toDrain);
-        }
+            out[i] = m_readyBuf[i];
+        if (toDrain > 0)
+            m_readyBuf.erase(m_readyBuf.begin(), m_readyBuf.begin() + toDrain);
 
         return out;
     }
@@ -124,7 +121,8 @@ private:
             m_window[i] = 0.5 * (1.0 - std::cos(2.0 * M_PI * i / m_frameSize));
 
         m_inBuf.clear();
-        m_outAccum.assign(m_frameSize * 4, 0.0);  // generous pre-allocation
+        m_outAccum.assign(m_frameSize, 0.0);
+        m_readyBuf.clear();
         m_tracker = { 0.0, 0, 0 };
         m_ready   = true;
     }
@@ -220,6 +218,10 @@ private:
         // Overlap-add with Hanning synthesis window
         for (int i = 0; i < N; ++i)
             m_outAccum[i] += processed[i] * m_window[i];
+
+        // Capture the completed hop samples into the ready buffer BEFORE erasing
+        for (int i = 0; i < m_hop; ++i)
+            m_readyBuf.push_back(static_cast<float>(m_outAccum[i]));
 
         // Shift accumulator by hop — the first hop samples are done
         // Append hop zeros for the next frame's contribution
@@ -365,7 +367,7 @@ private:
     std::vector<double>  m_window;
     std::vector<float>   m_inBuf;
     std::vector<double>  m_outAccum;
-    int                  m_outPos = 0;
+    std::vector<float>   m_readyBuf;
 };
 
 #endif // SPACNRPROCESSOR_H
