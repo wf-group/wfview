@@ -4,14 +4,13 @@
 // rxaudioprocessor.h pulls in (via prefs.h → audioconverter.h) the wfview
 // speex_resampler.h which defines spx_int32_t etc. as preprocessor macros
 // under OUTSIDE_SPEEX.  speexnrprocessor.h → speex_preprocess.h →
-// speexdsp_config_types.h tries to typedef those same names.  If the macro
-// is already defined the typedef text-substitutes to "typedef int32_t int;"
-// which is invalid C++.  Including speexnrprocessor.h first lets the typedef
-// succeed; the subsequent macro definition from speex_resampler.h then merely
-// shadows the typedef (harmless on LP64 where int32_t == int).
+// speexdsp_config_types.h tries to typedef those same names.  Including
+// speexnrprocessor.h first lets the typedef succeed; the subsequent macro
+// definition from speex_resampler.h then merely shadows the typedef
+// (harmless on LP64 where int32_t == int).
 
 #include "speexnrprocessor.h"   // ← must precede any wfview header
-#include "spacnrprocessor.h"
+#include "anrnrprocessor.h"
 #include "rxaudioprocessor.h"
 #include <cmath>
 #include <algorithm>
@@ -19,7 +18,7 @@
 RxAudioProcessor::RxAudioProcessor(QObject* parent)
     : QObject(parent)
     , m_speex(std::make_unique<SpeexNrProcessor>())
-    , m_spac(std::make_unique<SpacNrProcessor>())
+    , m_anr(std::make_unique<AnrNrProcessor>())
 {
     qRegisterMetaType<Eigen::VectorXf>("Eigen::VectorXf");
 }
@@ -58,15 +57,31 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         return samples;
     }
 
+    // ── ANR profile collection — feed raw input regardless of active mode ─────
+    // This runs on the converter thread as required by AnrNrProcessor::addProfileSamples().
+    if (m_anr->isProfiling()) {
+        // Use de-interleaved mono for profiling regardless of channel count.
+        if (channels == 1) {
+            m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
+        } else {
+            const int frames = static_cast<int>(samples.size()) / 2;
+            for (int i = 0; i < frames; ++i)
+                m_anrProfileMono.push_back((samples[i * 2] + samples[i * 2 + 1]) * 0.5f);
+            m_anr->addProfileSamples(m_anrProfileMono.data(),
+                                     static_cast<int>(m_anrProfileMono.size()));
+            m_anrProfileMono.clear();
+        }
+    }
+
     // ── Ensure NR processors exist and parameters are up to date ─────────────
     if (sampleRate != m_activeSR || channels != m_activeChannels) {
         m_activeSR       = sampleRate;
         m_activeChannels = channels;
         m_speex->reset();
-        m_spac->reset();
+        m_anr->reset();
     }
     pushSpeexParams(p);
-    pushSpacParams(p);
+    pushAnrParams(p);
 
     // ── Channel routing → NR → reassemble ───────────────────────────────────
     const int n = static_cast<int>(samples.size());
@@ -131,7 +146,8 @@ std::vector<float> RxAudioProcessor::applyNr(const float* in, int n,
     if (p.nrMode == RxNrMode::Speex) {
         return m_speex->process(in, n, sr);
     } else {
-        return m_spac->process(in, n, sr);
+        // RxNrMode::Anr
+        return m_anr->process(in, n, sr);
     }
 }
 
@@ -227,14 +243,28 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_speex->reset();
 }
 
-void RxAudioProcessor::pushSpacParams(const Params& p)
+void RxAudioProcessor::pushAnrParams(const Params& p)
 {
-    m_spac->setVoicingThr(p.spacVoicingThr);
-    m_spac->setVoicingFull(p.spacVoicingFull);
-    m_spac->setAttenDb(p.spacAttenDb);
-    // setFrameMs calls reset() internally if it changes
-    m_spac->setFrameMs(p.spacFrameMs);
+    m_anr->setNoiseReductionDb(p.anrNoiseReductionDb);
+    m_anr->setSensitivity(p.anrSensitivity);
+    m_anr->setFreqSmoothing(p.anrFreqSmoothing);
 }
+
+// ─── ANR profile control ─────────────────────────────────────────────────────
+
+void RxAudioProcessor::startAnrProfile()
+{
+    m_anr->startProfiling();
+}
+
+void RxAudioProcessor::stopAnrProfile()
+{
+    const bool ok = m_anr->finishProfiling();
+    emit anrProfileReady(ok);
+}
+
+bool RxAudioProcessor::anrIsProfiling() const { return m_anr->isProfiling(); }
+bool RxAudioProcessor::anrHasProfile()  const { return m_anr->hasProfile();  }
 
 // ─── Parameter setters ────────────────────────────────────────────────────────
 
@@ -251,10 +281,9 @@ void RxAudioProcessor::setSpeexAgcMaxGain(int v)         { QMutexLocker lk(&m_mu
 void RxAudioProcessor::setSpeexVad(bool v)               { QMutexLocker lk(&m_mutex); m_params.speexVad       = v; }
 void RxAudioProcessor::setSpeexVadProbStart(int v)       { QMutexLocker lk(&m_mutex); m_params.speexVadProbStart = v; }
 void RxAudioProcessor::setSpeexVadProbCont(int v)        { QMutexLocker lk(&m_mutex); m_params.speexVadProbCont  = v; }
-void RxAudioProcessor::setSpacFrameMs(float v)           { QMutexLocker lk(&m_mutex); m_params.spacFrameMs    = v; }
-void RxAudioProcessor::setSpacVoicingThr(float v)        { QMutexLocker lk(&m_mutex); m_params.spacVoicingThr = v; }
-void RxAudioProcessor::setSpacVoicingFull(float v)       { QMutexLocker lk(&m_mutex); m_params.spacVoicingFull= v; }
-void RxAudioProcessor::setSpacAttenDb(float v)           { QMutexLocker lk(&m_mutex); m_params.spacAttenDb    = v; }
+void RxAudioProcessor::setAnrNoiseReductionDb(double v)  { QMutexLocker lk(&m_mutex); m_params.anrNoiseReductionDb = v; }
+void RxAudioProcessor::setAnrSensitivity(double v)       { QMutexLocker lk(&m_mutex); m_params.anrSensitivity      = v; }
+void RxAudioProcessor::setAnrFreqSmoothing(int v)        { QMutexLocker lk(&m_mutex); m_params.anrFreqSmoothing    = v; }
 void RxAudioProcessor::setOutputGainDB(float v)          { QMutexLocker lk(&m_mutex); m_params.outputGainDB   = v; }
 
 // ─── Getters ─────────────────────────────────────────────────────────────────
@@ -271,7 +300,7 @@ float RxAudioProcessor::estimatedLatencyMs() const
     { QMutexLocker lk(&m_mutex); p = m_params; }
     if (p.bypass || !p.nrEnabled) return 0.0f;
     if (p.nrMode == RxNrMode::Speex) return m_speex->latencyMs();
-    return m_spac->latencyMs();
+    return m_anr->latencyMs();
 }
 
 int RxAudioProcessor::speexPresetCount()             { return SpeexNrProcessor::presetCount();        }

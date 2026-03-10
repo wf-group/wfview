@@ -293,7 +293,7 @@ INCLUDEPATH += src/audio/pocketfft
 INCLUDEPATH += src/audio/resampler
 INCLUDEPATH += src/audio/speexdspmini/src
 INCLUDEPATH += src/audio/speexdspmini/include
-INCLUDEPATH += src/audio/spac
+INCLUDEPATH += src/audio/anr
 INCLUDEPATH += src
 
 # speexdspmini: self-contained Speex preprocessor (no system libspeexdsp needed)
@@ -315,6 +315,11 @@ SOURCES += \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
     src/audio/rxaudioprocessor.cpp \
+    src/audio/anr/loguru.cpp \
+    src/audio/anr/NoiseReduction.cpp \
+    src/audio/anr/RealFFTf.cpp \
+    src/audio/anr/InputTrack.cpp \
+    src/audio/anr/OutputTrack.cpp \
     src/audio/speexdspmini/src/preprocess.c \
     src/audio/speexdspmini/src/fftwrap.c \
     src/audio/speexdspmini/src/filterbank.c \
@@ -406,7 +411,7 @@ HEADERS  += \
     include/rxaudioprocessor.h \
     include/rxaudioprocessingwidget.h \
     src/audio/speexnrprocessor.h \
-    src/audio/spacnrprocessor.h \
+    src/audio/anrnrprocessor.h \
     src/audio/plugins/dysoncompress.h \
     src/audio/plugins/mbeq.h \
     src/audio/plugins/noisegate.h \

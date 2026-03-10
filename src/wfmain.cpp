@@ -2155,10 +2155,9 @@ void wfmain::loadSettings()
     prefs.rxAudioProc.speexVad         = settings->value("RxProcSpeexVad",         false).toBool();
     prefs.rxAudioProc.speexVadProbStart= settings->value("RxProcSpeexVadProbStart",   85).toInt();
     prefs.rxAudioProc.speexVadProbCont = settings->value("RxProcSpeexVadProbCont",    65).toInt();
-    prefs.rxAudioProc.spacFrameMs      = settings->value("RxProcSpacFrameMs",     20.0f).toFloat();
-    prefs.rxAudioProc.spacVoicingThr   = settings->value("RxProcSpacVoicingThr",  0.20f).toFloat();
-    prefs.rxAudioProc.spacVoicingFull  = settings->value("RxProcSpacVoicingFull", 0.55f).toFloat();
-    prefs.rxAudioProc.spacAttenDb      = settings->value("RxProcSpacAttenDb",     80.0f).toFloat();
+    prefs.rxAudioProc.anrNoiseReductionDb = settings->value("RxProcAnrNoiseReductionDb", 20.0).toDouble();
+    prefs.rxAudioProc.anrSensitivity      = settings->value("RxProcAnrSensitivity",       1.1).toDouble();
+    prefs.rxAudioProc.anrFreqSmoothing    = settings->value("RxProcAnrFreqSmoothing",       4).toInt();
     prefs.rxAudioProc.outputGainDB     = settings->value("RxProcOutputGainDB",     0.0f).toFloat();
 
     if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
@@ -3458,10 +3457,9 @@ void wfmain::saveSettings()
     settings->setValue("RxProcSpeexVad",          prefs.rxAudioProc.speexVad);
     settings->setValue("RxProcSpeexVadProbStart", prefs.rxAudioProc.speexVadProbStart);
     settings->setValue("RxProcSpeexVadProbCont",  prefs.rxAudioProc.speexVadProbCont);
-    settings->setValue("RxProcSpacFrameMs",       prefs.rxAudioProc.spacFrameMs);
-    settings->setValue("RxProcSpacVoicingThr",    prefs.rxAudioProc.spacVoicingThr);
-    settings->setValue("RxProcSpacVoicingFull",   prefs.rxAudioProc.spacVoicingFull);
-    settings->setValue("RxProcSpacAttenDb",       prefs.rxAudioProc.spacAttenDb);
+    settings->setValue("RxProcAnrNoiseReductionDb", prefs.rxAudioProc.anrNoiseReductionDb);
+    settings->setValue("RxProcAnrSensitivity",      prefs.rxAudioProc.anrSensitivity);
+    settings->setValue("RxProcAnrFreqSmoothing",    prefs.rxAudioProc.anrFreqSmoothing);
     settings->setValue("RxProcOutputGainDB",      prefs.rxAudioProc.outputGainDB);
 
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
@@ -5781,7 +5779,13 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::updateInputLevel);
             connect(rxProc, &RxAudioProcessor::rxOutputLevel,
                     rxAudioProcWin, &RxAudioProcessingWidget::updateOutputLevel);
+            connect(rxProc, &RxAudioProcessor::anrProfileReady,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrProfileReady);
         }
+
+        // ANR profile collection: widget toggle → wfmain → rxProc
+        connect(rxAudioProcWin, &RxAudioProcessingWidget::anrCollectToggled,
+                this, &wfmain::onAnrCollectToggled);
     }
     rxAudioProcWin->show();
     rxAudioProcWin->raise();
@@ -5811,11 +5815,19 @@ void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
     rxProc->setSpeexVad(p.speexVad);
     rxProc->setSpeexVadProbStart(p.speexVadProbStart);
     rxProc->setSpeexVadProbCont(p.speexVadProbCont);
-    rxProc->setSpacFrameMs(p.spacFrameMs);
-    rxProc->setSpacVoicingThr(p.spacVoicingThr);
-    rxProc->setSpacVoicingFull(p.spacVoicingFull);
-    rxProc->setSpacAttenDb(p.spacAttenDb);
+    rxProc->setAnrNoiseReductionDb(p.anrNoiseReductionDb);
+    rxProc->setAnrSensitivity(p.anrSensitivity);
+    rxProc->setAnrFreqSmoothing(p.anrFreqSmoothing);
     rxProc->setOutputGainDB(p.outputGainDB);
+}
+
+void wfmain::onAnrCollectToggled(bool collecting)
+{
+    if (!rxProc) return;
+    if (collecting)
+        rxProc->startAnrProfile();
+    else
+        rxProc->stopAnrProfile();  // emits anrProfileReady(bool) → widget
 }
 
 void wfmain::receiveValue(cacheItem val){

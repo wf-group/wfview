@@ -7,7 +7,7 @@
 // thread (TimeCriticalPriority).  All parameter access is mutex-protected.
 //
 // Responsibilities:
-//   1. Apply noise reduction (Speex or SPAC) to the incoming radio audio.
+//   1. Apply noise reduction (Speex or ANR) to the incoming radio audio.
 //   2. Mix sidetone (self-monitor, received via injectSidetone()) AFTER NR,
 //      so the user's own voice is not processed by the noise reducer.
 //   3. Apply post-NR output gain.
@@ -36,7 +36,7 @@
 #include "prefs.h"   // RxNrMode, rxAudioProcessingPrefs
 
 class SpeexNrProcessor;   // forward — defined in speexnrprocessor.h
-class SpacNrProcessor;    // forward — defined in spacnrprocessor.h
+class AnrNrProcessor;     // forward — defined in anrnrprocessor.h
 
 class RxAudioProcessor : public QObject
 {
@@ -70,11 +70,10 @@ public:
     void setSpeexVadProbStart(int pct);  // 0–100
     void setSpeexVadProbCont(int pct);   // 0–100
 
-    // SPAC
-    void setSpacFrameMs(float ms);
-    void setSpacVoicingThr(float v);
-    void setSpacVoicingFull(float v);
-    void setSpacAttenDb(float dB);
+    // ANR (Audacity Noise Reduction)
+    void setAnrNoiseReductionDb(double dB);
+    void setAnrSensitivity(double s);
+    void setAnrFreqSmoothing(int bands);
 
     // Output gain
     void setOutputGainDB(float dB);
@@ -93,6 +92,15 @@ public:
     static int speexPresetCount();
     static int speexBandsForPreset(int preset);
 
+    // ANR profile control — called from the main thread via wfmain slots.
+    // startAnrProfile() flips the collection flag; the converter thread then
+    // feeds samples via AnrNrProcessor::addProfileSamples().
+    // stopAnrProfile()  finalises the profile and emits anrProfileReady().
+    void startAnrProfile();
+    void stopAnrProfile();
+    bool anrIsProfiling() const;
+    bool anrHasProfile()  const;
+
 public slots:
     // Connected to TxAudioProcessor::haveSidetoneFloat (Qt::QueuedConnection).
     // Buffers the sidetone for mixing in processAudio().
@@ -101,6 +109,8 @@ public slots:
 signals:
     void rxInputLevel(float peak);
     void rxOutputLevel(float peak);
+    // Emitted from stopAnrProfile() after the profile is built.
+    void anrProfileReady(bool success);
 
 private:
     // ── Params snapshot (copied once per block under mutex) ───────────────────
@@ -121,11 +131,10 @@ private:
         int   speexVadProbStart   = 85;
         int   speexVadProbCont    = 65;
 
-        // SPAC
-        float spacFrameMs    = 20.0f;
-        float spacVoicingThr = 0.20f;
-        float spacVoicingFull= 0.55f;
-        float spacAttenDb    = 80.0f;
+        // ANR
+        double anrNoiseReductionDb = 12.0;
+        double anrSensitivity      =  6.0;
+        int    anrFreqSmoothing    =  0;
 
         // Output
         float outputGainDB = 0.0f;
@@ -155,11 +164,13 @@ private:
     int    m_cachedVadProbCont  = -1;
 
     std::unique_ptr<SpeexNrProcessor> m_speex;
-    std::unique_ptr<SpacNrProcessor>  m_spac;
+    std::unique_ptr<AnrNrProcessor>   m_anr;
+    // Scratch buffer used when downmixing stereo for ANR profile collection.
+    std::vector<float>                m_anrProfileMono;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void pushSpeexParams(const Params& p);
-    void pushSpacParams(const Params& p);
+    void pushAnrParams(const Params& p);
     std::vector<float> applyNr(const float* in, int n, float sr, const Params& p);
     void mixSidetone(Eigen::VectorXf& samples, int channels, const Params& p);
     static void applyGainDB(Eigen::VectorXf& s, float dB);

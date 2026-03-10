@@ -207,7 +207,7 @@ struct audioProcessingPrefs {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Which NR algorithm is active
-enum class RxNrMode { Speex = 0, Spac = 1 };
+enum class RxNrMode { Speex = 0, Anr = 1 };
 
 struct rxAudioProcessingPrefs {
     bool       bypass      = false;  // master bypass — skips NR and output gain
@@ -229,11 +229,10 @@ struct rxAudioProcessingPrefs {
     int   speexVadProbStart  = 85;   // 0–100 %; probability to enter voice state
     int   speexVadProbCont   = 65;   // 0–100 %; probability to stay in voice state
 
-    // ── SPAC parameters ──────────────────────────────────────────────────────
-    float spacFrameMs      = 20.0f;  // autocorrelation frame size (ms)
-    float spacVoicingThr   = 0.20f;  // voicing threshold (0.0–1.0)
-    float spacVoicingFull  = 0.55f;  // full-blend upper bound (> voicingThr)
-    float spacAttenDb      = 80.0f;  // unvoiced attenuation (positive dB)
+    // ── ANR (Audacity Noise Reduction) parameters ─────────────────────────────
+    double anrNoiseReductionDb =  20.0;  // dB of suppression, 0–48
+    double anrSensitivity      =   1.1;  // –log10(prob), 0–24
+    int    anrFreqSmoothing    =   4;    // frequency-smoothing bands, 0–6
 
     // ── Output gain ──────────────────────────────────────────────────────────
     float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain

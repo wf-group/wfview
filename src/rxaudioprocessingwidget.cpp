@@ -40,7 +40,8 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
 
     p.bypass        = bypassCheck->isChecked();
     p.channelSelect = channelCombo->currentIndex();  // 0=auto,1=ch1,2=ch2,3=ch1+ch2
-    p.nrMode        = (algoGroup->checkedId() == 0) ? RxNrMode::Speex : RxNrMode::Spac;
+    const int algoId = algoGroup->checkedId();
+    p.nrMode = (algoId == 0) ? RxNrMode::Speex : RxNrMode::Anr;
     // nrEnabled follows master bypass: DSP is active whenever bypass is off
     p.nrEnabled     = !p.bypass;
 
@@ -59,11 +60,10 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.speexVadProbStart  = speexVadProbStart->value();
     p.speexVadProbCont   = speexVadProbCont->value();
 
-    // SPAC
-    p.spacFrameMs    = static_cast<float>(spacFrameMs->value());
-    p.spacVoicingThr = spacVoicingThr->value()  * 0.01f;
-    p.spacVoicingFull= spacVoicingFull->value() * 0.01f;
-    p.spacAttenDb    = static_cast<float>(spacAttenDb->value());
+    // ANR
+    p.anrNoiseReductionDb = anrNoiseRedSlider->value();
+    p.anrSensitivity      = anrSensSlider->value() * 0.1;
+    p.anrFreqSmoothing    = anrSmoothSlider->value();
 
     // Output gain
     p.outputGainDB   = outputGain->value() * 0.1f;
@@ -77,10 +77,16 @@ void RxAudioProcessingWidget::setConnected(bool connected)
 {
     m_radioConnected = connected;
     controlsContainer->setEnabled(connected);
+    anrCollectBtn->setEnabled(connected);
     if (!connected) {
         lblLatency->setText(tr("Latency: — ms  (not connected)"));
         lblInputPeak->setText(tr("Input: —"));
         lblOutputPeak->setText(tr("Output: —"));
+        if (m_anrCollecting) {
+            anrCollectTimer->stop();
+            m_anrCollecting = false;
+            anrCollectBtn->setText(tr("Collect Noise Sample"));
+        }
     }
 }
 
@@ -121,11 +127,10 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     lblSpeexSuppress->setText(QString::number(speexSuppress->value()) + " dB");
     lblAgcLevel->setText(QString::number(speexAgcLevel->value()));
     lblAgcMaxGain->setText(QString::number(speexAgcMaxGain->value()) + " dB");
-    lblSpacFrameMs->setText(QString::number(spacFrameMs->value()) + " ms");
-    lblSpacVoicing->setText(QString::number(spacVoicingThr->value() * 0.01f, 'f', 2));
-    lblSpacVoicingFull->setText(QString::number(spacVoicingFull->value() * 0.01f, 'f', 2));
-    lblSpacAtten->setText(QString::number(spacAttenDb->value()) + " dB");
     lblOutputGain->setText(QString::number(outputGain->value() * 0.1f, 'f', 1) + " dB");
+    lblAnrNoiseRed->setText(QString::number(anrNoiseRedSlider->value()) + " dB");
+    lblAnrSens->setText(QString::number(anrSensSlider->value() * 0.1, 'f', 1));
+    lblAnrSmooth->setText(QString::number(anrSmoothSlider->value()));
 
     // Value labels
     lblVadProbStart->setText(QString::number(speexVadProbStart->value()) + " %");
@@ -152,10 +157,8 @@ void RxAudioProcessingWidget::onBypassToggled(bool bypassed)
 
 void RxAudioProcessingWidget::onNrModeChanged(int id)
 {
-    // 0 = Speex, 1 = SPAC
-    speexGrp->setVisible(id == 0);
-    spacGrp->setVisible(id == 1);
-    adjustSize();
+    // 0 = Speex, 1 = ANR
+    algoStack->setCurrentIndex(id);
     emit prefsChanged(getPrefs());
 }
 
@@ -169,9 +172,12 @@ void RxAudioProcessingWidget::onAlgorithmGroupToggled(bool)
 void RxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     algoGrp->setEnabled(enabled);
-    speexGrp->setEnabled(enabled);
-    spacGrp->setEnabled(enabled);
+    algoStack->setEnabled(enabled);
     gainGrp->setEnabled(enabled);
+    // ANR group: outer box enabled by bypass, but inner controls gated by profile
+    anrGrp->setEnabled(enabled);
+    if (enabled)
+        updateAnrControlState();
     // channelGrp intentionally not gated by bypass (user may still change it)
 }
 
@@ -240,27 +246,33 @@ void RxAudioProcessingWidget::buildUi()
     {
         algoGrp   = new QGroupBox(tr("Noise Reduction Algorithm"));
         auto* row = new QHBoxLayout(algoGrp);
-        algoSpeex = new QRadioButton(tr("Speex (Ephraim-Malah spectral subtraction)"));
-        algoSpac  = new QRadioButton(tr("SPAC  (Splicing of AutoCorrelation, voiced-only)"));
+        algoSpeex = new QRadioButton(tr("Speex"));
+        algoAnr   = new QRadioButton(tr("ANR"));
         algoSpeex->setChecked(true);
         algoGroup = new QButtonGroup(this);
         algoGroup->addButton(algoSpeex, 0);
-        algoGroup->addButton(algoSpac,  1);
+        algoGroup->addButton(algoAnr,   1);
         algoSpeex->setToolTip(tr(
             "Speex preprocessor: statistical noise estimation using a minimum mean-square\n"
-            "error estimator.  Works on all audio types.  Latency = one frame (~20 ms)."));
-        algoSpac->setToolTip(tr(
-            "SPAC: reconstructs voiced speech from its autocorrelation, attenuating unvoiced\n"
-            "noise.  Best for SSB/AM voice signals.  Latency = one frame (~20 ms)."));
+            "error estimator using Ephraim-Malah spectral subtraction\n"
+            "Works on all audio types.  Latency = one frame (~20 ms)."));
+        algoAnr->setToolTip(tr(
+            "ANR: Audacity Noise Reduction — requires a noise sample to be collected first.\n"
+            "Analyses the noise spectrum and suppresses matching frequencies.\n"
+            "Works on broadband noise.  Latency ≈ 40–80 ms depending on sample rate."));
         row->addWidget(algoSpeex);
-        row->addWidget(algoSpac);
+        row->addWidget(algoAnr);
         row->addStretch();
         mainLayout->addWidget(algoGrp);
         connect(algoSpeex, &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
-        connect(algoSpac,  &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
+        connect(algoAnr,   &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
     }
 
-    // ── Speex controls ────────────────────────────────────────────────────────
+    // ── Algorithm-specific groups (in a QStackedWidget so width never changes) ─
+    algoStack = new QStackedWidget;
+    mainLayout->addWidget(algoStack);
+
+    // ── Speex controls — stack page 0 ─────────────────────────────────────────
     {
         speexGrp = new QGroupBox(tr("Speex Noise Suppressor"));
         auto* form = new QFormLayout(speexGrp);
@@ -358,7 +370,7 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prob-cont:"), rowPC);
         }
 
-        mainLayout->addWidget(speexGrp);
+        algoStack->addWidget(speexGrp);  // page 0
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -368,61 +380,82 @@ void RxAudioProcessingWidget::buildUi()
         connect(speexVadProbCont,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
-    // ── SPAC controls ─────────────────────────────────────────────────────────
+    // ── ANR controls — stack page 1 ───────────────────────────────────────────
     {
-        spacGrp  = new QGroupBox(tr("SPAC Noise Reducer  (voiced speech enhancement)"));
-        auto* form = new QFormLayout(spacGrp);
+        anrGrp = new QGroupBox(tr("ANR — Audacity Noise Reduction"));
+        auto* form = new QFormLayout(anrGrp);
 
-        // Frame size: 10–50 ms
+        // Noise reduction
         {
-            auto* row = makeSliderRow(spacFrameMs, lblSpacFrameMs, 10, 50, 20, 70);
-            spacFrameMs->setToolTip(tr(
-                "Autocorrelation frame length (ms).\n"
-                "Shorter frames: lower latency, poorer pitch estimation.\n"
-                "Longer frames: better pitch tracking, higher latency."));
-            lblSpacFrameMs->setText("20 ms");
-            form->addRow(tr("Frame size:"), row);
+            auto* row = makeSliderRow(anrNoiseRedSlider, lblAnrNoiseRed, 0, 48, 12, 70);
+            anrNoiseRedSlider->setToolTip(tr(
+                "Amount of noise suppression in dB.\n"
+                "Higher values reduce more noise but may introduce artefacts.\n"
+                "Typical range: 6–24 dB."));
+            lblAnrNoiseRed->setText("12 dB");
+            form->addRow(tr("Noise reduction:"), row);
         }
 
-        // Voicing threshold: 0–100 (×0.01 → 0.0–1.0)
+        // Sensitivity
         {
-            auto* row = makeSliderRow(spacVoicingThr, lblSpacVoicing, 1, 99, 20, 70);
-            spacVoicingThr->setToolTip(tr(
-                "Voicing threshold (0.0–1.0): normalised autocorrelation peak must exceed\n"
-                "this value before a frame is treated as voiced speech.\n"
-                "Lower = more permissive (passes more frames); higher = stricter."));
-            lblSpacVoicing->setText("0.20");
-            form->addRow(tr("Voicing thr:"), row);
+            // Stored as 0–240 integer (×0.1 → 0.0–24.0)
+            auto* row = makeSliderRow(anrSensSlider, lblAnrSens, 0, 100, 60, 70);
+            anrSensSlider->setToolTip(tr(
+                "Sensitivity: −log₁₀ of the probability that noise exceeds the threshold.\n"
+                "Higher = less aggressive (fewer false positives, may miss noise).\n"
+                "Lower  = more aggressive (may suppress signal as well as noise).\n"
+                "Strategy 1: Tune to static and lower until you hear chimes, then raise slightly.\n"
+                "Strategy 2: Tune to a signal and start low. Raise until the signal is nominally loud (watch the RxAudio meter)\n"
+                "Default 1.1 is a good starting point."));
+            lblAnrSens->setText("1.1");
+            form->addRow(tr("Sensitivity:"), row);
         }
 
-        // Voicing full: must be > voicingThr
+        // Frequency smoothing
         {
-            auto* row = makeSliderRow(spacVoicingFull, lblSpacVoicingFull, 1, 99, 55, 70);
-            spacVoicingFull->setToolTip(tr(
-                "Full-blend upper bound (0.0–1.0): above this confidence the output is\n"
-                "100%% SPAC-processed.  Must be greater than Voicing threshold.\n"
-                "Closer to threshold: fast transition; farther: gradual blend."));
-            lblSpacVoicingFull->setText("0.55");
-            form->addRow(tr("Full blend at:"), row);
+            auto* row = makeSliderRow(anrSmoothSlider, lblAnrSmooth, 0, 6, 0, 70);
+            anrSmoothSlider->setToolTip(tr(
+                "Frequency smoothing (bands).\n"
+                "Averages gain across neighbouring frequency bins to reduce musical noise.\n"
+                "0 = off (sharper but may produce tonal artefacts); 3–6 = smooth."));
+            lblAnrSmooth->setText("0");
+            form->addRow(tr("Freq smoothing:"), row);
         }
 
-        // Attenuation: 0–120 dB
+        // Noise sample collection
         {
-            auto* row = makeSliderRow(spacAttenDb, lblSpacAtten, 0, 120, 80, 70);
-            spacAttenDb->setToolTip(tr(
-                "Attenuation applied to unvoiced frames (positive dB).\n"
-                "0 = no attenuation; 80–120 = near silence for unvoiced content."));
-            lblSpacAtten->setText("80 dB");
-            form->addRow(tr("Unvoiced atten:"), row);
+            anrCollectBtn = new QPushButton(tr("Collect Noise Sample"));
+            anrCollectBtn->setToolTip(tr(
+                "Click to start collecting a noise sample.\n"
+                "Play audio containing only background noise, then click Stop.\n"
+                "Collection stops automatically after 5 seconds.\n"
+                "ANR will be disabled until a valid noise sample is collected."));
+            anrCollectBtn->setEnabled(false); // enabled when radio connects
+
+            lblAnrStatus = new QLabel(tr("No noise sample — collect one before using ANR."));
+            lblAnrStatus->setWordWrap(true);
+            QFont f = lblAnrStatus->font();
+            f.setItalic(true);
+            lblAnrStatus->setFont(f);
+
+            form->addRow(anrCollectBtn);
+            form->addRow(lblAnrStatus);
+
+            // 5-second auto-stop timer
+            anrCollectTimer = new QTimer(this);
+            anrCollectTimer->setSingleShot(true);
+            anrCollectTimer->setInterval(5000);
+            connect(anrCollectTimer, &QTimer::timeout,
+                    this, &RxAudioProcessingWidget::onAnrCollectTimeout);
+            connect(anrCollectBtn, &QPushButton::clicked,
+                    this, &RxAudioProcessingWidget::onAnrCollectClicked);
         }
 
-        spacGrp->setVisible(false);  // shown when SPAC radio button is selected
-        mainLayout->addWidget(spacGrp);
+        algoStack->addWidget(anrGrp);  // page 1
 
-        connect(spacFrameMs,    &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(spacVoicingThr, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(spacVoicingFull,&QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-        connect(spacAttenDb,    &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(anrNoiseRedSlider, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(anrSensSlider,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(anrSmoothSlider,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
     // ── Output gain ───────────────────────────────────────────────────────────
@@ -473,7 +506,11 @@ void RxAudioProcessingWidget::buildUi()
     // Start disabled — enabled when radio connects
     controlsContainer->setEnabled(false);
 
+    // Lock width: size the dialog to its full content, then fix the horizontal
+    // dimension so it never changes when switching between NR algorithm pages.
     adjustSize();
+    setFixedWidth(500);
+    setFixedHeight(1000);
 }
 
 // ─── blockAll ─────────────────────────────────────────────────────────────────
@@ -483,7 +520,6 @@ void RxAudioProcessingWidget::blockAll(bool block)
     bypassCheck->blockSignals(block);
     channelCombo->blockSignals(block);
     algoSpeex->blockSignals(block);
-    algoSpac->blockSignals(block);
     speexSuppress->blockSignals(block);
     speexBandsCombo->blockSignals(block);
     speexFrameCombo->blockSignals(block);
@@ -493,10 +529,9 @@ void RxAudioProcessingWidget::blockAll(bool block)
     speexVadCheck->blockSignals(block);
     speexVadProbStart->blockSignals(block);
     speexVadProbCont->blockSignals(block);
-    spacFrameMs->blockSignals(block);
-    spacVoicingThr->blockSignals(block);
-    spacVoicingFull->blockSignals(block);
-    spacAttenDb->blockSignals(block);
+    anrNoiseRedSlider->blockSignals(block);
+    anrSensSlider->blockSignals(block);
+    anrSmoothSlider->blockSignals(block);
     outputGain->blockSignals(block);
 }
 
@@ -512,11 +547,11 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     channelCombo->setCurrentIndex(ch);
 
     // Algorithm
-    bool isSpeex = (p.nrMode == RxNrMode::Speex);
+    const bool isSpeex = (p.nrMode == RxNrMode::Speex);
+    const bool isAnr   = (p.nrMode == RxNrMode::Anr);
     algoSpeex->setChecked(isSpeex);
-    algoSpac->setChecked(!isSpeex);
-    speexGrp->setVisible(isSpeex);
-    spacGrp->setVisible(!isSpeex);
+    algoAnr->setChecked(isAnr);
+    algoStack->setCurrentIndex(isAnr ? 1 : 0);
 
     // Speex
     speexSuppress->setValue(qBound(-70, p.speexSuppression, -1));
@@ -556,17 +591,75 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     speexVadProbStart->setVisible(vadVis); lblVadProbStart->setVisible(vadVis);
     speexVadProbCont->setVisible(vadVis);  lblVadProbCont->setVisible(vadVis);
 
-    // SPAC
-    spacFrameMs->setValue(qBound(10, static_cast<int>(p.spacFrameMs), 50));
-    spacVoicingThr->setValue(qBound(1, qRound(p.spacVoicingThr * 100.0f), 99));
-    spacVoicingFull->setValue(qBound(1, qRound(p.spacVoicingFull * 100.0f), 99));
-    spacAttenDb->setValue(qBound(0, static_cast<int>(p.spacAttenDb), 120));
-    lblSpacFrameMs->setText(QString::number(spacFrameMs->value()) + " ms");
-    lblSpacVoicing->setText(QString::number(spacVoicingThr->value() * 0.01f, 'f', 2));
-    lblSpacVoicingFull->setText(QString::number(spacVoicingFull->value() * 0.01f, 'f', 2));
-    lblSpacAtten->setText(QString::number(spacAttenDb->value()) + " dB");
+    // ANR
+    anrNoiseRedSlider->setValue(qBound(0, static_cast<int>(p.anrNoiseReductionDb), 48));
+    lblAnrNoiseRed->setText(QString::number(anrNoiseRedSlider->value()) + " dB");
+    // Sensitivity stored as 0–240 integer (×0.1 → 0.0..24.0)
+    anrSensSlider->setValue(qBound(0, qRound(p.anrSensitivity * 10.0), 240));
+    lblAnrSens->setText(QString::number(anrSensSlider->value() * 0.1, 'f', 1));
+    anrSmoothSlider->setValue(qBound(0, p.anrFreqSmoothing, 6));
+    lblAnrSmooth->setText(QString::number(anrSmoothSlider->value()));
+    updateAnrControlState();
 
     // Output gain: -6..+20 dB in 0.1 dB steps → integer range -60..200
     outputGain->setValue(qBound(-60, qRound(p.outputGainDB * 10.0f), 200));
     lblOutputGain->setText(QString::number(p.outputGainDB, 'f', 1) + " dB");
+}
+
+// ─── ANR profile slots ────────────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::onAnrCollectClicked()
+{
+    if (m_anrCollecting) {
+        // User pressed "Stop Collecting" early
+        anrCollectTimer->stop();
+        m_anrCollecting = false;
+        anrCollectBtn->setText(tr("Collect Noise Sample"));
+        lblAnrStatus->setText(tr("Collecting stopped — waiting for profile to build…"));
+        anrCollectBtn->setEnabled(false);
+        emit anrCollectToggled(false);   // triggers wfmain → rxProc->stopAnrProfile()
+    } else {
+        // User pressed "Collect Noise Sample"
+        m_anrCollecting = true;
+        anrCollectBtn->setText(tr("Stop Collecting  (auto-stops in 5 s)"));
+        lblAnrStatus->setText(tr("Recording noise sample — play audio with only background noise…"));
+        anrCollectTimer->start();        // auto-stop after 5 seconds
+        emit anrCollectToggled(true);    // triggers wfmain → rxProc->startAnrProfile()
+    }
+}
+
+void RxAudioProcessingWidget::onAnrCollectTimeout()
+{
+    // Timer fired: auto-stop collection
+    if (!m_anrCollecting) return;
+    m_anrCollecting = false;
+    anrCollectBtn->setText(tr("Collect Noise Sample"));
+    lblAnrStatus->setText(tr("5 s sample collected — building noise profile…"));
+    anrCollectBtn->setEnabled(false);
+    emit anrCollectToggled(false);  // triggers wfmain → rxProc->stopAnrProfile()
+}
+
+void RxAudioProcessingWidget::onAnrProfileReady(bool success)
+{
+    anrCollectBtn->setEnabled(m_radioConnected);
+    if (success) {
+        m_anrHasProfile = true;
+        lblAnrStatus->setText(tr("Noise profile ready — ANR active."));
+    } else {
+        m_anrHasProfile = false;
+        lblAnrStatus->setText(tr("Profile build failed (sample too short?).  Try again."));
+    }
+    updateAnrControlState();
+}
+
+// ─── updateAnrControlState ────────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::updateAnrControlState()
+{
+    const bool canProcess = m_anrHasProfile && !m_anrCollecting;
+    anrNoiseRedSlider->setEnabled(canProcess);
+    anrSensSlider->setEnabled(canProcess);
+    anrSmoothSlider->setEnabled(canProcess);
+    if (!m_anrHasProfile && !m_anrCollecting)
+        lblAnrStatus->setText(tr("No noise sample — collect one before using ANR."));
 }

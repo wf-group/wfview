@@ -462,6 +462,7 @@ private slots:
 
     void on_RXaudioProcBtn_clicked();
     void onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p);
+    void onAnrCollectToggled(bool collecting);
 
     void on_scopeMainSubBtn_clicked();
     void on_scopeDualBtn_toggled(bool en);

@@ -22,10 +22,10 @@
 #include <QScrollArea>
 #include <QSlider>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QFormLayout>
-#include <QStackedWidget>
 
 #include "prefs.h"   // rxAudioProcessingPrefs, RxNrMode
 #include "rxaudioprocessor.h"
@@ -47,6 +47,9 @@ public:
 
 signals:
     void prefsChanged(rxAudioProcessingPrefs p);
+    // Emitted when the user clicks the collect/stop button.
+    // true = start collecting, false = stop collecting (finalize profile).
+    void anrCollectToggled(bool collecting);
 
 public slots:
     // Latency estimate from RxAudioProcessor (ms); 0 = bypass / disabled
@@ -55,17 +58,23 @@ public slots:
     void updateInputLevel(float peak);
     void updateOutputLevel(float peak);
 
+    // Called by wfmain after the ANR profile has been built (or failed).
+    void onAnrProfileReady(bool success);
+
 private slots:
     void onAnyControlChanged();
     void onBypassToggled(bool bypassed);
     void onNrModeChanged(int id);            // radio-button group id
     void onAlgorithmGroupToggled(bool /*unused*/);
+    void onAnrCollectClicked();
+    void onAnrCollectTimeout();
 
 private:
     void buildUi();
     void blockAll(bool block);
     void populateFromPrefs(const rxAudioProcessingPrefs& p);
     void setProcessingControlsEnabled(bool enabled);
+    void updateAnrControlState();   // enables/disables ANR sliders based on profile
 
     // ── Master bypass ─────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck    {nullptr};
@@ -78,8 +87,9 @@ private:
     // ── Algorithm selector ────────────────────────────────────────────────────
     QGroupBox*     algoGrp       {nullptr};
     QRadioButton*  algoSpeex     {nullptr};
-    QRadioButton*  algoSpac      {nullptr};
+    QRadioButton*  algoAnr       {nullptr};
     QButtonGroup*  algoGroup     {nullptr};
+    QStackedWidget* algoStack    {nullptr};   // page 0=Speex, 1=ANR
 
     // ── Speex controls ────────────────────────────────────────────────────────
     QGroupBox*    speexGrp       {nullptr};
@@ -103,20 +113,19 @@ private:
     QSlider*      speexVadProbCont  {nullptr}; // 0..100 %
     QLabel*       lblVadProbCont    {nullptr};
 
-    // ── SPAC controls ─────────────────────────────────────────────────────────
-    QGroupBox*    spacGrp        {nullptr};
-
-    QSlider*      spacFrameMs    {nullptr};   // 10..50 ms (×1)
-    QLabel*       lblSpacFrameMs {nullptr};
-
-    QSlider*      spacVoicingThr {nullptr};   // 0..100 (×0.01)
-    QLabel*       lblSpacVoicing {nullptr};
-
-    QSlider*      spacVoicingFull{nullptr};   // 0..100 (×0.01), must exceed voicingThr
-    QLabel*       lblSpacVoicingFull{nullptr};
-
-    QSlider*      spacAttenDb    {nullptr};   // 0..120 dB
-    QLabel*       lblSpacAtten   {nullptr};
+    // ── ANR controls ──────────────────────────────────────────────────────────
+    QGroupBox*    anrGrp             {nullptr};
+    QSlider*      anrNoiseRedSlider  {nullptr};   // 0..48 dB
+    QLabel*       lblAnrNoiseRed     {nullptr};
+    QSlider*      anrSensSlider      {nullptr};   // 0..240 (×0.1 → 0.0..24.0)
+    QLabel*       lblAnrSens         {nullptr};
+    QSlider*      anrSmoothSlider    {nullptr};   // 0..6 bands
+    QLabel*       lblAnrSmooth       {nullptr};
+    QPushButton*  anrCollectBtn      {nullptr};   // "Collect Noise Sample" / "Stop Collecting"
+    QLabel*       lblAnrStatus       {nullptr};   // status / instruction line
+    QTimer*       anrCollectTimer    {nullptr};   // 5-second auto-stop
+    bool          m_anrCollecting    = false;
+    bool          m_anrHasProfile    = false;
 
     // ── Output gain ───────────────────────────────────────────────────────────
     QGroupBox*    gainGrp        {nullptr};
