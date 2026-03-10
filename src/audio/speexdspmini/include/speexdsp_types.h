@@ -59,10 +59,19 @@
 #elif (defined(__APPLE__) && defined(__MACH__)) /* MacOS X Framework build */
 
 #  include <sys/types.h>
+/* Guard against macro definitions from speex_resampler.h (OUTSIDE_SPEEX mode) */
+#  ifndef spx_int16_t
    typedef int16_t spx_int16_t;
+#  endif
+#  ifndef spx_uint16_t
    typedef u_int16_t spx_uint16_t;
+#  endif
+#  ifndef spx_int32_t
    typedef int32_t spx_int32_t;
+#  endif
+#  ifndef spx_uint32_t
    typedef u_int32_t spx_uint32_t;
+#  endif
 
 #elif defined(__BEOS__)
 
