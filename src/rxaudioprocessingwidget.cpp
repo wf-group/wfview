@@ -79,9 +79,6 @@ void RxAudioProcessingWidget::setConnected(bool connected)
     controlsContainer->setEnabled(connected);
     anrCollectBtn->setEnabled(connected);
     if (!connected) {
-        lblLatency->setText(tr("Latency: — ms  (not connected)"));
-        lblInputPeak->setText(tr("Input: —"));
-        lblOutputPeak->setText(tr("Output: —"));
         if (m_anrCollecting) {
             anrCollectTimer->stop();
             m_anrCollecting = false;
@@ -95,28 +92,6 @@ void RxAudioProcessingWidget::setAudioChannels(int ch)
     m_audioChannels = ch;
     channelGrp->setVisible(ch > 1);
     adjustSize();
-}
-
-// ─── Level / latency slots ────────────────────────────────────────────────────
-
-void RxAudioProcessingWidget::updateLatency(float latencyMs)
-{
-    if (latencyMs <= 0.0f)
-        lblLatency->setText(tr("Latency: 0 ms  (bypass / NR off)"));
-    else
-        lblLatency->setText(tr("Latency: %1 ms").arg(latencyMs, 0, 'f', 1));
-}
-
-void RxAudioProcessingWidget::updateInputLevel(float peak)
-{
-    int pct = static_cast<int>(peak * 100.0f);
-    lblInputPeak->setText(tr("In: %1%").arg(pct));
-}
-
-void RxAudioProcessingWidget::updateOutputLevel(float peak)
-{
-    int pct = static_cast<int>(peak * 100.0f);
-    lblOutputPeak->setText(tr("Out: %1%").arg(pct));
 }
 
 // ─── Any control changed ─────────────────────────────────────────────────────
@@ -473,26 +448,6 @@ void RxAudioProcessingWidget::buildUi()
         form->addRow(tr("Output gain:"), row);
         mainLayout->addWidget(gainGrp);
         connect(outputGain, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
-    }
-
-    // ── Level / latency status ────────────────────────────────────────────────
-    {
-        auto* statusGrp  = new QGroupBox(tr("Status"));
-        auto* statusForm = new QFormLayout(statusGrp);
-
-        lblInputPeak  = new QLabel("In: —");
-        lblOutputPeak = new QLabel("Out: —");
-        lblLatency    = new QLabel(tr("Latency: — ms"));
-
-        auto* levelRow = new QHBoxLayout;
-        levelRow->addWidget(lblInputPeak);
-        levelRow->addSpacing(12);
-        levelRow->addWidget(lblOutputPeak);
-        levelRow->addStretch();
-
-        statusForm->addRow(tr("Signal:"),  levelRow);
-        statusForm->addRow(tr("Latency:"), lblLatency);
-        mainLayout->addWidget(statusGrp);
     }
 
     mainLayout->addStretch();

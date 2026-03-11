@@ -52,12 +52,6 @@ signals:
     void anrCollectToggled(bool collecting);
 
 public slots:
-    // Latency estimate from RxAudioProcessor (ms); 0 = bypass / disabled
-    void updateLatency(float latencyMs);
-
-    void updateInputLevel(float peak);
-    void updateOutputLevel(float peak);
-
     // Called by wfmain after the ANR profile has been built (or failed).
     void onAnrProfileReady(bool success);
 
@@ -131,13 +125,6 @@ private:
     QGroupBox*    gainGrp        {nullptr};
     QSlider*      outputGain     {nullptr};   // -60..200 (×0.1 dB → -6..+20 dB)
     QLabel*       lblOutputGain  {nullptr};
-
-    // ── Latency display ───────────────────────────────────────────────────────
-    QLabel*       lblLatency     {nullptr};
-
-    // ── Level meters (simple labels for now; meter widgets available if desired)
-    QLabel*       lblInputPeak   {nullptr};
-    QLabel*       lblOutputPeak  {nullptr};
 
     // ── Containers ────────────────────────────────────────────────────────────
     // Top-level widget holding all controls (for easy enable/disable on bypass)

@@ -492,12 +492,6 @@ void wfmain::openRig()
     // Attach RX audio processor to the RX output setup
     if (!rxProc) {
         rxProc = new RxAudioProcessor(this);
-        if (rxAudioProcWin) {
-            connect(rxProc, &RxAudioProcessor::rxInputLevel,
-                    rxAudioProcWin, &RxAudioProcessingWidget::updateInputLevel);
-            connect(rxProc, &RxAudioProcessor::rxOutputLevel,
-                    rxAudioProcWin, &RxAudioProcessingWidget::updateOutputLevel);
-        }
     }
     applyRxAudioProcPrefs(prefs.rxAudioProc);
     prefs.rxSetup.rxProc = rxProc;
@@ -5775,10 +5769,6 @@ void wfmain::on_RXaudioProcBtn_clicked()
         rxAudioProcWin->setConnected(connStatus == connConnected);
 
         if (rxProc) {
-            connect(rxProc, &RxAudioProcessor::rxInputLevel,
-                    rxAudioProcWin, &RxAudioProcessingWidget::updateInputLevel);
-            connect(rxProc, &RxAudioProcessor::rxOutputLevel,
-                    rxAudioProcWin, &RxAudioProcessingWidget::updateOutputLevel);
             connect(rxProc, &RxAudioProcessor::anrProfileReady,
                     rxAudioProcWin, &RxAudioProcessingWidget::onAnrProfileReady);
         }
