@@ -2157,6 +2157,13 @@ void wfmain::loadSettings()
     prefs.rxAudioProc.anrNoiseReductionDb = settings->value("RxProcAnrNoiseReductionDb", 20.0).toDouble();
     prefs.rxAudioProc.anrSensitivity      = settings->value("RxProcAnrSensitivity",       1.1).toDouble();
     prefs.rxAudioProc.anrFreqSmoothing    = settings->value("RxProcAnrFreqSmoothing",       4).toInt();
+    prefs.rxAudioProc.eqEnabled         = settings->value("RxProcEqEnabled",          false).toBool();
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        prefs.rxAudioProc.eqGain[i] = settings->value(QString("RxProcEqGain%1").arg(i), 0.0f).toFloat();
+        prefs.rxAudioProc.eqFreq[i] = settings->value(QString("RxProcEqFreq%1").arg(i),
+            (i == 0 ? 100.0f : i == 1 ? 800.0f : i == 2 ? 2000.0f : 3500.0f)).toFloat();
+        prefs.rxAudioProc.eqQ[i]    = settings->value(QString("RxProcEqQ%1").arg(i), 1.0f).toFloat();
+    }
     prefs.rxAudioProc.outputGainDB      = settings->value("RxProcOutputGainDB",      0.0f).toFloat();
     prefs.rxAudioProc.spectrumEnabled       = settings->value("RxProcSpectrumEnabled",       false).toBool();
     prefs.rxAudioProc.spectrumFPS           = settings->value("RxProcSpectrumFps",           10).toInt();
@@ -3466,6 +3473,12 @@ void wfmain::saveSettings()
     settings->setValue("RxProcAnrNoiseReductionDb", prefs.rxAudioProc.anrNoiseReductionDb);
     settings->setValue("RxProcAnrSensitivity",      prefs.rxAudioProc.anrSensitivity);
     settings->setValue("RxProcAnrFreqSmoothing",    prefs.rxAudioProc.anrFreqSmoothing);
+    settings->setValue("RxProcEqEnabled",          prefs.rxAudioProc.eqEnabled);
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        settings->setValue(QString("RxProcEqGain%1").arg(i), prefs.rxAudioProc.eqGain[i]);
+        settings->setValue(QString("RxProcEqFreq%1").arg(i), prefs.rxAudioProc.eqFreq[i]);
+        settings->setValue(QString("RxProcEqQ%1").arg(i),    prefs.rxAudioProc.eqQ[i]);
+    }
     settings->setValue("RxProcOutputGainDB",      prefs.rxAudioProc.outputGainDB);
     settings->setValue("RxProcSpectrumEnabled",       prefs.rxAudioProc.spectrumEnabled);
     settings->setValue("RxProcSpectrumFps",           prefs.rxAudioProc.spectrumFPS);
@@ -5830,6 +5843,12 @@ void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
     rxProc->setAnrNoiseReductionDb(p.anrNoiseReductionDb);
     rxProc->setAnrSensitivity(p.anrSensitivity);
     rxProc->setAnrFreqSmoothing(p.anrFreqSmoothing);
+    rxProc->setEqEnabled(p.eqEnabled);
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        rxProc->setEqBandGain(i, p.eqGain[i]);
+        rxProc->setEqBandFreq(i, p.eqFreq[i]);
+        rxProc->setEqBandQ(i, p.eqQ[i]);
+    }
     rxProc->setOutputGainDB(p.outputGainDB);
     rxProc->setSpectrumEnabled(p.spectrumEnabled);
     rxProc->setSpectrumFps(p.spectrumFPS);

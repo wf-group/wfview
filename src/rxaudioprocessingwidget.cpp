@@ -45,9 +45,9 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.bypass        = bypassCheck->isChecked();
     p.channelSelect = channelCombo->currentIndex();  // 0=auto,1=ch1,2=ch2,3=ch1+ch2
     const int algoId = algoGroup->checkedId();
-    p.nrMode = (algoId == 0) ? RxNrMode::Speex : RxNrMode::Anr;
-    // nrEnabled follows master bypass: DSP is active whenever bypass is off
-    p.nrEnabled     = !p.bypass;
+    p.nrMode = static_cast<RxNrMode>(algoId);  // 0=None, 1=Speex, 2=ANR
+    // nrEnabled follows master bypass and NR mode selection
+    p.nrEnabled     = !p.bypass && (p.nrMode != RxNrMode::None);
 
     // Speex
     p.speexSuppression   = speexSuppress->value();          // already negative dB
@@ -71,6 +71,14 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.anrNoiseReductionDb = anrNoiseRedSlider->value();
     p.anrSensitivity      = anrSensSlider->value() * 0.1;
     p.anrFreqSmoothing    = anrSmoothSlider->value();
+
+    // EQ
+    p.eqEnabled = eqEnableCheck->isChecked();
+    for (int i = 0; i < RX_EQ_BANDS; ++i) {
+        p.eqGain[i] = eqGainSlider[i]->value() * 0.1f;  // slider int → dB
+        p.eqFreq[i] = static_cast<float>(eqFreqDial[i]->value());
+        p.eqQ[i]    = 1.0f;  // Q stored in prefs but not exposed in UI
+    }
 
     // Output gain
     p.outputGainDB   = outputGain->value() * 0.1f;
@@ -126,6 +134,25 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     lblNoiseUpdate->setText(QString::number(speexNoiseUpdate->value() * 0.01, 'f', 2));
     lblPriorBase->setText(QString::number(speexPriorBase->value()  * 0.01, 'f', 2));
 
+    // EQ gain/freq labels
+    for (int i = 0; i < RX_EQ_BANDS; ++i) {
+        eqGainLabel[i]->setText(QString::number(eqGainSlider[i]->value() * 0.1f, 'f', 1) + " dB");
+        int freq = eqFreqDial[i]->value();
+        if (freq >= 1000)
+            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 1) + " kHz");
+        else
+            eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
+    }
+    // EQ controls enabled when checkbox is ticked
+    {
+        bool eqVis = eqEnableCheck->isChecked();
+        for (int i = 0; i < RX_EQ_BANDS; ++i) {
+            eqGainSlider[i]->setEnabled(eqVis);
+            eqFreqDial[i]->setEnabled(eqVis);
+        }
+        eqClearBtn->setEnabled(eqVis);
+    }
+
     // AGC controls visible only when checkbox is ticked
     bool agcVis = speexAgcCheck->isChecked();
     speexAgcLevel->setVisible(agcVis);   lblAgcLevel->setVisible(agcVis);
@@ -147,7 +174,8 @@ void RxAudioProcessingWidget::onBypassToggled(bool bypassed)
 
 void RxAudioProcessingWidget::onNrModeChanged(int id)
 {
-    // 0 = Speex, 1 = ANR
+    // 0 = None, 1 = Speex, 2 = ANR
+    // Stack pages: 0 = empty (None), 1 = Speex, 2 = ANR
     algoStack->setCurrentIndex(id);
     emit prefsChanged(getPrefs());
 }
@@ -163,6 +191,7 @@ void RxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     algoGrp->setEnabled(enabled);
     algoStack->setEnabled(enabled);
+    eqGrp->setEnabled(enabled);
     gainGrp->setEnabled(enabled);
     // ANR group: outer box enabled by bypass, but inner controls gated by profile
     anrGrp->setEnabled(enabled);
@@ -236,12 +265,16 @@ void RxAudioProcessingWidget::buildUi()
     {
         algoGrp   = new QGroupBox(tr("Noise Reduction Algorithm"));
         auto* row = new QHBoxLayout(algoGrp);
+        algoNone  = new QRadioButton(tr("None"));
         algoSpeex = new QRadioButton(tr("Speex"));
         algoAnr   = new QRadioButton(tr("ANR"));
-        algoSpeex->setChecked(true);
+        algoNone->setChecked(true);
         algoGroup = new QButtonGroup(this);
-        algoGroup->addButton(algoSpeex, 0);
-        algoGroup->addButton(algoAnr,   1);
+        algoGroup->addButton(algoNone,  0);
+        algoGroup->addButton(algoSpeex, 1);
+        algoGroup->addButton(algoAnr,   2);
+        algoNone->setToolTip(tr(
+            "No noise reduction — audio passes through to the EQ and output gain only."));
         algoSpeex->setToolTip(tr(
             "Speex preprocessor: statistical noise estimation using a minimum mean-square\n"
             "error estimator using Ephraim-Malah spectral subtraction\n"
@@ -250,10 +283,12 @@ void RxAudioProcessingWidget::buildUi()
             "ANR: Audacity Noise Reduction — requires a noise sample to be collected first.\n"
             "Analyses the noise spectrum and suppresses matching frequencies.\n"
             "Works on broadband noise.  Latency ≈ 40–80 ms depending on sample rate."));
+        row->addWidget(algoNone);
         row->addWidget(algoSpeex);
         row->addWidget(algoAnr);
         row->addStretch();
         mainLayout->addWidget(algoGrp);
+        connect(algoNone,  &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
         connect(algoSpeex, &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
         connect(algoAnr,   &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
     }
@@ -262,7 +297,22 @@ void RxAudioProcessingWidget::buildUi()
     algoStack = new QStackedWidget;
     mainLayout->addWidget(algoStack);
 
-    // ── Speex controls — stack page 0 ─────────────────────────────────────────
+    // ── "None" placeholder — stack page 0 ───────────────────────────────────
+    {
+        auto* nonePage = new QWidget;
+        auto* noneLayout = new QVBoxLayout(nonePage);
+        auto* noneLabel = new QLabel(tr("No noise reduction selected.\n"
+            "Audio passes through to the equalizer and output gain."));
+        noneLabel->setWordWrap(true);
+        QFont f = noneLabel->font();
+        f.setItalic(true);
+        noneLabel->setFont(f);
+        noneLayout->addWidget(noneLabel);
+        noneLayout->addStretch();
+        algoStack->addWidget(nonePage);  // page 0
+    }
+
+    // ── Speex controls — stack page 1 ─────────────────────────────────────────
     {
         speexGrp = new QGroupBox(tr("Speex Noise Suppressor"));
         auto* form = new QFormLayout(speexGrp);
@@ -400,7 +450,7 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prior base:"), rowPB);
         }
 
-        algoStack->addWidget(speexGrp);  // page 0
+        algoStack->addWidget(speexGrp);  // page 1
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -413,7 +463,7 @@ void RxAudioProcessingWidget::buildUi()
         connect(speexPriorBase,    &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
-    // ── ANR controls — stack page 1 ───────────────────────────────────────────
+    // ── ANR controls — stack page 2 ───────────────────────────────────────────
     {
         anrGrp = new QGroupBox(tr("ANR — Audacity Noise Reduction"));
         auto* form = new QFormLayout(anrGrp);
@@ -484,11 +534,119 @@ void RxAudioProcessingWidget::buildUi()
                     this, &RxAudioProcessingWidget::onAnrCollectClicked);
         }
 
-        algoStack->addWidget(anrGrp);  // page 1
+        algoStack->addWidget(anrGrp);  // page 2
 
         connect(anrNoiseRedSlider, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(anrSensSlider,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(anrSmoothSlider,   &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+    }
+
+    // ── RX Equalizer ────────────────────────────────────────────────────────
+    {
+        eqGrp = new QGroupBox(tr("Receive Equalizer"));
+        auto* eqOuter = new QVBoxLayout(eqGrp);
+
+        // Header row: Enable checkbox + Clear button
+        {
+            auto* headerRow = new QHBoxLayout;
+            eqEnableCheck = new QCheckBox(tr("Enable EQ"));
+            eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
+            headerRow->addWidget(eqEnableCheck);
+            headerRow->addStretch();
+            eqClearBtn = new QPushButton(tr("Clear"));
+            eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
+            eqClearBtn->setEnabled(false);
+            headerRow->addWidget(eqClearBtn);
+            eqOuter->addLayout(headerRow);
+        }
+
+        // Band names, frequency ranges, and dial ranges
+        struct BandDef {
+            const char* name;
+            int freqMin, freqMax, freqDefault;
+        };
+        static const BandDef bandDefs[RX_EQ_BANDS] = {
+            { "Low Shelf",    50,  250,  100 },
+            { "Low Mid",     300, 1500,  800 },
+            { "High Mid",   1000, 3000, 1200 },
+            { "High Shelf", 1200, 4500, 2200 },
+        };
+
+        // Band columns: title, gain label, vertical slider, freq dial, freq label
+        auto* bandsRow = new QHBoxLayout;
+        bandsRow->setSpacing(2);
+        for (int i = 0; i < RX_EQ_BANDS; ++i) {
+            auto* col = new QVBoxLayout;
+            col->setAlignment(Qt::AlignHCenter);
+
+            // Band title
+            eqBandTitle[i] = new QLabel(tr(bandDefs[i].name));
+            eqBandTitle[i]->setAlignment(Qt::AlignCenter);
+            QFont bf = eqBandTitle[i]->font();
+            bf.setBold(true);
+            eqBandTitle[i]->setFont(bf);
+            col->addWidget(eqBandTitle[i]);
+
+            // Gain label (on top of slider)
+            eqGainLabel[i] = new QLabel("0.0 dB");
+            eqGainLabel[i]->setAlignment(Qt::AlignCenter);
+            eqGainLabel[i]->setMinimumWidth(50);
+            col->addWidget(eqGainLabel[i]);
+
+            // Vertical gain slider: -90..+90 (×0.1 → -9..+9 dB)
+            eqGainSlider[i] = new QSlider(Qt::Vertical);
+            eqGainSlider[i]->setRange(-90, 90);
+            eqGainSlider[i]->setValue(0);
+            eqGainSlider[i]->setTickPosition(QSlider::TicksBothSides);
+            eqGainSlider[i]->setTickInterval(10);
+            eqGainSlider[i]->setMinimumHeight(100);
+            eqGainSlider[i]->setToolTip(tr("%1: adjust gain from -9 to +9 dB").arg(bandDefs[i].name));
+            eqGainSlider[i]->setEnabled(false);
+            col->addWidget(eqGainSlider[i], 1, Qt::AlignHCenter);
+
+            // Frequency dial (knob)
+            eqFreqDial[i] = new QDial;
+            eqFreqDial[i]->setRange(bandDefs[i].freqMin, bandDefs[i].freqMax);
+            eqFreqDial[i]->setValue(bandDefs[i].freqDefault);
+            eqFreqDial[i]->setWrapping(false);
+            eqFreqDial[i]->setNotchesVisible(true);
+            eqFreqDial[i]->setFixedSize(35, 35);
+            eqFreqDial[i]->setToolTip(tr("%1: adjust frequency for this band (%2–%3 Hz)")
+                .arg(bandDefs[i].name)
+                .arg(bandDefs[i].freqMin)
+                .arg(bandDefs[i].freqMax));
+            eqFreqDial[i]->setEnabled(false);
+            col->addWidget(eqFreqDial[i], 0, Qt::AlignHCenter);
+
+            // Frequency label (below dial)
+            int defFreq = bandDefs[i].freqDefault;
+            if (defFreq >= 1000)
+                eqFreqLabel[i] = new QLabel(QString::number(defFreq * 0.001, 'f', 1) + " kHz");
+            else
+                eqFreqLabel[i] = new QLabel(QString::number(defFreq) + " Hz");
+            eqFreqLabel[i]->setAlignment(Qt::AlignCenter);
+            eqFreqLabel[i]->setMinimumWidth(50);
+            col->addWidget(eqFreqLabel[i]);
+
+            bandsRow->addLayout(col);
+        }
+        eqOuter->addLayout(bandsRow);
+        mainLayout->addWidget(eqGrp);
+
+        // Connect signals
+        connect(eqEnableCheck, &QCheckBox::toggled,
+                this, &RxAudioProcessingWidget::onAnyControlChanged);
+        for (int i = 0; i < RX_EQ_BANDS; ++i) {
+            connect(eqGainSlider[i], &QSlider::valueChanged,
+                    this, &RxAudioProcessingWidget::onAnyControlChanged);
+            connect(eqFreqDial[i], &QDial::valueChanged,
+                    this, &RxAudioProcessingWidget::onAnyControlChanged);
+        }
+        connect(eqClearBtn, &QPushButton::clicked, this, [this]() {
+            for (int i = 0; i < RX_EQ_BANDS; ++i)
+                eqGainSlider[i]->setValue(0);
+            // Slider valueChanged signals will trigger onAnyControlChanged
+        });
     }
 
     // ── Output gain ───────────────────────────────────────────────────────────
@@ -565,6 +723,7 @@ void RxAudioProcessingWidget::blockAll(bool block)
 {
     bypassCheck->blockSignals(block);
     channelCombo->blockSignals(block);
+    algoNone->blockSignals(block);
     algoSpeex->blockSignals(block);
     speexSuppress->blockSignals(block);
     speexBandsCombo->blockSignals(block);
@@ -581,6 +740,11 @@ void RxAudioProcessingWidget::blockAll(bool block)
     anrNoiseRedSlider->blockSignals(block);
     anrSensSlider->blockSignals(block);
     anrSmoothSlider->blockSignals(block);
+    eqEnableCheck->blockSignals(block);
+    for (int i = 0; i < RX_EQ_BANDS; ++i) {
+        eqGainSlider[i]->blockSignals(block);
+        eqFreqDial[i]->blockSignals(block);
+    }
     outputGain->blockSignals(block);
     specEnable->blockSignals(block);
     specInhibitDuringTx->blockSignals(block);
@@ -598,11 +762,11 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     channelCombo->setCurrentIndex(ch);
 
     // Algorithm
-    const bool isSpeex = (p.nrMode == RxNrMode::Speex);
-    const bool isAnr   = (p.nrMode == RxNrMode::Anr);
-    algoSpeex->setChecked(isSpeex);
-    algoAnr->setChecked(isAnr);
-    algoStack->setCurrentIndex(isAnr ? 1 : 0);
+    const int modeId = static_cast<int>(p.nrMode);  // 0=None, 1=Speex, 2=ANR
+    algoNone->setChecked(p.nrMode == RxNrMode::None);
+    algoSpeex->setChecked(p.nrMode == RxNrMode::Speex);
+    algoAnr->setChecked(p.nrMode == RxNrMode::Anr);
+    algoStack->setCurrentIndex(modeId);
 
     // Speex
     speexSuppress->setValue(qBound(-70, p.speexSuppression, -1));
@@ -659,6 +823,22 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     anrSmoothSlider->setValue(qBound(0, p.anrFreqSmoothing, 6));
     lblAnrSmooth->setText(QString::number(anrSmoothSlider->value()));
     updateAnrControlState();
+
+    // EQ
+    eqEnableCheck->setChecked(p.eqEnabled);
+    for (int i = 0; i < RX_EQ_BANDS; ++i) {
+        eqGainSlider[i]->setValue(qBound(-90, qRound(p.eqGain[i] * 10.0f), 90));
+        eqFreqDial[i]->setValue(qRound(p.eqFreq[i]));
+        eqGainLabel[i]->setText(QString::number(p.eqGain[i], 'f', 1) + " dB");
+        int freq = qRound(p.eqFreq[i]);
+        if (freq >= 1000)
+            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 1) + " kHz");
+        else
+            eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
+        eqGainSlider[i]->setEnabled(p.eqEnabled);
+        eqFreqDial[i]->setEnabled(p.eqEnabled);
+    }
+    eqClearBtn->setEnabled(p.eqEnabled);
 
     // Output gain: -6..+20 dB in 0.1 dB steps → integer range -60..200
     outputGain->setValue(qBound(-60, qRound(p.outputGainDB * 10.0f), 200));

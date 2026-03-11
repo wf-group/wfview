@@ -311,6 +311,7 @@ SOURCES += \
     src/audio/plugins/dyson_compress.cpp \
     src/audio/plugins/mbeq.cpp \
     src/audio/plugins/noisegate.cpp \
+    src/audio/plugins/triple_para.cpp \
     src/audio/pocketfft/pocketfft.c \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
@@ -415,6 +416,7 @@ HEADERS  += \
     src/audio/plugins/dysoncompress.h \
     src/audio/plugins/mbeq.h \
     src/audio/plugins/noisegate.h \
+    src/audio/plugins/triple_para.h \
     include/audiohandlerpainput.h \
     include/audiohandlerpaoutput.h \
     include/audiohandlerqtinput.h \

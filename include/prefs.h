@@ -208,12 +208,12 @@ struct txAudioProcessingPrefs {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Which NR algorithm is active
-enum class RxNrMode { Speex = 0, Anr = 1 };
+enum class RxNrMode { None = 0, Speex = 1, Anr = 2 };
 
 struct rxAudioProcessingPrefs {
     bool       bypass      = true;  // master bypass — skips NR and output gain
     bool       nrEnabled   = false;  // enable noise reduction
-    RxNrMode   nrMode      = RxNrMode::Speex;
+    RxNrMode   nrMode      = RxNrMode::None;
 
     // ── Channel selection ────────────────────────────────────────────────────
     // 0=auto (mono pass-through / sum if stereo), 1=ch1 only, 2=ch2 only, 3=ch1+ch2 sum
@@ -237,6 +237,13 @@ struct rxAudioProcessingPrefs {
     double anrNoiseReductionDb =  20.0;  // dB of suppression, 0–48
     double anrSensitivity      =   1.1;  // –log10(prob), 0–24
     int    anrFreqSmoothing    =   4;    // frequency-smoothing bands, 0–6
+
+    // ── RX Equalizer (TriplePara: low shelf, low-mid, high-mid, high shelf) ──
+    static constexpr int RX_EQ_BANDS = 4;
+    bool  eqEnabled     = false;     // master EQ enable
+    float eqGain[RX_EQ_BANDS]  = {0.0f, 0.0f, 0.0f, 0.0f};  // dB, ±6
+    float eqFreq[RX_EQ_BANDS]  = {100.0f, 800.0f, 2000.0f, 3500.0f};  // Hz
+    float eqQ[RX_EQ_BANDS]     = {1.0f, 1.0f, 1.0f, 1.0f};  // Q for mid bands; slope for shelves
 
     // ── Output gain ──────────────────────────────────────────────────────────
     float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain

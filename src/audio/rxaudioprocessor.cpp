@@ -11,6 +11,7 @@
 
 #include "speexnrprocessor.h"   // ← must precede any wfview header
 #include "anrnrprocessor.h"
+#include "triple_para.h"
 #include "rxaudioprocessor.h"
 #include <cmath>
 #include <algorithm>
@@ -27,6 +28,7 @@ RxAudioProcessor::RxAudioProcessor(QObject* parent)
     : QObject(parent)
     , m_speex(std::make_unique<SpeexNrProcessor>())
     , m_anr(std::make_unique<AnrNrProcessor>())
+    , m_eq(std::make_unique<TriplePara>())
 {
     qRegisterMetaType<Eigen::VectorXf>("Eigen::VectorXf");
     qRegisterMetaType<QVector<double>>("QVector<double>");
@@ -116,6 +118,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         m_activeChannels = channels;
         m_speex->reset();
         m_anr->reset();
+        m_eq->setSampleRate(sampleRate);
 
         // Spectrum ring-buffer + FFT state reset (decimate to ~16 kHz).
         const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
@@ -145,6 +148,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     }
     pushSpeexParams(p);
     pushAnrParams(p);
+    pushEqParams(p);
 
     // Capture input snapshot for spectrum BEFORE NR.
     Eigen::VectorXf specInCapture;
@@ -196,6 +200,30 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         }
     }
 
+    // ── Equalizer (after NR, before output gain) ─────────────────────────────
+    if (p.eqEnabled) {
+        if (channels == 1 || p.channelSelect == 0) {
+            // Mono or auto: EQ the whole buffer
+            m_eq->process(samples.data(), samples.data(), static_cast<int>(samples.size()));
+        } else {
+            // Stereo: de-interleave, EQ, re-interleave
+            const int frames = static_cast<int>(samples.size()) / 2;
+            // Re-use stack vectors (small enough for typical block sizes)
+            std::vector<float> left(frames), right(frames);
+            for (int i = 0; i < frames; ++i) {
+                left[i]  = samples[i * 2];
+                right[i] = samples[i * 2 + 1];
+            }
+            // EQ both channels (same settings)
+            m_eq->process(left.data(), left.data(), frames);
+            m_eq->process(right.data(), right.data(), frames);
+            for (int i = 0; i < frames; ++i) {
+                samples[i * 2]     = left[i];
+                samples[i * 2 + 1] = right[i];
+            }
+        }
+    }
+
     // ── Output gain ──────────────────────────────────────────────────────────
     applyGainDB(samples, p.outputGainDB);
     samples = samples.array().max(-1.0f).min(1.0f);
@@ -218,10 +246,11 @@ std::vector<float> RxAudioProcessor::applyNr(const float* in, int n,
 {
     if (p.nrMode == RxNrMode::Speex) {
         return m_speex->process(in, n, sr);
-    } else {
-        // RxNrMode::Anr
+    } else if (p.nrMode == RxNrMode::Anr) {
         return m_anr->process(in, n, sr);
     }
+    // RxNrMode::None — pass through (shouldn't reach here if nrEnabled is false)
+    return std::vector<float>(in, in + n);
 }
 
 // ─── appendSpectrumSamples ───────────────────────────────────────────────────
@@ -418,6 +447,18 @@ void RxAudioProcessor::pushAnrParams(const Params& p)
     m_anr->setFreqSmoothing(p.anrFreqSmoothing);
 }
 
+void RxAudioProcessor::pushEqParams(const Params& p)
+{
+    for (int i = 0; i < 4; ++i) {
+        m_eq->setBandGain(i, p.eqGain[i]);
+        m_eq->setBandFreq(i, p.eqFreq[i]);
+        if (i == 1 || i == 2)
+            m_eq->setBandQ(i, p.eqQ[i]);
+        else
+            m_eq->setShelfSlope(i, p.eqQ[i]);
+    }
+}
+
 // ─── ANR profile control ─────────────────────────────────────────────────────
 
 void RxAudioProcessor::startAnrProfile()
@@ -455,6 +496,10 @@ void RxAudioProcessor::setSpeexPriorBase(float v)        { QMutexLocker lk(&m_mu
 void RxAudioProcessor::setAnrNoiseReductionDb(double v)  { QMutexLocker lk(&m_mutex); m_params.anrNoiseReductionDb = v; }
 void RxAudioProcessor::setAnrSensitivity(double v)       { QMutexLocker lk(&m_mutex); m_params.anrSensitivity      = v; }
 void RxAudioProcessor::setAnrFreqSmoothing(int v)        { QMutexLocker lk(&m_mutex); m_params.anrFreqSmoothing    = v; }
+void RxAudioProcessor::setEqEnabled(bool v)              { QMutexLocker lk(&m_mutex); m_params.eqEnabled      = v; }
+void RxAudioProcessor::setEqBandGain(int idx, float dB)  { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqGain[idx] = dB; }
+void RxAudioProcessor::setEqBandFreq(int idx, float hz)  { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqFreq[idx] = hz; }
+void RxAudioProcessor::setEqBandQ(int idx, float q)      { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqQ[idx]    = q; }
 void RxAudioProcessor::setOutputGainDB(float v)          { QMutexLocker lk(&m_mutex); m_params.outputGainDB   = v; }
 
 // ─── Getters ─────────────────────────────────────────────────────────────────

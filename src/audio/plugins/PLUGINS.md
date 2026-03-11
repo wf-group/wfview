@@ -1,6 +1,6 @@
-# TX Audio Processing Plugins
+# Audio Processing Plugins
 
-These files implement three classic LADSPA DSP algorithms as standalone C++ classes,
+These files implement classic LADSPA DSP algorithms as standalone C++ classes,
 independent of LADSPA, FFTW, or any external audio framework.
 
 ---
@@ -15,11 +15,15 @@ independent of LADSPA, FFTW, or any external audio framework.
 | `mbeq.cpp` | `MbeqProcessor` implementation |
 | `noisegate.h` | `NoiseGate` class header |
 | `noisegate.cpp` | `NoiseGate` implementation |
+| `triple_para.h` | `TriplePara` class header |
+| `triple_para.cpp` | `TriplePara` implementation |
 | `dyson_compress_1403.xml` | Original LADSPA metadata (reference only) |
 | `mbeq_1197.xml` | Original LADSPA metadata (reference only) |
 | `mbeq_1197.so.c` | Original LADSPA C source (reference only) |
 | `gate_1921.xml` | Original LADSPA metadata (reference only) |
 | `gate_1921.so.c` | Original LADSPA C source (reference only) |
+| `triple_para_1204.xml` | Original LADSPA metadata (reference only) |
+| `triple_para_1204.so.c` | Original LADSPA C source (reference only) |
 
 ---
 
@@ -175,6 +179,84 @@ State machine with four states — CLOSED → OPENING → OPEN → CLOSING:
 - `output select` port removed; always operates in normal gate mode (op = 0).
 - Stereo variant (`stereo_gate`, id 1922) not ported — not needed for mono TX audio.
 - `getGain()` added for optional gate-activity metering.
+
+---
+
+## TriplePara (4-Band Parametric EQ with Shelves)
+
+**Origin:** LADSPA plugin #1204 ("triplePara") by Steve Harris (GPL).
+Reduced from 5 bands to 4 bands for RX audio EQ use.
+
+**Class:** `TriplePara` (in `triple_para.h`)
+
+**Position in chain (RX):** Applied **after** noise reduction, before output gain.
+
+### Band layout
+
+| Band | Type | Frequency range | Default freq | Default gain |
+|------|------|-----------------|-------------|-------------|
+| 0 | Low shelf | 50–250 Hz | 100 Hz | 0 dB |
+| 1 | Low-mid peaking | 300–1500 Hz | 800 Hz | 0 dB |
+| 2 | High-mid peaking | 1000–3000 Hz | 2000 Hz | 0 dB |
+| 3 | High shelf | 2000–4500 Hz | 3500 Hz | 0 dB |
+
+Gain range: ±6 dB.  Q for peaking bands defaults to 1.0 (stored in prefs for
+advanced users but not exposed in the UI).
+
+### Parameters
+
+| Setter | Range | Default | Description |
+|--------|-------|---------|-------------|
+| `setBandGain(int idx, float dB)` | −6 … +6 | 0 | Gain for band `idx` |
+| `setBandFreq(int idx, float hz)` | 10 … Nyquist×0.9 | per-band | Centre/corner frequency |
+| `setBandQ(int idx, float q)` | 0.1+ | 1.0 | Q for peaking bands 1, 2 |
+| `setShelfSlope(int idx, float s)` | 0.01 … 1.0 | 0.5 | Slope for shelf bands 0, 3 |
+| `clearAllBands()` | — | — | Reset all gains to 0 dB |
+
+### Key methods
+
+```cpp
+TriplePara eq(48000.0f);          // construct at sample rate
+eq.setBandGain(0, +3.0f);        // low shelf +3 dB
+eq.setBandFreq(1, 1200.0f);      // low-mid centre → 1.2 kHz
+eq.process(inPtr, outPtr, nSamples);
+eq.clearAllBands();               // flat response
+eq.reset();                       // clear all filter state
+```
+
+### Algorithm
+
+Four cascaded biquad IIR filters (Audio EQ Cookbook formulas by Robert
+Bristow-Johnson):
+- Bands 0, 3: shelving filters (low shelf, high shelf)
+- Bands 1, 2: peaking EQ (constant-Q)
+
+Coefficients are recalculated lazily (only when a parameter changes) via a
+dirty flag, so repeated `process()` calls with unchanged parameters cost only
+the per-sample biquad cascade.
+
+### Porting notes (vs. original LADSPA)
+
+- LADSPA `plugin_data` struct and port pointers replaced by class members.
+- `util/biquad.h` functions (`ls_set_params`, `eq_set_params`, `hs_set_params`)
+  replaced with Audio EQ Cookbook coefficient calculators inlined directly.
+- Reduced from 5 bands (low shelf + 3 peaking + high shelf) to 4 bands
+  (low shelf + 2 peaking + high shelf).
+- Band frequency ranges tailored for RX audio (50 Hz–4.5 kHz voice range).
+- No platform-specific code; compatible with macOS, Windows, and Linux.
+
+### UI — RX Audio Processor settings window
+
+The EQ controls live in the **RX Audio Proc** dialog (`RxAudioProcessingWidget`),
+in a "Receive Equalizer" group box between the NR algorithm controls and the
+output gain section.  Each band has:
+- A **vertical slider** for gain (±6 dB, label on top)
+- A **dial (knob)** for frequency (range per band, label below)
+- An **Enable** checkbox and a **Clear** button (resets gains to 0 dB)
+
+Q/bandwidth for the two peaking bands is stored in `rxAudioProcessingPrefs::eqQ[]`
+(QSettings keys `RxProcEqQ0`–`RxProcEqQ3`) but is not exposed in the UI.
+Advanced users can edit the settings file directly to tune Q values.
 
 ---
 
@@ -375,11 +457,12 @@ audioConverter  (TimeCriticalPriority thread)
           RxAudioProcessor::processAudio(samples, sampleRate, channels)
               a. Snapshot parameters (QMutex, brief)
               b. emit rxInputLevel → Input level display
-              c. Apply noise reduction (SpeexNrProcessor or SpacNrProcessor)
+              c. Apply noise reduction (SpeexNrProcessor or AnrNrProcessor)
                  on selected channel(s) per channelSelect
-              d. Apply output gain, clip to [−1, 1]
-              e. Mix sidetone (AFTER NR so user's own voice is untouched)
-              f. emit rxOutputLevel → Output level display
+              d. Apply EQ (TriplePara, 4-band parametric) if enabled
+              e. Apply output gain, clip to [−1, 1]
+              f. Mix sidetone (AFTER NR so user's own voice is untouched)
+              g. emit rxOutputLevel → Output level display
     3. Resample to native audio device rate
     4. Write to QAudioSink / PortAudio / RtAudio output device
 ```
@@ -408,7 +491,8 @@ The conditional branch checks `rxSetup.rxProc != nullptr`.
 | Dialog | `src/rxaudioprocessingwidget.cpp` / `include/rxaudioprocessingwidget.h` | `RxAudioProcessingWidget` |
 | Parameter bridge | `src/wfmain.cpp` — `on_RXaudioProcBtn_clicked()`, `onRxAudioProcPrefsChanged()`, `applyRxAudioProcPrefs()` | `wfmain` |
 | DSP engine | `src/audio/rxaudioprocessor.cpp` / `include/rxaudioprocessor.h` | `RxAudioProcessor` |
-| NR back-ends | `src/audio/speexnrprocessor.h`, `src/audio/spacnrprocessor.h` | `SpeexNrProcessor`, `SpacNrProcessor` |
+| NR back-ends | `src/audio/speexnrprocessor.h`, `src/audio/anrnrprocessor.h` | `SpeexNrProcessor`, `AnrNrProcessor` |
+| RX EQ | `src/audio/plugins/triple_para.cpp` / `triple_para.h` | `TriplePara` |
 
 The **RX Audio Proc** button is enabled only for LAN connections (`prefs.enableLAN`).
 `RxAudioProcessor` is created once when the first radio connection is set up and

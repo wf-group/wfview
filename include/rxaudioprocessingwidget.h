@@ -20,6 +20,7 @@
 #include <QRadioButton>
 #include <QButtonGroup>
 #include <QScrollArea>
+#include <QDial>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -90,10 +91,11 @@ private:
 
     // ── Algorithm selector ────────────────────────────────────────────────────
     QGroupBox*     algoGrp       {nullptr};
+    QRadioButton*  algoNone      {nullptr};
     QRadioButton*  algoSpeex     {nullptr};
     QRadioButton*  algoAnr       {nullptr};
     QButtonGroup*  algoGroup     {nullptr};
-    QStackedWidget* algoStack    {nullptr};   // page 0=Speex, 1=ANR
+    QStackedWidget* algoStack    {nullptr};   // page 0=None, 1=Speex, 2=ANR
 
     // ── Speex controls ────────────────────────────────────────────────────────
     QGroupBox*    speexGrp       {nullptr};
@@ -137,6 +139,17 @@ private:
     QTimer*       anrCollectTimer    {nullptr};   // 5-second auto-stop
     bool          m_anrCollecting    = false;
     bool          m_anrHasProfile    = false;
+
+    // ── RX Equalizer ──────────────────────────────────────────────────────────
+    static constexpr int RX_EQ_BANDS = 4;
+    QGroupBox*    eqGrp          {nullptr};
+    QCheckBox*    eqEnableCheck  {nullptr};
+    QPushButton*  eqClearBtn     {nullptr};
+    QSlider*      eqGainSlider[RX_EQ_BANDS]  = {};  // vertical, -60..+60 (×0.1 dB)
+    QLabel*       eqGainLabel[RX_EQ_BANDS]   = {};  // gain readout on top
+    QDial*        eqFreqDial[RX_EQ_BANDS]    = {};  // frequency knob
+    QLabel*       eqFreqLabel[RX_EQ_BANDS]   = {};  // frequency readout below knob
+    QLabel*       eqBandTitle[RX_EQ_BANDS]   = {};  // band name label
 
     // ── Output gain ───────────────────────────────────────────────────────────
     QGroupBox*    gainGrp        {nullptr};

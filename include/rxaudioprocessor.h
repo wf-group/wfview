@@ -42,6 +42,7 @@ using rfft_plan = rfft_plan_i*;
 
 class SpeexNrProcessor;   // forward — defined in speexnrprocessor.h
 class AnrNrProcessor;     // forward — defined in anrnrprocessor.h
+class TriplePara;         // forward — defined in triple_para.h
 
 class RxAudioProcessor : public QObject
 {
@@ -89,6 +90,12 @@ public:
     void setAnrNoiseReductionDb(double dB);
     void setAnrSensitivity(double s);
     void setAnrFreqSmoothing(int bands);
+
+    // RX Equalizer
+    void setEqEnabled(bool en);
+    void setEqBandGain(int idx, float dB);
+    void setEqBandFreq(int idx, float hz);
+    void setEqBandQ(int idx, float q);
 
     // Output gain
     void setOutputGainDB(float dB);
@@ -142,7 +149,7 @@ private:
     struct Params {
         bool     bypass        = false;
         bool     nrEnabled     = false;
-        RxNrMode nrMode        = RxNrMode::Speex;
+        RxNrMode nrMode        = RxNrMode::None;
         int      channelSelect = 0;
 
         // Speex
@@ -163,6 +170,12 @@ private:
         double anrNoiseReductionDb = 12.0;
         double anrSensitivity      =  6.0;
         int    anrFreqSmoothing    =  0;
+
+        // EQ
+        bool  eqEnabled = false;
+        float eqGain[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float eqFreq[4] = {100.0f, 800.0f, 2000.0f, 3500.0f};
+        float eqQ[4]    = {1.0f, 1.0f, 1.0f, 1.0f};
 
         // Output
         float outputGainDB = 0.0f;
@@ -196,6 +209,7 @@ private:
 
     std::unique_ptr<SpeexNrProcessor> m_speex;
     std::unique_ptr<AnrNrProcessor>   m_anr;
+    std::unique_ptr<TriplePara>       m_eq;
     // Scratch buffer used when downmixing stereo for ANR profile collection.
     std::vector<float>                m_anrProfileMono;
 
@@ -233,6 +247,7 @@ private:
     // ── Helpers ───────────────────────────────────────────────────────────────
     void pushSpeexParams(const Params& p);
     void pushAnrParams(const Params& p);
+    void pushEqParams(const Params& p);
     std::vector<float> applyNr(const float* in, int n, float sr, const Params& p);
     void mixSidetone(Eigen::VectorXf& samples, int channels, const Params& p);
     static void applyGainDB(Eigen::VectorXf& s, float dB);
