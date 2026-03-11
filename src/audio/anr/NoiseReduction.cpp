@@ -872,6 +872,15 @@ NoiseReduction::NoiseReduction(NoiseReduction::Settings& settings, double sample
     mSettings(settings),
     mSampleRate(sampleRate)
 {
+#ifndef QT_DEBUG
+    // Suppress verbose INFO/scope logging in release builds
+    static bool loguruReleaseVerbositySet = false;
+    if (!loguruReleaseVerbositySet) {
+        loguru::g_stderr_verbosity = loguru::Verbosity_WARNING;
+        loguruReleaseVerbositySet = true;
+    }
+#endif
+
     size_t spectrumSize = 1 + mSettings.WindowSize() / 2;
     mStatistics.reset(new Statistics(spectrumSize, mSampleRate, mSettings.mWindowTypes));
 }
