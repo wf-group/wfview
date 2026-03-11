@@ -414,3 +414,99 @@ The **RX Audio Proc** button is enabled only for LAN connections (`prefs.enableL
 `RxAudioProcessor` is created once when the first radio connection is set up and
 reused across reconnects.
 
+---
+
+## Spectrum Display (TX and RX)
+
+Both the TX and RX audio processing dialogs include an optional spectrum display
+powered by `SpectrumWidget` (`include/spectrumwidget.h`, inline Q_OBJECT class;
+`src/audio/spectrumwidget.cpp` exists only to wire the moc).
+
+### FFT back-end
+
+The spectrum FFT uses **pocketfft** (`src/audio/pocketfft/pocketfft.h`,
+`src/audio/pocketfft/pocketfft.c`), a small self-contained real-FFT library
+compiled directly into the build — no external dependency.  Plans are created
+once in the constructor (`make_rfft_plan(SPEC_FFT_LEN)`) and destroyed in the
+destructor (`destroy_rfft_plan()`).
+
+### Algorithm
+
+Both `TxAudioProcessor::appendSpectrumSamples()` and
+`RxAudioProcessor::appendSpectrumSamples()` use the same algorithm:
+
+1. **Decimation** — Input samples are decimated to ~16 kHz effective rate
+   (`K = round(sampleRate / 16000)`, minimum 1).  Every K-th sample is written
+   into a pair of circular ring buffers (`m_specInRing` for pre-DSP,
+   `m_specOutRing` for post-DSP), each of length `SPEC_FFT_LEN` (1024).
+
+2. **Trigger** — After every `triggerEvery` decimated samples an FFT is fired.
+   `triggerEvery = round(decimatedSR / targetFps)`.  At 48 kHz with K=3 and
+   30 fps this is ~533 decimated samples, yielding ~3 FFTs per audio block.
+
+3. **Windowing** — The ring buffer contents are copied into a work buffer and
+   multiplied by a **Hanning window** (precomputed on sample-rate change):
+   ```
+   w[i] = 0.5 − 0.5 × cos(2π × i / (N − 1))
+   ```
+
+4. **FFT** — `rfft_forward(plan, buf, 1.0)` computes a real-input FFT in-place.
+   The output uses pocketfft's half-complex layout:
+   `buf[0]` = DC, `buf[2k−1]`/`buf[2k]` = re/im of bin k (k = 1 .. N/2 − 1).
+
+5. **Magnitude (dBFS)** — Each bin is converted to dBFS:
+   ```
+   dBFS[k] = 20 × log10( |bin[k]| / (N/4) + 1e-10 )
+   ```
+   The normalisation constant `N/4` accounts for the Hanning window coherent
+   gain (0.5): a full-scale sine at bin k produces `|bin[k]| = N/2 × 0.5 = N/4`,
+   so the formula yields 0 dBFS.
+
+6. **Emission** — Both in and out bin vectors (`SPEC_FFT_LEN / 2` = 512 values)
+   are emitted as `QVector<double>` via a queued signal
+   (`txSpectrumBins` / `rxSpectrumBins`).  Qt deep-copies the vectors into the
+   event payload, so the converter thread can immediately reuse its buffers.
+
+### Capture points
+
+| Path | Input capture | Output capture |
+|------|---------------|----------------|
+| TX (normal) | Raw microphone signal **before** noise gate and input gain | After output gain + clip (final processed audio) |
+| TX (bypass) | Raw signal | Same raw signal (input == output) |
+| RX (normal) | Raw radio audio **before** noise reduction | After output gain + clip + sidetone mix |
+
+### Display
+
+`SpectrumWidget` repaints on a `QTimer` at a configurable frame rate (default
+10 fps RX, 30 fps TX).  It draws two traces on a logarithmic frequency axis
+(50 Hz – 8 kHz, each octave equal width) over a −90 to 0 dBFS vertical range:
+
+- **Input** (green, `spectrumPrimary`) — drawn first (behind)
+- **Output** (orange α 180, `spectrumSecondary`) — drawn on top
+
+Bin-to-frequency mapping: `freq = k × (effectiveSR / SPEC_FFT_LEN)`, where
+`effectiveSR = sampleRate / K`.
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `src/audio/pocketfft/pocketfft.h` | pocketfft C API header |
+| `src/audio/pocketfft/pocketfft.c` | pocketfft implementation |
+| `include/spectrumwidget.h` | `SpectrumWidget` inline QWidget (Q_OBJECT, paints spectrum) |
+| `src/audio/spectrumwidget.cpp` | Translation unit for moc wiring |
+| `src/audio/txaudioprocessor.cpp` | `appendSpectrumSamples()` — TX spectrum FFT + decimation |
+| `src/audio/rxaudioprocessor.cpp` | `appendSpectrumSamples()` — RX spectrum FFT + decimation |
+| `src/txaudioprocessingwidget.cpp` | `onSpectrumBins()` slot, feeds SpectrumWidget |
+| `src/rxaudioprocessingwidget.cpp` | `onSpectrumBins()` slot, feeds SpectrumWidget |
+
+### Preferences
+
+| QSettings key | Struct field | Default | Description |
+|---------------|-------------|---------|-------------|
+| `TxProcSpectrumEnabled` | `audioProcessingPrefs::spectrumEnabled` | false | Enable TX spectrum |
+| `TxProcSpectrumFps` | `audioProcessingPrefs::spectrumFPS` | 30 | TX spectrum target fps |
+| `TxProcSpecInhibitDuringRx` | `audioProcessingPrefs::specInhibitDuringRx` | true | Pause TX spectrum while receiving |
+| `RxProcSpectrumEnabled` | `rxAudioProcessingPrefs::spectrumEnabled` | false | Enable RX spectrum |
+| `RxProcSpectrumFps` | `rxAudioProcessingPrefs::spectrumFPS` | 10 | RX spectrum target fps |
+

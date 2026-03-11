@@ -234,6 +234,13 @@ struct SpeexPreprocessState_ {
 #ifdef FIXED_POINT
    int    frame_shift;
 #endif
+
+   /* Tunable time-constants (float-only, ignored in fixed-point builds) */
+#ifndef FIXED_POINT
+   float  snr_decay;          /**< Zeta smoothing factor (default 0.7) */
+   float  noise_beta_max;     /**< Max noise-update rate  (default 0.03) */
+   float  prior_base;         /**< Min gamma weight on current obs (default 0.1) */
+#endif
 };
 
 
@@ -476,6 +483,9 @@ EXPORT SpeexPreprocessState *speex_preprocess_state_init(int frame_size, int sam
    st->max_decrease_step = exp(-0.11513f * 40.*st->frame_size / st->sampling_rate);
    st->prev_loudness = 1;
    st->init_max = 1;
+   st->snr_decay = 0.7f;
+   st->noise_beta_max = 0.03f;
+   st->prior_base = 0.1f;
 #endif
    st->was_speech = 0;
 
@@ -692,7 +702,11 @@ EXPORT int speex_preprocess_run(SpeexPreprocessState *st, spx_int16_t *x)
       st->nb_adapt = 20000;
    st->min_count++;
 
+#ifdef FIXED_POINT
    beta = MAX16(QCONST16(.03,15),DIV32_16(Q15_ONE,st->nb_adapt));
+#else
+   beta = MAX16(st->noise_beta_max,DIV32_16(Q15_ONE,st->nb_adapt));
+#endif
    beta_1 = Q15_ONE-beta;
    M = st->nbands;
    preprocess_analysis(st, x);
@@ -732,8 +746,17 @@ EXPORT int speex_preprocess_run(SpeexPreprocessState *st, spx_int16_t *x)
       st->post[i] = SUB16(DIV32_16_Q8(ps[i],tot_noise), QCONST16(1.f,SNR_SHIFT));
       st->post[i]=MIN16(st->post[i], QCONST16(100.f,SNR_SHIFT));
 
-      /* Computing update gamma = .1 + .9*(old/(old+noise))^2 */
+      /* Computing update gamma = prior_base + (1-prior_base-0.01)*(old/(old+noise))^2 */
+#ifdef FIXED_POINT
       gamma = QCONST16(.1f,15)+MULT16_16_Q15(QCONST16(.89f,15),SQR16_Q15(DIV32_16_Q15(st->old_ps[i],ADD32(st->old_ps[i],tot_noise))));
+#else
+      {
+         float pb = st->prior_base;
+         float rest = 1.0f - pb - 0.01f;
+         if (rest < 0.0f) rest = 0.0f;
+         gamma = pb + rest * SQR16_Q15(DIV32_16_Q15(st->old_ps[i],ADD32(st->old_ps[i],tot_noise)));
+      }
+#endif
 
       /* A priori SNR update = gamma*max(0,post) + (1-gamma)*old/noise */
       st->prior[i] = EXTRACT16(PSHR32(ADD32(MULT16_16(gamma,MAX16(0,st->post[i])), MULT16_16(Q15_ONE-gamma,DIV32_16_Q8(st->old_ps[i],tot_noise))), 15));
@@ -743,12 +766,25 @@ EXPORT int speex_preprocess_run(SpeexPreprocessState *st, spx_int16_t *x)
    /*print_vec(st->post, N+M, "");*/
 
    /* Recursive average of the a priori SNR. A bit smoothed for the psd components */
+#ifdef FIXED_POINT
    st->zeta[0] = PSHR32(ADD32(MULT16_16(QCONST16(.7f,15),st->zeta[0]), MULT16_16(QCONST16(.3f,15),st->prior[0])),15);
    for (i=1;i<N-1;i++)
       st->zeta[i] = PSHR32(ADD32(ADD32(ADD32(MULT16_16(QCONST16(.7f,15),st->zeta[i]), MULT16_16(QCONST16(.15f,15),st->prior[i])),
                            MULT16_16(QCONST16(.075f,15),st->prior[i-1])), MULT16_16(QCONST16(.075f,15),st->prior[i+1])),15);
    for (i=N-1;i<N+M;i++)
       st->zeta[i] = PSHR32(ADD32(MULT16_16(QCONST16(.7f,15),st->zeta[i]), MULT16_16(QCONST16(.3f,15),st->prior[i])),15);
+#else
+   {
+      float zd = st->snr_decay;
+      float zn = 1.0f - zd;               /* new-data weight */
+      st->zeta[0] = zd*st->zeta[0] + zn*st->prior[0];
+      for (i=1;i<N-1;i++)
+         st->zeta[i] = zd*st->zeta[i] + 0.5f*zn*st->prior[i]
+                        + 0.25f*zn*st->prior[i-1] + 0.25f*zn*st->prior[i+1];
+      for (i=N-1;i<N+M;i++)
+         st->zeta[i] = zd*st->zeta[i] + zn*st->prior[i];
+   }
+#endif
 
    /* Speech probability of presence for the entire frame is based on the average filterbank a priori SNR */
    Zframe = 0;
@@ -1171,6 +1207,41 @@ EXPORT int speex_preprocess_ctl(SpeexPreprocessState *state, int request, void *
    case SPEEX_PREPROCESS_GET_NB_BANDS:
       *(spx_int32_t*)ptr = st->nbands;
       break;
+#ifndef FIXED_POINT
+   case SPEEX_PREPROCESS_SET_SNR_DECAY:
+   {
+      float v = *(float*)ptr;
+      if (v < 0.0f) v = 0.0f;
+      if (v > 0.95f) v = 0.95f;
+      st->snr_decay = v;
+      break;
+   }
+   case SPEEX_PREPROCESS_GET_SNR_DECAY:
+      *(float*)ptr = st->snr_decay;
+      break;
+   case SPEEX_PREPROCESS_SET_NOISE_UPDATE_RATE:
+   {
+      float v = *(float*)ptr;
+      if (v < 0.01f) v = 0.01f;
+      if (v > 0.5f) v = 0.5f;
+      st->noise_beta_max = v;
+      break;
+   }
+   case SPEEX_PREPROCESS_GET_NOISE_UPDATE_RATE:
+      *(float*)ptr = st->noise_beta_max;
+      break;
+   case SPEEX_PREPROCESS_SET_PRIOR_BASE:
+   {
+      float v = *(float*)ptr;
+      if (v < 0.05f) v = 0.05f;
+      if (v > 0.5f) v = 0.5f;
+      st->prior_base = v;
+      break;
+   }
+   case SPEEX_PREPROCESS_GET_PRIOR_BASE:
+      *(float*)ptr = st->prior_base;
+      break;
+#endif
    default:
       speex_warning_int("Unknown speex_preprocess_ctl request: ", request);
       return -1;

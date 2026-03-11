@@ -47,6 +47,14 @@ public:
     static constexpr int EQ_BANDS    = MbeqProcessor::BANDS; // 15
     static constexpr int SPEC_FFT_LEN = 1024;               // bins = SPEC_FFT_LEN/2
 
+    // Log-spaced spectrum rebinning parameters.
+    // Output bins are spaced logarithmically from SPEC_FREQ_MIN to SPEC_FREQ_MAX,
+    // with SPEC_BINS_PER_DECADE bins per frequency decade.  This gives even
+    // resolution per octave when displayed on a log frequency axis.
+    static constexpr int   SPEC_BINS_PER_DECADE = 48;
+    static constexpr float SPEC_FREQ_MIN        = 50.0f;    // Hz
+    static constexpr float SPEC_FREQ_MAX        = 8000.0f;  // Hz
+
     explicit TxAudioProcessor(QObject* parent = nullptr);
     ~TxAudioProcessor();
 
@@ -185,6 +193,16 @@ private:
     int                    m_specFftTrigger  = 0;       // decimated-sample counter
     QVector<double>        m_specInBins;                // reused output bins (deep-copied on emit)
     QVector<double>        m_specOutBins;
+
+    // ── Log-bin resampling (precomputed when sample rate changes) ─────────
+    // Each log bin maps to a fractional range of linear FFT bins.
+    struct LogBinSpec {
+        float linBinLo;   // fractional lower linear-bin index
+        float linBinHi;   // fractional upper linear-bin index
+    };
+    std::vector<LogBinSpec> m_specLogBins;     // one per log-spaced output bin
+    std::vector<double>     m_specLinMag;      // scratch: linear magnitudes from FFT
+    int                     m_specNumLogBins = 0;
 
     // Decimates, fills ring buffers, triggers FFT and emits txSpectrumBins.
     void appendSpectrumSamples(const Eigen::VectorXf& in,

@@ -187,8 +187,9 @@ struct audioProcessingPrefs {
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
     bool  muteRx          = false; // mute RX audio while self-monitoring, not saved to preferences
-    bool  spectrumEnabled = false; // enable TX spectrum display
-    int   spectrumFPS     = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
+    bool  spectrumEnabled       = false; // enable TX spectrum display
+    int   spectrumFPS           = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
+    bool  specInhibitDuringRx   = true; // pause TX spectrum while not transmitting
 
     // Noise gate — runs before input gain on the raw microphone signal.
     bool  gateEnabled   = false;
@@ -228,6 +229,9 @@ struct rxAudioProcessingPrefs {
     bool  speexVad           = false;
     int   speexVadProbStart  = 85;   // 0–100 %; probability to enter voice state
     int   speexVadProbCont   = 65;   // 0–100 %; probability to stay in voice state
+    float speexSnrDecay       = 0.7f;   // 0.0–0.95; zeta smoothing (lower = faster recovery)
+    float speexNoiseUpdateRate= 0.03f;  // 0.01–0.5; noise floor adaptation speed
+    float speexPriorBase      = 0.1f;   // 0.05–0.5; min weight on current observation
 
     // ── ANR (Audacity Noise Reduction) parameters ─────────────────────────────
     double anrNoiseReductionDb =  20.0;  // dB of suppression, 0–48
@@ -236,6 +240,11 @@ struct rxAudioProcessingPrefs {
 
     // ── Output gain ──────────────────────────────────────────────────────────
     float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain
+
+    // ── Spectrum display ─────────────────────────────────────────────────────
+    bool spectrumEnabled       = false;  // enable RX spectrum display
+    int  spectrumFPS           = 10;     // repaint rate (fps)
+    bool specInhibitDuringTx   = true;   // pause RX spectrum while transmitting
 };
 
 struct preferences {

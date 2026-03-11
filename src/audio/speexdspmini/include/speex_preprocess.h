@@ -216,6 +216,24 @@ int speex_preprocess_ctl(SpeexPreprocessState *st, int request, void *ptr);
 /** Get current number of spectral bands (int32) */
 #define SPEEX_PREPROCESS_GET_NB_BANDS 49
 
+/** Set SNR smoothing decay factor (float, 0.0–0.95, default 0.7).
+ *  Lower values → faster adaptation after speech stops. */
+#define SPEEX_PREPROCESS_SET_SNR_DECAY 50
+/** Get SNR smoothing decay factor (float) */
+#define SPEEX_PREPROCESS_GET_SNR_DECAY 51
+
+/** Set maximum noise-update rate (float, 0.01–0.5, default 0.03).
+ *  Higher values → noise floor adapts faster. */
+#define SPEEX_PREPROCESS_SET_NOISE_UPDATE_RATE 52
+/** Get maximum noise-update rate (float) */
+#define SPEEX_PREPROCESS_GET_NOISE_UPDATE_RATE 53
+
+/** Set prior-SNR base weight on current frame (float, 0.05–0.5, default 0.1).
+ *  Higher values → less inertia from previous frames. */
+#define SPEEX_PREPROCESS_SET_PRIOR_BASE 54
+/** Get prior-SNR base weight on current frame (float) */
+#define SPEEX_PREPROCESS_GET_PRIOR_BASE 55
+
 #ifdef __cplusplus
 }
 #endif

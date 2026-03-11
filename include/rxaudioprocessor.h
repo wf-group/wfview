@@ -21,6 +21,11 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QVector>
+#include <atomic>
+
+// Forward-declare pocketfft plan (full C header not needed in every TU).
+struct rfft_plan_i;
+using rfft_plan = rfft_plan_i*;
 
 #ifndef Q_OS_LINUX
 #include <Eigen/Eigen>
@@ -43,6 +48,13 @@ class RxAudioProcessor : public QObject
     Q_OBJECT
 
 public:
+    static constexpr int SPEC_FFT_LEN = 1024;  // bins = SPEC_FFT_LEN/2
+
+    // Log-spaced spectrum rebinning parameters (must match TxAudioProcessor).
+    static constexpr int   SPEC_BINS_PER_DECADE = 48;
+    static constexpr float SPEC_FREQ_MIN        = 50.0f;    // Hz
+    static constexpr float SPEC_FREQ_MAX        = 8000.0f;  // Hz
+
     explicit RxAudioProcessor(QObject* parent = nullptr);
     ~RxAudioProcessor();
 
@@ -69,6 +81,9 @@ public:
     void setSpeexVad(bool en);
     void setSpeexVadProbStart(int pct);  // 0–100
     void setSpeexVadProbCont(int pct);   // 0–100
+    void setSpeexSnrDecay(float v);         // 0.0–0.95
+    void setSpeexNoiseUpdateRate(float v);  // 0.01–0.5
+    void setSpeexPriorBase(float v);        // 0.05–0.5
 
     // ANR (Audacity Noise Reduction)
     void setAnrNoiseReductionDb(double dB);
@@ -77,6 +92,10 @@ public:
 
     // Output gain
     void setOutputGainDB(float dB);
+
+    // Spectrum capture — thread-safe; call from main thread.
+    void setSpectrumEnabled(bool en);
+    void setSpectrumFps(int fps);   // 1–60; default 10
 
     // ── Getters ───────────────────────────────────────────────────────────────
     bool  bypassed()       const;
@@ -111,6 +130,12 @@ signals:
     void rxOutputLevel(float peak);
     // Emitted from stopAnrProfile() after the profile is built.
     void anrProfileReady(bool success);
+    // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
+    // inBins/outBins: SPEC_FFT_LEN/2 dBFS values (bin k = k*effectiveSR/SPEC_FFT_LEN Hz).
+    // rawSR: original audio sample rate.
+    void rxSpectrumBins(QVector<double> inBins,
+                        QVector<double> outBins,
+                        float rawSR);
 
 private:
     // ── Params snapshot (copied once per block under mutex) ───────────────────
@@ -130,6 +155,9 @@ private:
         bool  speexVad            = false;
         int   speexVadProbStart   = 85;
         int   speexVadProbCont    = 65;
+        float speexSnrDecay       = 0.7f;
+        float speexNoiseUpdateRate= 0.03f;
+        float speexPriorBase      = 0.1f;
 
         // ANR
         double anrNoiseReductionDb = 12.0;
@@ -162,11 +190,45 @@ private:
     bool   m_cachedVad          = false;
     int    m_cachedVadProbStart = -1;
     int    m_cachedVadProbCont  = -1;
+    float  m_cachedSnrDecay       = -1.0f;
+    float  m_cachedNoiseUpdateRate= -1.0f;
+    float  m_cachedPriorBase      = -1.0f;
 
     std::unique_ptr<SpeexNrProcessor> m_speex;
     std::unique_ptr<AnrNrProcessor>   m_anr;
     // Scratch buffer used when downmixing stereo for ANR profile collection.
     std::vector<float>                m_anrProfileMono;
+
+    // ── Spectrum capture state ────────────────────────────────────────────────
+    // m_specEnabled / m_specTargetFps are atomic: written from main thread,
+    // read from converter thread.  All other members are converter-thread-only.
+    // SPEC_FFT_LEN is declared public above.
+    std::atomic<bool> m_specEnabled   { false };
+    std::atomic<int>  m_specTargetFps { 10 };
+
+    rfft_plan              m_specFftPlan  { nullptr };
+    std::vector<double>    m_specFftBuf;
+    std::vector<double>    m_specWindow;
+    std::vector<float>     m_specInRing;
+    std::vector<float>     m_specOutRing;
+    int                    m_specRingPos     = 0;
+    int                    m_specDecimFactor = 1;
+    int                    m_specDecimCount  = 0;
+    int                    m_specFftTrigger  = 0;
+    QVector<double>        m_specInBins;
+    QVector<double>        m_specOutBins;
+
+    // ── Log-bin resampling (precomputed when sample rate changes) ─────────
+    struct LogBinSpec {
+        float linBinLo;   // fractional lower linear-bin index
+        float linBinHi;   // fractional upper linear-bin index
+    };
+    std::vector<LogBinSpec> m_specLogBins;
+    std::vector<double>     m_specLinMag;
+    int                     m_specNumLogBins = 0;
+
+    void appendSpectrumSamples(const Eigen::VectorXf& in,
+                               const Eigen::VectorXf& out);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void pushSpeexParams(const Params& p);

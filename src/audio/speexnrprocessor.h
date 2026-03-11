@@ -47,6 +47,11 @@ public:
     void setVadProbStart(int pct)       { m_vadProbStart = pct;   }  // 0–100
     void setVadProbCont(int pct)        { m_vadProbCont  = pct;   }  // 0–100
 
+    // Tunable time-constants (float, clamped in speex_preprocess_ctl)
+    void setSnrDecay(float v)           { m_snrDecay        = v;  }  // 0.0–0.95
+    void setNoiseUpdateRate(float v)    { m_noiseUpdateRate = v;  }  // 0.01–0.5
+    void setPriorBase(float v)          { m_priorBase       = v;  }  // 0.05–0.5
+
     // Returns the number of Bark bands active for the current preset.
     // Returns 0 if the state has never been initialised.
     int activeBandCount() const         { return m_activeBands;   }
@@ -163,6 +168,10 @@ private:
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_VAD,          &vad);
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_PROB_START,    &m_vadProbStart);
         speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_PROB_CONTINUE, &m_vadProbCont);
+
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_SNR_DECAY,         &m_snrDecay);
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_NOISE_UPDATE_RATE, &m_noiseUpdateRate);
+        speex_preprocess_ctl(m_state, SPEEX_PREPROCESS_SET_PRIOR_BASE,        &m_priorBase);
     }
 
     void destroyState()
@@ -190,6 +199,9 @@ private:
     bool   m_vad            = false;
     int    m_vadProbStart   = 85;   // Speex default
     int    m_vadProbCont    = 65;   // Speex default
+    float  m_snrDecay       = 0.7f;
+    float  m_noiseUpdateRate= 0.03f;
+    float  m_priorBase      = 0.1f;
 
     // Sample buffers (int16 domain)
     std::vector<int16_t> m_inBuf;

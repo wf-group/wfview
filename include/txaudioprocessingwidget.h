@@ -55,6 +55,9 @@ public slots:
                         QVector<double> outBins,
                         float rawSR);
     void setConnected(bool connected);
+    // Called from wfmain::receivePTTstatus so the widget can inhibit the
+    // spectrum display while the radio is receiving (not transmitting).
+    void setTransmitting(bool transmitting);
 
 private slots:
     void onAnyControlChanged();
@@ -138,12 +141,14 @@ private:
     QVBoxLayout*  m_dspOrderLayout {nullptr};
 
     // ── Spectrum display ─────────────────────────────────────────────────────
-    QGroupBox*      specGrp     {nullptr};
-    QCheckBox*      specEnable  {nullptr};
-    SpectrumWidget* specWidget  {nullptr};
+    QGroupBox*      specGrp              {nullptr};
+    QCheckBox*      specEnable           {nullptr};
+    QCheckBox*      specInhibitDuringRx  {nullptr};
+    SpectrumWidget* specWidget           {nullptr};
 
     float m_audioSampleRate = 0.0f;
     bool  m_radioConnected  = false;
+    bool  m_isTransmitting  = false;
     int   m_spectrumFps     = 30;
 
     // ── Meters ──────────────────────────────────────────────────────────────

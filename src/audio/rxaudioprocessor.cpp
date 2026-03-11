@@ -15,15 +15,40 @@
 #include <cmath>
 #include <algorithm>
 
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
+
+extern "C" {
+#  include "pocketfft.h"
+}
+
 RxAudioProcessor::RxAudioProcessor(QObject* parent)
     : QObject(parent)
     , m_speex(std::make_unique<SpeexNrProcessor>())
     , m_anr(std::make_unique<AnrNrProcessor>())
 {
     qRegisterMetaType<Eigen::VectorXf>("Eigen::VectorXf");
+    qRegisterMetaType<QVector<double>>("QVector<double>");
+    m_specFftPlan = make_rfft_plan(SPEC_FFT_LEN);
+    m_specFftBuf.resize(SPEC_FFT_LEN, 0.0);
 }
 
-RxAudioProcessor::~RxAudioProcessor() = default;
+RxAudioProcessor::~RxAudioProcessor()
+{
+    if (m_specFftPlan)
+        destroy_rfft_plan(m_specFftPlan);
+}
+
+void RxAudioProcessor::setSpectrumEnabled(bool en)
+{
+    m_specEnabled.store(en, std::memory_order_relaxed);
+}
+
+void RxAudioProcessor::setSpectrumFps(int fps)
+{
+    m_specTargetFps.store(qBound(1, fps, 60), std::memory_order_relaxed);
+}
 
 // ─── processAudio ────────────────────────────────────────────────────────────
 // Called from the converter thread (TimeCriticalPriority).
@@ -45,6 +70,16 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     if (channels < 1) channels = 1;
     if (channels > 2) channels = 2;
 
+    // ── Spectrum flag (read once per block) ──────────────────────────────────
+    const bool specActive = m_specEnabled.load(std::memory_order_relaxed);
+    // Silence ring buffers when spectrum is disabled so stale data won't show
+    // on re-enable (converter-thread-only — no locking required).
+    if (!specActive && !m_specInRing.empty()) {
+        std::fill(m_specInRing.begin(),  m_specInRing.end(),  0.0f);
+        std::fill(m_specOutRing.begin(), m_specOutRing.end(), 0.0f);
+        m_specFftTrigger = 0;
+    }
+
     // ── Emit raw input level ─────────────────────────────────────────────────
     const float inputPeak = samples.array().abs().maxCoeff();
     emit rxInputLevel(inputPeak);
@@ -54,6 +89,8 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     if (p.bypass) {
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
+        if (specActive)
+            appendSpectrumSamples(samples, samples);  // input == output in bypass
         return samples;
     }
 
@@ -79,9 +116,40 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         m_activeChannels = channels;
         m_speex->reset();
         m_anr->reset();
+
+        // Spectrum ring-buffer + FFT state reset (decimate to ~16 kHz).
+        const int K = qMax(1, static_cast<int>(std::round(sampleRate / 16000.0f)));
+        m_specDecimFactor = K;
+        m_specDecimCount  = 0;
+        m_specFftTrigger  = 0;
+        m_specRingPos     = 0;
+        m_specInRing.assign(SPEC_FFT_LEN, 0.0f);
+        m_specOutRing.assign(SPEC_FFT_LEN, 0.0f);
+        m_specWindow.resize(SPEC_FFT_LEN);
+        for (int i = 0; i < SPEC_FFT_LEN; ++i)
+            m_specWindow[i] = 0.5 - 0.5 * std::cos(2.0 * M_PI * i / (SPEC_FFT_LEN - 1));
+
+        // Precompute log-bin → linear-bin mapping.
+        const double decimSR = static_cast<double>(sampleRate) / K;
+        const double binRes  = decimSR / SPEC_FFT_LEN;
+        const double decades = std::log10(static_cast<double>(SPEC_FREQ_MAX) / SPEC_FREQ_MIN);
+        m_specNumLogBins = static_cast<int>(std::round(decades * SPEC_BINS_PER_DECADE));
+        m_specLogBins.resize(m_specNumLogBins);
+        m_specLinMag.resize(SPEC_FFT_LEN / 2);
+        for (int j = 0; j < m_specNumLogBins; ++j) {
+            const double fLo = SPEC_FREQ_MIN * std::pow(10.0, (j - 0.5) / SPEC_BINS_PER_DECADE);
+            const double fHi = SPEC_FREQ_MIN * std::pow(10.0, (j + 0.5) / SPEC_BINS_PER_DECADE);
+            m_specLogBins[j].linBinLo = static_cast<float>(fLo / binRes);
+            m_specLogBins[j].linBinHi = static_cast<float>(fHi / binRes);
+        }
     }
     pushSpeexParams(p);
     pushAnrParams(p);
+
+    // Capture input snapshot for spectrum BEFORE NR.
+    Eigen::VectorXf specInCapture;
+    if (specActive)
+        specInCapture = samples;
 
     // ── Channel routing → NR → reassemble ───────────────────────────────────
     const int n = static_cast<int>(samples.size());
@@ -136,6 +204,11 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     mixSidetone(samples, channels, p);
 
     emit rxOutputLevel(samples.array().abs().maxCoeff());
+
+    // ── Spectrum emission ─────────────────────────────────────────────────────
+    if (specActive)
+        appendSpectrumSamples(specInCapture, samples);
+
     return samples;
 }
 
@@ -148,6 +221,92 @@ std::vector<float> RxAudioProcessor::applyNr(const float* in, int n,
     } else {
         // RxNrMode::Anr
         return m_anr->process(in, n, sr);
+    }
+}
+
+// ─── appendSpectrumSamples ───────────────────────────────────────────────────
+// Converter thread only.  Mirrors TxAudioProcessor::appendSpectrumSamples.
+// Decimates to ~16 kHz, fires Hanning-windowed FFT, then rebins linear
+// magnitudes into log-spaced output bins (SPEC_BINS_PER_DECADE per decade).
+
+void RxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
+                                              const Eigen::VectorXf& out)
+{
+    if (m_specInRing.empty()) return;  // ring not yet initialised
+
+    static constexpr int    N     = SPEC_FFT_LEN;
+    static constexpr int    halfN = N / 2;
+    static constexpr double kNorm = N / 4.0;
+
+    const int fps         = m_specTargetFps.load(std::memory_order_relaxed);
+    const double decimSR  = static_cast<double>(m_activeSR) / m_specDecimFactor;
+    const int triggerEvery = qMax(1, static_cast<int>(std::round(decimSR / fps)));
+
+    // Lambda: window + FFT on one ring buffer → rebin into log-spaced output.
+    auto runFFT = [&](const std::vector<float>& ring, QVector<double>& bins) {
+        // 1. Window and FFT
+        for (int j = 0; j < N; ++j)
+            m_specFftBuf[j] = m_specWindow[j]
+                              * static_cast<double>(ring[(m_specRingPos + j) % N]);
+        rfft_forward(m_specFftPlan, m_specFftBuf.data(), 1.0);
+
+        // 2. Extract normalised linear magnitudes
+        m_specLinMag[0] = std::abs(m_specFftBuf[0]) / kNorm;
+        for (int k = 1; k < halfN; ++k) {
+            const double re = m_specFftBuf[2*k - 1];
+            const double im = m_specFftBuf[2*k];
+            m_specLinMag[k] = std::sqrt(re*re + im*im) / kNorm;
+        }
+
+        // 3. Rebin linear magnitudes into log-spaced bins
+        bins.resize(m_specNumLogBins);
+        for (int j = 0; j < m_specNumLogBins; ++j) {
+            const float lo = m_specLogBins[j].linBinLo;
+            const float hi = m_specLogBins[j].linBinHi;
+            int iLo = static_cast<int>(std::floor(lo));
+            int iHi = static_cast<int>(std::floor(hi));
+            iLo = qBound(0, iLo, halfN - 1);
+            iHi = qBound(0, iHi, halfN - 1);
+
+            double mag;
+            if (iLo == iHi) {
+                const float frac = lo - std::floor(lo);
+                const int next = qMin(iLo + 1, halfN - 1);
+                mag = m_specLinMag[iLo] * (1.0 - frac) + m_specLinMag[next] * frac;
+            } else {
+                const double wFirst = 1.0 - (lo - std::floor(lo));
+                double sum = m_specLinMag[iLo] * wFirst;
+                double totalWeight = wFirst;
+                for (int k = iLo + 1; k < iHi; ++k) {
+                    sum += m_specLinMag[k];
+                    totalWeight += 1.0;
+                }
+                const double wLast = hi - std::floor(hi);
+                if (wLast > 0.0) {
+                    sum += m_specLinMag[iHi] * wLast;
+                    totalWeight += wLast;
+                }
+                mag = sum / totalWeight;
+            }
+            bins[j] = 20.0 * std::log10(mag + 1e-10);
+        }
+    };
+
+    const int n = static_cast<int>(in.size());
+    for (int i = 0; i < n; ++i) {
+        if (++m_specDecimCount >= m_specDecimFactor) {
+            m_specDecimCount = 0;
+            m_specInRing [m_specRingPos] = in [i];
+            m_specOutRing[m_specRingPos] = out[i];
+            m_specRingPos = (m_specRingPos + 1) % N;
+
+            if (++m_specFftTrigger >= triggerEvery) {
+                m_specFftTrigger = 0;
+                runFFT(m_specInRing,  m_specInBins);
+                runFFT(m_specOutRing, m_specOutBins);
+                emit rxSpectrumBins(m_specInBins, m_specOutBins, m_activeSR);
+            }
+        }
     }
 }
 
@@ -216,7 +375,10 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
         p.speexAgcMaxGain    != m_cachedAgcMax         ||
         p.speexVad           != m_cachedVad            ||
         p.speexVadProbStart  != m_cachedVadProbStart   ||
-        p.speexVadProbCont   != m_cachedVadProbCont;
+        p.speexVadProbCont   != m_cachedVadProbCont    ||
+        p.speexSnrDecay        != m_cachedSnrDecay        ||
+        p.speexNoiseUpdateRate != m_cachedNoiseUpdateRate ||
+        p.speexPriorBase       != m_cachedPriorBase;
 
     if (!changed) return;
 
@@ -229,6 +391,9 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_cachedVad            = p.speexVad;
     m_cachedVadProbStart   = p.speexVadProbStart;
     m_cachedVadProbCont    = p.speexVadProbCont;
+    m_cachedSnrDecay       = p.speexSnrDecay;
+    m_cachedNoiseUpdateRate= p.speexNoiseUpdateRate;
+    m_cachedPriorBase      = p.speexPriorBase;
 
     m_speex->setSuppression(p.speexSuppression);
     m_speex->setBandsPreset(p.speexBandsPreset);
@@ -239,6 +404,9 @@ void RxAudioProcessor::pushSpeexParams(const Params& p)
     m_speex->setVad(p.speexVad);
     m_speex->setVadProbStart(p.speexVadProbStart);
     m_speex->setVadProbCont(p.speexVadProbCont);
+    m_speex->setSnrDecay(p.speexSnrDecay);
+    m_speex->setNoiseUpdateRate(p.speexNoiseUpdateRate);
+    m_speex->setPriorBase(p.speexPriorBase);
     // Changing key structural params (frame size, bands) requires state reset
     m_speex->reset();
 }
@@ -281,6 +449,9 @@ void RxAudioProcessor::setSpeexAgcMaxGain(int v)         { QMutexLocker lk(&m_mu
 void RxAudioProcessor::setSpeexVad(bool v)               { QMutexLocker lk(&m_mutex); m_params.speexVad       = v; }
 void RxAudioProcessor::setSpeexVadProbStart(int v)       { QMutexLocker lk(&m_mutex); m_params.speexVadProbStart = v; }
 void RxAudioProcessor::setSpeexVadProbCont(int v)        { QMutexLocker lk(&m_mutex); m_params.speexVadProbCont  = v; }
+void RxAudioProcessor::setSpeexSnrDecay(float v)         { QMutexLocker lk(&m_mutex); m_params.speexSnrDecay       = v; }
+void RxAudioProcessor::setSpeexNoiseUpdateRate(float v)  { QMutexLocker lk(&m_mutex); m_params.speexNoiseUpdateRate= v; }
+void RxAudioProcessor::setSpeexPriorBase(float v)        { QMutexLocker lk(&m_mutex); m_params.speexPriorBase      = v; }
 void RxAudioProcessor::setAnrNoiseReductionDb(double v)  { QMutexLocker lk(&m_mutex); m_params.anrNoiseReductionDb = v; }
 void RxAudioProcessor::setAnrSensitivity(double v)       { QMutexLocker lk(&m_mutex); m_params.anrSensitivity      = v; }
 void RxAudioProcessor::setAnrFreqSmoothing(int v)        { QMutexLocker lk(&m_mutex); m_params.anrFreqSmoothing    = v; }

@@ -72,6 +72,20 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
         m_specWindow.resize(SPEC_FFT_LEN);
         for (int i = 0; i < SPEC_FFT_LEN; ++i)
             m_specWindow[i] = 0.5 - 0.5 * std::cos(2.0 * M_PI * i / (SPEC_FFT_LEN - 1));
+
+        // Precompute log-bin → linear-bin mapping.
+        const double decimSR = static_cast<double>(sampleRate) / K;
+        const double binRes  = decimSR / SPEC_FFT_LEN;
+        const double decades = std::log10(static_cast<double>(SPEC_FREQ_MAX) / SPEC_FREQ_MIN);
+        m_specNumLogBins = static_cast<int>(std::round(decades * SPEC_BINS_PER_DECADE));
+        m_specLogBins.resize(m_specNumLogBins);
+        m_specLinMag.resize(SPEC_FFT_LEN / 2);
+        for (int j = 0; j < m_specNumLogBins; ++j) {
+            const double fLo = SPEC_FREQ_MIN * std::pow(10.0, (j - 0.5) / SPEC_BINS_PER_DECADE);
+            const double fHi = SPEC_FREQ_MIN * std::pow(10.0, (j + 0.5) / SPEC_BINS_PER_DECADE);
+            m_specLogBins[j].linBinLo = static_cast<float>(fLo / binRes);
+            m_specLogBins[j].linBinHi = static_cast<float>(fHi / binRes);
+        }
     }
 
     // ── Spectrum flag (read once per block) ──────────────────────────────────
@@ -207,8 +221,10 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
 
 // ─── appendSpectrumSamples ───────────────────────────────────────────────────
 // Converter thread only.  Decimates input to ~16 kHz, maintains sliding ring
-// buffers of SPEC_FFT_LEN decimated samples, and fires a Hanning-windowed FFT
-// every triggerEvery decimated samples (= activeSR / K / targetFps).
+// buffers of SPEC_FFT_LEN decimated samples, fires a Hanning-windowed FFT,
+// then rebins the linear-spaced FFT magnitudes into log-spaced output bins
+// (SPEC_BINS_PER_DECADE bins per frequency decade, 50 Hz – 8 kHz).
+//
 // With 4800-sample blocks at 48 kHz (K=3, 1600 decimated samples/block):
 //   30 fps → triggerEvery ≈ 533 → 3 FFTs per block
 //   10 fps → triggerEvery = 1600 → 1 FFT per block
@@ -227,19 +243,56 @@ void TxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
     const double decimSR  = static_cast<double>(m_activeSR) / m_specDecimFactor;
     const int triggerEvery = qMax(1, static_cast<int>(std::round(decimSR / fps)));
 
-    // Lambda: window + FFT on one ring buffer → fill bins vector.
+    // Lambda: window + FFT on one ring buffer → rebin into log-spaced output.
     auto runFFT = [&](const std::vector<float>& ring, QVector<double>& bins) {
+        // 1. Window and FFT
         for (int j = 0; j < N; ++j)
             m_specFftBuf[j] = m_specWindow[j]
                               * static_cast<double>(ring[(m_specRingPos + j) % N]);
         rfft_forward(m_specFftPlan, m_specFftBuf.data(), 1.0);
-        // pocketfft half-complex layout: buf[0]=DC, buf[2k-1]/buf[2k]=re/im of bin k (k=1..N/2-1)
-        bins.resize(halfN);
-        bins[0] = 20.0 * std::log10(std::abs(m_specFftBuf[0]) / kNorm + 1e-10);
+
+        // 2. Extract normalised linear magnitudes into scratch buffer
+        // pocketfft half-complex layout: buf[0]=DC, buf[2k-1]/buf[2k]=re/im of bin k
+        m_specLinMag[0] = std::abs(m_specFftBuf[0]) / kNorm;
         for (int k = 1; k < halfN; ++k) {
             const double re = m_specFftBuf[2*k - 1];
             const double im = m_specFftBuf[2*k];
-            bins[k] = 20.0 * std::log10(std::sqrt(re*re + im*im) / kNorm + 1e-10);
+            m_specLinMag[k] = std::sqrt(re*re + im*im) / kNorm;
+        }
+
+        // 3. Rebin linear magnitudes into log-spaced bins
+        bins.resize(m_specNumLogBins);
+        for (int j = 0; j < m_specNumLogBins; ++j) {
+            const float lo = m_specLogBins[j].linBinLo;
+            const float hi = m_specLogBins[j].linBinHi;
+            int iLo = static_cast<int>(std::floor(lo));
+            int iHi = static_cast<int>(std::floor(hi));
+            iLo = qBound(0, iLo, halfN - 1);
+            iHi = qBound(0, iHi, halfN - 1);
+
+            double mag;
+            if (iLo == iHi) {
+                // Log bin narrower than one linear bin — interpolate
+                const float frac = lo - std::floor(lo);
+                const int next = qMin(iLo + 1, halfN - 1);
+                mag = m_specLinMag[iLo] * (1.0 - frac) + m_specLinMag[next] * frac;
+            } else {
+                // Weighted average of linear bins spanning this log bin
+                const double wFirst = 1.0 - (lo - std::floor(lo));
+                double sum = m_specLinMag[iLo] * wFirst;
+                double totalWeight = wFirst;
+                for (int k = iLo + 1; k < iHi; ++k) {
+                    sum += m_specLinMag[k];
+                    totalWeight += 1.0;
+                }
+                const double wLast = hi - std::floor(hi);
+                if (wLast > 0.0) {
+                    sum += m_specLinMag[iHi] * wLast;
+                    totalWeight += wLast;
+                }
+                mag = sum / totalWeight;
+            }
+            bins[j] = 20.0 * std::log10(mag + 1e-10);
         }
     };
 

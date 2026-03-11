@@ -29,6 +29,7 @@
 
 #include "prefs.h"   // rxAudioProcessingPrefs, RxNrMode
 #include "rxaudioprocessor.h"
+#include "spectrumwidget.h"
 
 class RxAudioProcessingWidget : public QDialog
 {
@@ -54,6 +55,9 @@ signals:
 public slots:
     // Called by wfmain after the ANR profile has been built (or failed).
     void onAnrProfileReady(bool success);
+    // Called from wfmain::receivePTTstatus so the widget can inhibit the
+    // spectrum display while the radio is transmitting.
+    void setTransmitting(bool transmitting);
 
 private slots:
     void onAnyControlChanged();
@@ -62,6 +66,12 @@ private slots:
     void onAlgorithmGroupToggled(bool /*unused*/);
     void onAnrCollectClicked();
     void onAnrCollectTimeout();
+    void onSpecEnableToggled(bool enabled);
+    void onSpecDiagTimer();
+
+public slots:
+    // Connected to RxAudioProcessor::rxSpectrumBins (Qt::AutoConnection).
+    void onSpectrumBins(QVector<double> inBins, QVector<double> outBins, float rawSR);
 
 private:
     void buildUi();
@@ -107,6 +117,13 @@ private:
     QSlider*      speexVadProbCont  {nullptr}; // 0..100 %
     QLabel*       lblVadProbCont    {nullptr};
 
+    QSlider*      speexSnrDecay     {nullptr}; // 0..95 (×0.01 → 0.0..0.95)
+    QLabel*       lblSnrDecay       {nullptr};
+    QSlider*      speexNoiseUpdate  {nullptr}; // 1..50 (×0.01 → 0.01..0.50)
+    QLabel*       lblNoiseUpdate    {nullptr};
+    QSlider*      speexPriorBase    {nullptr}; // 5..50 (×0.01 → 0.05..0.50)
+    QLabel*       lblPriorBase      {nullptr};
+
     // ── ANR controls ──────────────────────────────────────────────────────────
     QGroupBox*    anrGrp             {nullptr};
     QSlider*      anrNoiseRedSlider  {nullptr};   // 0..48 dB
@@ -126,12 +143,22 @@ private:
     QSlider*      outputGain     {nullptr};   // -60..200 (×0.1 dB → -6..+20 dB)
     QLabel*       lblOutputGain  {nullptr};
 
+    // ── Spectrum display ──────────────────────────────────────────────────────
+    QGroupBox*    specGrp                {nullptr};
+    QCheckBox*    specEnable             {nullptr};
+    QCheckBox*    specInhibitDuringTx    {nullptr};
+    SpectrumWidget* specWidget           {nullptr};
+
     // ── Containers ────────────────────────────────────────────────────────────
     // Top-level widget holding all controls (for easy enable/disable on bypass)
     QWidget*      controlsContainer {nullptr};
 
-    int  m_audioChannels = 1;
+    int  m_audioChannels  = 1;
     bool m_radioConnected = false;
+    bool m_isTransmitting = false;
+    int  m_spectrumFps    = 10;
+    int  m_batchCount     = 0;
+    QTimer m_specDiagTimer;
 };
 
 #endif // RXAUDIOPROCESSINGWIDGET_H

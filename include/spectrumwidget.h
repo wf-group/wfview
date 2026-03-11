@@ -13,12 +13,17 @@
 #include "logcategories.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SpectrumWidget — lightweight spectrum display for the TX audio processor.
+// SpectrumWidget — lightweight spectrum display for TX/RX audio processors.
 //
-// Maintained by AudioProcessingWidget: it feeds spectrumPrimary (input, green)
-// and spectrumSecondary (output, orange) with dBFS values (one per DFT bin,
-// bins 0..fftLength/2-1) and updates sampleRate / fftLength when the radio
-// sample rate changes.  The repaint rate is controlled via setFps().
+// Two bin modes:
+//   logBins = true  — bins are log-spaced (SPEC_BINS_PER_DECADE per decade,
+//                     50 Hz – 8 kHz).  Bin index maps linearly to x position.
+//   logBins = false — bins are linearly-spaced FFT bins; freq = i * binRes.
+//                     Mapped to x via log10(freq).
+//
+// Maintained by the processing widget: it feeds spectrumPrimary (input, green)
+// and spectrumSecondary (output, orange) with dBFS values.
+// The repaint rate is controlled via setFps().
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SpectrumWidget : public QWidget
@@ -49,8 +54,13 @@ public:
     double minDb = -90.0;
     double maxDb =   0.0;
 
-    // Spectrum data — dBFS per bin for the positive-frequency half of the DFT
-    // (bins 0 .. fftLength/2 - 1).  Updated each time onSpectrumSamples fires.
+    // When true, bins are log-spaced (even resolution per octave on display).
+    // When false, bins are linearly-spaced FFT output (legacy).
+    bool logBins = false;
+
+    // Spectrum data — dBFS per bin.
+    // logBins=true:  one value per log-spaced bin (numBins = decades × binsPerDecade).
+    // logBins=false: one value per FFT bin (bins 0 .. fftLength/2 - 1).
     std::vector<double> spectrumPrimary;    // input (pre-DSP)  — green
     std::vector<double> spectrumSecondary;  // output (post-DSP) — orange
     bool showSecondary = true;
@@ -132,15 +142,33 @@ private:
     {
         p.setPen(QPen(color, 1));
         QPolygonF pts;
-        const double binRes = sampleRate / fftLength;
-        const int maxBin = qMin(static_cast<int>(data.size()),
-                                static_cast<int>(8000.0 / binRes));
-        for (int i = 1; i < maxBin; ++i) {  // skip DC bin 0
-            const double freq  = i * binRes;
-            if (freq < 50.0) continue;      // below log-axis minimum; skip
-            const float  yNorm = static_cast<float>((data[i] - minDb) / (maxDb - minDb));
-            const float  y     = static_cast<float>(height()) - yNorm * static_cast<float>(height());
-            pts << QPointF(freqToX(freq), static_cast<double>(y));
+        const int numBins = static_cast<int>(data.size());
+        if (numBins < 2) return;
+
+        if (logBins) {
+            // Bins are already log-spaced from 50 Hz to 8 kHz, so bin index
+            // maps linearly to x position (the x-axis is also log over the
+            // same range).
+            const double w = static_cast<double>(width());
+            const double h = static_cast<double>(height());
+            for (int i = 0; i < numBins; ++i) {
+                const double x    = (static_cast<double>(i) / (numBins - 1)) * w;
+                const double yN   = (data[i] - minDb) / (maxDb - minDb);
+                const double y    = h - yN * h;
+                pts << QPointF(x, y);
+            }
+        } else {
+            // Legacy: linearly-spaced FFT bins mapped via log frequency axis.
+            const double binRes = sampleRate / fftLength;
+            const int maxBin = qMin(numBins,
+                                    static_cast<int>(8000.0 / binRes));
+            for (int i = 1; i < maxBin; ++i) {
+                const double freq  = i * binRes;
+                if (freq < 50.0) continue;
+                const float  yNorm = static_cast<float>((data[i] - minDb) / (maxDb - minDb));
+                const float  y     = static_cast<float>(height()) - yNorm * static_cast<float>(height());
+                pts << QPointF(freqToX(freq), static_cast<double>(y));
+            }
         }
         p.drawPolyline(pts);
     }

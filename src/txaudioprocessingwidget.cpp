@@ -63,8 +63,9 @@ audioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
     p.sidetoneLevel   = sidetoneLevel->value() * 0.01f;
     p.muteRx = muteRxCheck->isChecked();
 
-    p.spectrumEnabled = specEnable->isChecked();
-    p.spectrumFPS     = m_spectrumFps;
+    p.spectrumEnabled     = specEnable->isChecked();
+    p.spectrumFPS         = m_spectrumFps;
+    p.specInhibitDuringRx = specInhibitDuringRx->isChecked();
 
     p.gateEnabled   = gateEnable->isChecked();
     p.gateThreshold = static_cast<float>(gateThreshold->value());
@@ -135,6 +136,15 @@ void TxAudioProcessingWidget::onAnyControlChanged()
     lblGateLfCutoff->setText(QString::number(gateLfCutoff->value()) + " Hz");
     lblGateHfCutoff->setText(QString::number(gateHfCutoff->value()) + " Hz");
 
+    // Enabling self-monitoring makes the TX spectrum useful during receive
+    // (the user is listening to their own processed audio), so automatically
+    // clear the inhibit flag to ensure the display is always active.
+    if (sidetoneEnable->isChecked() && specInhibitDuringRx->isChecked()) {
+        specInhibitDuringRx->blockSignals(true);
+        specInhibitDuringRx->setChecked(false);
+        specInhibitDuringRx->blockSignals(false);
+    }
+
     emit prefsChanged(getPrefs());
 }
 
@@ -204,12 +214,27 @@ void TxAudioProcessingWidget::setConnected(bool connected)
 // the converter thread at TimeCriticalPriority).  This slot only needs to
 // update EQ band visibility on SR change and forward bins to SpectrumWidget.
 
+void TxAudioProcessingWidget::setTransmitting(bool transmitting)
+{
+    m_isTransmitting = transmitting;
+    // When entering the inhibited state (radio starts receiving), clear
+    // stale spectrum data so the display goes blank rather than freezing.
+    if (!m_isTransmitting && specInhibitDuringRx && specInhibitDuringRx->isChecked()) {
+        if (specWidget) {
+            specWidget->spectrumPrimary.clear();
+            specWidget->spectrumSecondary.clear();
+        }
+    }
+}
+
 void TxAudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
                                             QVector<double> outBins,
                                             float rawSR)
 {
     if (!m_radioConnected) return;
     if (!specEnable || !specEnable->isChecked()) return;
+    // Inhibit during receive: drop bins while not transmitting.
+    if (!m_isTransmitting && specInhibitDuringRx && specInhibitDuringRx->isChecked()) return;
     ++m_batchCount;
 
     if (rawSR != m_audioSampleRate) {
@@ -564,7 +589,15 @@ void TxAudioProcessingWidget::buildUi()
                                   "Uses a 1024-point sliding DFT, 50 Hz – 8 kHz."));
         vbox->addWidget(specEnable);
 
+        specInhibitDuringRx = new QCheckBox(tr("Inhibit during receive"));
+        specInhibitDuringRx->setToolTip(tr(
+            "Pause the TX spectrum display while the radio is receiving.\n"
+            "Automatically disabled when self-monitoring is enabled."));
+        specInhibitDuringRx->setChecked(true);
+        vbox->addWidget(specInhibitDuringRx);
+
         specWidget = new SpectrumWidget;
+        specWidget->logBins    = true;
         specWidget->fftLength  = TxAudioProcessor::SPEC_FFT_LEN;
         specWidget->sampleRate = 48000.0;
         specWidget->showSecondary = true;
@@ -576,6 +609,8 @@ void TxAudioProcessingWidget::buildUi()
 
         connect(specEnable, &QCheckBox::toggled,
                 this, &TxAudioProcessingWidget::onSpecEnableToggled);
+        connect(specInhibitDuringRx, &QCheckBox::toggled,
+                this, &TxAudioProcessingWidget::onAnyControlChanged);
     }
 
     // ── Monitoring (via SideTone) ────────────────────────────────────────────
@@ -707,6 +742,7 @@ void TxAudioProcessingWidget::blockAll(bool block)
     gateRange->blockSignals(block);
     gateLfCutoff->blockSignals(block);
     gateHfCutoff->blockSignals(block);
+    specInhibitDuringRx->blockSignals(block);
 }
 
 void TxAudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
@@ -737,6 +773,7 @@ void TxAudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
     muteRxCheck->setChecked(false);
 
     specEnable->setChecked(p.spectrumEnabled);
+    specInhibitDuringRx->setChecked(p.specInhibitDuringRx);
     specWidget->setVisible(p.spectrumEnabled);
 
     m_spectrumFps = qBound(1, p.spectrumFPS, 60);

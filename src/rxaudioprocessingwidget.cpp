@@ -23,6 +23,10 @@ RxAudioProcessingWidget::RxAudioProcessingWidget(QWidget* parent)
     setWindowTitle(tr("RX Audio Processing"));
     setWindowFlags(windowFlags() | Qt::Window);
     buildUi();
+    connect(&m_specDiagTimer, &QTimer::timeout,
+            this, &RxAudioProcessingWidget::onSpecDiagTimer);
+    m_specDiagTimer.setInterval(1000);
+    m_specDiagTimer.start();
 }
 
 // ─── setPrefs / getPrefs ─────────────────────────────────────────────────────
@@ -59,6 +63,9 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.speexVad           = speexVadCheck->isChecked();
     p.speexVadProbStart  = speexVadProbStart->value();
     p.speexVadProbCont   = speexVadProbCont->value();
+    p.speexSnrDecay        = speexSnrDecay->value()    * 0.01f;
+    p.speexNoiseUpdateRate = speexNoiseUpdate->value()  * 0.01f;
+    p.speexPriorBase       = speexPriorBase->value()   * 0.01f;
 
     // ANR
     p.anrNoiseReductionDb = anrNoiseRedSlider->value();
@@ -67,6 +74,11 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
 
     // Output gain
     p.outputGainDB   = outputGain->value() * 0.1f;
+
+    // Spectrum
+    p.spectrumEnabled       = specEnable->isChecked();
+    p.spectrumFPS           = m_spectrumFps;
+    p.specInhibitDuringTx   = specInhibitDuringTx->isChecked();
 
     return p;
 }
@@ -110,6 +122,9 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     // Value labels
     lblVadProbStart->setText(QString::number(speexVadProbStart->value()) + " %");
     lblVadProbCont->setText(QString::number(speexVadProbCont->value())   + " %");
+    lblSnrDecay->setText(QString::number(speexSnrDecay->value()   * 0.01, 'f', 2));
+    lblNoiseUpdate->setText(QString::number(speexNoiseUpdate->value() * 0.01, 'f', 2));
+    lblPriorBase->setText(QString::number(speexPriorBase->value()  * 0.01, 'f', 2));
 
     // AGC controls visible only when checkbox is ticked
     bool agcVis = speexAgcCheck->isChecked();
@@ -345,6 +360,46 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prob-cont:"), rowPC);
         }
 
+        // ── Adaptation speed controls ──
+        {
+            auto* sepLabel = new QLabel(tr("Adaptation Speed"));
+            QFont sf = sepLabel->font();
+            sf.setBold(true);
+            sepLabel->setFont(sf);
+            form->addRow(sepLabel);
+
+            // SNR Decay: 0..95 → 0.00..0.95
+            auto* rowSD = makeSliderRow(speexSnrDecay, lblSnrDecay, 0, 95, 70, 60);
+            speexSnrDecay->setToolTip(tr(
+                "SNR smoothing decay (0.00–0.95, default 0.70).\n"
+                "Controls how long the algorithm \"remembers\" speech was present.\n"
+                "Lower = faster recovery (static suppressed sooner after speech).\n"
+                "Higher = smoother but slower adaptation.\n"
+                "Recommended: 0.30–0.60 for faster response."));
+            lblSnrDecay->setText("0.70");
+            form->addRow(tr("  SNR decay:"), rowSD);
+
+            // Noise update rate: 1..50 → 0.01..0.50
+            auto* rowNU = makeSliderRow(speexNoiseUpdate, lblNoiseUpdate, 1, 50, 3, 60);
+            speexNoiseUpdate->setToolTip(tr(
+                "Noise floor update rate (0.01–0.50, default 0.03).\n"
+                "How fast the noise floor estimate adapts.\n"
+                "Higher = noise estimate catches up faster after speech.\n"
+                "Too high may cause the algorithm to treat speech as noise."));
+            lblNoiseUpdate->setText("0.03");
+            form->addRow(tr("  Noise update:"), rowNU);
+
+            // Prior base: 5..50 → 0.05..0.50
+            auto* rowPB = makeSliderRow(speexPriorBase, lblPriorBase, 5, 50, 10, 60);
+            speexPriorBase->setToolTip(tr(
+                "Prior SNR base weight (0.05–0.50, default 0.10).\n"
+                "Minimum weight given to the current frame's observation.\n"
+                "Higher = less inertia from previous frames (faster tracking).\n"
+                "Too high may cause instability or musical noise."));
+            lblPriorBase->setText("0.10");
+            form->addRow(tr("  Prior base:"), rowPB);
+        }
+
         algoStack->addWidget(speexGrp);  // page 0
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -353,6 +408,9 @@ void RxAudioProcessingWidget::buildUi()
         connect(speexVadCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexVadProbStart, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexVadProbCont,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexSnrDecay,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexNoiseUpdate,  &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
+        connect(speexPriorBase,    &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
     // ── ANR controls — stack page 1 ───────────────────────────────────────────
@@ -450,6 +508,39 @@ void RxAudioProcessingWidget::buildUi()
         connect(outputGain, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
 
+    // ── RX Spectrum ───────────────────────────────────────────────────────────
+    {
+        specGrp = new QGroupBox(tr("RX Spectrum"));
+        auto* vbox = new QVBoxLayout(specGrp);
+
+        specEnable = new QCheckBox(tr("Enable spectrum display"));
+        specEnable->setToolTip(tr("Show RX audio spectrum (input: green = radio signal before NR, "
+                                  "output: orange = after noise reduction and gain)."));
+        vbox->addWidget(specEnable);
+
+        specInhibitDuringTx = new QCheckBox(tr("Inhibit during transmit"));
+        specInhibitDuringTx->setToolTip(tr(
+            "Pause the RX spectrum display while the radio is transmitting."));
+        specInhibitDuringTx->setChecked(true);
+        vbox->addWidget(specInhibitDuringTx);
+
+        specWidget = new SpectrumWidget;
+        specWidget->logBins    = true;
+        specWidget->fftLength  = RxAudioProcessor::SPEC_FFT_LEN;
+        specWidget->sampleRate = 8000.0;
+        specWidget->showSecondary = true;
+        specWidget->setMinimumHeight(120);
+        specWidget->setVisible(false);
+        vbox->addWidget(specWidget);
+
+        mainLayout->addWidget(specGrp);
+
+        connect(specEnable, &QCheckBox::toggled,
+                this, &RxAudioProcessingWidget::onSpecEnableToggled);
+        connect(specInhibitDuringTx, &QCheckBox::toggled,
+                this, &RxAudioProcessingWidget::onAnyControlChanged);
+    }
+
     mainLayout->addStretch();
 
     scroll->setWidget(inner);
@@ -484,10 +575,15 @@ void RxAudioProcessingWidget::blockAll(bool block)
     speexVadCheck->blockSignals(block);
     speexVadProbStart->blockSignals(block);
     speexVadProbCont->blockSignals(block);
+    speexSnrDecay->blockSignals(block);
+    speexNoiseUpdate->blockSignals(block);
+    speexPriorBase->blockSignals(block);
     anrNoiseRedSlider->blockSignals(block);
     anrSensSlider->blockSignals(block);
     anrSmoothSlider->blockSignals(block);
     outputGain->blockSignals(block);
+    specEnable->blockSignals(block);
+    specInhibitDuringTx->blockSignals(block);
 }
 
 // ─── populateFromPrefs ────────────────────────────────────────────────────────
@@ -546,6 +642,14 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     speexVadProbStart->setVisible(vadVis); lblVadProbStart->setVisible(vadVis);
     speexVadProbCont->setVisible(vadVis);  lblVadProbCont->setVisible(vadVis);
 
+    // Adaptation speed
+    speexSnrDecay->setValue(qBound(0, qRound(p.speexSnrDecay * 100.0f), 95));
+    speexNoiseUpdate->setValue(qBound(1, qRound(p.speexNoiseUpdateRate * 100.0f), 50));
+    speexPriorBase->setValue(qBound(5, qRound(p.speexPriorBase * 100.0f), 50));
+    lblSnrDecay->setText(QString::number(p.speexSnrDecay, 'f', 2));
+    lblNoiseUpdate->setText(QString::number(p.speexNoiseUpdateRate, 'f', 2));
+    lblPriorBase->setText(QString::number(p.speexPriorBase, 'f', 2));
+
     // ANR
     anrNoiseRedSlider->setValue(qBound(0, static_cast<int>(p.anrNoiseReductionDb), 48));
     lblAnrNoiseRed->setText(QString::number(anrNoiseRedSlider->value()) + " dB");
@@ -559,6 +663,68 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     // Output gain: -6..+20 dB in 0.1 dB steps → integer range -60..200
     outputGain->setValue(qBound(-60, qRound(p.outputGainDB * 10.0f), 200));
     lblOutputGain->setText(QString::number(p.outputGainDB, 'f', 1) + " dB");
+
+    // Spectrum
+    specEnable->setChecked(p.spectrumEnabled);
+    specInhibitDuringTx->setChecked(p.specInhibitDuringTx);
+    specWidget->setVisible(p.spectrumEnabled);
+    m_spectrumFps = qBound(1, p.spectrumFPS, 60);
+    specWidget->setFps(m_spectrumFps);
+}
+
+// ─── Spectrum slots ───────────────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::setTransmitting(bool transmitting)
+{
+    m_isTransmitting = transmitting;
+    // When entering the inhibited state (radio starts transmitting), clear
+    // stale spectrum data so the display goes blank rather than freezing.
+    if (m_isTransmitting && specInhibitDuringTx && specInhibitDuringTx->isChecked()) {
+        if (specWidget) {
+            specWidget->spectrumPrimary.clear();
+            specWidget->spectrumSecondary.clear();
+        }
+    }
+}
+
+void RxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
+{
+    specWidget->setVisible(enabled);
+    if (!enabled) {
+        specWidget->spectrumPrimary.clear();
+        specWidget->spectrumSecondary.clear();
+    }
+    adjustSize();
+    emit prefsChanged(getPrefs());
+}
+
+void RxAudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
+                                             QVector<double> outBins,
+                                             float rawSR)
+{
+    if (!specEnable || !specEnable->isChecked()) return;
+    // Inhibit during transmit: drop bins while transmitting.
+    if (m_isTransmitting && specInhibitDuringTx && specInhibitDuringTx->isChecked()) return;
+    ++m_batchCount;
+
+    if (rawSR != static_cast<float>(specWidget->sampleRate)) {
+        // Effective sample rate after decimation to ~16 kHz.
+        const int K = qMax(1, static_cast<int>(std::round(rawSR / 16000.0f)));
+        specWidget->sampleRate = static_cast<double>(rawSR) / K;
+        specWidget->fftLength  = RxAudioProcessor::SPEC_FFT_LEN;
+    }
+
+    specWidget->spectrumPrimary.assign(inBins.cbegin(),   inBins.cend());
+    specWidget->spectrumSecondary.assign(outBins.cbegin(), outBins.cend());
+}
+
+void RxAudioProcessingWidget::onSpecDiagTimer()
+{
+    if (!specEnable || !specEnable->isChecked()) {
+        m_batchCount = 0;
+        return;
+    }
+    m_batchCount = 0;
 }
 
 // ─── ANR profile slots ────────────────────────────────────────────────────────
