@@ -23,7 +23,7 @@
 #include <QDial>
 #include <QSlider>
 #include <QSpinBox>
-#include <QStackedWidget>
+// QStackedWidget removed — NR pages are shown/hidden directly
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -80,6 +80,7 @@ private:
     void populateFromPrefs(const rxAudioProcessingPrefs& p);
     void setProcessingControlsEnabled(bool enabled);
     void updateAnrControlState();   // enables/disables ANR sliders based on profile
+    void updateSizeConstraints();   // recalc min/max height for current visibility
 
     // ── Master bypass ─────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck    {nullptr};
@@ -95,7 +96,7 @@ private:
     QRadioButton*  algoSpeex     {nullptr};
     QRadioButton*  algoAnr       {nullptr};
     QButtonGroup*  algoGroup     {nullptr};
-    QStackedWidget* algoStack    {nullptr};   // page 0=None, 1=Speex, 2=ANR
+    QWidget*        nonePage     {nullptr};   // shown when NR mode = None
 
     // ── Speex controls ────────────────────────────────────────────────────────
     QGroupBox*    speexGrp       {nullptr};
@@ -145,6 +146,7 @@ private:
     QGroupBox*    eqGrp          {nullptr};
     QCheckBox*    eqEnableCheck  {nullptr};
     QPushButton*  eqClearBtn     {nullptr};
+    QWidget*      eqBandsWidget  {nullptr};  // container for bands+clear (hidden when EQ off)
     QSlider*      eqGainSlider[RX_EQ_BANDS]  = {};  // vertical, -60..+60 (×0.1 dB)
     QLabel*       eqGainLabel[RX_EQ_BANDS]   = {};  // gain readout on top
     QDial*        eqFreqDial[RX_EQ_BANDS]    = {};  // frequency knob

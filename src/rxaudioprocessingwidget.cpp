@@ -14,6 +14,7 @@
 #include "speexnrprocessor.h"   // SpeexNrProcessor::presetCount() / bandsForPreset()
 #include <cmath>
 #include <QScrollArea>
+#include <QSizePolicy>
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ void RxAudioProcessingWidget::setAudioChannels(int ch)
 {
     m_audioChannels = ch;
     channelGrp->setVisible(ch > 1);
-    adjustSize();
+    updateSizeConstraints();
 }
 
 // ─── Any control changed ─────────────────────────────────────────────────────
@@ -143,14 +144,11 @@ void RxAudioProcessingWidget::onAnyControlChanged()
         else
             eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
     }
-    // EQ controls enabled when checkbox is ticked
+    // EQ controls visible when checkbox is ticked
     {
         bool eqVis = eqEnableCheck->isChecked();
-        for (int i = 0; i < RX_EQ_BANDS; ++i) {
-            eqGainSlider[i]->setEnabled(eqVis);
-            eqFreqDial[i]->setEnabled(eqVis);
-        }
-        eqClearBtn->setEnabled(eqVis);
+        eqBandsWidget->setVisible(eqVis);
+        updateSizeConstraints();
     }
 
     // AGC controls visible only when checkbox is ticked
@@ -174,9 +172,11 @@ void RxAudioProcessingWidget::onBypassToggled(bool bypassed)
 
 void RxAudioProcessingWidget::onNrModeChanged(int id)
 {
-    // 0 = None, 1 = Speex, 2 = ANR
-    // Stack pages: 0 = empty (None), 1 = Speex, 2 = ANR
-    algoStack->setCurrentIndex(id);
+    // 0 = None, 1 = Speex, 2 = ANR — show/hide directly so layout adapts
+    nonePage->setVisible(id == 0);
+    speexGrp->setVisible(id == 1);
+    anrGrp->setVisible(id == 2);
+    updateSizeConstraints();
     emit prefsChanged(getPrefs());
 }
 
@@ -190,7 +190,7 @@ void RxAudioProcessingWidget::onAlgorithmGroupToggled(bool)
 void RxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     algoGrp->setEnabled(enabled);
-    algoStack->setEnabled(enabled);
+    speexGrp->setEnabled(enabled);
     eqGrp->setEnabled(enabled);
     gainGrp->setEnabled(enabled);
     // ANR group: outer box enabled by bypass, but inner controls gated by profile
@@ -293,14 +293,12 @@ void RxAudioProcessingWidget::buildUi()
         connect(algoAnr,   &QRadioButton::toggled, this, &RxAudioProcessingWidget::onAlgorithmGroupToggled);
     }
 
-    // ── Algorithm-specific groups (in a QStackedWidget so width never changes) ─
-    algoStack = new QStackedWidget;
-    mainLayout->addWidget(algoStack);
-
-    // ── "None" placeholder — stack page 0 ───────────────────────────────────
+    // ── Algorithm-specific groups (shown/hidden based on selection) ─────────
+    // ── "None" placeholder ───────────────────────────────────────────────────
     {
-        auto* nonePage = new QWidget;
+        nonePage = new QWidget;
         auto* noneLayout = new QVBoxLayout(nonePage);
+        noneLayout->setContentsMargins(0, 0, 0, 0);
         auto* noneLabel = new QLabel(tr("No noise reduction selected.\n"
             "Audio passes through to the equalizer and output gain."));
         noneLabel->setWordWrap(true);
@@ -308,8 +306,7 @@ void RxAudioProcessingWidget::buildUi()
         f.setItalic(true);
         noneLabel->setFont(f);
         noneLayout->addWidget(noneLabel);
-        noneLayout->addStretch();
-        algoStack->addWidget(nonePage);  // page 0
+        mainLayout->addWidget(nonePage);  // visible by default (None selected)
     }
 
     // ── Speex controls — stack page 1 ─────────────────────────────────────────
@@ -450,7 +447,8 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prior base:"), rowPB);
         }
 
-        algoStack->addWidget(speexGrp);  // page 1
+        speexGrp->setVisible(false);  // hidden by default (None selected)
+        mainLayout->addWidget(speexGrp);
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -534,7 +532,8 @@ void RxAudioProcessingWidget::buildUi()
                     this, &RxAudioProcessingWidget::onAnrCollectClicked);
         }
 
-        algoStack->addWidget(anrGrp);  // page 2
+        anrGrp->setVisible(false);  // hidden by default (None selected)
+        mainLayout->addWidget(anrGrp);
 
         connect(anrNoiseRedSlider, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(anrSensSlider,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -546,18 +545,22 @@ void RxAudioProcessingWidget::buildUi()
         eqGrp = new QGroupBox(tr("Receive Equalizer"));
         auto* eqOuter = new QVBoxLayout(eqGrp);
 
-        // Header row: Enable checkbox + Clear button
+        // Enable checkbox (always visible)
+        eqEnableCheck = new QCheckBox(tr("Enable EQ"));
+        eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
+        eqOuter->addWidget(eqEnableCheck);
+
+        // Container for EQ controls (hidden when EQ is disabled)
+        eqBandsWidget = new QWidget;
+        auto* eqBandsLayout = new QVBoxLayout(eqBandsWidget);
+        eqBandsLayout->setContentsMargins(0, 0, 0, 0);
         {
-            auto* headerRow = new QHBoxLayout;
-            eqEnableCheck = new QCheckBox(tr("Enable EQ"));
-            eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
-            headerRow->addWidget(eqEnableCheck);
-            headerRow->addStretch();
+            auto* clearRow = new QHBoxLayout;
             eqClearBtn = new QPushButton(tr("Clear"));
             eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
-            eqClearBtn->setEnabled(false);
-            headerRow->addWidget(eqClearBtn);
-            eqOuter->addLayout(headerRow);
+            clearRow->addStretch();
+            clearRow->addWidget(eqClearBtn);
+            eqBandsLayout->addLayout(clearRow);
         }
 
         // Band names, frequency ranges, and dial ranges
@@ -630,7 +633,9 @@ void RxAudioProcessingWidget::buildUi()
 
             bandsRow->addLayout(col);
         }
-        eqOuter->addLayout(bandsRow);
+        eqBandsLayout->addLayout(bandsRow);
+        eqBandsWidget->setVisible(false);  // hidden by default (EQ disabled)
+        eqOuter->addWidget(eqBandsWidget);
         mainLayout->addWidget(eqGrp);
 
         // Connect signals
@@ -688,18 +693,17 @@ void RxAudioProcessingWidget::buildUi()
         specWidget->sampleRate = 8000.0;
         specWidget->showSecondary = true;
         specWidget->setMinimumHeight(120);
+        specWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         specWidget->setVisible(false);
-        vbox->addWidget(specWidget);
+        vbox->addWidget(specWidget, 1);  // stretch factor so spectrum takes extra space
 
-        mainLayout->addWidget(specGrp);
+        mainLayout->addWidget(specGrp, 1);  // stretch factor for the group too
 
         connect(specEnable, &QCheckBox::toggled,
                 this, &RxAudioProcessingWidget::onSpecEnableToggled);
         connect(specInhibitDuringTx, &QCheckBox::toggled,
                 this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
-
-    mainLayout->addStretch();
 
     scroll->setWidget(inner);
 
@@ -710,11 +714,9 @@ void RxAudioProcessingWidget::buildUi()
     // Start disabled — enabled when radio connects
     controlsContainer->setEnabled(false);
 
-    // Lock width: size the dialog to its full content, then fix the horizontal
-    // dimension so it never changes when switching between NR algorithm pages.
-    adjustSize();
-    setFixedWidth(500);
-    setFixedHeight(1000);
+    // Minimum width; height adapts to visible content.
+    setMinimumWidth(500);
+    updateSizeConstraints();
 }
 
 // ─── blockAll ─────────────────────────────────────────────────────────────────
@@ -766,7 +768,9 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     algoNone->setChecked(p.nrMode == RxNrMode::None);
     algoSpeex->setChecked(p.nrMode == RxNrMode::Speex);
     algoAnr->setChecked(p.nrMode == RxNrMode::Anr);
-    algoStack->setCurrentIndex(modeId);
+    nonePage->setVisible(modeId == 0);
+    speexGrp->setVisible(modeId == 1);
+    anrGrp->setVisible(modeId == 2);
 
     // Speex
     speexSuppress->setValue(qBound(-70, p.speexSuppression, -1));
@@ -826,6 +830,7 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
 
     // EQ
     eqEnableCheck->setChecked(p.eqEnabled);
+    eqBandsWidget->setVisible(p.eqEnabled);
     for (int i = 0; i < RX_EQ_BANDS; ++i) {
         eqGainSlider[i]->setValue(qBound(-90, qRound(p.eqGain[i] * 10.0f), 90));
         eqFreqDial[i]->setValue(qRound(p.eqFreq[i]));
@@ -835,10 +840,7 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
             eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 1) + " kHz");
         else
             eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
-        eqGainSlider[i]->setEnabled(p.eqEnabled);
-        eqFreqDial[i]->setEnabled(p.eqEnabled);
     }
-    eqClearBtn->setEnabled(p.eqEnabled);
 
     // Output gain: -6..+20 dB in 0.1 dB steps → integer range -60..200
     outputGain->setValue(qBound(-60, qRound(p.outputGainDB * 10.0f), 200));
@@ -850,6 +852,9 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     specWidget->setVisible(p.spectrumEnabled);
     m_spectrumFps = qBound(1, p.spectrumFPS, 60);
     specWidget->setFps(m_spectrumFps);
+
+    // Defer size calculation so Qt processes all the visibility/layout changes first.
+    QTimer::singleShot(0, this, &RxAudioProcessingWidget::updateSizeConstraints);
 }
 
 // ─── Spectrum slots ───────────────────────────────────────────────────────────
@@ -874,7 +879,7 @@ void RxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
     }
-    adjustSize();
+    updateSizeConstraints();
     emit prefsChanged(getPrefs());
 }
 
@@ -963,4 +968,28 @@ void RxAudioProcessingWidget::updateAnrControlState()
     anrSmoothSlider->setEnabled(canProcess);
     if (!m_anrHasProfile && !m_anrCollecting)
         lblAnrStatus->setText(tr("No noise sample — collect one before using ANR."));
+}
+
+// ─── updateSizeConstraints ───────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::updateSizeConstraints()
+{
+    // Let the inner layout settle, then compute the ideal height for visible content.
+    controlsContainer->adjustSize();
+
+    // The inner widget's sizeHint is the natural height of all visible controls.
+    const int contentH = controlsContainer->sizeHint().height();
+    // Add a small margin for the outer layout / frame.
+    const int minH = contentH + layout()->contentsMargins().top()
+                               + layout()->contentsMargins().bottom() + 2;
+
+    setMinimumHeight(minH);
+
+    if (specEnable->isChecked()) {
+        // Spectrum visible: allow vertical expansion beyond minimum
+        setMaximumHeight(QWIDGETSIZE_MAX);
+    } else {
+        // No spectrum: lock height to exactly the content size
+        setMaximumHeight(minH);
+    }
 }
