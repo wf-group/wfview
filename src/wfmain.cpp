@@ -2110,6 +2110,7 @@ void wfmain::loadSettings()
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
 
     // TX audio processing prefs
+    prefs.txAudioProc.bypass        = settings->value("TxProcBypass",   true).toBool();
     prefs.txAudioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
     prefs.txAudioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
     prefs.txAudioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
@@ -2137,7 +2138,7 @@ void wfmain::loadSettings()
     prefs.txAudioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
 
     // RX audio processing prefs
-    prefs.rxAudioProc.bypass           = settings->value("RxProcBypass",           false).toBool();
+    prefs.rxAudioProc.bypass           = settings->value("RxProcBypass",           true).toBool();
     prefs.rxAudioProc.nrEnabled        = settings->value("RxProcNrEnabled",         false).toBool();
     prefs.rxAudioProc.nrMode           = static_cast<RxNrMode>(settings->value("RxProcNrMode", 0).toInt());
     prefs.rxAudioProc.channelSelect    = settings->value("RxProcChannelSelect",     0).toInt();
