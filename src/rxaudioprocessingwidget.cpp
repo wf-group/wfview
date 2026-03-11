@@ -604,7 +604,6 @@ void RxAudioProcessingWidget::buildUi()
             eqGainSlider[i]->setTickInterval(10);
             eqGainSlider[i]->setMinimumHeight(100);
             eqGainSlider[i]->setToolTip(tr("%1: adjust gain from -9 to +9 dB").arg(bandDefs[i].name));
-            eqGainSlider[i]->setEnabled(false);
             col->addWidget(eqGainSlider[i], 1, Qt::AlignHCenter);
 
             // Frequency dial (knob)
@@ -618,7 +617,6 @@ void RxAudioProcessingWidget::buildUi()
                 .arg(bandDefs[i].name)
                 .arg(bandDefs[i].freqMin)
                 .arg(bandDefs[i].freqMax));
-            eqFreqDial[i]->setEnabled(false);
             col->addWidget(eqFreqDial[i], 0, Qt::AlignHCenter);
 
             // Frequency label (below dial)
