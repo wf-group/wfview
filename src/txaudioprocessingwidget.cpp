@@ -32,16 +32,16 @@ TxAudioProcessingWidget::TxAudioProcessingWidget(QWidget* parent)
 
 // ─── setPrefs / getPrefs ─────────────────────────────────────────────────────
 
-void TxAudioProcessingWidget::setPrefs(const audioProcessingPrefs& p)
+void TxAudioProcessingWidget::setPrefs(const txAudioProcessingPrefs& p)
 {
     blockAll(true);
     populateFromPrefs(p);
     blockAll(false);
 }
 
-audioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
+txAudioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
 {
-    audioProcessingPrefs p;
+    txAudioProcessingPrefs p;
 
     p.bypass      = bypassCheck->isChecked();
     p.eqEnabled   = eqEnable->isChecked();
@@ -745,7 +745,7 @@ void TxAudioProcessingWidget::blockAll(bool block)
     specInhibitDuringRx->blockSignals(block);
 }
 
-void TxAudioProcessingWidget::populateFromPrefs(const audioProcessingPrefs& p)
+void TxAudioProcessingWidget::populateFromPrefs(const txAudioProcessingPrefs& p)
 {
     bypassCheck->setChecked(p.bypass);
     setProcessingControlsEnabled(!p.bypass);

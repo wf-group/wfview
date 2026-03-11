@@ -39,11 +39,11 @@ class TxAudioProcessingWidget : public QDialog
 public:
     explicit TxAudioProcessingWidget(QWidget* parent = nullptr);
 
-    void setPrefs(const audioProcessingPrefs& p);
-    audioProcessingPrefs getPrefs() const;
+    void setPrefs(const txAudioProcessingPrefs& p);
+    txAudioProcessingPrefs getPrefs() const;
 
 signals:
-    void prefsChanged(audioProcessingPrefs p);
+    void prefsChanged(txAudioProcessingPrefs p);
 
 public slots:
     void updateInputLevel(float peak);      // 0.0–1.0
@@ -70,7 +70,7 @@ private slots:
 private:
     void buildUi();
     void blockAll(bool block);
-    void populateFromPrefs(const audioProcessingPrefs& p);
+    void populateFromPrefs(const txAudioProcessingPrefs& p);
     void setProcessingControlsEnabled(bool enabled);
     void updateEqBandVisibility(float sampleRate);
     void reorderDspGroups(bool eqFirst);

@@ -458,7 +458,7 @@ private slots:
     void on_rigCreatorBtn_clicked();
 
     void on_TXaudioProcBtn_clicked();
-    void onAudioProcPrefsChanged(audioProcessingPrefs p);
+    void onAudioProcPrefsChanged(txAudioProcessingPrefs p);
 
     void on_RXaudioProcBtn_clicked();
     void onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p);
@@ -730,7 +730,7 @@ private:
 
     QString currentRegion = "1";
     funcType getInputTypeCommand(inputTypes input);
-    void applyAudioProcPrefs(const audioProcessingPrefs& p);
+    void applyAudioProcPrefs(const txAudioProcessingPrefs& p);
     void applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p);
 
 #if defined (USB_CONTROLLER)

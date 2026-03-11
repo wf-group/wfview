@@ -486,7 +486,7 @@ void wfmain::openRig()
                     audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
-    applyAudioProcPrefs(prefs.audioProc);
+    applyAudioProcPrefs(prefs.txAudioProc);
     prefs.txSetup.txProc = txProc;
 
     // Attach RX audio processor to the RX output setup
@@ -2110,31 +2110,31 @@ void wfmain::loadSettings()
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
 
     // TX audio processing prefs
-    prefs.audioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
-    prefs.audioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
-    prefs.audioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
-    prefs.audioProc.inputGainDB   = settings->value("TxProcInputGain",     10.0f).toFloat();
-    prefs.audioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
-    prefs.audioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
-    prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
-    prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.2f).toFloat();
-    prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.2f).toFloat();
-    prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
-    prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
-    prefs.audioProc.spectrumEnabled     = settings->value("TxProcSpectrumEnabled",     false).toBool();
-    prefs.audioProc.spectrumFPS         = settings->value("TxProcSpectrumFps",         10).toInt();
-    prefs.audioProc.specInhibitDuringRx = settings->value("TxProcSpecInhibitDuringRx", true).toBool();
+    prefs.txAudioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
+    prefs.txAudioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
+    prefs.txAudioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
+    prefs.txAudioProc.inputGainDB   = settings->value("TxProcInputGain",     10.0f).toFloat();
+    prefs.txAudioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
+    prefs.txAudioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
+    prefs.txAudioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
+    prefs.txAudioProc.compFastRatio = settings->value("TxProcCompFast",      0.2f).toFloat();
+    prefs.txAudioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.2f).toFloat();
+    prefs.txAudioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
+    prefs.txAudioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
+    prefs.txAudioProc.spectrumEnabled     = settings->value("TxProcSpectrumEnabled",     false).toBool();
+    prefs.txAudioProc.spectrumFPS         = settings->value("TxProcSpectrumFps",         10).toInt();
+    prefs.txAudioProc.specInhibitDuringRx = settings->value("TxProcSpecInhibitDuringRx", true).toBool();
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
-        prefs.audioProc.eqBands[i] = settings->value(
+        prefs.txAudioProc.eqBands[i] = settings->value(
             QString("TxProcEqBand%1").arg(i), 0.0f).toFloat();
-    prefs.audioProc.gateEnabled   = settings->value("TxProcGateEnabled",   false).toBool();
-    prefs.audioProc.gateThreshold = settings->value("TxProcGateThreshold", -60.0f).toFloat();
-    prefs.audioProc.gateAttack    = settings->value("TxProcGateAttack",     5.0f).toFloat();
-    prefs.audioProc.gateHold      = settings->value("TxProcGateHold",      40.0f).toFloat();
-    prefs.audioProc.gateDecay     = settings->value("TxProcGateDecay",     20.0f).toFloat();
-    prefs.audioProc.gateRange     = settings->value("TxProcGateRange",     -90.0f).toFloat();
-    prefs.audioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
-    prefs.audioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
+    prefs.txAudioProc.gateEnabled   = settings->value("TxProcGateEnabled",   false).toBool();
+    prefs.txAudioProc.gateThreshold = settings->value("TxProcGateThreshold", -60.0f).toFloat();
+    prefs.txAudioProc.gateAttack    = settings->value("TxProcGateAttack",     5.0f).toFloat();
+    prefs.txAudioProc.gateHold      = settings->value("TxProcGateHold",      40.0f).toFloat();
+    prefs.txAudioProc.gateDecay     = settings->value("TxProcGateDecay",     20.0f).toFloat();
+    prefs.txAudioProc.gateRange     = settings->value("TxProcGateRange",     -90.0f).toFloat();
+    prefs.txAudioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
+    prefs.txAudioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
 
     // RX audio processing prefs
     prefs.rxAudioProc.bypass           = settings->value("RxProcBypass",           false).toBool();
@@ -3420,30 +3420,30 @@ void wfmain::saveSettings()
     settings->setValue("ClientName", udpPrefs.clientName);
 
     // TX audio processing prefs
-    settings->setValue("TxProcCompEnabled",   prefs.audioProc.compEnabled);
-    settings->setValue("TxProcEqEnabled",     prefs.audioProc.eqEnabled);
-    settings->setValue("TxProcEqFirst",       prefs.audioProc.eqFirst);
-    settings->setValue("TxProcInputGain",     prefs.audioProc.inputGainDB);
-    settings->setValue("TxProcOutputGain",    prefs.audioProc.outputGainDB);
-    settings->setValue("TxProcCompPeak",      prefs.audioProc.compPeakLimit);
-    settings->setValue("TxProcCompRelease",   prefs.audioProc.compRelease);
-    settings->setValue("TxProcCompFast",      prefs.audioProc.compFastRatio);
-    settings->setValue("TxProcCompSlow",      prefs.audioProc.compSlowRatio);
-    settings->setValue("TxProcSidetone",         prefs.audioProc.sidetoneEnabled);
-    settings->setValue("TxProcSidetoneLevel",    prefs.audioProc.sidetoneLevel);
-    settings->setValue("TxProcSpectrumEnabled",     prefs.audioProc.spectrumEnabled);
-    settings->setValue("TxProcSpectrumFps",         prefs.audioProc.spectrumFPS);
-    settings->setValue("TxProcSpecInhibitDuringRx", prefs.audioProc.specInhibitDuringRx);
+    settings->setValue("TxProcCompEnabled",   prefs.txAudioProc.compEnabled);
+    settings->setValue("TxProcEqEnabled",     prefs.txAudioProc.eqEnabled);
+    settings->setValue("TxProcEqFirst",       prefs.txAudioProc.eqFirst);
+    settings->setValue("TxProcInputGain",     prefs.txAudioProc.inputGainDB);
+    settings->setValue("TxProcOutputGain",    prefs.txAudioProc.outputGainDB);
+    settings->setValue("TxProcCompPeak",      prefs.txAudioProc.compPeakLimit);
+    settings->setValue("TxProcCompRelease",   prefs.txAudioProc.compRelease);
+    settings->setValue("TxProcCompFast",      prefs.txAudioProc.compFastRatio);
+    settings->setValue("TxProcCompSlow",      prefs.txAudioProc.compSlowRatio);
+    settings->setValue("TxProcSidetone",         prefs.txAudioProc.sidetoneEnabled);
+    settings->setValue("TxProcSidetoneLevel",    prefs.txAudioProc.sidetoneLevel);
+    settings->setValue("TxProcSpectrumEnabled",     prefs.txAudioProc.spectrumEnabled);
+    settings->setValue("TxProcSpectrumFps",         prefs.txAudioProc.spectrumFPS);
+    settings->setValue("TxProcSpecInhibitDuringRx", prefs.txAudioProc.specInhibitDuringRx);
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
-        settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.audioProc.eqBands[i]);
-    settings->setValue("TxProcGateEnabled",   prefs.audioProc.gateEnabled);
-    settings->setValue("TxProcGateThreshold", prefs.audioProc.gateThreshold);
-    settings->setValue("TxProcGateAttack",    prefs.audioProc.gateAttack);
-    settings->setValue("TxProcGateHold",      prefs.audioProc.gateHold);
-    settings->setValue("TxProcGateDecay",     prefs.audioProc.gateDecay);
-    settings->setValue("TxProcGateRange",     prefs.audioProc.gateRange);
-    settings->setValue("TxProcGateLfCutoff",  prefs.audioProc.gateLfCutoff);
-    settings->setValue("TxProcGateHfCutoff",  prefs.audioProc.gateHfCutoff);
+        settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.txAudioProc.eqBands[i]);
+    settings->setValue("TxProcGateEnabled",   prefs.txAudioProc.gateEnabled);
+    settings->setValue("TxProcGateThreshold", prefs.txAudioProc.gateThreshold);
+    settings->setValue("TxProcGateAttack",    prefs.txAudioProc.gateAttack);
+    settings->setValue("TxProcGateHold",      prefs.txAudioProc.gateHold);
+    settings->setValue("TxProcGateDecay",     prefs.txAudioProc.gateDecay);
+    settings->setValue("TxProcGateRange",     prefs.txAudioProc.gateRange);
+    settings->setValue("TxProcGateLfCutoff",  prefs.txAudioProc.gateLfCutoff);
+    settings->setValue("TxProcGateHfCutoff",  prefs.txAudioProc.gateHfCutoff);
 
     // RX audio processing prefs
     settings->setValue("RxProcBypass",           prefs.rxAudioProc.bypass);
@@ -5705,7 +5705,7 @@ void wfmain::on_TXaudioProcBtn_clicked()
 {
     if (!audioProcWin) {
         audioProcWin = new AudioProcessingWidget(this);
-        audioProcWin->setPrefs(prefs.audioProc);
+        audioProcWin->setPrefs(prefs.txAudioProc);
 
         connect(audioProcWin, &AudioProcessingWidget::prefsChanged,
                 this, &wfmain::onAudioProcPrefsChanged);
@@ -5734,13 +5734,13 @@ void wfmain::on_TXaudioProcBtn_clicked()
     audioProcWin->activateWindow();
 }
 
-void wfmain::onAudioProcPrefsChanged(audioProcessingPrefs p)
+void wfmain::onAudioProcPrefsChanged(txAudioProcessingPrefs p)
 {
-    prefs.audioProc = p;
+    prefs.txAudioProc = p;
     applyAudioProcPrefs(p);
 }
 
-void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
+void wfmain::applyAudioProcPrefs(const txAudioProcessingPrefs& p)
 {
     if (!txProc) return;
 

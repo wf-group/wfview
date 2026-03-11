@@ -172,8 +172,8 @@ enum prefUDPItem {
 // TX Audio Processing preferences
 // All defaults produce a flat/bypass signal (no DSP applied).
 // ─────────────────────────────────────────────────────────────────────────────
-struct audioProcessingPrefs {
-    bool  bypass        = false;   // master bypass — skips all DSP and gain
+struct txAudioProcessingPrefs {
+    bool  bypass        = true;   // master bypass — skips all DSP and gain
     bool  compEnabled   = false;
     bool  eqEnabled     = false;
     bool  eqFirst       = false;    // true = EQ→Comp, false = Comp→EQ
@@ -211,7 +211,7 @@ struct audioProcessingPrefs {
 enum class RxNrMode { Speex = 0, Anr = 1 };
 
 struct rxAudioProcessingPrefs {
-    bool       bypass      = false;  // master bypass — skips NR and output gain
+    bool       bypass      = true;  // master bypass — skips NR and output gain
     bool       nrEnabled   = false;  // enable noise reduction
     RxNrMode   nrMode      = RxNrMode::Speex;
 
@@ -346,7 +346,7 @@ struct preferences {
 
     audioSetup rxSetup;
     audioSetup txSetup;
-    audioProcessingPrefs audioProc;
+    txAudioProcessingPrefs txAudioProc;
     rxAudioProcessingPrefs rxAudioProc;
 
     QChar decimalSeparator;
