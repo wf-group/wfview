@@ -42,7 +42,7 @@ aboutbox::aboutbox(QWidget *parent) :
 
     // Short credit strings:
     QString pluginDysonCredit = QString("<br/><br/>Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.");
-    QString pluginMBEQCredit = QString("<br/><br/>Multiband EQ and Gate 1410 processors (c) Steve Harris, GNU/GPL licensed.");
+    QString pluginMBEQCredit = QString("<br/><br/>Multiband EQ, \"Triple Para EQ\" and Gate 1410 processors (c) Steve Harris, GNU/GPL licensed.");
     QString pocketFFTCredit = QString("<br/><br/><a href=\"https://gitlab.mpcdf.mpg.de/mtr/pocketfft\">PocketFFT</a> is from Martin Reinecke and used under a BSD 3-Clause New or Revised License. It is (c) 2010-2019 Max-Planck-Society and is based on FFT Pack (FORTRAN) which was written by Paul N. Swarztrauber in 1985, and is copyright by the National Center for Atmospheric Research, Boulder, CO");
     QString anrCredit = QString("<br/><br/>Audacity Noise Reduction algorithm from <a href=\"https://github.com/tals/audacity-noise-reduction/tree/master\">here</a> is from Dominic Mazzoni, rewritten by Paul Licameli, with modifications for wfview's streaming usage. The license is GNU/GPL.");
     QString rsCredit = QString("<br/><br/><a href=\"https://www.speex.org/\"  style=\"color: cyan;\">Speex</a> Resample library and DSP noise reduction code Copyright 2003-2008 Jean-Marc Valin");
