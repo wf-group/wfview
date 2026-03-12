@@ -479,8 +479,8 @@ void RxAudioProcessingWidget::buildUi()
 
         // Sensitivity
         {
-            // Stored as 0–240 integer (×0.1 → 0.0–24.0)
-            auto* row = makeSliderRow(anrSensSlider, lblAnrSens, 0, 100, 60, 70);
+            // Stored as 0–100 integer (×0.1 → 0.0–10.0)
+            auto* row = makeSliderRow(anrSensSlider, lblAnrSens, 0, 100, 11, 70);
             anrSensSlider->setToolTip(tr(
                 "Sensitivity: −log₁₀ of the probability that noise exceeds the threshold.\n"
                 "Higher = less aggressive (fewer false positives, may miss noise).\n"
@@ -488,7 +488,7 @@ void RxAudioProcessingWidget::buildUi()
                 "Strategy 1: Tune to static and lower until you hear chimes, then raise slightly.\n"
                 "Strategy 2: Tune to a signal and start low. Raise until the signal is nominally loud (watch the RxAudio meter)\n"
                 "Default 1.1 is a good starting point."));
-            lblAnrSens->setText("1.1");
+            lblAnrSens->setText("1.1");   // slider 11 × 0.1
             form->addRow(tr("Sensitivity:"), row);
         }
 
@@ -819,8 +819,8 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     // ANR
     anrNoiseRedSlider->setValue(qBound(0, static_cast<int>(p.anrNoiseReductionDb), 48));
     lblAnrNoiseRed->setText(QString::number(anrNoiseRedSlider->value()) + " dB");
-    // Sensitivity stored as 0–240 integer (×0.1 → 0.0..24.0)
-    anrSensSlider->setValue(qBound(0, qRound(p.anrSensitivity * 10.0), 240));
+    // Sensitivity stored as 0–100 integer (×0.1 → 0.0..10.0)
+    anrSensSlider->setValue(qBound(0, qRound(p.anrSensitivity * 10.0), 100));
     lblAnrSens->setText(QString::number(anrSensSlider->value() * 0.1, 'f', 1));
     anrSmoothSlider->setValue(qBound(0, p.anrFreqSmoothing, 6));
     lblAnrSmooth->setText(QString::number(anrSmoothSlider->value()));
@@ -960,10 +960,9 @@ void RxAudioProcessingWidget::onAnrProfileReady(bool success)
 
 void RxAudioProcessingWidget::updateAnrControlState()
 {
-    const bool canProcess = m_anrHasProfile && !m_anrCollecting;
-    anrNoiseRedSlider->setEnabled(canProcess);
-    anrSensSlider->setEnabled(canProcess);
-    anrSmoothSlider->setEnabled(canProcess);
+    // Parameter sliders are always interactable when ANR is selected so the
+    // user can pre-configure them before collecting a noise sample.
+    // Only the status label reflects whether a profile is ready.
     if (!m_anrHasProfile && !m_anrCollecting)
         lblAnrStatus->setText(tr("No noise sample — collect one before using ANR."));
 }

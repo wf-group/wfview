@@ -131,7 +131,7 @@ private:
     QGroupBox*    anrGrp             {nullptr};
     QSlider*      anrNoiseRedSlider  {nullptr};   // 0..48 dB
     QLabel*       lblAnrNoiseRed     {nullptr};
-    QSlider*      anrSensSlider      {nullptr};   // 0..240 (×0.1 → 0.0..24.0)
+    QSlider*      anrSensSlider      {nullptr};   // 0..100 (×0.1 → 0.0..10.0)
     QLabel*       lblAnrSens         {nullptr};
     QSlider*      anrSmoothSlider    {nullptr};   // 0..6 bands
     QLabel*       lblAnrSmooth       {nullptr};

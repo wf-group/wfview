@@ -3428,6 +3428,7 @@ void wfmain::saveSettings()
     settings->setValue("ClientName", udpPrefs.clientName);
 
     // TX audio processing prefs
+    settings->setValue("TxProcBypass",        prefs.txAudioProc.bypass);
     settings->setValue("TxProcCompEnabled",   prefs.txAudioProc.compEnabled);
     settings->setValue("TxProcEqEnabled",     prefs.txAudioProc.eqEnabled);
     settings->setValue("TxProcEqFirst",       prefs.txAudioProc.eqFirst);
