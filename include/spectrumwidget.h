@@ -54,6 +54,9 @@ public:
     double minDb = -90.0;
     double maxDb =   0.0;
 
+    // Spacing between horizontal dBFS grid lines (dB). Change to taste.
+    double dbGridStep = 6.0;
+
     // When true, bins are log-spaced (even resolution per octave on display).
     // When false, bins are linearly-spaced FFT output (legacy).
     bool logBins = false;
@@ -123,16 +126,40 @@ private:
 
     void drawGrid(QPainter &p)
     {
-        p.setPen(QPen(QColor(50, 50, 50), 1, Qt::DashLine));
+        const QPen gridPen(QColor(50, 50, 50), 1, Qt::DashLine);
+        const QPen labelPen(QColor(90, 90, 90));
+
+        // Vertical grid lines — one per octave, 50 Hz to 8 kHz.
+        p.setPen(gridPen);
         for (double freq = 50.0; freq <= 8000.0; freq *= 2.0) {
             int x = freqToX(freq);
             p.drawLine(x, 0, x, height());
-            p.setPen(QColor(90, 90, 90));
+            p.setPen(labelPen);
             QString label = (freq >= 1000.0)
                 ? QString::number(freq / 1000.0, 'f', 1) + "k"
                 : QString::number(static_cast<int>(freq));
             p.drawText(x + 3, height() - 4, label);
-            p.setPen(QPen(QColor(50, 50, 50), 1, Qt::DashLine));
+            p.setPen(gridPen);
+        }
+
+        // Horizontal grid lines — one every effectiveStep dBFS.
+        // Auto-scale: if lines would be closer than (text height + margin) pixels,
+        // increase the step in 3 dB increments until they fit.
+        const double h     = static_cast<double>(height());
+        const double range = maxDb - minDb;
+        const int minSpacing = p.fontMetrics().height() + 4; // margin in px
+        double effectiveStep = dbGridStep;
+        while (h * effectiveStep / range < minSpacing && effectiveStep < range)
+            effectiveStep += 3.0;
+
+        // Snap the first line to the nearest multiple of effectiveStep above minDb.
+        const double firstLine = std::ceil(minDb / effectiveStep) * effectiveStep;
+        for (double db = firstLine; db <= maxDb; db += effectiveStep) {
+            const int y = static_cast<int>(h - (db - minDb) / range * h);
+            p.setPen(gridPen);
+            p.drawLine(0, y, width(), y);
+            p.setPen(labelPen);
+            p.drawText(4, y - 2, QString::number(static_cast<int>(db)) + " dB");
         }
     }
 
