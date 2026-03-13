@@ -863,9 +863,12 @@ void kenwoodCommander::parseData(QByteArray data)
                 // is mixed AFTER noise reduction.
                 if (txSetup.txProc) {
                     if (rxSetup.rxProc) {
+                        // DirectConnection: injectSidetone runs on the TX converter thread,
+                        // bypassing the main thread. RxAudioProcessor::injectSidetone is
+                        // mutex-protected so this is safe.
                         connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                                 rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                                Qt::QueuedConnection);
+                                Qt::DirectConnection);
                     } else {
                         connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                                 rtp, &rtpAudio::injectSidetone,

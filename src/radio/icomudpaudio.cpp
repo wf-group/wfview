@@ -323,9 +323,12 @@ void icomUdpAudio::startAudio() {
         // mixed AFTER noise reduction (the user's own voice is not NR-processed).
         if (txSetup.txProc) {
             if (rxSetup.rxProc) {
+                // DirectConnection: injectSidetone runs on the TX converter thread,
+                // bypassing the main thread. RxAudioProcessor::injectSidetone is
+                // mutex-protected so this is safe.
                 connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                         rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                        Qt::QueuedConnection);
+                        Qt::DirectConnection);
             } else {
                 connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                         this, &icomUdpAudio::injectSidetone,

@@ -134,9 +134,12 @@ void yaesuUdpAudio::init()
 
     if (txSetup.txProc) {
         if (rxSetup.rxProc) {
+            // DirectConnection: injectSidetone runs on the TX converter thread,
+            // bypassing the main thread. RxAudioProcessor::injectSidetone is
+            // mutex-protected so this is safe.
             connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                     rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                    Qt::QueuedConnection);
+                    Qt::DirectConnection);
         } else {
             connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                     this, &yaesuUdpAudio::injectSidetone,
