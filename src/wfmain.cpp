@@ -5802,6 +5802,8 @@ void wfmain::on_RXaudioProcBtn_clicked()
         if (rxProc) {
             connect(rxProc, &RxAudioProcessor::anrProfileReady,
                     rxAudioProcWin, &RxAudioProcessingWidget::onAnrProfileReady);
+            connect(rxProc, &RxAudioProcessor::anrNoiseProfileBins,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrNoiseProfileBins);
             connect(rxProc, &RxAudioProcessor::rxSpectrumBins,
                     rxAudioProcWin, &RxAudioProcessingWidget::onSpectrumBins);
         }

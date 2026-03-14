@@ -73,6 +73,8 @@ private slots:
 public slots:
     // Connected to RxAudioProcessor::rxSpectrumBins (Qt::AutoConnection).
     void onSpectrumBins(QVector<double> inBins, QVector<double> outBins, float rawSR);
+    // Connected to RxAudioProcessor::anrNoiseProfileBins — displays noise profile.
+    void onAnrNoiseProfileBins(QVector<double> bins, double sampleRate, int windowSize);
 
 private:
     void buildUi();
@@ -137,9 +139,11 @@ private:
     QLabel*       lblAnrSmooth       {nullptr};
     QPushButton*  anrCollectBtn      {nullptr};   // "Collect Noise Sample" / "Stop Collecting"
     QLabel*       lblAnrStatus       {nullptr};   // status / instruction line
-    QTimer*       anrCollectTimer    {nullptr};   // 5-second auto-stop
+    QTimer*       anrCollectTimer    {nullptr};   // 1-second tick for countdown
+    SpectrumWidget* anrProfileSpec   {nullptr};   // static noise profile display
     bool          m_anrCollecting    = false;
     bool          m_anrHasProfile    = false;
+    int           m_anrCountdown     = 0;         // seconds remaining during collection
 
     // ── RX Equalizer ──────────────────────────────────────────────────────────
     static constexpr int RX_EQ_BANDS = 4;

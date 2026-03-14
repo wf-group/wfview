@@ -66,6 +66,15 @@ public:
     size_t windowSize()  const { return mSettings.WindowSize(); }
     size_t stepSize()    const { return mSettings.WindowSize() / mSettings.StepsPerWindow(); }
 
+    // Return the noise profile mean-power spectrum (one value per FFT bin,
+    // spectrumSize = 1 + windowSize/2).  Empty if no profile has been built.
+    struct NoiseProfile {
+        std::vector<float> means;   // mean power per bin (linear scale)
+        double sampleRate;
+        size_t windowSize;
+    };
+    NoiseProfile getNoiseProfile() const;
+
     void beginStream();
     void feedStream(const float* in, size_t n, std::vector<float>& out);
     void endStream(std::vector<float>& out);

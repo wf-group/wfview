@@ -921,6 +921,17 @@ void NoiseReduction::ReduceNoise(InputTrack &inputTrack, OutputTrack &outputTrac
     }
 }
 
+NoiseReduction::NoiseProfile NoiseReduction::getNoiseProfile() const
+{
+    NoiseProfile p;
+    if (mStatistics && mStatistics->mTotalWindows > 0) {
+        p.means.assign(mStatistics->mMeans.begin(), mStatistics->mMeans.end());
+        p.sampleRate = mStatistics->mRate;
+        p.windowSize = mStatistics->mWindowSize;
+    }
+    return p;
+}
+
 NoiseReduction::Settings::Settings() {
     mDoProfile = false;
 

@@ -68,6 +68,10 @@ public:
     std::vector<double> spectrumSecondary;  // output (post-DSP) — orange
     bool showSecondary = true;
 
+    // Legend labels (default: "Input" / "Output").
+    QString primaryLabel   = tr("Input");
+    QString secondaryLabel = tr("Output");
+
 protected:
     void paintEvent(QPaintEvent *) override
     {
@@ -89,10 +93,15 @@ protected:
         QFont f = painter.font();
         f.setPointSize(8);
         painter.setFont(f);
-        painter.setPen(QColor(0, 200, 100));
-        painter.drawText(6, 26, tr("Input"));
-        painter.setPen(QColor(255, 140, 0));
-        painter.drawText(6, 14, tr("Output"));
+        if (showSecondary) {
+            painter.setPen(QColor(0, 200, 100));
+            painter.drawText(6, 26, primaryLabel);
+            painter.setPen(QColor(255, 140, 0));
+            painter.drawText(6, 14, secondaryLabel);
+        } else if (!spectrumPrimary.empty()) {
+            painter.setPen(QColor(0, 200, 100));
+            painter.drawText(6, 14, primaryLabel);
+        }
 
         // ── Paint timing (logged every second) ───────────────────────────────
         m_paintTotalNs += t.nsecsElapsed();

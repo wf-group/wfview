@@ -470,6 +470,30 @@ void RxAudioProcessor::stopAnrProfile()
 {
     const bool ok = m_anr->finishProfiling();
     emit anrProfileReady(ok);
+
+    if (ok) {
+        auto pb = getAnrNoiseProfileBins();
+        if (!pb.bins.isEmpty())
+            emit anrNoiseProfileBins(pb.bins, pb.sampleRate, pb.windowSize);
+    }
+}
+
+RxAudioProcessor::AnrProfileBins RxAudioProcessor::getAnrNoiseProfileBins() const
+{
+    AnrProfileBins result;
+    // m_anr is created once in the constructor — safe to call from main thread.
+    auto profile = const_cast<AnrNrProcessor*>(m_anr.get())->getNoiseProfile();
+    if (profile.means.empty())
+        return result;
+
+    result.sampleRate = profile.sampleRate;
+    result.windowSize = static_cast<int>(profile.windowSize);
+    result.bins.resize(static_cast<int>(profile.means.size()));
+    for (int i = 0; i < result.bins.size(); ++i) {
+        double val = static_cast<double>(profile.means[static_cast<size_t>(i)]);
+        result.bins[i] = 10.0 * std::log10(val + 1e-20);
+    }
+    return result;
 }
 
 bool RxAudioProcessor::anrIsProfiling() const { return m_anr->isProfiling(); }

@@ -127,6 +127,15 @@ public:
     bool anrIsProfiling() const;
     bool anrHasProfile()  const;
 
+    // Return the ANR noise profile as dB-scaled bins suitable for display.
+    // bins: one dBFS value per FFT bin; sampleRate/windowSize from the profile.
+    struct AnrProfileBins {
+        QVector<double> bins;    // 10*log10(mean power) per bin
+        double sampleRate;
+        int    windowSize;
+    };
+    AnrProfileBins getAnrNoiseProfileBins() const;
+
 public slots:
     // Connected to TxAudioProcessor::haveSidetoneFloat (Qt::QueuedConnection).
     // Buffers the sidetone for mixing in processAudio().
@@ -143,6 +152,8 @@ signals:
     void rxSpectrumBins(QVector<double> inBins,
                         QVector<double> outBins,
                         float rawSR);
+    // Emitted alongside anrProfileReady(true) with the dB-scaled noise profile.
+    void anrNoiseProfileBins(QVector<double> bins, double sampleRate, int windowSize);
 
 private:
     // ── Params snapshot (copied once per block under mutex) ───────────────────

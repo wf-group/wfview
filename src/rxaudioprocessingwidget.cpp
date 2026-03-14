@@ -103,8 +103,9 @@ void RxAudioProcessingWidget::setConnected(bool connected)
         if (m_anrCollecting) {
             anrCollectTimer->stop();
             m_anrCollecting = false;
-            anrCollectBtn->setText(tr("Collect Noise Sample"));
         }
+        anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
+                                               : tr("Collect Noise Sample"));
     }
 }
 
@@ -522,10 +523,21 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(anrCollectBtn);
             form->addRow(lblAnrStatus);
 
-            // 5-second auto-stop timer
+            // Static noise profile spectrum display
+            anrProfileSpec = new SpectrumWidget;
+            anrProfileSpec->logBins       = false;
+            anrProfileSpec->showSecondary = false;
+            anrProfileSpec->primaryLabel  = tr("Noise Floor");
+            anrProfileSpec->setMinimumHeight(96);
+            anrProfileSpec->setMaximumHeight(144);
+            anrProfileSpec->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            anrProfileSpec->setFps(1);   // static display, minimal repaint
+            anrProfileSpec->setVisible(false);  // shown after profile is collected
+            form->addRow(anrProfileSpec);
+
+            // 1-second tick timer for countdown during collection
             anrCollectTimer = new QTimer(this);
-            anrCollectTimer->setSingleShot(true);
-            anrCollectTimer->setInterval(5000);
+            anrCollectTimer->setInterval(1000);
             connect(anrCollectTimer, &QTimer::timeout,
                     this, &RxAudioProcessingWidget::onAnrCollectTimeout);
             connect(anrCollectBtn, &QPushButton::clicked,
@@ -918,26 +930,39 @@ void RxAudioProcessingWidget::onAnrCollectClicked()
         // User pressed "Stop Collecting" early
         anrCollectTimer->stop();
         m_anrCollecting = false;
-        anrCollectBtn->setText(tr("Collect Noise Sample"));
+        anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
+                                               : tr("Collect Noise Sample"));
         lblAnrStatus->setText(tr("Collecting stopped — waiting for profile to build…"));
         anrCollectBtn->setEnabled(false);
         emit anrCollectToggled(false);   // triggers wfmain → rxProc->stopAnrProfile()
     } else {
         // User pressed "Collect Noise Sample"
         m_anrCollecting = true;
-        anrCollectBtn->setText(tr("Stop Collecting  (auto-stops in 5 s)"));
+        m_anrCountdown  = 5;
+        anrCollectBtn->setText(tr("Stop Collecting… (auto-stop in %1 s)").arg(m_anrCountdown));
         lblAnrStatus->setText(tr("Recording noise sample — play audio with only background noise…"));
-        anrCollectTimer->start();        // auto-stop after 5 seconds
+        anrCollectTimer->start();        // 1-second ticks
         emit anrCollectToggled(true);    // triggers wfmain → rxProc->startAnrProfile()
     }
 }
 
 void RxAudioProcessingWidget::onAnrCollectTimeout()
 {
-    // Timer fired: auto-stop collection
+    // 1-second tick during collection
     if (!m_anrCollecting) return;
+
+    --m_anrCountdown;
+    if (m_anrCountdown > 0) {
+        // Update countdown text
+        anrCollectBtn->setText(tr("Stop Collecting… (auto-stop in %1 s)").arg(m_anrCountdown));
+        return;
+    }
+
+    // Countdown reached zero — auto-stop
+    anrCollectTimer->stop();
     m_anrCollecting = false;
-    anrCollectBtn->setText(tr("Collect Noise Sample"));
+    anrCollectBtn->setText(m_anrHasProfile ? tr("Collect New Noise Sample")
+                                           : tr("Collect Noise Sample"));
     lblAnrStatus->setText(tr("5 s sample collected — building noise profile…"));
     anrCollectBtn->setEnabled(false);
     emit anrCollectToggled(false);  // triggers wfmain → rxProc->stopAnrProfile()
@@ -948,12 +973,43 @@ void RxAudioProcessingWidget::onAnrProfileReady(bool success)
     anrCollectBtn->setEnabled(m_radioConnected);
     if (success) {
         m_anrHasProfile = true;
+        anrCollectBtn->setText(tr("Collect New Noise Sample"));
         lblAnrStatus->setText(tr("Noise profile ready — ANR active."));
     } else {
         m_anrHasProfile = false;
+        anrCollectBtn->setText(tr("Collect Noise Sample"));
         lblAnrStatus->setText(tr("Profile build failed (sample too short?).  Try again."));
     }
     updateAnrControlState();
+}
+
+void RxAudioProcessingWidget::onAnrNoiseProfileBins(QVector<double> bins,
+                                                     double sampleRate,
+                                                     int windowSize)
+{
+    if (bins.isEmpty() || !anrProfileSpec) return;
+
+    // Auto-scale: find the range of the dB values
+    double lo = bins[0], hi = bins[0];
+    for (int i = 1; i < bins.size(); ++i) {
+        if (bins[i] < lo) lo = bins[i];
+        if (bins[i] > hi) hi = bins[i];
+    }
+    // Pad the range and round to nice grid boundaries
+    double range = hi - lo;
+    if (range < 6.0) range = 6.0;
+    double margin = range * 0.1;
+    lo = std::floor((lo - margin) / 6.0) * 6.0;
+    hi = std::ceil((hi + margin) / 6.0) * 6.0;
+
+    anrProfileSpec->fftLength  = windowSize;
+    anrProfileSpec->sampleRate = sampleRate;
+    anrProfileSpec->minDb      = lo;
+    anrProfileSpec->maxDb      = hi;
+    anrProfileSpec->spectrumPrimary.assign(bins.cbegin(), bins.cend());
+    anrProfileSpec->spectrumSecondary.clear();
+    anrProfileSpec->setVisible(true);
+    updateSizeConstraints();
 }
 
 // ─── updateAnrControlState ────────────────────────────────────────────────────

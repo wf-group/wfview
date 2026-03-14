@@ -141,6 +141,16 @@ public:
     bool isProfiling() const { return m_profiling.load(std::memory_order_acquire); }
     bool hasProfile()  const { return m_hasProfile; }
 
+    // Return the noise profile spectrum (mean power per FFT bin).
+    // Thread-safe: briefly locks m_nrMutex.
+    NoiseReduction::NoiseProfile getNoiseProfile()
+    {
+        std::lock_guard<std::mutex> lk(m_nrMutex);
+        if (m_nr)
+            return m_nr->getNoiseProfile();
+        return {};
+    }
+
     // ── Processing (converter thread) ─────────────────────────────────────────
 
     std::vector<float> process(const float* in, int n, float sampleRate)
