@@ -44,6 +44,14 @@ public:
     {
         m_targetFps = qBound(1, fps, 60);
         timer.setInterval(1000 / m_targetFps);
+        if (!timer.isActive()) timer.start();
+    }
+
+    // Stop the repaint timer entirely.  The widget only repaints when
+    // the caller explicitly calls update() after setting new data.
+    void setStaticMode()
+    {
+        timer.stop();
     }
 
     // Set by AudioProcessingWidget to match the active DFT configuration.

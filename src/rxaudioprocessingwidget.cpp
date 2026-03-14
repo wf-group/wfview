@@ -531,7 +531,7 @@ void RxAudioProcessingWidget::buildUi()
             anrProfileSpec->setMinimumHeight(144);
             anrProfileSpec->setMaximumHeight(144);
             anrProfileSpec->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-            anrProfileSpec->setFps(1);   // static display, minimal repaint
+            anrProfileSpec->setStaticMode();  // no timer; repaint only when data arrives
             anrProfileSpec->setVisible(false);  // shown after profile is collected
             form->addRow(anrProfileSpec);
 
@@ -1009,6 +1009,7 @@ void RxAudioProcessingWidget::onAnrNoiseProfileBins(QVector<double> bins,
     anrProfileSpec->spectrumPrimary.assign(bins.cbegin(), bins.cend());
     anrProfileSpec->spectrumSecondary.clear();
     anrProfileSpec->setVisible(true);
+    anrProfileSpec->update();   // trigger a single repaint (static mode)
     updateSizeConstraints();
 }
 
