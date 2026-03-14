@@ -528,7 +528,7 @@ void RxAudioProcessingWidget::buildUi()
             anrProfileSpec->logBins       = false;
             anrProfileSpec->showSecondary = false;
             anrProfileSpec->primaryLabel  = tr("Noise Floor");
-            anrProfileSpec->setMinimumHeight(96);
+            anrProfileSpec->setMinimumHeight(144);
             anrProfileSpec->setMaximumHeight(144);
             anrProfileSpec->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             anrProfileSpec->setFps(1);   // static display, minimal repaint
