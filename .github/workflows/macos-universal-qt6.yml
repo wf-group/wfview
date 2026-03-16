@@ -76,7 +76,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
           git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
-          git clone --depth=1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git eigen
+          git clone --depth=1 --branch 5.0.1 https://gitlab.com/libeigen/eigen.git eigen
           mkdir -p opus
           ln -s $SYSROOT/include/opus opus/include
 
@@ -174,7 +174,7 @@ jobs:
           apple-notary-tool: altool
           apple-team-id: ${{ secrets.MACOS_NOTARY_TEAM }}
           apple-product-id: org.wfview.wfview
-          options: --options runtime --entitlements resources/wfview.entitlements
+          options: --options runtime --entitlements wfview/resources/wfview.entitlements
       - name: Package macOS App
         run: |
           echo "=== Creating DMG ==="
