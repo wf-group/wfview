@@ -136,15 +136,6 @@ void TxAudioProcessingWidget::onAnyControlChanged()
     lblGateLfCutoff->setText(QString::number(gateLfCutoff->value()) + " Hz");
     lblGateHfCutoff->setText(QString::number(gateHfCutoff->value()) + " Hz");
 
-    // Enabling self-monitoring makes the TX spectrum useful during receive
-    // (the user is listening to their own processed audio), so automatically
-    // clear the inhibit flag to ensure the display is always active.
-    if (sidetoneEnable->isChecked() && specInhibitDuringRx->isChecked()) {
-        specInhibitDuringRx->blockSignals(true);
-        specInhibitDuringRx->setChecked(false);
-        specInhibitDuringRx->blockSignals(false);
-    }
-
     emit prefsChanged(getPrefs());
 }
 
@@ -296,7 +287,7 @@ void TxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
     gainGrp->setEnabled(enabled);
     eqGrp->setEnabled(enabled);
     compGrp->setEnabled(enabled);
-    sidetoneGrp->setEnabled(enabled);
+    // Self-Monitor group is always available regardless of bypass state.
 }
 
 // ─── buildUi ─────────────────────────────────────────────────────────────────

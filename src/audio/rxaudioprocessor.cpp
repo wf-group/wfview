@@ -87,33 +87,9 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     const float inputPeak = samples.array().abs().maxCoeff();
     emit rxInputLevel(inputPeak);
 
-    // ── Master bypass ────────────────────────────────────────────────────────
-    // Channel select still operates during bypass (stereo routing unchanged).
-    if (p.bypass) {
-        mixSidetone(samples, channels, p);
-        emit rxOutputLevel(samples.array().abs().maxCoeff());
-        if (specActive)
-            appendSpectrumSamples(samples, samples);  // input == output in bypass
-        return samples;
-    }
-
-    // ── ANR profile collection — feed raw input regardless of active mode ─────
-    // This runs on the converter thread as required by AnrNrProcessor::addProfileSamples().
-    if (m_anr->isProfiling()) {
-        // Use de-interleaved mono for profiling regardless of channel count.
-        if (channels == 1) {
-            m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
-        } else {
-            const int frames = static_cast<int>(samples.size()) / 2;
-            for (int i = 0; i < frames; ++i)
-                m_anrProfileMono.push_back((samples[i * 2] + samples[i * 2 + 1]) * 0.5f);
-            m_anr->addProfileSamples(m_anrProfileMono.data(),
-                                     static_cast<int>(m_anrProfileMono.size()));
-            m_anrProfileMono.clear();
-        }
-    }
-
-    // ── Ensure NR processors exist and parameters are up to date ─────────────
+    // ── Ensure spectrum ring-buffer is initialised before any use ────────────
+    // This must happen before the bypass early-return so that the spectrum
+    // display works even when the processor has never been un-bypassed.
     if (sampleRate != m_activeSR || channels != m_activeChannels) {
         m_activeSR       = sampleRate;
         m_activeChannels = channels;
@@ -147,6 +123,33 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
             m_specLogBins[j].linBinHi = static_cast<float>(fHi / binRes);
         }
     }
+
+    // ── Master bypass ────────────────────────────────────────────────────────
+    // Channel select still operates during bypass (stereo routing unchanged).
+    if (p.bypass) {
+        mixSidetone(samples, channels, p);
+        emit rxOutputLevel(samples.array().abs().maxCoeff());
+        if (specActive)
+            appendSpectrumSamples(samples, samples);  // input == output in bypass
+        return samples;
+    }
+
+    // ── ANR profile collection — feed raw input regardless of active mode ─────
+    // This runs on the converter thread as required by AnrNrProcessor::addProfileSamples().
+    if (m_anr->isProfiling()) {
+        // Use de-interleaved mono for profiling regardless of channel count.
+        if (channels == 1) {
+            m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
+        } else {
+            const int frames = static_cast<int>(samples.size()) / 2;
+            for (int i = 0; i < frames; ++i)
+                m_anrProfileMono.push_back((samples[i * 2] + samples[i * 2 + 1]) * 0.5f);
+            m_anr->addProfileSamples(m_anrProfileMono.data(),
+                                     static_cast<int>(m_anrProfileMono.size()));
+            m_anrProfileMono.clear();
+        }
+    }
+
     pushSpeexParams(p);
     pushAnrParams(p);
     pushEqParams(p);
