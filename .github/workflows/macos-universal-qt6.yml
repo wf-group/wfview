@@ -164,7 +164,7 @@ jobs:
           done
         #
       - name: Sign and notarize application
-        uses: lando/code-sign-action@v3
+        uses: patroza/code-sign-action@main
         with:
           file: wfview/wfview.app
           certificate-data: ${{ secrets.MACOS_CERTIFICATE }}
