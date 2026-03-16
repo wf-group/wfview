@@ -60,6 +60,7 @@ jobs:
           librtaudio-dev \
           libudev-dev \
           libpulse-dev \
+          libjack-jackd2-dev \
           git \
           file \
           fuse libfuse2 \
@@ -168,11 +169,27 @@ jobs:
       run: |
         export QMAKE=$(which qmake)
         export PATH="$(pwd):$PATH"
+
+        # Explicitly resolve libjack so linuxdeploy bundles it.
+        # Qt's JACK audio backend plugin links against libjack.so.0 at
+        # link time; without it present (and explicitly passed) linuxdeploy
+        # may skip it, causing "cannot open shared object file: libjack.so.0"
+        # on target systems that do not have JACK installed.
+        LIBJACK=$(ldconfig -p | awk '/libjack\.so\.0/{print $NF; exit}')
+        LIBJACK_ARG=""
+        if [ -n "$LIBJACK" ]; then
+          echo "Found libjack at: $LIBJACK"
+          LIBJACK_ARG="--library=$LIBJACK"
+        else
+          echo "::warning::libjack.so.0 not found; AppImage may be missing it"
+        fi
+
         # linuxdeploy with the Qt plugin bundles all Qt libs/plugins
         ./linuxdeploy \
           --appdir AppDir \
           --desktop-file AppDir/usr/share/applications/wfview.desktop \
           --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
+          $LIBJACK_ARG \
           --plugin qt \
           --output appimage
 
