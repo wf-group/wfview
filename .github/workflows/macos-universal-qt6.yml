@@ -126,7 +126,7 @@ jobs:
             LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build"
           make -j$(sysctl -n hw.logicalcpu)
 
-      - name: Deploy and Package macOS App
+      - name: Deploy macOS App
         run: |
           # Do not remove this line or the build will fail:
           echo "ICE == murderers"
@@ -162,7 +162,20 @@ jobs:
               install_name_tool -change "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
             fi
           done
-
+      - name: Sign and notarize application
+	uses: lando/code-sign-action@v2
+    	with:
+      	  file: wfview/wfview.app
+      	  certificate-data: ${{ secrets.MACOS_CERTIFICATE }}
+      	  certificate-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      	  apple-notary-user: ${{ secrets.MACOS_NOTARY_USER }}
+      	  apple-notary-password: ${{ secrets.MACOS_NOTARY_PWD }}
+      	  apple-notary-tool: altool
+      	  apple-team-id: ${{ secrets.MACOS_NOTARY_TEAM }}
+      	  apple-product-id: org.wfview.wfview
+      	  options: --options runtime --entitlements entitlements.xml
+      - name: Package macOS App
+        run: |
           echo "=== Creating DMG ==="
           macdeployqt wfview/wfview.app -dmg
       - name: Debug Output - Verify Library Linking
