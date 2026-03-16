@@ -10,23 +10,41 @@ audioHandlerBase::audioHandlerBase(QObject* parent)
 
 audioHandlerBase::~audioHandlerBase()
 {
+    // Safety net: if dispose() was never called, stop the converter thread
+    // now so QThread::~QThread() won't abort.
+    if (converterThread) {
+        converterThread->quit();
+        converterThread->wait();
+        delete converterThread;
+        converterThread = nullptr;
+    }
 }
 
 
 void audioHandlerBase::dispose()
 {
-    bool expected = false;
-    if (!disposed.compare_exchange_strong(expected, true)) return; // already disposed
-
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() enter, role=" << role()
+                       << "onCorrectThread=" << (QThread::currentThread() == thread());
     // Ensure we run on this object's thread (prevent races with audio callbacks)
     if (QThread::currentThread() != thread()) {
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() marshaling via BlockingQueuedConnection ...";
         QMetaObject::invokeMethod(this, [this]{ dispose(); },
                                   Qt::BlockingQueuedConnection);
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() BlockingQueuedConnection returned";
         return;
     }
 
+    bool expected = false;
+    if (!disposed.compare_exchange_strong(expected, true)) {
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() already disposed, returning";
+        return;
+    }
+
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() locking devMutex, role=" << role();
     QMutexLocker lock(&devMutex);
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() calling closeDevice(), role=" << role();
     closeDevice();
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() closeDevice() done, role=" << role();
 
     if (underTimer) {
         underTimer->stop();
@@ -37,11 +55,14 @@ void audioHandlerBase::dispose()
     if (converterThread) {
         disconnect(this, nullptr, nullptr, nullptr);
         disconnect(converterThread, nullptr, nullptr, nullptr);
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() converterThread->quit(), role=" << role();
         converterThread->quit();
         converterThread->wait();
-        converterThread->deleteLater();
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() converterThread done, role=" << role();
+        delete converterThread;
         converterThread = nullptr;
     }
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() complete, role=" << role();
 }
 
 void audioHandlerBase::reportError(const QString& msg)
@@ -123,19 +144,24 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     if (setup.port.isNull() && setup.portInt == -1) {
         reportError("No audio device was found (install Qt Multimedia plugins?)");
+        emit initFailed();
         return false;
     }
     deviceInfo = setup.port;
 #else
     if (setup.port.isNull() && setup.port.description().isEmpty() && setup.portInt == -1) {
         reportError("Audio device is NULL, check device selection in settings");
+        emit initFailed();
         return false;
     } else {
         deviceInfo = setup.port;
     }
 #endif
 
-    if (!negotiateFormat(48000)) return false;
+    if (!negotiateFormat(48000)) {
+        emit initFailed();
+        return false;
+    }
 
     converter   = new audioConverter();
     converterThread  = new QThread(this);
@@ -155,6 +181,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
 
     if (!openDevice()) {
         reportError("Failed to open device");
+        emit initFailed();
         return false;
     }
 

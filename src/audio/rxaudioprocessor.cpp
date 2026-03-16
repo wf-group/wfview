@@ -13,6 +13,7 @@
 #include "anrnrprocessor.h"
 #include "triple_para.h"
 #include "rxaudioprocessor.h"
+#include "logcategories.h"
 #include <cmath>
 #include <algorithm>
 
@@ -340,55 +341,108 @@ void RxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
 }
 
 // ─── mixSidetone ─────────────────────────────────────────────────────────────
+// Mixes buffered sidetone into the RX output, with linear-interpolation
+// resampling when the sidetone sample rate differs from the RX stream rate.
+// Handles mono and stereo output (sidetone is always mono → duplicated to
+// both channels for stereo).
+
 void RxAudioProcessor::mixSidetone(Eigen::VectorXf& samples, int channels,
                                    const Params& /*p*/)
 {
     QMutexLocker lk(&m_sidetoneMutex);
     if (m_sidetoneBuf.empty()) return;
 
-    const int n   = static_cast<int>(samples.size());
-    int toCopy = std::min(n, static_cast<int>(m_sidetoneBuf.size()));
+    const int n      = static_cast<int>(samples.size());
+    const int frames = (channels == 2) ? n / 2 : n;
+    const int bufLen = static_cast<int>(m_sidetoneBuf.size());
 
-    for (int i = 0; i < toCopy; ++i) {
-        float st = m_sidetoneBuf[i];
-        if (channels == 2) {
-            // Sidetone is mono; add to both channels
-            int pair = i * 2;
-            if (pair + 1 < n) {
-                float v0 = samples[pair]     + st;
-                float v1 = samples[pair + 1] + st;
-                samples[pair]     = std::max(-1.0f, std::min(1.0f, v0));
-                samples[pair + 1] = std::max(-1.0f, std::min(1.0f, v1));
-            }
+    // Compute resample ratio: how many sidetone samples per output frame.
+    // ratio = 1.0 when rates match (common case — no interpolation needed).
+    const double ratio = (m_sidetoneSR > 0 && m_activeSR > 0.0f)
+                       ? static_cast<double>(m_sidetoneSR) / static_cast<double>(m_activeSR)
+                       : 1.0;
+
+    double srcPos = m_sidetoneResampleFrac;  // carry-over from previous call
+
+    for (int f = 0; f < frames; ++f) {
+        const int idx = static_cast<int>(srcPos);
+        if (idx >= bufLen) break;  // ran out of sidetone data
+
+        // Linear interpolation between adjacent sidetone samples.
+        const double frac = srcPos - idx;
+        float st;
+        if (idx + 1 < bufLen) {
+            st = static_cast<float>(m_sidetoneBuf[idx] * (1.0 - frac)
+                                  + m_sidetoneBuf[idx + 1] * frac);
         } else {
-            if (i < n) {
-                float v = samples[i] + st;
-                samples[i] = std::max(-1.0f, std::min(1.0f, v));
-            }
+            st = m_sidetoneBuf[idx];
         }
+
+        // Mix into output — mono sidetone added to all channels.
+        if (channels == 2) {
+            const int pair = f * 2;
+            samples[pair]     = std::max(-1.0f, std::min(1.0f, samples[pair]     + st));
+            samples[pair + 1] = std::max(-1.0f, std::min(1.0f, samples[pair + 1] + st));
+        } else {
+            samples[f] = std::max(-1.0f, std::min(1.0f, samples[f] + st));
+        }
+
+        srcPos += ratio;
     }
 
-    // Consume the used sidetone samples
-    const int consumed = (channels == 2) ? toCopy : toCopy;
-    if (consumed > 0 && consumed <= static_cast<int>(m_sidetoneBuf.size()))
+    // Consume whole sidetone samples that were fully traversed; carry the
+    // fractional remainder for the next call to preserve phase continuity.
+    const int consumed = qMin(static_cast<int>(srcPos), bufLen);
+    if (consumed > 0)
         m_sidetoneBuf.erase(m_sidetoneBuf.begin(),
                             m_sidetoneBuf.begin() + consumed);
+    m_sidetoneResampleFrac = srcPos - consumed;
 }
 
 // ─── injectSidetone ──────────────────────────────────────────────────────────
-// Called on the main thread via QueuedConnection.
+// Called on the TX converter thread via DirectConnection.
 
-void RxAudioProcessor::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate)
+void RxAudioProcessor::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate,
+                                       int channels, QString format)
 {
     if (samples.size() == 0) return;
+
     QMutexLocker lk(&m_sidetoneMutex);
-    m_sidetoneSR = sampleRate;
-    // Cap buffer at ~0.5 s to prevent unbounded growth
-    const int cap = static_cast<int>(sampleRate / 2);
-    for (int i = 0; i < static_cast<int>(samples.size()); ++i) {
-        if (static_cast<int>(m_sidetoneBuf.size()) < cap)
-            m_sidetoneBuf.push_back(samples[i]);
+
+    // Detect format changes and log diagnostics.
+    const bool formatChanged = (sampleRate != m_sidetoneSR)
+                            || (channels   != m_sidetoneChannels)
+                            || (format     != m_sidetoneFormat);
+
+    if (formatChanged || !m_sidetoneLoggedOnce) {
+        const quint32 rxSR = static_cast<quint32>(m_activeSR);
+        const double ratio = (m_activeSR > 0.0f) ? static_cast<double>(sampleRate) / m_activeSR : 0.0;
+        qDebug(logAudio()) << "RxAudioProcessor::injectSidetone: sidetone="
+                           << sampleRate << "Hz" << channels << "ch" << format
+                           << "| RX stream=" << rxSR << "Hz" << m_activeChannels << "ch float32"
+                           << "| ratio=" << ratio
+                           << ((sampleRate != rxSR) ? "** RATE MISMATCH — will resample **" : "");
+        m_sidetoneLoggedOnce = true;
     }
+
+    m_sidetoneSR       = sampleRate;
+    m_sidetoneChannels = channels;
+    m_sidetoneFormat   = format;
+
+    // If format changed, reset resampler state to avoid interpolation across
+    // discontinuities.
+    if (formatChanged)
+        m_sidetoneResampleFrac = 0.0;
+
+    // Cap buffer at ~0.5 s to prevent unbounded growth.
+    const int cap = static_cast<int>(sampleRate / 2);
+    const int nSamples = static_cast<int>(samples.size());
+    const int bufSize  = static_cast<int>(m_sidetoneBuf.size());
+    const int room     = qMax(0, cap - bufSize);
+    const int toAppend = qMin(nSamples, room);
+    if (toAppend > 0)
+        m_sidetoneBuf.insert(m_sidetoneBuf.end(),
+                             samples.data(), samples.data() + toAppend);
 }
 
 // ─── ensureProcessors / pushParams ───────────────────────────────────────────

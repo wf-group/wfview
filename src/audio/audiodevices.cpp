@@ -268,45 +268,55 @@ void audioDevices::enumerate()
 #endif
                 if (info.inputChannels > 0) {
                     bool isDefault = false;
-                    qInfo(logAudio()) << (info.isDefaultInput ? "*" : " ") << "(" << i << ") Input Device  : " << QString::fromStdString(info.name);
+                    QString devName = QString::fromStdString(info.name);
+                    QString displayName = QString("%1 [%2ch %3kHz]")
+                        .arg(devName)
+                        .arg(info.inputChannels)
+                        .arg(info.preferredSampleRate / 1000);
+                    qInfo(logAudio()) << (info.isDefaultInput ? "*" : " ") << "(" << i << ") Input Device  : " << displayName;
                     numInputDevices++;
 
                     if (info.isDefaultInput) {
-                        defaultInputDeviceName = QString::fromStdString(info.name);
+                        defaultInputDeviceName = displayName;
                         isDefault = true;
                     }
 
 #if (RTAUDIO_VERSION_MAJOR > 5)
-                    inputs.append(new audioDevice(QString::fromStdString(info.name), devices[i], isDefault));
+                    inputs.append(new audioDevice(displayName, devices[i], isDefault));
 #else
-                    inputs.append(new audioDevice(QString::fromStdString(info.name), i, isDefault));
+                    inputs.append(new audioDevice(displayName, i, isDefault));
 #endif
 
 #ifndef BUILD_WFSERVER
-                    if (fm.boundingRect(QString::fromStdString(info.name)).width() > numCharsIn)
-                        numCharsIn = fm.boundingRect(QString::fromStdString(info.name)).width();
+                    if (fm.boundingRect(displayName).width() > numCharsIn)
+                        numCharsIn = fm.boundingRect(displayName).width();
 #endif
 
                 }
                 if (info.outputChannels > 0) {
                     bool isDefault = false;
-                    qInfo(logAudio()) << (info.isDefaultOutput ? "*" : " ") << "(" << i << ") Output Device : " << QString::fromStdString(info.name);
+                    QString devName = QString::fromStdString(info.name);
+                    QString displayName = QString("%1 [%2ch %3kHz]")
+                        .arg(devName)
+                        .arg(info.outputChannels)
+                        .arg(info.preferredSampleRate / 1000);
+                    qInfo(logAudio()) << (info.isDefaultOutput ? "*" : " ") << "(" << i << ") Output Device : " << displayName;
                     numOutputDevices++;
 
                     if (info.isDefaultOutput) {
-                        defaultOutputDeviceName = QString::fromStdString(info.name);
+                        defaultOutputDeviceName = displayName;
                         isDefault = true;
                     }
 
 #if (RTAUDIO_VERSION_MAJOR > 5)
-                    outputs.append(new audioDevice(QString::fromStdString(info.name), devices[i], isDefault));
+                    outputs.append(new audioDevice(displayName, devices[i], isDefault));
 #else
-                    outputs.append(new audioDevice(QString::fromStdString(info.name), i, isDefault));
+                    outputs.append(new audioDevice(displayName, i, isDefault));
 #endif
 
 #ifndef BUILD_WFSERVER
-                    if (fm.boundingRect(QString::fromStdString(info.name)).width() > numCharsOut)
-                        numCharsOut = fm.boundingRect(QString::fromStdString(info.name)).width();
+                    if (fm.boundingRect(displayName).width() > numCharsOut)
+                        numCharsOut = fm.boundingRect(displayName).width();
 #endif
                 }
             }

@@ -40,18 +40,37 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
 
 icomUdpAudio::~icomUdpAudio()
 {
+    qDebug(logUdp()) << "[SHUTDOWN] ~icomUdpAudio enter";
+    // dispose() must be called BEFORE quit() so the audio handler can
+    // shut down its converterThread via BlockingQueuedConnection while
+    // the audio thread's event loop is still running.
+    if (rxaudio) {
+        qDebug(logUdp()) << "[SHUTDOWN] rxaudio->dispose() ...";
+        rxaudio->dispose();
+        qDebug(logUdp()) << "[SHUTDOWN] rxaudio->dispose() done";
+    }
+    if (txaudio) {
+        qDebug(logUdp()) << "[SHUTDOWN] txaudio->dispose() ...";
+        txaudio->dispose();
+        qDebug(logUdp()) << "[SHUTDOWN] txaudio->dispose() done";
+    }
+
     if (rxAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "Stopping rxaudio thread";
+        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread->quit()";
         rxAudioThread->quit();
+        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread->wait() ...";
         rxAudioThread->wait();
+        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread done";
     }
 
     if (txAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "Stopping txaudio thread";
+        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread->quit()";
         txAudioThread->quit();
+        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread->wait() ...";
         txAudioThread->wait();
+        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread done";
     }
-    qDebug(logUdp()) << "icomUdpHandler successfully closed";
+    qDebug(logUdp()) << "[SHUTDOWN] ~icomUdpAudio complete";
 }
 
 void icomUdpAudio::watchdog()
@@ -212,19 +231,6 @@ void icomUdpAudio::dataReceived()
                 if (m_rxMuted)
                     tempAudio.data.fill(0);
 
-                // Mix any buffered sidetone into the RX packet (saturating int16 add).
-                if (!m_sidetoneBuf.isEmpty()) {
-                    const int mixBytes   = std::min(tempAudio.data.size(), m_sidetoneBuf.size());
-                    const int mixSamples = mixBytes / int(sizeof(qint16));
-                    qint16*       rx = reinterpret_cast<qint16*>(tempAudio.data.data());
-                    const qint16* st = reinterpret_cast<const qint16*>(m_sidetoneBuf.constData());
-                    for (int i = 0; i < mixSamples; ++i) {
-                        const int32_t sum = int32_t(rx[i]) + int32_t(st[i]);
-                        rx[i] = static_cast<qint16>(qBound<int32_t>(-32768, sum, 32767));
-                    }
-                    m_sidetoneBuf.remove(0, mixSamples * int(sizeof(qint16)));
-                }
-
                 emit haveAudioData(tempAudio);
                 lastReceived = QTime::currentTime();
             }
@@ -275,8 +281,7 @@ void icomUdpAudio::startAudio() {
     connect(this, SIGNAL(haveSetVolume(quint8)), rxaudio, SLOT(setVolume(quint8)));
     connect(rxaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));
     connect(rxAudioThread, SIGNAL(finished()), rxaudio, SLOT(deleteLater()));
-
-    connect(rxAudioThread, SIGNAL(finished()), rxaudio, SLOT(deleteLater()));
+    connect(rxaudio, &audioHandlerBase::initFailed, this, &icomUdpAudio::onRxAudioInitFailed);
 
     sendControl(false, 0x03, 0x00); // First connect packet
 
@@ -317,23 +322,24 @@ void icomUdpAudio::startAudio() {
         connect(txaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
 
         connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
+        connect(txaudio, &audioHandlerBase::initFailed, this, &icomUdpAudio::onTxAudioInitFailed);
 
-        // Connect sidetone and RX mute from TX processor.
-        // When an RX NR processor is active, route sidetone there so it is
-        // mixed AFTER noise reduction (the user's own voice is not NR-processed).
+        // Sidetone: always route through RxAudioProcessor (mixed AFTER NR,
+        // resampled if needed).  RX mute still goes to this class for packet-level silencing.
+        // Disconnect first — txProc/rxProc survive reconnects.
+        if (txSetup.txProc && rxSetup.rxProc) {
+            disconnect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                       rxSetup.rxProc, &RxAudioProcessor::injectSidetone);
+            connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                    rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
+                    Qt::DirectConnection);
+            qDebug(logAudio()) << "Icom sidetone: connected TxProc → RxProc (DirectConnection)";
+        } else {
+            qWarning(logAudio()) << "Icom sidetone: txProc=" << (txSetup.txProc != nullptr)
+                                 << "rxProc=" << (rxSetup.rxProc != nullptr)
+                                 << "— sidetone will NOT work";
+        }
         if (txSetup.txProc) {
-            if (rxSetup.rxProc) {
-                // DirectConnection: injectSidetone runs on the TX converter thread,
-                // bypassing the main thread. RxAudioProcessor::injectSidetone is
-                // mutex-protected so this is safe.
-                connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                        rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                        Qt::DirectConnection);
-            } else {
-                connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                        this, &icomUdpAudio::injectSidetone,
-                        Qt::QueuedConnection);
-            }
             connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
                     this, &icomUdpAudio::setRxMuted,
                     Qt::QueuedConnection);
@@ -346,35 +352,26 @@ void icomUdpAudio::startAudio() {
 
 }
 
-void icomUdpAudio::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate)
-{
-    Q_UNUSED(sampleRate)
-    if (samples.size() == 0) return;
-
-    // Skip codecs that are not raw PCM16 — we can't mix into encoded streams.
-    const quint8 codec = rxSetup.codec;
-    if (codec == 0x01 || codec == 0x20 || codec == 0x40 || codec == 0x41) {
-        qDebug(logAudio()) << "Sidetone: codec" << Qt::hex << codec << "not supported";
-        return;
-    }
-
-    const int n = static_cast<int>(samples.size());
-    QByteArray pcm(n * static_cast<int>(sizeof(qint16)), Qt::Uninitialized);
-    qint16* dst = reinterpret_cast<qint16*>(pcm.data());
-    for (int i = 0; i < n; ++i) {
-        float s = std::max(-1.0f, std::min(1.0f, samples[i]));
-        dst[i] = static_cast<qint16>(s * 32767.0f);
-    }
-
-    // Buffer the PCM16 data; it will be mixed into the next arriving RX packet(s).
-    // Cap the buffer to ~0.5 s to prevent growth when the radio is disconnected.
-    constexpr int kMaxBufBytes = 48000 * 2 / 2;  // 0.5 s at 48 kHz mono PCM16
-    if (m_sidetoneBuf.size() < kMaxBufBytes)
-        m_sidetoneBuf.append(pcm);
-}
 
 void icomUdpAudio::setRxMuted(bool muted)
 {
     m_rxMuted = muted;
 }
 
+void icomUdpAudio::onRxAudioInitFailed()
+{
+    qWarning(logAudio()) << "RX Audio Initialization failed. Cleaning up.";
+    if (rxAudioThread) {
+        rxAudioThread->quit();
+    }
+    rxaudio = nullptr;
+}
+
+void icomUdpAudio::onTxAudioInitFailed()
+{
+    qWarning(logAudio()) << "TX Audio Initialization failed. Cleaning up.";
+    if (txAudioThread) {
+        txAudioThread->quit();
+    }
+    txaudio = nullptr;
+}

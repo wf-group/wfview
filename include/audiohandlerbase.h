@@ -55,6 +55,7 @@ public:
     RxAudioProcessor* rxProcessor() const { return setupData.rxProc; }
 
 signals:
+    void initFailed();
     void audioMessage(QString message);
     void haveAudioData(const audioPacket& data);
     void haveLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 configuredLatency, quint16 measuredLatency, bool underrun, bool overrun);

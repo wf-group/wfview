@@ -25,15 +25,31 @@ kenwoodCommander::kenwoodCommander(quint8 guid[GUIDLEN], rigCommander* parent) :
 
 kenwoodCommander::~kenwoodCommander()
 {
-    qInfo(logRig()) << "closing instance of kenwoodCommander()";
+    qInfo(logRig()) << "[SHUTDOWN] ~kenwoodCommander enter";
 
     if (rtpThread != Q_NULLPTR) {
-        //if (port->isOpen()) {
-        //    receiveCommand(funcVOIP,QVariant::fromValue<uchar>(0),0);
-        //}
-        qInfo(logUdp()) << "Stopping RTP thread";
+        if (rtp) {
+            // Post shutdown request (non-blocking) then try to quit the thread.
+            // If the event loop is unresponsive, the QueuedConnection won't fire,
+            // but quit() also won't work — so we detect that and force cleanup.
+            qInfo(logUdp()) << "[SHUTDOWN] posting rtp->shutdown() via QueuedConnection ...";
+            QMetaObject::invokeMethod(rtp, &rtpAudio::shutdown,
+                                      Qt::QueuedConnection);
+        }
+        qInfo(logUdp()) << "[SHUTDOWN] rtpThread->quit()";
         rtpThread->quit();
-        rtpThread->wait();
+        qInfo(logUdp()) << "[SHUTDOWN] rtpThread->wait(3000) ...";
+        if (!rtpThread->wait(3000)) {
+            // Event loop is stuck — call shutdown directly from this thread.
+            // This is cross-thread access, but necessary to release resources.
+            qWarning(logUdp()) << "[SHUTDOWN] rtpThread unresponsive, forcing shutdown from caller thread";
+            if (rtp) rtp->shutdown();
+            rtpThread->terminate();
+            rtpThread->wait(2000);
+            qWarning(logUdp()) << "[SHUTDOWN] rtpThread after terminate: isRunning=" << rtpThread->isRunning();
+        } else {
+            qInfo(logUdp()) << "[SHUTDOWN] rtpThread done";
+        }
     }
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
@@ -858,22 +874,24 @@ void kenwoodCommander::parseData(QByteArray data)
                 connect(rtpThread, SIGNAL(finished()), rtp, SLOT(deleteLater()));
                 connect(this, SIGNAL(haveChangeLatency(quint16)), rtp, SLOT(changeLatency(quint16)));
                 connect(this, SIGNAL(haveSetVolume(quint8)), rtp, SLOT(setVolume(quint8)));
-                // Sidetone and RX mute from TX processor.
-                // Route sidetone through RxAudioProcessor when available so it
-                // is mixed AFTER noise reduction.
+                // Sidetone: always route through RxAudioProcessor (mixed AFTER NR,
+                // resampled if needed).  RX mute still goes to rtp for packet-level silencing.
+                // Disconnect first — txProc/rxProc survive reconnects, so a prior
+                // connection may still exist.  Without this, each reconnect adds a
+                // duplicate delivery, causing choppy/robotic sidetone.
+                if (txSetup.txProc && rxSetup.rxProc) {
+                    disconnect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                               rxSetup.rxProc, &RxAudioProcessor::injectSidetone);
+                    connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
+                            rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
+                            Qt::DirectConnection);
+                    qDebug(logAudio()) << "Kenwood sidetone: connected TxProc → RxProc (DirectConnection)";
+                } else {
+                    qWarning(logAudio()) << "Kenwood sidetone: txProc=" << (txSetup.txProc != nullptr)
+                                         << "rxProc=" << (rxSetup.rxProc != nullptr)
+                                         << "— sidetone will NOT work";
+                }
                 if (txSetup.txProc) {
-                    if (rxSetup.rxProc) {
-                        // DirectConnection: injectSidetone runs on the TX converter thread,
-                        // bypassing the main thread. RxAudioProcessor::injectSidetone is
-                        // mutex-protected so this is safe.
-                        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                                rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                                Qt::DirectConnection);
-                    } else {
-                        connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                                rtp, &rtpAudio::injectSidetone,
-                                Qt::QueuedConnection);
-                    }
                     connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
                             rtp, &rtpAudio::setRxMuted,
                             Qt::QueuedConnection);

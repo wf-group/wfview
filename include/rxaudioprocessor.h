@@ -137,9 +137,9 @@ public:
     AnrProfileBins getAnrNoiseProfileBins() const;
 
 public slots:
-    // Connected to TxAudioProcessor::haveSidetoneFloat (Qt::QueuedConnection).
+    // Connected to TxAudioProcessor::haveSidetoneFloat (Qt::DirectConnection).
     // Buffers the sidetone for mixing in processAudio().
-    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate);
+    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate, int channels, QString format);
 
 signals:
     void rxInputLevel(float peak);
@@ -198,7 +198,11 @@ private:
     // ── Sidetone ring buffer (protected by m_sidetoneMutex) ──────────────────
     QMutex              m_sidetoneMutex;
     std::vector<float>  m_sidetoneBuf;
-    quint32             m_sidetoneSR = 0;
+    quint32             m_sidetoneSR       = 0;   // sample rate of incoming sidetone
+    int                 m_sidetoneChannels = 0;   // channel count (always 1 from TX)
+    QString             m_sidetoneFormat;          // format string (e.g. "float32")
+    double              m_sidetoneResampleFrac = 0.0; // fractional sample carry-over for interpolation
+    bool                m_sidetoneLoggedOnce   = false; // one-shot format diagnostic
 
     // ── Per-block state (converter thread only, no locking needed) ────────────
     float  m_activeSR       = 0.0f;

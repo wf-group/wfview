@@ -38,10 +38,14 @@ signals:
     void haveInLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
 
 public slots:
-    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate);
     void setRxMuted(bool muted);
 
+public slots:
+    void shutdown();          // close socket + dispose audio (call before thread quit)
+
 private slots:
+    void onOutAudioInitFailed();
+    void onInAudioInitFailed();
     void init();
     void dataReceived();
     void changeLatency(quint16 value);
@@ -69,7 +73,6 @@ private:
 
     QMutex audioMutex;
 
-    QByteArray   m_sidetoneBuf;  // PCM16 sidetone samples pending mix into RX packets
     bool         m_rxMuted = false;
 
     QHostAddress ip;

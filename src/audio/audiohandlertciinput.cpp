@@ -28,7 +28,7 @@ void audioHandlerTciInput::closeDevice() noexcept
 
 void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet) {
 
-    if (packet.size()==0) return;
+    if (packet.size()==0 || !inRB) return;
     inRB->push(static_cast<const char*>(packet), packet.size());
     QMetaObject::invokeMethod(this, [this]{ onReadyRead(); }, Qt::QueuedConnection);
 }

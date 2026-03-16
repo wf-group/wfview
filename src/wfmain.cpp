@@ -489,6 +489,11 @@ void wfmain::openRig()
     applyAudioProcPrefs(prefs.txAudioProc);
     prefs.txSetup.txProc = txProc;
 
+    if (prefs.audioSystem == rtAudio)
+        txProc->setSidetoneDelay(2);
+    else
+        txProc->setSidetoneDelay(0);
+
     // Attach RX audio processor to the RX output setup
     if (!rxProc) {
         rxProc = new RxAudioProcessor(this);
@@ -657,8 +662,11 @@ void wfmain::removeRig()
 
     if (rigThread != Q_NULLPTR)
     {
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread->quit()";
         rigThread->quit();
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread->wait() ...";
         rigThread->wait();
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread finished";
         rig = Q_NULLPTR;
         rigThread = Q_NULLPTR;
     }

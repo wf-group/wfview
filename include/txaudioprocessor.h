@@ -78,6 +78,7 @@ public:
     void setCompSlowRatio(float ratio);     // 0‥1, default 0.3
     void setSidetoneEnabled(bool enabled);
     void setSidetoneLevel(float level);     // 0‥1 linear gain
+    void setSidetoneDelay(int delay);
     void setMuteRx(bool muted);             // mute RX while self-monitoring
     // Enable/disable spectrum capture and set target frame rate (thread-safe; main thread).
     void setSpectrumEnabled(bool en);
@@ -124,8 +125,8 @@ signals:
     void txInputLevels(float RMS, float peak);
     // Linear gain from compressor (1.0 = no gain reduction; 0.0 = −∞ dB).
     void txGainReduction(float linearGain);
-    // Sidetone: processed float audio at given sample rate.
-    void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate);
+    // Sidetone: processed float audio at given sample rate, channel count, format description.
+    void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate, int channels, QString format);
     // Emitted when the RX mute state changes; connect to audio class setRxMuted().
     void haveRxMuted(bool muted);
     // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
@@ -136,6 +137,11 @@ signals:
                         float rawSR);
 
 private:
+    // ── Sidetone buffer (for RtAudio compatibility) ───────────────────────────
+    QList<Eigen::VectorXf>    m_sidetoneBuffer;
+    int                       m_sidetoneDelay = 0;
+    bool                      m_sidetoneLoggedOnce = false;
+
     // ── Thread-safe parameter block ──────────────────────────────────────────
     struct Params {
         bool  bypass        = false;   // master bypass

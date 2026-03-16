@@ -14,7 +14,7 @@ int audioHandlerPaInput::paCallback(const void* input, void* output, unsigned lo
 void audioHandlerPaInput::handleCallbackInput(const void* input, unsigned long frameCount, PaStreamCallbackFlags statusFlags)
 {
     if (statusFlags & paInputOverflow) isOverrun.store(true);
-    if (!input) return;
+    if (!input || !inRB) return;
     const size_t nBytes = frameCount * bytesPerFrame;
     inRB->push(static_cast<const char*>(input), nBytes);
     QMetaObject::invokeMethod(this, [this]{ onReadyRead(); }, Qt::QueuedConnection);
@@ -80,6 +80,7 @@ void audioHandlerPaInput::closeDevice() noexcept
 
 void audioHandlerPaInput::onReadyRead()
 {
+    if (!inRB) return; // queued call arrived after dispose
     QByteArray chunk;
     chunk.resize(int(inRB->size()));
     size_t got = inRB->pop(chunk.data(), size_t(chunk.size()));

@@ -59,8 +59,11 @@ public slots:
     void getRxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void receiveAudioData(audioPacket audio);
-    void injectSidetone(Eigen::VectorXf samples, quint32 sampleRate);
 
+
+private slots:
+    void onRxAudioInitFailed();
+    void onTxAudioInitFailed();
 
 private:
 
@@ -84,7 +87,6 @@ private:
 
 	QMutex audioMutex;
 
-    QByteArray   m_sidetoneBuf;  // PCM16 sidetone samples pending mix into RX packets
     bool         m_rxMuted = false;
 
     QElapsedTimer audioClock;

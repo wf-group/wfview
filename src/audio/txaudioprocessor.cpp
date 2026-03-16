@@ -2,6 +2,7 @@
 // Lives on the main thread; processAudio() is called from the converter thread.
 
 #include "txaudioprocessor.h"
+#include "logcategories.h"
 #include <cmath>
 #include <algorithm>
 #include <cstring>
@@ -106,7 +107,11 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
         emit txGainReduction(1.0f);
         if (p.sidetoneEnabled && m_activeSR > 0.0f) {
             Eigen::VectorXf st = samples * p.sidetoneLevel;
-            emit haveSidetoneFloat(std::move(st), static_cast<quint32>(m_activeSR));
+            m_sidetoneBuffer.append(st);
+            if(m_sidetoneBuffer.size() >= m_sidetoneDelay)
+            {
+                emit haveSidetoneFloat(m_sidetoneBuffer.takeFirst(), static_cast<quint32>(m_activeSR), 1, QStringLiteral("float32"));
+            }
         }
         if (specActive)
             appendSpectrumSamples(samples, samples); // input == output in bypass
@@ -209,7 +214,17 @@ Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sa
     // ── Sidetone ─────────────────────────────────────────────────────────────
     if (p.sidetoneEnabled && m_activeSR > 0.0f) {
         Eigen::VectorXf st = samples * p.sidetoneLevel;
-        emit haveSidetoneFloat(std::move(st), static_cast<quint32>(m_activeSR));
+        m_sidetoneBuffer.append(st);
+        if(m_sidetoneBuffer.size() >= m_sidetoneDelay)
+        {
+            if (!m_sidetoneLoggedOnce) {
+                qDebug(logAudio()) << "TxAudioProcessor: emitting sidetone —"
+                                   << static_cast<quint32>(m_activeSR) << "Hz, 1ch, float32, blockSize="
+                                   << m_sidetoneBuffer.first().size() << "samples";
+                m_sidetoneLoggedOnce = true;
+            }
+            emit haveSidetoneFloat(m_sidetoneBuffer.takeFirst(), static_cast<quint32>(m_activeSR), 1, QStringLiteral("float32"));
+        }
     }
 
     // ── Spectrum emission ────────────────────────────────────────────────────
@@ -329,6 +344,7 @@ void TxAudioProcessor::setCompFastRatio(float r)        { QMutexLocker lk(&m_mut
 void TxAudioProcessor::setCompSlowRatio(float r)        { QMutexLocker lk(&m_mutex); m_params.compSlowRatio = r;  }
 void TxAudioProcessor::setSidetoneEnabled(bool en)      { QMutexLocker lk(&m_mutex); m_params.sidetoneEnabled = en; }
 void TxAudioProcessor::setSidetoneLevel(float lv)       { QMutexLocker lk(&m_mutex); m_params.sidetoneLevel   = lv; }
+void TxAudioProcessor::setSidetoneDelay(int delay)      { QMutexLocker lk(&m_mutex); m_sidetoneDelay = delay; m_sidetoneBuffer.clear();}
 void TxAudioProcessor::setMuteRx(bool muted)
 {
     { QMutexLocker lk(&m_mutex); m_params.muteRx = muted; }
