@@ -162,6 +162,7 @@ jobs:
               install_name_tool -change "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
             fi
           done
+        #
       - name: Sign and notarize application
 	uses: lando/code-sign-action@v2
     	with:
