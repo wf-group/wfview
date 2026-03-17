@@ -1,6 +1,7 @@
 // TxAudioProcessingWidget — TX audio processing settings dialog
 
 #include "txaudioprocessingwidget.h"
+#include "collapsiblesection.h"
 #include "logcategories.h"
 #include <cmath>
 
@@ -182,11 +183,17 @@ void TxAudioProcessingWidget::onPluginOrderChanged(int index)
 void TxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
     specWidget->setVisible(enabled);
+    // setVisible() on a child posts an async LayoutRequest but does not
+    // synchronously invalidate ancestor layout caches.  Explicitly dirty
+    // specGrp's own layout and then propagate upward so updateSizeConstraints()
+    // sees the correct (smaller) sizeHint for specGrp.
+    specGrp->layout()->invalidate();
+    specGrp->updateGeometry();
     if (!enabled) {
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
     }
-    adjustSize();
+    updateSizeConstraints();
     emit prefsChanged(getPrefs());
 }
 
@@ -309,14 +316,12 @@ void TxAudioProcessingWidget::buildUi()
 
     // ── Noise gate (runs first — before input gain) ──────────────────────────
     {
-        gateGrp = new QGroupBox(tr("Noise Gate  (pre-gain)"));
-        auto* grp  = gateGrp;
-        auto* form = new QFormLayout(grp);
-
         gateEnable = new QCheckBox(tr("Enable Noise Gate"));
         gateEnable->setToolTip(tr("Gate attenuates audio below threshold before input gain. "
                                   "Use to eliminate background noise between speech bursts."));
-        form->addRow(gateEnable);
+
+        auto* gateBody = new QWidget;
+        auto* form = new QFormLayout(gateBody);
 
         auto makeGateSlider = [](int lo, int hi, int val) {
             auto* s = new QSlider(Qt::Horizontal);
@@ -407,7 +412,9 @@ void TxAudioProcessingWidget::buildUi()
         gateHfCutoff->setToolTip(tr("Low-pass frequency of the gate key detector (Hz). "
                                     "Lower to prevent high-frequency noise from triggering the gate."));
 
-        mainLayout->addWidget(grp);
+        gateGrp = new CollapsibleSection(tr("Noise Gate  (pre-gain)"), gateEnable);
+        gateGrp->setBodyWidget(gateBody);
+        mainLayout->addWidget(gateGrp);
     }
 
     // ── Plugin order ────────────────────────────────────────────────────────
@@ -453,12 +460,10 @@ void TxAudioProcessingWidget::buildUi()
 
     // ── Compressor ──────────────────────────────────────────────────────────
     {
-        compGrp = new QGroupBox(tr("Dyson Compressor"));
-        auto* grp = compGrp;
-        auto* form = new QFormLayout(grp);
-
         compEnable = new QCheckBox(tr("Enable Compressor"));
-        form->addRow(compEnable);
+
+        auto* compBody = new QWidget;
+        auto* form = new QFormLayout(compBody);
 
         auto makeSlider = [](int lo, int hi, int val) {
             auto* s = new QSlider(Qt::Horizontal);
@@ -509,22 +514,28 @@ void TxAudioProcessingWidget::buildUi()
             form->addRow(tr("Slow ratio:"), row);
         }
 
+        compGrp = new CollapsibleSection(tr("Dyson Compressor"), compEnable);
+        compGrp->setBodyWidget(compBody);
     }
 
     // ── Multiband EQ ─────────────────────────────────────────────────────────
     {
-        eqGrp = new QGroupBox(tr("Multiband EQ"));
-        auto* grp = eqGrp;
-        auto* vbox = new QVBoxLayout(grp);
+        // Header: Enable checkbox + Clear button (always visible when collapsed)
+        auto* eqHeader = new QWidget;
+        {
+            auto* hl = new QHBoxLayout(eqHeader);
+            hl->setContentsMargins(0, 0, 0, 0);
+            hl->setSpacing(4);
+            eqEnable   = new QCheckBox(tr("Enable EQ"));
+            clearEqBtn = new QPushButton(tr("Clear"));
+            clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
+            hl->addWidget(eqEnable);
+            hl->addWidget(clearEqBtn);
+        }
 
-        auto* eqEnableRow = new QHBoxLayout;
-        eqEnable = new QCheckBox(tr("Enable EQ"));
-        clearEqBtn = new QPushButton(tr("Clear"));
-        clearEqBtn->setToolTip(tr("Reset all EQ bands to 0 dB"));
-        eqEnableRow->addWidget(eqEnable);
-        eqEnableRow->addWidget(clearEqBtn);
-        eqEnableRow->addStretch();
-        vbox->addLayout(eqEnableRow);
+        auto* eqBody = new QWidget;
+        auto* vbox   = new QVBoxLayout(eqBody);
+        vbox->setContentsMargins(0, 0, 0, 0);
 
         auto* sliderRow = new QHBoxLayout;
         for (int i = 0; i < EQ_BANDS; ++i) {
@@ -556,6 +567,9 @@ void TxAudioProcessingWidget::buildUi()
                     this, &TxAudioProcessingWidget::onAnyControlChanged);
         }
         vbox->addLayout(sliderRow);
+
+        eqGrp = new CollapsibleSection(tr("Multiband EQ"), eqHeader);
+        eqGrp->setBodyWidget(eqBody);
     }
 
     // ── DSP order container: holds eqGrp + compGrp in combo-selected order ──
@@ -594,9 +608,14 @@ void TxAudioProcessingWidget::buildUi()
         specWidget->showSecondary = true;
         specWidget->setMinimumHeight(120);
         specWidget->setVisible(false);   // hidden until checkbox is ticked
+        // Expanding so specWidget (and therefore specGrp) absorbs all extra
+        // vertical space when the user drags the window taller.
+        specWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
         vbox->addWidget(specWidget);
 
-        mainLayout->addWidget(grp);
+        // Stretch factor 1: when the window is taller than minimum, this group
+        // (and only this group) grows to fill the extra space.
+        mainLayout->addWidget(grp, 1);
 
         connect(specEnable, &QCheckBox::toggled,
                 this, &TxAudioProcessingWidget::onSpecEnableToggled);
@@ -703,7 +722,51 @@ void TxAudioProcessingWidget::buildUi()
     connect(gateHfCutoff,  &QSlider::valueChanged,
             this, &TxAudioProcessingWidget::onAnyControlChanged);
 
-    adjustSize();
+    // Collapse/expand: mirror the RX widget pattern — set min/max height
+    // constraints before resizing so Qt cannot redistribute freed space.
+    connect(gateGrp,  &CollapsibleSection::expandedChanged, this,
+            [this](bool) { updateSizeConstraints(); });
+    connect(eqGrp,   &CollapsibleSection::expandedChanged, this,
+            [this](bool) { updateSizeConstraints(); });
+    connect(compGrp, &CollapsibleSection::expandedChanged, this,
+            [this](bool) { updateSizeConstraints(); });
+
+    updateSizeConstraints();
+    // The initial call above runs before the widget is shown and Qt's style
+    // has been polished, so sizeHints for controls like vertical QSliders
+    // can be underestimates.  Fire a second pass after the first event-loop
+    // tick, by which time the layout has been fully realized.
+    QTimer::singleShot(0, this, [this]() { updateSizeConstraints(); });
+}
+
+// ─── updateSizeConstraints ───────────────────────────────────────────────────
+
+void TxAudioProcessingWidget::updateSizeConstraints()
+{
+    // Force the layout chain to recompute cached sizes from scratch.
+    // Without this, a previously-set setMaximumHeight() can leave stale
+    // sizeHint values that cause extra space to be redistributed into
+    // collapsed-section headers.
+    layout()->invalidate();
+
+    // Use the larger of sizeHint and minimumSizeHint so that widgets with
+    // explicit setMinimumHeight() (e.g. vertical EQ sliders at 120 px) are
+    // fully accounted for — their sizeHint() can be smaller than their
+    // minimum, which would make the window too short at startup.
+    const int minH = qMax(sizeHint().height(), minimumSizeHint().height());
+    setMinimumHeight(minH);
+
+    if (specEnable->isChecked()) {
+        // Spectrum visible: allow vertical expansion beyond minimum so the
+        // spectrum widget (the only Expanding item) absorbs extra space.
+        setMaximumHeight(QWIDGETSIZE_MAX);
+    } else {
+        // No spectrum: lock height to exactly the content size so Qt cannot
+        // redistribute freed space into remaining sections.
+        setMaximumHeight(minH);
+    }
+
+    resize(width(), minH);
 }
 
 // ─── Private helpers ─────────────────────────────────────────────────────────

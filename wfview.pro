@@ -328,6 +328,7 @@ SOURCES += \
     src/audio/speexdspmini/src/kiss_fftr.c \
     src/txaudioprocessingwidget.cpp \
     src/rxaudioprocessingwidget.cpp \
+    src/collapsiblesection.cpp \
     src/audio/audiohandlerpainput.cpp \
     src/audio/audiohandlerpaoutput.cpp \
     src/audio/audiohandlerqtinput.cpp \
@@ -411,6 +412,7 @@ HEADERS  += \
     include/txaudioprocessor.h \
     include/rxaudioprocessor.h \
     include/rxaudioprocessingwidget.h \
+    include/collapsiblesection.h \
     src/audio/speexnrprocessor.h \
     src/audio/anrnrprocessor.h \
     src/audio/plugins/dysoncompress.h \

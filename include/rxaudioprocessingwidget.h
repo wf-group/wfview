@@ -31,6 +31,7 @@
 #include "prefs.h"   // rxAudioProcessingPrefs, RxNrMode
 #include "rxaudioprocessor.h"
 #include "spectrumwidget.h"
+#include "collapsiblesection.h"
 
 class RxAudioProcessingWidget : public QDialog
 {
@@ -101,7 +102,7 @@ private:
     QWidget*        nonePage     {nullptr};   // shown when NR mode = None
 
     // ── Speex controls ────────────────────────────────────────────────────────
-    QGroupBox*    speexGrp       {nullptr};
+    CollapsibleSection* speexGrp {nullptr};  // collapsible
 
     QSlider*      speexSuppress  {nullptr};   // -70..-1 dB
     QLabel*       lblSpeexSuppress{nullptr};
@@ -130,7 +131,7 @@ private:
     QLabel*       lblPriorBase      {nullptr};
 
     // ── ANR controls ──────────────────────────────────────────────────────────
-    QGroupBox*    anrGrp             {nullptr};
+    CollapsibleSection* anrGrp       {nullptr};  // collapsible
     QSlider*      anrNoiseRedSlider  {nullptr};   // 0..48 dB
     QLabel*       lblAnrNoiseRed     {nullptr};
     QSlider*      anrSensSlider      {nullptr};   // 0..100 (×0.1 → 0.0..10.0)
@@ -147,7 +148,7 @@ private:
 
     // ── RX Equalizer ──────────────────────────────────────────────────────────
     static constexpr int RX_EQ_BANDS = 4;
-    QGroupBox*    eqGrp          {nullptr};
+    CollapsibleSection* eqGrp    {nullptr};  // collapsible
     QCheckBox*    eqEnableCheck  {nullptr};
     QPushButton*  eqClearBtn     {nullptr};
     QWidget*      eqBandsWidget  {nullptr};  // container for bands+clear (hidden when EQ off)

@@ -23,6 +23,7 @@
 #include "meter.h"
 #include "spectrumwidget.h"
 #include "txaudioprocessor.h"
+#include "collapsiblesection.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TxAudioProcessingWidget — modal-less dialog for TX audio processing.
@@ -74,12 +75,13 @@ private:
     void setProcessingControlsEnabled(bool enabled);
     void updateEqBandVisibility(float sampleRate);
     void reorderDspGroups(bool eqFirst);
+    void updateSizeConstraints();  // recalc min/max height for current visibility
 
     // ── Master bypass ────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck   {nullptr};
 
     // ── Noise gate ───────────────────────────────────────────────────────────
-    QGroupBox*    gateGrp         {nullptr};
+    CollapsibleSection* gateGrp   {nullptr};  // collapsible
     QCheckBox*    gateEnable      {nullptr};
     QSlider*      gateThreshold   {nullptr};
     QSlider*      gateAttack      {nullptr};
@@ -131,11 +133,11 @@ private:
     QLabel*       lblSidetone   {nullptr};
 
     // ── Processing group boxes ───────────────────────────────────────────────
-    QGroupBox*    gainGrp       {nullptr};
-    QGroupBox*    eqGrp         {nullptr};
-    QGroupBox*    compGrp       {nullptr};
-    QGroupBox*    sidetoneGrp   {nullptr};
-    QWidget*      orderRow      {nullptr};
+    QGroupBox*         gainGrp       {nullptr};
+    CollapsibleSection* eqGrp        {nullptr};  // collapsible
+    CollapsibleSection* compGrp      {nullptr};  // collapsible
+    QGroupBox*          sidetoneGrp  {nullptr};
+    QWidget*            orderRow     {nullptr};
 
     // ── DSP order layout ─────────────────────────────────────────────────────
     QVBoxLayout*  m_dspOrderLayout {nullptr};

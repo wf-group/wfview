@@ -11,6 +11,7 @@
 //   QLabel      → QML Text / Label
 
 #include "rxaudioprocessingwidget.h"
+#include "collapsiblesection.h"
 #include "speexnrprocessor.h"   // SpeexNrProcessor::presetCount() / bandsForPreset()
 #include <cmath>
 #include <QScrollArea>
@@ -312,8 +313,8 @@ void RxAudioProcessingWidget::buildUi()
 
     // ── Speex controls — stack page 1 ─────────────────────────────────────────
     {
-        speexGrp = new QGroupBox(tr("Speex Noise Suppressor"));
-        auto* form = new QFormLayout(speexGrp);
+        auto* speexBody = new QWidget;
+        auto* form = new QFormLayout(speexBody);
 
         // Suppression
         {
@@ -448,8 +449,12 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prior base:"), rowPB);
         }
 
+        speexGrp = new CollapsibleSection(tr("Speex Noise Suppressor"));
+        speexGrp->setBodyWidget(speexBody);
         speexGrp->setVisible(false);  // hidden by default (None selected)
         mainLayout->addWidget(speexGrp);
+        connect(speexGrp, &CollapsibleSection::expandedChanged, this,
+                [this](bool) { updateSizeConstraints(); });
         connect(speexSuppress,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcCheck,     &QCheckBox::toggled,    this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(speexAgcLevel,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -464,8 +469,8 @@ void RxAudioProcessingWidget::buildUi()
 
     // ── ANR controls — stack page 2 ───────────────────────────────────────────
     {
-        anrGrp = new QGroupBox(tr("ANR — Audacity Noise Reduction"));
-        auto* form = new QFormLayout(anrGrp);
+        auto* anrBody = new QWidget;
+        auto* form = new QFormLayout(anrBody);
 
         // Noise reduction
         {
@@ -544,8 +549,12 @@ void RxAudioProcessingWidget::buildUi()
                     this, &RxAudioProcessingWidget::onAnrCollectClicked);
         }
 
+        anrGrp = new CollapsibleSection(tr("ANR — Audacity Noise Reduction"));
+        anrGrp->setBodyWidget(anrBody);
         anrGrp->setVisible(false);  // hidden by default (None selected)
         mainLayout->addWidget(anrGrp);
+        connect(anrGrp, &CollapsibleSection::expandedChanged, this,
+                [this](bool) { updateSizeConstraints(); });
 
         connect(anrNoiseRedSlider, &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
         connect(anrSensSlider,     &QSlider::valueChanged, this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -554,23 +563,25 @@ void RxAudioProcessingWidget::buildUi()
 
     // ── RX Equalizer ────────────────────────────────────────────────────────
     {
-        eqGrp = new QGroupBox(tr("Receive Equalizer"));
-        auto* eqOuter = new QVBoxLayout(eqGrp);
-
-        // Enable checkbox + Clear button on the same row (always visible)
+        // Header: Enable + Clear (always visible, even when section is collapsed)
+        auto* eqHeader = new QWidget;
         {
-            auto* headerRow = new QHBoxLayout;
+            auto* hl = new QHBoxLayout(eqHeader);
+            hl->setContentsMargins(0, 0, 0, 0);
+            hl->setSpacing(6);
             eqEnableCheck = new QCheckBox(tr("Enable EQ"));
             eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
             eqClearBtn = new QPushButton(tr("Clear"));
             eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
-            headerRow->addWidget(eqEnableCheck);
-            headerRow->addStretch();
-            headerRow->addWidget(eqClearBtn);
-            eqOuter->addLayout(headerRow);
+            hl->addWidget(eqEnableCheck);
+            hl->addWidget(eqClearBtn);
         }
 
-        // Container for EQ controls (hidden when EQ is disabled)
+        auto* eqBodyOuter = new QWidget;
+        auto* eqOuter = new QVBoxLayout(eqBodyOuter);
+        eqOuter->setContentsMargins(0, 0, 0, 0);
+
+        // Container for band controls (hidden when EQ is disabled)
         eqBandsWidget = new QWidget;
         auto* eqBandsLayout = new QVBoxLayout(eqBandsWidget);
         eqBandsLayout->setContentsMargins(0, 0, 0, 0);
@@ -646,7 +657,12 @@ void RxAudioProcessingWidget::buildUi()
         eqBandsLayout->addLayout(bandsRow);
         eqBandsWidget->setVisible(false);  // hidden by default (EQ disabled)
         eqOuter->addWidget(eqBandsWidget);
+
+        eqGrp = new CollapsibleSection(tr("Receive Equalizer"), eqHeader);
+        eqGrp->setBodyWidget(eqBodyOuter);
         mainLayout->addWidget(eqGrp);
+        connect(eqGrp, &CollapsibleSection::expandedChanged, this,
+                [this](bool) { updateSizeConstraints(); });
 
         // Connect signals
         connect(eqEnableCheck, &QCheckBox::toggled,
@@ -885,6 +901,12 @@ void RxAudioProcessingWidget::setTransmitting(bool transmitting)
 void RxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
     specWidget->setVisible(enabled);
+    // setVisible() on a child posts an async LayoutRequest but does not
+    // synchronously invalidate ancestor layout caches.  Explicitly dirty
+    // specGrp's own layout and then propagate upward so updateSizeConstraints()
+    // sees the correct (smaller) sizeHint for specGrp.
+    specGrp->layout()->invalidate();
+    specGrp->updateGeometry();
     if (!enabled) {
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
@@ -1028,8 +1050,10 @@ void RxAudioProcessingWidget::updateAnrControlState()
 
 void RxAudioProcessingWidget::updateSizeConstraints()
 {
-    // Let the inner layout settle, then compute the ideal height for visible content.
-    controlsContainer->adjustSize();
+    // Qt invalidates sizeHint() automatically when children are hidden/shown,
+    // so we can query it directly without calling adjustSize() first.
+    // (adjustSize() would resize the inner widget's *width* too, causing a
+    //  horizontal reflow that redistributes vertical space incorrectly.)
 
     // The inner widget's sizeHint is the natural height of all visible controls.
     const int contentH = controlsContainer->sizeHint().height();
@@ -1046,4 +1070,8 @@ void RxAudioProcessingWidget::updateSizeConstraints()
         // No spectrum: lock height to exactly the content size
         setMaximumHeight(minH);
     }
+
+    // Actually shrink (or grow) the window to the new ideal height.
+    // resize() is clamped to [minimumHeight, maximumHeight] automatically.
+    resize(width(), minH);
 }
