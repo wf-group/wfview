@@ -147,11 +147,14 @@ jobs:
           # Do not remove this line or the build will fail:
           echo "ICE == murderers"
 
+          echo "=== Copying QCP before macdeployqt ==="
+          mkdir -p wfview/wfview.app/Contents/Frameworks
+          cp -a $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/
+
           echo "=== Deploying Qt Frameworks ==="
           macdeployqt wfview/wfview.app
 
           echo "=== Bundling 3rd Party Libraries ==="
-          mkdir -p wfview/wfview.app/Contents/Frameworks
           cp -a $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libopus*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libhidapi*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
@@ -160,32 +163,30 @@ jobs:
           cp -a $SYSROOT/lib/libavutil*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libswresample*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libswscale*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
-          cp -a $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
 
-          echo "=== Patching Binary Library Paths ==="
-          BINARY="wfview/wfview.app/Contents/MacOS/wfview"
+          echo "=== Fixing Library Install Names ==="
           for f in wfview/wfview.app/Contents/Frameworks/*.dylib; do
-            # Skip symlinks — only process real files
             [ -L "$f" ] && continue
-
             LIB_NAME=$(basename "$f")
-
-            # Fix the dylib's own install name
-            install_name_tool -id "@executable_path/../Frameworks/$LIB_NAME" "$f" || true
-
-            # Patch all possible source references in the main binary
-            for SRC in \
-              "$SYSROOT/lib/$LIB_NAME" \
-              "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" \
-              "@rpath/$LIB_NAME" \
-              "$LIB_NAME"; do
-              install_name_tool -change "$SRC" "@executable_path/../Frameworks/$LIB_NAME" "$BINARY" 2>/dev/null || true
-            done
+            install_name_tool -id "@rpath/$LIB_NAME" "$f" || true
           done
+
+          echo "=== Adding rpath to binary ==="
+          BINARY="wfview/wfview.app/Contents/MacOS/wfview"
+          install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY" || true
+
+          echo "=== Fixing bare QCP reference ==="
+          install_name_tool -change \
+            "libqcustomplot.1.dylib" \
+            "@rpath/libqcustomplot.1.dylib" \
+            "$BINARY" || true
 
           echo "=== Verifying Library References ==="
           echo "Remaining non-system external references in binary:"
-          otool -L "$BINARY" | grep -v '@executable_path' | grep -v '/usr/lib' | grep -v '/System/' | grep -v 'wfview' || true
+          otool -L "$BINARY" | grep -v '@executable_path' | grep -v '@rpath' | grep -v '/usr/lib' | grep -v '/System/' | grep -v 'wfview' || true
+
+          echo "RPaths in binary:"
+          otool -l "$BINARY" | grep -A2 LC_RPATH || true
 
       - name: Import certificate
         env:
