@@ -557,23 +557,23 @@ void RxAudioProcessingWidget::buildUi()
         eqGrp = new QGroupBox(tr("Receive Equalizer"));
         auto* eqOuter = new QVBoxLayout(eqGrp);
 
-        // Enable checkbox (always visible)
-        eqEnableCheck = new QCheckBox(tr("Enable EQ"));
-        eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
-        eqOuter->addWidget(eqEnableCheck);
+        // Enable checkbox + Clear button on the same row (always visible)
+        {
+            auto* headerRow = new QHBoxLayout;
+            eqEnableCheck = new QCheckBox(tr("Enable EQ"));
+            eqEnableCheck->setToolTip(tr("Enable the 4-band receive equalizer."));
+            eqClearBtn = new QPushButton(tr("Clear"));
+            eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
+            headerRow->addWidget(eqEnableCheck);
+            headerRow->addStretch();
+            headerRow->addWidget(eqClearBtn);
+            eqOuter->addLayout(headerRow);
+        }
 
         // Container for EQ controls (hidden when EQ is disabled)
         eqBandsWidget = new QWidget;
         auto* eqBandsLayout = new QVBoxLayout(eqBandsWidget);
         eqBandsLayout->setContentsMargins(0, 0, 0, 0);
-        {
-            auto* clearRow = new QHBoxLayout;
-            eqClearBtn = new QPushButton(tr("Clear"));
-            eqClearBtn->setToolTip(tr("Reset all EQ band gains to 0 dB (flat)."));
-            clearRow->addStretch();
-            clearRow->addWidget(eqClearBtn);
-            eqBandsLayout->addLayout(clearRow);
-        }
 
         // Band names, frequency ranges, and dial ranges
         struct BandDef {
