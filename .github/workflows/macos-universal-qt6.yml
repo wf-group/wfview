@@ -145,41 +145,64 @@ jobs:
 
       - name: Deploy macOS App
         run: |
-          # Do not remove this line or the build will fail:
-          echo "ICE == murderers"
           echo "=== Pre-patching QCP for macdeployqt ==="
           install_name_tool -change \
             "libqcustomplot.1.dylib" \
             "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
             wfview/wfview.app/Contents/MacOS/wfview || true
-            
+
           echo "=== Deploying Qt Frameworks ==="
           macdeployqt wfview/wfview.app
-          
+
           echo "=== Bundling 3rd Party Libraries ==="
           mkdir -p wfview/wfview.app/Contents/Frameworks
-          # Use cp -a to safely preserve symlinks instead of creating massive duplicate files
           cp -a $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libopus*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $SYSROOT/lib/libhidapi*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libavcodec*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libavformat*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libavutil*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libswresample*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
+          cp -a $SYSROOT/lib/libswscale*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
           cp -a $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
 
           echo "=== Patching Binary Library Paths ==="
+          BINARY="wfview/wfview.app/Contents/MacOS/wfview"
           for f in wfview/wfview.app/Contents/Frameworks/*.dylib; do
-            if [ -f "$f" ]; then
-              LIB_NAME=$(basename "$f")
-              
-              # 1. Fix the internal ID of the library itself so macdeployqt doesn't search /usr/lib
-              install_name_tool -id "@executable_path/../Frameworks/$LIB_NAME" "$f" || true
-              
-              # 2. Patch the wfview executable to look in the right place
-              install_name_tool -change "$SYSROOT/lib/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
-              install_name_tool -change "$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
-              install_name_tool -change "@rpath/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
-              install_name_tool -change "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" "@executable_path/../Frameworks/$LIB_NAME" wfview/wfview.app/Contents/MacOS/wfview || true
-            fi
+            # Skip symlinks — only process real files
+            [ -L "$f" ] && continue
+
+            LIB_NAME=$(basename "$f")
+
+            # Fix the dylib's own install name
+            install_name_tool -id "@executable_path/../Frameworks/$LIB_NAME" "$f" || true
+
+            # Patch all possible source references in the main binary
+            for SRC in \
+              "$SYSROOT/lib/$LIB_NAME" \
+              "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/$LIB_NAME" \
+              "@rpath/$LIB_NAME" \
+              "$LIB_NAME"; do
+              install_name_tool -change "$SRC" "@executable_path/../Frameworks/$LIB_NAME" "$BINARY" 2>/dev/null || true
+            done
           done
-        #
+
+          echo "=== Verifying Library References ==="
+          echo "Remaining non-system external references in binary:"
+          otool -L "$BINARY" | grep -v '@executable_path' | grep -v '/usr/lib' | grep -v '/System/' | grep -v 'wfview' || true
+
+      - name: Import certificate
+        env:
+          CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          echo "$CERTIFICATE_DATA" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
       - name: Sign application
         run: |
           IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
@@ -216,17 +239,25 @@ jobs:
           # Verify
           codesign --verify --deep --strict --verbose=2 "$APP"
 
-      - name: Sign and notarize application
-        uses: patroza/code-sign-action@main
-        with:
-          file: wfview/wfview.app
-          certificate-data: ${{ secrets.MACOS_CERTIFICATE }}
-          certificate-password: ${{ secrets.MACOS_CERTIFICATE_PWD }}
-          apple-notary-user: ${{ secrets.MACOS_NOTARY_USER }}
-          apple-notary-password: ${{ secrets.MACOS_NOTARY_PWD }}
-          apple-team-id: ${{ secrets.MACOS_NOTARY_TEAM }}
-          apple-product-id: org.wfview.wfview
-          options: --deep --options runtime --preserve-metadata=entitlements --entitlements wfview/resources/wfview.entitlements
+      - name: Notarize application
+        env:
+          NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
+          NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
+          NOTARY_TEAM: ${{ secrets.MACOS_NOTARY_TEAM }}
+        run: |
+          # Package for notarization
+          ditto -c -k --keepParent wfview/wfview.app wfview.zip
+
+          # Submit and wait
+          xcrun notarytool submit wfview.zip \
+            --apple-id "$NOTARY_USER" \
+            --password "$NOTARY_PWD" \
+            --team-id "$NOTARY_TEAM" \
+            --wait
+
+          # Staple the ticket
+          xcrun stapler staple wfview/wfview.app
+
       - name: Package macOS App
         uses: lethja/create-dmg-action@v0.0.2
         with:
