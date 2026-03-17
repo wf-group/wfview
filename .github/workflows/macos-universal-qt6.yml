@@ -113,11 +113,10 @@ jobs:
           make -j$(sysctl -n hw.logicalcpu)
           cp ../../qcustomplot.h .
 
-
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | sed "s/.*WFVIEW_VERSION=\\\\\"//;s/\\\\\".*//" )
+          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | grep -oE '[0-9]+\.[0-9]+')
           BUNDLE_VERSION=$(git -C wfview rev-list --count HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT

@@ -14,3 +14,4 @@ qcustomplot2.dll
 Makefile
 Makefile.Debug
 Makefile.Release
+.DS_Store
