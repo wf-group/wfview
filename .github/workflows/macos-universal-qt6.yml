@@ -112,6 +112,21 @@ jobs:
           make -j$(sysctl -n hw.logicalcpu)
           cp ../../qcustomplot.h .
 
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | sed 's/.*WFVIEW_VERSION=\\\\\\\"//;s/\\\\\\\".*//')
+          BUNDLE_VERSION=$(git rev-list --count HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set version in Info.plist
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" \
+            wfview/resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.bundle_version }}" \
+            wfview/resources/Info.plist
+
       - name: Build wfview
         working-directory: wfview
         run: |
@@ -163,6 +178,42 @@ jobs:
             fi
           done
         #
+      - name: Sign application
+        run: |
+          IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
+          APP="wfview/wfview.app"
+          ENTITLEMENTS="wfview/resources/wfview.entitlements"
+
+          # 1. Sign standalone dylibs in Frameworks
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          # 2. Sign Qt frameworks (sign the versioned binary inside each)
+          find "$APP/Contents/Frameworks" -name "*.framework" | while read fw; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp "$fw"
+          done
+
+          # 3. Sign all plugin dylibs
+          find "$APP/Contents/PlugIns" -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          # 4. Sign the main executable
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP/Contents/MacOS/wfview"
+
+          # 5. Sign the app bundle last
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP"
+
+          # Verify
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
       - name: Sign and notarize application
         uses: patroza/code-sign-action@main
         with:

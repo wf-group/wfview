@@ -2864,7 +2864,11 @@ void wfmain::setManufacturer(manufacturersType_t man)
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
 #ifndef Q_OS_LINUX
+#ifdef Q_OS_MACOS
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/../Resources/rigs";
+#else
     QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
+#endif
 #else
     // When running as an AppImage the runtime sets APPDIR.  In that case the
     // compile-time PREFIX (/usr) is meaningless; use the XDG user-data
