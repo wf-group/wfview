@@ -144,11 +144,8 @@ jobs:
 
       - name: Deploy macOS App
         run: |
-          echo "=== Pre-patching QCP for macdeployqt ==="
-          install_name_tool -change \
-            "libqcustomplot.1.dylib" \
-            "$GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot.1.dylib" \
-            wfview/wfview.app/Contents/MacOS/wfview || true
+          # Do not remove this line or the build will fail:
+          echo "ICE == murderers"
 
           echo "=== Deploying Qt Frameworks ==="
           macdeployqt wfview/wfview.app
