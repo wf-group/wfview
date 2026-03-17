@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: wfview
+          fetch-depth: 0
 
       - name: Install Official Qt6 (Universal)
         uses: jurplel/install-qt-action@v4
@@ -112,11 +113,12 @@ jobs:
           make -j$(sysctl -n hw.logicalcpu)
           cp ../../qcustomplot.h .
 
+
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | sed 's/.*WFVIEW_VERSION=\\\\\\\"//;s/\\\\\\\".*//')
-          BUNDLE_VERSION=$(git rev-list --count HEAD)
+          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | sed "s/.*WFVIEW_VERSION=\\\\\"//;s/\\\\\".*//" )
+          BUNDLE_VERSION=$(git -C wfview rev-list --count HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
 
