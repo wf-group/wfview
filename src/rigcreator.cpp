@@ -155,18 +155,19 @@ void rigCreator::on_defaultRigs_clicked(bool clicked)
 {
     Q_UNUSED(clicked)
 
-
-     QString appdata = QCoreApplication::applicationDirPath();
+    QString appdata = QCoreApplication::applicationDirPath();
 #ifndef Q_OS_WIN
 #ifdef Q_OS_LINUX
-     appdata += "/../share/wfview/rigs";
+    appdata += "/../share/wfview/rigs";
+#elif defined(Q_OS_MACOS)
+    appdata += "/../Resources/rigs";
 #else
-     appdata +="/rigs";
+    appdata += "/rigs";
 #endif
-     QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)",nullptr,QFileDialog::DontUseNativeDialog);
+    QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)",nullptr,QFileDialog::DontUseNativeDialog);
 #else
-     appdata +="/rigs";
-     QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)");
+    appdata += "/rigs";
+    QString file = QFileDialog::getOpenFileName(this,tr("Select Rig Filename"),appdata,"Rig Files (*.rig)");
 #endif
 
     if (!file.isEmpty())
@@ -174,7 +175,6 @@ void rigCreator::on_defaultRigs_clicked(bool clicked)
         loadRigFile(file);
     }
 }
-
 
 void rigCreator::on_loadFile_clicked(bool clicked)
 {
