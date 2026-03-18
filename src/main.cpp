@@ -111,6 +111,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("wfview");
     a.setOrganizationDomain("wfview.org");
     a.setApplicationName("wfview");
+    a.setDesktopFileName("wfview");
 #endif
 
 #ifdef QT_DEBUG
