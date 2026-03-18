@@ -141,6 +141,47 @@ public:
     bool isProfiling() const { return m_profiling.load(std::memory_order_acquire); }
     bool hasProfile()  const { return m_hasProfile; }
 
+    // Restore a noise profile loaded from persistent storage.
+    // Builds a new NR worker immediately using the provided means and marks
+    // hasProfile() true.  The means are also kept for future rebuilds so that
+    // parameter or sample-rate changes don't silently discard the profile.
+    // Main thread only.
+    void restoreFromNoiseProfile(const NoiseReduction::NoiseProfile& profile)
+    {
+        if (profile.means.empty() || profile.windowSize == 0 || profile.sampleRate <= 0.0)
+            return;
+
+        // Store the means for future rebuildWorker() calls.
+        {
+            std::lock_guard<std::mutex> lk(m_profileMutex);
+            m_savedMeans   = profile;
+            // Raw profile audio is no longer available — clear it so rebuildWorker
+            // falls back to the saved means rather than stale samples.
+            m_savedProfile.clear();
+        }
+
+        // Build the NR worker.  Use m_activeSR if known; fall back to the stored rate.
+        const float sr = (m_activeSR > 0.f) ? m_activeSR : static_cast<float>(profile.sampleRate);
+        auto settings = makeSettings(sr);
+        std::unique_ptr<NoiseReduction> nr;
+        try {
+            nr = std::make_unique<NoiseReduction>(settings, sr);
+            nr->restoreProfile(profile);
+            nr->beginStream();
+        } catch (...) {
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lk(m_nrMutex);
+            m_nr = std::move(nr);
+            m_outputQueue.clear();
+        }
+
+        m_hasProfile   = true;
+        m_needsRebuild = false;
+    }
+
     // Return the noise profile spectrum (mean power per FFT bin).
     // Thread-safe: briefly locks m_nrMutex.
     NoiseReduction::NoiseProfile getNoiseProfile()
@@ -231,8 +272,9 @@ private:
     // Profiling accumulator (shared between main and converter threads)
     std::atomic<bool>  m_profiling{false};
     std::mutex         m_profileMutex;
-    std::vector<float> m_accum;        // grows during active profiling
-    std::vector<float> m_savedProfile; // kept for rebuilds on settings change
+    std::vector<float>           m_accum;        // grows during active profiling
+    std::vector<float>           m_savedProfile; // raw audio samples from live collection
+    NoiseReduction::NoiseProfile m_savedMeans;   // means from persistent storage (file restore)
 
     // NR streaming engine
     std::mutex                      m_nrMutex;
@@ -275,21 +317,31 @@ private:
 
     // Rebuild the NR worker using the saved profile.  Called from the converter
     // thread, so the profile lock is held only briefly (to copy the saved data).
+    // Prefers raw audio samples (higher fidelity at the current SR); falls back
+    // to the saved means from a file-restored profile when no raw samples exist.
     void rebuildWorker(float sr)
     {
-        std::vector<float> profileCopy;
+        std::vector<float>           profileCopy;
+        NoiseReduction::NoiseProfile meansCopy;
         {
             std::lock_guard<std::mutex> lk(m_profileMutex);
             profileCopy = m_savedProfile;
+            meansCopy   = m_savedMeans;
         }
-        if (profileCopy.empty()) return;
+        if (profileCopy.empty() && meansCopy.means.empty()) return;
 
         auto settings = makeSettings(sr);
         std::unique_ptr<NoiseReduction> nr;
         try {
             nr = std::make_unique<NoiseReduction>(settings, sr);
-            InputTrack profileTrack(profileCopy);
-            nr->ProfileNoise(profileTrack);
+            if (!profileCopy.empty()) {
+                // Re-profile from the original raw audio (adapts to new SR/settings).
+                InputTrack profileTrack(profileCopy);
+                nr->ProfileNoise(profileTrack);
+            } else {
+                // Fall back to the file-restored means — no raw samples available.
+                nr->restoreProfile(meansCopy);
+            }
             nr->beginStream();
         } catch (...) {
             return;

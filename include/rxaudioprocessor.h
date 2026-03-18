@@ -20,6 +20,7 @@
 #include <QObject>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QString>
 #include <QVector>
 #include <atomic>
 
@@ -127,6 +128,16 @@ public:
     bool anrIsProfiling() const;
     bool anrHasProfile()  const;
 
+    // ── ANR noise profile persistence (main thread only) ──────────────────────
+    // setNoiseStorePath() provides the full path to the per-radio .noise file.
+    // Must be called before setRxMode() to enable load/save.
+    void setNoiseStorePath(const QString& path);
+    // Notify the processor that the demodulation mode has changed.
+    // Saves the current profile (if any) under the old mode, then loads the
+    // profile for the new mode from the store file (if one exists).
+    // Emits anrModeProfileStatus() when done.
+    void setRxMode(const QString& modeName);
+
     // Return the ANR noise profile as dB-scaled bins suitable for display.
     // bins: one dBFS value per FFT bin; sampleRate/windowSize from the profile.
     struct AnrProfileBins {
@@ -154,6 +165,10 @@ signals:
                         float rawSR);
     // Emitted alongside anrProfileReady(true) with the dB-scaled noise profile.
     void anrNoiseProfileBins(QVector<double> bins, double sampleRate, int windowSize);
+    // Emitted after setRxMode() and after stopAnrProfile() succeeds.
+    // modeName is the current mode string; hasProfile is true when a valid
+    // profile is active for that mode.
+    void anrModeProfileStatus(QString modeName, bool hasProfile);
 
 private:
     // ── Params snapshot (copied once per block under mutex) ───────────────────
@@ -258,6 +273,17 @@ private:
 
     void appendSpectrumSamples(const Eigen::VectorXf& in,
                                const Eigen::VectorXf& out);
+
+    // ── ANR persistence (main thread only — no locking required) ─────────────
+    QString m_noiseStorePath;    // full path to the per-radio .noise JSON file
+    QString m_currentModeName;   // current demodulation mode name
+
+    // Save the current ANR profile under m_currentModeName into m_noiseStorePath.
+    // Returns true on success.  Logs warnings on failure but never throws.
+    bool saveCurrentProfile();
+    // Load and restore the ANR profile for modeName from m_noiseStorePath.
+    // Returns true when a valid profile was found and successfully restored.
+    bool loadProfileForMode(const QString& modeName);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void pushSpeexParams(const Params& p);

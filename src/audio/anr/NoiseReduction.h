@@ -75,6 +75,12 @@ public:
     };
     NoiseProfile getNoiseProfile() const;
 
+    // Restore a previously-saved noise profile without re-running the profiling pass.
+    // The profile means are injected directly into mStatistics so hasProfile() returns
+    // true and streaming can begin immediately.  Silently ignored when p is empty,
+    // has an incompatible size, or has invalid metadata.
+    void restoreProfile(const NoiseProfile& p);
+
     void beginStream();
     void feedStream(const float* in, size_t n, std::vector<float>& out);
     void endStream(std::vector<float>& out);

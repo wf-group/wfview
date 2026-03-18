@@ -1035,15 +1035,47 @@ void RxAudioProcessingWidget::onAnrNoiseProfileBins(QVector<double> bins,
     updateSizeConstraints();
 }
 
+// ─── onAnrModeChanged ─────────────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::onAnrModeChanged(QString modeName, bool hasProfile)
+{
+    m_anrHasProfile   = hasProfile;
+    m_currentModeName = modeName;
+
+    if (m_anrCollecting)
+        return;  // Don't interrupt an in-progress collection countdown.
+
+    updateAnrControlState();
+}
+
 // ─── updateAnrControlState ────────────────────────────────────────────────────
 
 void RxAudioProcessingWidget::updateAnrControlState()
 {
     // Parameter sliders are always interactable when ANR is selected so the
     // user can pre-configure them before collecting a noise sample.
-    // Only the status label reflects whether a profile is ready.
-    if (!m_anrHasProfile && !m_anrCollecting)
-        lblAnrStatus->setText(tr("No noise sample — collect one before using ANR."));
+    // The status label and button reflect the current mode and profile state.
+
+    if (m_anrCollecting)
+        return;  // Text is managed by the collection countdown slots.
+
+    const bool hasMode = !m_currentModeName.isEmpty();
+
+    if (m_anrHasProfile) {
+        anrCollectBtn->setText(hasMode
+            ? tr("Collect New Noise Sample (%1)").arg(m_currentModeName)
+            : tr("Collect New Noise Sample"));
+        lblAnrStatus->setText(hasMode
+            ? tr("Noise profile for %1 ready — ANR active.").arg(m_currentModeName)
+            : tr("Noise profile ready — ANR active."));
+    } else {
+        anrCollectBtn->setText(hasMode
+            ? tr("Collect Noise Sample (%1)").arg(m_currentModeName)
+            : tr("Collect Noise Sample"));
+        lblAnrStatus->setText(hasMode
+            ? tr("No noise sample for %1 — collect one before using ANR.").arg(m_currentModeName)
+            : tr("No noise sample — collect one before using ANR."));
+    }
 }
 
 // ─── updateSizeConstraints ───────────────────────────────────────────────────

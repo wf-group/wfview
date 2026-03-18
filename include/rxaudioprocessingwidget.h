@@ -57,6 +57,10 @@ signals:
 public slots:
     // Called by wfmain after the ANR profile has been built (or failed).
     void onAnrProfileReady(bool success);
+    // Called when the radio mode changes or when a profile is saved/loaded.
+    // Updates the ANR status label and collect-button text to reflect the
+    // current mode and whether a noise profile is available for it.
+    void onAnrModeChanged(QString modeName, bool hasProfile);
     // Called from wfmain::receivePTTstatus so the widget can inhibit the
     // spectrum display while the radio is transmitting.
     void setTransmitting(bool transmitting);
@@ -145,6 +149,7 @@ private:
     bool          m_anrCollecting    = false;
     bool          m_anrHasProfile    = false;
     int           m_anrCountdown     = 0;         // seconds remaining during collection
+    QString       m_currentModeName;              // mode name last reported by onAnrModeChanged
 
     // ── RX Equalizer ──────────────────────────────────────────────────────────
     static constexpr int RX_EQ_BANDS = 4;

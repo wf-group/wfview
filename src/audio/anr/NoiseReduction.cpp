@@ -921,6 +921,21 @@ void NoiseReduction::ReduceNoise(InputTrack &inputTrack, OutputTrack &outputTrac
     }
 }
 
+void NoiseReduction::restoreProfile(const NoiseProfile& p)
+{
+    if (p.means.empty() || p.windowSize == 0 || p.sampleRate <= 0.0)
+        return;
+    const size_t expectedBins = p.windowSize / 2 + 1;
+    if (p.means.size() != expectedBins)
+        return;
+
+    // Rebuild Statistics with the saved means so the reduction pass can use them.
+    mStatistics = std::make_unique<Statistics>(expectedBins, p.sampleRate, mSettings.mWindowTypes);
+    mStatistics->mMeans.assign(p.means.begin(), p.means.end());
+    // mTotalWindows > 0 is the hasProfile() sentinel.
+    mStatistics->mTotalWindows = 1;
+}
+
 NoiseReduction::NoiseProfile NoiseReduction::getNoiseProfile() const
 {
     NoiseProfile p;

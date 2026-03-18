@@ -16,6 +16,14 @@
 #include "logcategories.h"
 #include <cmath>
 #include <algorithm>
+#include <QFile>
+#include <QSaveFile>
+#include <QFileInfo>
+#include <QDir>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QRegularExpression>
 
 #ifndef M_PI
 #  define M_PI 3.14159265358979323846
@@ -516,6 +524,244 @@ void RxAudioProcessor::pushEqParams(const Params& p)
     }
 }
 
+// ─── ANR noise profile persistence ───────────────────────────────────────────
+// All methods here are main-thread only.  No mutex is needed because
+// m_noiseStorePath and m_currentModeName are never touched from the converter
+// thread, and AnrNrProcessor's public main-thread API is separately protected.
+
+namespace {
+    // Hard limits applied when reading a .noise file.
+    constexpr int    kNoiseFileVersion = 1;
+    constexpr int    kMaxProfiles      = 64;
+    constexpr int    kMaxModeNameLen   = 32;
+    constexpr size_t kMaxMeansSize     = 4097u;  // windowSize 8192 → 4097 bins
+    constexpr double kMinSampleRate    = 100.0;
+    constexpr double kMaxSampleRate    = 384000.0;
+    constexpr int    kMinWindowSize    = 256;
+    constexpr int    kMaxWindowSize    = 8192;
+    constexpr qint64 kMaxFileBytes     = 2 * 1024 * 1024; // 2 MB cap
+}
+
+void RxAudioProcessor::setNoiseStorePath(const QString& path)
+{
+    m_noiseStorePath = path;
+    qDebug(logAudio()) << "RxAudioProcessor: ANR noise profile store:" << path;
+}
+
+void RxAudioProcessor::setRxMode(const QString& modeName)
+{
+    if (modeName.isEmpty() || modeName == m_currentModeName)
+        return;
+
+    // Save the current profile (if any) before the mode switch.
+    if (!m_currentModeName.isEmpty() && m_anr->hasProfile())
+        saveCurrentProfile();
+
+    m_currentModeName = modeName;
+
+    // Try to load a saved profile for the incoming mode.
+    const bool loaded = loadProfileForMode(modeName);
+    if (loaded) {
+        auto pb = getAnrNoiseProfileBins();
+        if (!pb.bins.isEmpty())
+            emit anrNoiseProfileBins(pb.bins, pb.sampleRate, pb.windowSize);
+    }
+    emit anrModeProfileStatus(modeName, loaded || m_anr->hasProfile());
+}
+
+bool RxAudioProcessor::saveCurrentProfile()
+{
+    if (m_noiseStorePath.isEmpty()) return false;
+    if (m_currentModeName.isEmpty()) return false;
+    if (!m_anr->hasProfile()) return false;
+
+    const auto profile = m_anr->getNoiseProfile();
+    if (profile.means.empty()) {
+        qWarning(logAudio()) << "RxAudioProcessor: ANR profile has no means, skipping save:"
+                             << m_noiseStorePath;
+        return false;
+    }
+
+    // Load the existing file so we preserve profiles for other modes.
+    QJsonObject root;
+    {
+        QFile f(m_noiseStorePath);
+        if (f.open(QIODevice::ReadOnly)) {
+            const QByteArray raw = f.read(kMaxFileBytes);
+            f.close();
+            QJsonParseError err;
+            const QJsonDocument doc = QJsonDocument::fromJson(raw, &err);
+            if (doc.isObject())
+                root = doc.object();
+            // Ignore parse errors — we'll overwrite with a fresh document.
+        }
+    }
+
+    // Enforce the profile count cap so the file can't grow unboundedly.
+    QJsonObject profiles = root["profiles"].toObject();
+    if (!profiles.contains(m_currentModeName) && profiles.size() >= kMaxProfiles) {
+        qWarning(logAudio()) << "RxAudioProcessor: noise profile store is full ("
+                             << kMaxProfiles << " modes), skipping save for mode"
+                             << m_currentModeName << m_noiseStorePath;
+        return false;
+    }
+
+    // Serialise the means array.
+    QJsonArray meansArr;
+    for (float v : profile.means)
+        meansArr.append(static_cast<double>(v));
+
+    QJsonObject entry;
+    entry["sampleRate"]   = profile.sampleRate;
+    entry["windowSize"]   = static_cast<int>(profile.windowSize);
+    entry["totalWindows"] = 1;
+    entry["means"]        = meansArr;
+
+    profiles[m_currentModeName] = entry;
+    root["version"]  = kNoiseFileVersion;
+    root["profiles"] = profiles;
+
+    // Write atomically — QSaveFile writes to a temp file then renames.
+    QSaveFile sf(m_noiseStorePath);
+    if (!sf.open(QIODevice::WriteOnly)) {
+        qWarning(logAudio()) << "RxAudioProcessor: cannot open noise profile file for writing:"
+                             << m_noiseStorePath;
+        return false;
+    }
+    sf.write(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    if (!sf.commit()) {
+        qWarning(logAudio()) << "RxAudioProcessor: failed to commit noise profile file:"
+                             << m_noiseStorePath;
+        return false;
+    }
+
+    qDebug(logAudio()) << "RxAudioProcessor: saved ANR noise profile for mode"
+                       << m_currentModeName << "to" << m_noiseStorePath;
+    return true;
+}
+
+bool RxAudioProcessor::loadProfileForMode(const QString& modeName)
+{
+    if (m_noiseStorePath.isEmpty() || modeName.isEmpty())
+        return false;
+
+    // Reject suspicious mode name strings before touching the filesystem.
+    if (modeName.size() > kMaxModeNameLen) {
+        qWarning(logAudio()) << "RxAudioProcessor: mode name too long, skipping load:"
+                             << modeName << m_noiseStorePath;
+        return false;
+    }
+    for (const QChar c : modeName) {
+        if (!c.isPrint() || c.unicode() > 127) {
+            qWarning(logAudio()) << "RxAudioProcessor: non-ASCII mode name, skipping load:"
+                                 << modeName << m_noiseStorePath;
+            return false;
+        }
+    }
+
+    QFile f(m_noiseStorePath);
+    if (!f.exists())
+        return false;  // No profiles saved yet — normal, not an error.
+
+    if (!f.open(QIODevice::ReadOnly)) {
+        qWarning(logAudio()) << "RxAudioProcessor: cannot open noise profile file for reading:"
+                             << m_noiseStorePath;
+        return false;
+    }
+    const QByteArray raw = f.read(kMaxFileBytes);
+    f.close();
+
+    QJsonParseError err;
+    const QJsonDocument doc = QJsonDocument::fromJson(raw, &err);
+    if (!doc.isObject()) {
+        qWarning(logAudio()) << "RxAudioProcessor: invalid JSON in noise profile file:"
+                             << m_noiseStorePath << "-" << err.errorString();
+        return false;
+    }
+
+    const QJsonObject root = doc.object();
+
+    if (root["version"].toInt(-1) != kNoiseFileVersion) {
+        qWarning(logAudio()) << "RxAudioProcessor: unsupported noise profile file version"
+                             << root["version"].toInt() << "in" << m_noiseStorePath;
+        return false;
+    }
+
+    const QJsonObject allProfiles = root["profiles"].toObject();
+    if (!allProfiles.contains(modeName))
+        return false;  // No profile for this mode yet — normal.
+
+    const QJsonObject entry = allProfiles[modeName].toObject();
+
+    // Validate each field strictly before touching the ANR engine.
+    const double sampleRate   = entry["sampleRate"].toDouble(-1.0);
+    const int    windowSize   = entry["windowSize"].toInt(-1);
+    const int    totalWindows = entry["totalWindows"].toInt(0);
+
+    if (sampleRate < kMinSampleRate || sampleRate > kMaxSampleRate) {
+        qWarning(logAudio()) << "RxAudioProcessor: invalid sampleRate" << sampleRate
+                             << "in noise profile for mode" << modeName << m_noiseStorePath;
+        return false;
+    }
+    // windowSize must be in range and a power of two.
+    if (windowSize < kMinWindowSize || windowSize > kMaxWindowSize
+            || (windowSize & (windowSize - 1)) != 0) {
+        qWarning(logAudio()) << "RxAudioProcessor: invalid windowSize" << windowSize
+                             << "in noise profile for mode" << modeName << m_noiseStorePath;
+        return false;
+    }
+    if (totalWindows <= 0) {
+        qWarning(logAudio()) << "RxAudioProcessor: totalWindows must be > 0 in noise profile for mode"
+                             << modeName << m_noiseStorePath;
+        return false;
+    }
+
+    const QJsonArray meansArr    = entry["means"].toArray();
+    const size_t     expectedBins = static_cast<size_t>(windowSize / 2 + 1);
+
+    if (meansArr.isEmpty() || static_cast<size_t>(meansArr.size()) != expectedBins) {
+        qWarning(logAudio()) << "RxAudioProcessor: means size mismatch (got"
+                             << meansArr.size() << "expected" << expectedBins
+                             << ") for mode" << modeName << m_noiseStorePath;
+        return false;
+    }
+    if (expectedBins > kMaxMeansSize) {
+        qWarning(logAudio()) << "RxAudioProcessor: means array too large (" << expectedBins
+                             << ") for mode" << modeName << m_noiseStorePath;
+        return false;
+    }
+
+    // Parse and range-check every value before injecting anything.
+    std::vector<float> means;
+    means.reserve(expectedBins);
+    for (const QJsonValue& v : meansArr) {
+        if (!v.isDouble()) {
+            qWarning(logAudio()) << "RxAudioProcessor: non-numeric value in means array for mode"
+                                 << modeName << m_noiseStorePath;
+            return false;
+        }
+        const double d = v.toDouble();
+        if (!std::isfinite(d) || d < 0.0 || d > 1e10) {
+            qWarning(logAudio()) << "RxAudioProcessor: out-of-range mean value" << d
+                                 << "in noise profile for mode" << modeName << m_noiseStorePath;
+            return false;
+        }
+        means.push_back(static_cast<float>(d));
+    }
+
+    // All checks passed — restore the profile.
+    NoiseReduction::NoiseProfile profile;
+    profile.means      = std::move(means);
+    profile.sampleRate = sampleRate;
+    profile.windowSize = static_cast<size_t>(windowSize);
+    m_anr->restoreFromNoiseProfile(profile);
+
+    qDebug(logAudio()) << "RxAudioProcessor: loaded ANR noise profile for mode" << modeName
+                       << "from" << m_noiseStorePath
+                       << "(SR=" << sampleRate << "windowSize=" << windowSize << ")";
+    return true;
+}
+
 // ─── ANR profile control ─────────────────────────────────────────────────────
 
 void RxAudioProcessor::startAnrProfile()
@@ -532,6 +778,9 @@ void RxAudioProcessor::stopAnrProfile()
         auto pb = getAnrNoiseProfileBins();
         if (!pb.bins.isEmpty())
             emit anrNoiseProfileBins(pb.bins, pb.sampleRate, pb.windowSize);
+        // Persist the freshly-built profile for the current mode.
+        saveCurrentProfile();
+        emit anrModeProfileStatus(m_currentModeName, true);
     }
 }
 

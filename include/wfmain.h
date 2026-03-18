@@ -678,6 +678,7 @@ private:
     AudioProcessingWidget* audioProcWin = Q_NULLPTR;
     RxAudioProcessor* rxProc = Q_NULLPTR;
     RxAudioProcessingWidget* rxAudioProcWin = Q_NULLPTR;
+    QString m_noiseStorePath;   // full path to the per-radio .noise profile file
     bandbuttons* bandbtns;
     frequencyinputwidget* finputbtns;
     settingswidget* setupui;

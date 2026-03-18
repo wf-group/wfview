@@ -188,6 +188,27 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     getSettingsFilePath(settingsFile);
 
+    // Derive the per-radio ANR noise profile store path from the settings file.
+    // For an explicit --settings file: place the .noise file in the same directory
+    // with the same base name (e.g. ic7610.conf → ic7610.noise).
+    // For the default QSettings (macOS plist / Windows registry / Linux ~/.config):
+    // use AppDataLocation so the file always lands in a real writable directory.
+    {
+        const QString sf = settings->fileName();
+        const QFileInfo fi(sf);
+        // Test for an ordinary file path — registry keys don't have a readable suffix.
+        if (!sf.isEmpty() && fi.suffix().length() >= 2 && fi.suffix().length() <= 5
+                && fi.absoluteDir().exists()) {
+            m_noiseStorePath = fi.absoluteDir().absoluteFilePath(fi.baseName() + ".noise");
+        } else {
+            QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            if (appData.isEmpty())
+                appData = QDir::homePath();
+            QDir().mkpath(appData);
+            m_noiseStorePath = appData + "/wfview.noise";
+        }
+    }
+
     setDefaultColorPresets();
 
     loadSettings(); // Look for saved preferences
@@ -497,6 +518,7 @@ void wfmain::openRig()
     // Attach RX audio processor to the RX output setup
     if (!rxProc) {
         rxProc = new RxAudioProcessor(this);
+        rxProc->setNoiseStorePath(m_noiseStorePath);
     }
     applyRxAudioProcPrefs(prefs.rxAudioProc);
     prefs.rxSetup.rxProc = rxProc;
@@ -5818,6 +5840,18 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::onAnrNoiseProfileBins);
             connect(rxProc, &RxAudioProcessor::rxSpectrumBins,
                     rxAudioProcWin, &RxAudioProcessingWidget::onSpectrumBins);
+            connect(rxProc, &RxAudioProcessor::anrModeProfileStatus,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrModeChanged);
+            // Deliver the current mode and noise profile to the newly-opened widget.
+            if (!receivers.empty() && currentReceiver < (int)receivers.size()) {
+                rxAudioProcWin->onAnrModeChanged(
+                    receivers[currentReceiver]->currentMode().name,
+                    rxProc->anrHasProfile());
+                // Populate the noise floor plot if a profile is already active.
+                auto pb = rxProc->getAnrNoiseProfileBins();
+                if (!pb.bins.isEmpty())
+                    rxAudioProcWin->onAnrNoiseProfileBins(pb.bins, pb.sampleRate, pb.windowSize);
+            }
         }
 
         // ANR profile collection: widget toggle → wfmain → rxProc
@@ -5954,6 +5988,10 @@ void wfmain::receiveValue(cacheItem val){
             if (cw != Q_NULLPTR) {
                 cw->handleCurrentModeUpdate(m.mk);
             }
+            // Notify the ANR engine so it can swap in the saved noise profile
+            // for this mode (or save the current one before switching away).
+            if (rxProc && !m.name.isEmpty())
+                rxProc->setRxMode(m.name);
         }
         //qDebug() << funcString[val.command] << "receiver:" << val.receiver << "vfo:" << vfo << "mk:" << m.mk << "name:" << m.name << "data:" << m.data << "filter:" << m.filter;
 
