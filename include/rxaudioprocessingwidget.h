@@ -24,6 +24,7 @@
 #include <QSlider>
 #include <QSpinBox>
 // QStackedWidget removed — NR pages are shown/hidden directly
+#include <QResizeEvent>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -88,6 +89,7 @@ private:
     void setProcessingControlsEnabled(bool enabled);
     void updateAnrControlState();   // enables/disables ANR sliders based on profile
     void updateSizeConstraints();   // recalc min/max height for current visibility
+    void resizeEvent(QResizeEvent* event) override;
 
     // ── Master bypass ─────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck    {nullptr};
@@ -183,6 +185,8 @@ private:
     bool m_isTransmitting = false;
     int  m_spectrumFps    = 10;
     int  m_batchCount     = 0;
+    int  m_userSpectrumHeight = 0;   // extra height the user added by stretching
+    bool m_programmaticResize = false; // true during our own resize() calls
     QTimer m_specDiagTimer;
 };
 

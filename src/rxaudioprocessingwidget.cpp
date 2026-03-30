@@ -149,8 +149,10 @@ void RxAudioProcessingWidget::onAnyControlChanged()
     // EQ controls visible when checkbox is ticked
     {
         bool eqVis = eqEnableCheck->isChecked();
-        eqBandsWidget->setVisible(eqVis);
-        updateSizeConstraints();
+        if (eqVis != eqBandsWidget->isVisible()) {
+            eqBandsWidget->setVisible(eqVis);
+            updateSizeConstraints();
+        }
     }
 
     // AGC controls visible only when checkbox is ticked
@@ -1082,28 +1084,44 @@ void RxAudioProcessingWidget::updateAnrControlState()
 
 void RxAudioProcessingWidget::updateSizeConstraints()
 {
-    // Qt invalidates sizeHint() automatically when children are hidden/shown,
-    // so we can query it directly without calling adjustSize() first.
-    // (adjustSize() would resize the inner widget's *width* too, causing a
-    //  horizontal reflow that redistributes vertical space incorrectly.)
+    // Guard against setMinimumHeight/setMaximumHeight triggering resizeEvent
+    // before we reach our own resize() call — that would corrupt m_userSpectrumHeight.
+    m_programmaticResize = true;
 
-    // The inner widget's sizeHint is the natural height of all visible controls.
     const int contentH = controlsContainer->sizeHint().height();
-    // Add a small margin for the outer layout / frame.
-    const int minH = contentH + layout()->contentsMargins().top()
-                               + layout()->contentsMargins().bottom() + 2;
+    const int margins  = layout()->contentsMargins().top()
+                       + layout()->contentsMargins().bottom() + 2;
+    const int minH = contentH + margins;
 
     setMinimumHeight(minH);
 
     if (specEnable->isChecked()) {
-        // Spectrum visible: allow vertical expansion beyond minimum
+        // Spectrum visible: allow vertical expansion beyond minimum.
+        // Preserve any extra height the user added by stretching.
         setMaximumHeight(QWIDGETSIZE_MAX);
+        resize(width(), minH + m_userSpectrumHeight);
     } else {
-        // No spectrum: lock height to exactly the content size
+        // No spectrum: lock height to exactly the content size.
+        // Clear user expansion since the spectrum is hidden.
+        m_userSpectrumHeight = 0;
         setMaximumHeight(minH);
+        resize(width(), minH);
     }
 
-    // Actually shrink (or grow) the window to the new ideal height.
-    // resize() is clamped to [minimumHeight, maximumHeight] automatically.
-    resize(width(), minH);
+    m_programmaticResize = false;
+}
+
+void RxAudioProcessingWidget::resizeEvent(QResizeEvent* event)
+{
+    QDialog::resizeEvent(event);
+    if (m_programmaticResize)
+        return;
+    // User is dragging the window — capture the extra height beyond content.
+    if (specEnable && specEnable->isChecked()) {
+        const int contentH = controlsContainer->sizeHint().height();
+        const int margins  = layout()->contentsMargins().top()
+                           + layout()->contentsMargins().bottom() + 2;
+        int extra = event->size().height() - (contentH + margins);
+        m_userSpectrumHeight = qMax(0, extra);
+    }
 }
