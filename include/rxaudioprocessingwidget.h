@@ -171,8 +171,7 @@ private:
     QLabel*       lblOutputGain  {nullptr};
 
     // ── Spectrum display ──────────────────────────────────────────────────────
-    QGroupBox*    specGrp                {nullptr};
-    QCheckBox*    specEnable             {nullptr};
+    CollapsibleSection* specGrp          {nullptr};
     QCheckBox*    specInhibitDuringTx    {nullptr};
     SpectrumWidget* specWidget           {nullptr};
 

@@ -86,7 +86,7 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     p.outputGainDB   = outputGain->value() * 0.1f;
 
     // Spectrum
-    p.spectrumEnabled       = specEnable->isChecked();
+    p.spectrumEnabled       = specGrp->isExpanded();
     p.spectrumFPS           = m_spectrumFps;
     p.specInhibitDuringTx   = specInhibitDuringTx->isChecked();
 
@@ -701,19 +701,14 @@ void RxAudioProcessingWidget::buildUi()
 
     // ── RX Spectrum ───────────────────────────────────────────────────────────
     {
-        specGrp = new QGroupBox(tr("RX Spectrum"));
-        auto* vbox = new QVBoxLayout(specGrp);
-
-        specEnable = new QCheckBox(tr("Enable spectrum display"));
-        specEnable->setToolTip(tr("Show RX audio spectrum (input: green = radio signal before NR, "
-                                  "output: orange = after noise reduction and gain)."));
-        vbox->addWidget(specEnable);
-
-        specInhibitDuringTx = new QCheckBox(tr("Inhibit during transmit"));
+        specInhibitDuringTx = new QCheckBox(tr("Inhibit during TX"));
         specInhibitDuringTx->setToolTip(tr(
             "Pause the RX spectrum display while the radio is transmitting."));
         specInhibitDuringTx->setChecked(true);
-        vbox->addWidget(specInhibitDuringTx);
+
+        auto* specBody = new QWidget;
+        auto* vbox = new QVBoxLayout(specBody);
+        vbox->setContentsMargins(0, 0, 0, 0);
 
         specWidget = new SpectrumWidget;
         specWidget->logBins    = true;
@@ -722,12 +717,17 @@ void RxAudioProcessingWidget::buildUi()
         specWidget->showSecondary = true;
         specWidget->setMinimumHeight(120);
         specWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        specWidget->setVisible(false);
-        vbox->addWidget(specWidget, 1);  // stretch factor so spectrum takes extra space
+        specWidget->setToolTip(tr("RX audio spectrum (input: green = radio signal before NR, "
+                                  "output: orange = after noise reduction and gain)."));
+        vbox->addWidget(specWidget, 1);
 
-        mainLayout->addWidget(specGrp, 1);  // stretch factor for the group too
+        specGrp = new CollapsibleSection(tr("RX Spectrum"), specInhibitDuringTx);
+        specGrp->setBodyWidget(specBody);
+        specGrp->setExpanded(false);  // collapsed by default (spectrum off)
+        specInhibitDuringTx->setEnabled(false);
+        mainLayout->addWidget(specGrp, 1);  // stretch factor for the group
 
-        connect(specEnable, &QCheckBox::toggled,
+        connect(specGrp, &CollapsibleSection::expandedChanged,
                 this, &RxAudioProcessingWidget::onSpecEnableToggled);
         connect(specInhibitDuringTx, &QCheckBox::toggled,
                 this, &RxAudioProcessingWidget::onAnyControlChanged);
@@ -776,7 +776,7 @@ void RxAudioProcessingWidget::blockAll(bool block)
         eqFreqDial[i]->blockSignals(block);
     }
     outputGain->blockSignals(block);
-    specEnable->blockSignals(block);
+    specGrp->blockSignals(block);
     specInhibitDuringTx->blockSignals(block);
 }
 
@@ -875,9 +875,9 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     lblOutputGain->setText(QString::number(p.outputGainDB, 'f', 1) + " dB");
 
     // Spectrum
-    specEnable->setChecked(p.spectrumEnabled);
+    specGrp->setExpanded(p.spectrumEnabled);
+    specInhibitDuringTx->setEnabled(p.spectrumEnabled);
     specInhibitDuringTx->setChecked(p.specInhibitDuringTx);
-    specWidget->setVisible(p.spectrumEnabled);
     m_spectrumFps = qBound(1, p.spectrumFPS, 60);
     specWidget->setFps(m_spectrumFps);
 
@@ -902,13 +902,8 @@ void RxAudioProcessingWidget::setTransmitting(bool transmitting)
 
 void RxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
-    specWidget->setVisible(enabled);
-    // setVisible() on a child posts an async LayoutRequest but does not
-    // synchronously invalidate ancestor layout caches.  Explicitly dirty
-    // specGrp's own layout and then propagate upward so updateSizeConstraints()
-    // sees the correct (smaller) sizeHint for specGrp.
-    specGrp->layout()->invalidate();
-    specGrp->updateGeometry();
+    // CollapsibleSection already shows/hides the body widget.
+    specInhibitDuringTx->setEnabled(enabled);
     if (!enabled) {
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
@@ -921,7 +916,7 @@ void RxAudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
                                              QVector<double> outBins,
                                              float rawSR)
 {
-    if (!specEnable || !specEnable->isChecked()) return;
+    if (!specGrp || !specGrp->isExpanded()) return;
     // Inhibit during transmit: drop bins while transmitting.
     if (m_isTransmitting && specInhibitDuringTx && specInhibitDuringTx->isChecked()) return;
     ++m_batchCount;
@@ -939,7 +934,7 @@ void RxAudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
 
 void RxAudioProcessingWidget::onSpecDiagTimer()
 {
-    if (!specEnable || !specEnable->isChecked()) {
+    if (!specGrp || !specGrp->isExpanded()) {
         m_batchCount = 0;
         return;
     }
@@ -1095,15 +1090,14 @@ void RxAudioProcessingWidget::updateSizeConstraints()
 
     setMinimumHeight(minH);
 
-    if (specEnable->isChecked()) {
+    if (specGrp->isExpanded()) {
         // Spectrum visible: allow vertical expansion beyond minimum.
         // Preserve any extra height the user added by stretching.
         setMaximumHeight(QWIDGETSIZE_MAX);
         resize(width(), minH + m_userSpectrumHeight);
     } else {
         // No spectrum: lock height to exactly the content size.
-        // Clear user expansion since the spectrum is hidden.
-        m_userSpectrumHeight = 0;
+        // Keep m_userSpectrumHeight so it can be restored when re-expanded.
         setMaximumHeight(minH);
         resize(width(), minH);
     }
@@ -1117,7 +1111,7 @@ void RxAudioProcessingWidget::resizeEvent(QResizeEvent* event)
     if (m_programmaticResize)
         return;
     // User is dragging the window — capture the extra height beyond content.
-    if (specEnable && specEnable->isChecked()) {
+    if (specGrp && specGrp->isExpanded()) {
         const int contentH = controlsContainer->sizeHint().height();
         const int margins  = layout()->contentsMargins().top()
                            + layout()->contentsMargins().bottom() + 2;
