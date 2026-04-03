@@ -5842,6 +5842,9 @@ void wfmain::on_RXaudioProcBtn_clicked()
                     rxAudioProcWin, &RxAudioProcessingWidget::onSpectrumBins);
             connect(rxProc, &RxAudioProcessor::anrModeProfileStatus,
                     rxAudioProcWin, &RxAudioProcessingWidget::onAnrModeChanged);
+            connect(rxProc, &RxAudioProcessor::rxAudioChannelsChanged,
+                    rxAudioProcWin, &RxAudioProcessingWidget::setAudioChannels);
+            rxAudioProcWin->setAudioChannels(rxProc->activeChannels());
             // Deliver the current mode and noise profile to the newly-opened widget.
             if (!receivers.empty() && currentReceiver < (int)receivers.size()) {
                 rxAudioProcWin->onAnrModeChanged(

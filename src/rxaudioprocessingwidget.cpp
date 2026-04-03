@@ -45,7 +45,11 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     rxAudioProcessingPrefs p;
 
     p.bypass        = bypassCheck->isChecked();
-    p.channelSelect = channelCombo->currentIndex();  // 0=auto,1=ch1,2=ch2,3=ch1+ch2
+    // Stereo combo: 0=Left(1), 1=Right(2), 2=Mono sum(3); mono: always 3
+    if (m_audioChannels > 1)
+        p.channelSelect = channelCombo->currentIndex() + 1;  // 0→1, 1→2, 2→3
+    else
+        p.channelSelect = 3;
     const int algoId = algoGroup->checkedId();
     p.nrMode = static_cast<RxNrMode>(algoId);  // 0=None, 1=Speex, 2=ANR
     // nrEnabled follows master bypass and NR mode selection
@@ -113,8 +117,20 @@ void RxAudioProcessingWidget::setConnected(bool connected)
 void RxAudioProcessingWidget::setAudioChannels(int ch)
 {
     m_audioChannels = ch;
-    channelGrp->setVisible(ch > 1);
-    updateSizeConstraints();
+    channelCombo->blockSignals(true);
+    channelCombo->clear();
+    if (ch > 1) {
+        channelCombo->addItem(tr("Left"));        // index 0 → channelSelect 1
+        channelCombo->addItem(tr("Right"));       // index 1 → channelSelect 2
+        channelCombo->addItem(tr("Mono (sum)"));  // index 2 → channelSelect 3
+        channelCombo->setCurrentIndex(2);         // default to mono sum
+        channelCombo->setEnabled(!bypassCheck->isChecked());
+    } else {
+        channelCombo->addItem(tr("Mono"));
+        channelCombo->setEnabled(false);
+    }
+    channelCombo->blockSignals(false);
+    emit prefsChanged(getPrefs());
 }
 
 // ─── Any control changed ─────────────────────────────────────────────────────
@@ -171,6 +187,7 @@ void RxAudioProcessingWidget::onAnyControlChanged()
 void RxAudioProcessingWidget::onBypassToggled(bool bypassed)
 {
     setProcessingControlsEnabled(!bypassed);
+    channelCombo->setEnabled(!bypassed && m_audioChannels > 1);
     emit prefsChanged(getPrefs());
 }
 
@@ -201,7 +218,7 @@ void RxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
     anrGrp->setEnabled(enabled);
     if (enabled)
         updateAnrControlState();
-    // channelGrp intentionally not gated by bypass (user may still change it)
+    // channelCombo is gated by bypass AND channel count in onBypassToggled()
 }
 
 // ─── buildUi ─────────────────────────────────────────────────────────────────
@@ -234,33 +251,28 @@ void RxAudioProcessingWidget::buildUi()
         return row;
     };
 
-    // ── Master Bypass ─────────────────────────────────────────────────────────
+    // ── Master Bypass + Channel select ─────────────────────────────────────────
     {
+        auto* topRow = new QHBoxLayout;
         bypassCheck = new QCheckBox(tr("Master Bypass (pass audio unchanged)"));
         QFont f = bypassCheck->font();
         f.setBold(true);
         bypassCheck->setFont(f);
-        mainLayout->addWidget(bypassCheck);
+        topRow->addWidget(bypassCheck);
+
+        channelCombo = new QComboBox;
+        channelCombo->addItem(tr("Mono"));           // placeholder for 1-ch
+        channelCombo->setEnabled(false);
+        channelCombo->setToolTip(tr(
+            "Select which channel to process when the radio provides stereo audio.\n\n"
+            "Left \u2014 Process the left channel only; right passes through unchanged.\n"
+            "Right \u2014 Process the right channel only; left passes through unchanged.\n"
+            "Mono (sum) \u2014 Mix both channels together before processing."));
+        topRow->addWidget(channelCombo);
+
+        mainLayout->addLayout(topRow);
         connect(bypassCheck, &QCheckBox::toggled,
                 this, &RxAudioProcessingWidget::onBypassToggled);
-    }
-
-    // ── Channel selection (hidden for mono, shown for stereo) ─────────────────
-    {
-        channelGrp  = new QGroupBox(tr("Input Channel"));
-        auto* form  = new QFormLayout(channelGrp);
-        channelCombo = new QComboBox;
-        channelCombo->addItem(tr("Auto (mono / sum stereo)"));  // index 0
-        channelCombo->addItem(tr("Channel 1 (Left)"));           // index 1
-        channelCombo->addItem(tr("Channel 2 (Right)"));          // index 2
-        channelCombo->addItem(tr("Ch 1 + Ch 2 (sum to mono)"));  // index 3
-        channelCombo->setToolTip(tr(
-            "Stereo input: select which channel(s) to send through the noise reducer.\n"
-            "Auto: mono feeds are passed directly; stereo feeds are summed to mono.\n"
-            "The unselected channel is passed without processing (Ch1 or Ch2 modes)."));
-        form->addRow(tr("Process:"), channelCombo);
-        mainLayout->addWidget(channelGrp);
-        channelGrp->setVisible(false);  // shown when setAudioChannels(2) is called
         connect(channelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &RxAudioProcessingWidget::onAnyControlChanged);
     }
@@ -787,9 +799,11 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
     bypassCheck->setChecked(p.bypass);
     setProcessingControlsEnabled(!p.bypass);
 
-    // Channel select — clamp to valid range
-    int ch = qBound(0, p.channelSelect, channelCombo->count() - 1);
-    channelCombo->setCurrentIndex(ch);
+    // Channel select — map channelSelect (1=L, 2=R, 3=mono) to combo index
+    if (m_audioChannels > 1) {
+        int idx = qBound(0, p.channelSelect - 1, channelCombo->count() - 1);
+        channelCombo->setCurrentIndex(idx);
+    }
 
     // Algorithm
     const int modeId = static_cast<int>(p.nrMode);  // 0=None, 1=Speex, 2=ANR

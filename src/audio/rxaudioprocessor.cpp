@@ -95,12 +95,13 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     const float inputPeak = samples.array().abs().maxCoeff();
     emit rxInputLevel(inputPeak);
 
-    // ── Ensure spectrum ring-buffer is initialised before any use ────────────
-    // This must happen before the bypass early-return so that the spectrum
-    // display works even when the processor has never been un-bypassed.
+    // ── Notify widget of stream channel count (before any downmix) ──────────
     if (sampleRate != m_activeSR || channels != m_activeChannels) {
+        const bool chChanged = (channels != m_activeChannels);
         m_activeSR       = sampleRate;
         m_activeChannels = channels;
+        if (chChanged)
+            emit rxAudioChannelsChanged(channels);
         m_speex->reset();
         m_anr->reset();
         m_eq->setSampleRate(sampleRate);
@@ -133,7 +134,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     }
 
     // ── Master bypass ────────────────────────────────────────────────────────
-    // Channel select still operates during bypass (stereo routing unchanged).
+    // In bypass mode, pass audio through unchanged (preserving stereo if present).
     if (p.bypass) {
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
@@ -142,20 +143,32 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         return samples;
     }
 
-    // ── ANR profile collection — feed raw input regardless of active mode ─────
-    // This runs on the converter thread as required by AnrNrProcessor::addProfileSamples().
-    if (m_anr->isProfiling()) {
-        // Use de-interleaved mono for profiling regardless of channel count.
-        if (channels == 1) {
-            m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
-        } else {
-            const int frames = static_cast<int>(samples.size()) / 2;
+    // ── Stereo → mono downmix ────────────────────────────────────────────────
+    // The processor is mono-only.  For 2-channel input, extract the selected
+    // channel (or sum to mono) and continue as a mono buffer.
+    // The original channel count is preserved so we can expand back before returning.
+    const int originalChannels = channels;
+    if (channels == 2) {
+        const int frames = static_cast<int>(samples.size()) / 2;
+        Eigen::VectorXf mono(frames);
+        if (p.channelSelect == 1) {
             for (int i = 0; i < frames; ++i)
-                m_anrProfileMono.push_back((samples[i * 2] + samples[i * 2 + 1]) * 0.5f);
-            m_anr->addProfileSamples(m_anrProfileMono.data(),
-                                     static_cast<int>(m_anrProfileMono.size()));
-            m_anrProfileMono.clear();
+                mono[i] = samples[i * 2];          // left only
+        } else if (p.channelSelect == 2) {
+            for (int i = 0; i < frames; ++i)
+                mono[i] = samples[i * 2 + 1];      // right only
+        } else {
+            for (int i = 0; i < frames; ++i)
+                mono[i] = (samples[i * 2] + samples[i * 2 + 1]) * 0.5f;  // sum
         }
+        samples = std::move(mono);
+        channels = 1;
+    }
+
+    // ── ANR profile collection — feed raw input regardless of active mode ─────
+    // Buffer is already mono at this point (stereo downmixed above).
+    if (m_anr->isProfiling()) {
+        m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
     }
 
     pushSpeexParams(p);
@@ -167,73 +180,16 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     if (specActive)
         specInCapture = samples;
 
-    // ── Channel routing → NR → reassemble ───────────────────────────────────
+    // ── Noise Reduction (mono buffer) ─────────────────────────────────────────
     const int n = static_cast<int>(samples.size());
-
-    if (channels == 1 || p.channelSelect == 0) {
-        // Mono or auto: process entire buffer as mono
-        if (p.nrEnabled) {
-            const float* in = samples.data();
-            std::vector<float> nr = applyNr(in, n, sampleRate, p);
-            for (int i = 0; i < n; ++i) samples[i] = nr[i];
-        }
-    } else {
-        // Stereo: de-interleave, process selected channel(s)
-        const int frames = n / 2;  // sample pairs
-        std::vector<float> left(frames), right(frames);
-        for (int i = 0; i < frames; ++i) {
-            left[i]  = samples[i * 2];
-            right[i] = samples[i * 2 + 1];
-        }
-
-        if (p.nrEnabled) {
-            if (p.channelSelect == 1) {
-                // Process L only
-                auto nr = applyNr(left.data(), frames, sampleRate, p);
-                left = nr;
-            } else if (p.channelSelect == 2) {
-                // Process R only
-                auto nr = applyNr(right.data(), frames, sampleRate, p);
-                right = nr;
-            } else {
-                // channelSelect == 3: sum to mono, process, write to both
-                std::vector<float> mono(frames);
-                for (int i = 0; i < frames; ++i)
-                    mono[i] = (left[i] + right[i]) * 0.5f;
-                auto nr = applyNr(mono.data(), frames, sampleRate, p);
-                left = nr; right = nr;
-            }
-        }
-
-        // Re-interleave
-        for (int i = 0; i < frames; ++i) {
-            samples[i * 2]     = left[i];
-            samples[i * 2 + 1] = right[i];
-        }
+    if (p.nrEnabled) {
+        std::vector<float> nr = applyNr(samples.data(), n, sampleRate, p);
+        for (int i = 0; i < n; ++i) samples[i] = nr[i];
     }
 
     // ── Equalizer (after NR, before output gain) ─────────────────────────────
     if (p.eqEnabled) {
-        if (channels == 1 || p.channelSelect == 0) {
-            // Mono or auto: EQ the whole buffer
-            m_eq->process(samples.data(), samples.data(), static_cast<int>(samples.size()));
-        } else {
-            // Stereo: de-interleave, EQ, re-interleave
-            const int frames = static_cast<int>(samples.size()) / 2;
-            // Re-use stack vectors (small enough for typical block sizes)
-            std::vector<float> left(frames), right(frames);
-            for (int i = 0; i < frames; ++i) {
-                left[i]  = samples[i * 2];
-                right[i] = samples[i * 2 + 1];
-            }
-            // EQ both channels (same settings)
-            m_eq->process(left.data(), left.data(), frames);
-            m_eq->process(right.data(), right.data(), frames);
-            for (int i = 0; i < frames; ++i) {
-                samples[i * 2]     = left[i];
-                samples[i * 2 + 1] = right[i];
-            }
-        }
+        m_eq->process(samples.data(), samples.data(), n);
     }
 
     // ── Output gain ──────────────────────────────────────────────────────────
@@ -248,6 +204,17 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     // ── Spectrum emission ─────────────────────────────────────────────────────
     if (specActive)
         appendSpectrumSamples(specInCapture, samples);
+
+    // ── Expand mono back to dual-mono stereo if the input was stereo ─────────
+    if (originalChannels == 2) {
+        const int frames = static_cast<int>(samples.size());
+        Eigen::VectorXf stereo(frames * 2);
+        for (int i = 0; i < frames; ++i) {
+            stereo[i * 2]     = samples[i];
+            stereo[i * 2 + 1] = samples[i];
+        }
+        return stereo;
+    }
 
     return samples;
 }
@@ -837,7 +804,8 @@ void RxAudioProcessor::setOutputGainDB(float v)          { QMutexLocker lk(&m_mu
 bool     RxAudioProcessor::bypassed()      const { QMutexLocker lk(&m_mutex); return m_params.bypass;        }
 bool     RxAudioProcessor::nrEnabled()     const { QMutexLocker lk(&m_mutex); return m_params.nrEnabled;     }
 RxNrMode RxAudioProcessor::nrMode()        const { QMutexLocker lk(&m_mutex); return m_params.nrMode;        }
-int      RxAudioProcessor::channelSelect() const { QMutexLocker lk(&m_mutex); return m_params.channelSelect; }
+int      RxAudioProcessor::channelSelect()  const { QMutexLocker lk(&m_mutex); return m_params.channelSelect; }
+int      RxAudioProcessor::activeChannels() const { return m_activeChannels; }
 float    RxAudioProcessor::outputGainDB()  const { QMutexLocker lk(&m_mutex); return m_params.outputGainDB;  }
 
 float RxAudioProcessor::estimatedLatencyMs() const

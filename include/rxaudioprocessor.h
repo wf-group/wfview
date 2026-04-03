@@ -12,10 +12,11 @@
 //      so the user's own voice is not processed by the noise reducer.
 //   3. Apply post-NR output gain.
 //   4. Handle mono and stereo input:
-//        channelSelect 0 — auto (mono pass; stereo summed to mono then processed)
-//        channelSelect 1 — process L only, pass R unmodified
-//        channelSelect 2 — process R only, pass L unmodified
-//        channelSelect 3 — sum L+R to mono, process, write result to both channels
+//        Mono (1 channel) — processed directly, channelSelect is ignored.
+//        Stereo (2 channels) — de-interleaved before processing:
+//          channelSelect 1 — process L only, pass R unmodified
+//          channelSelect 2 — process R only, pass L unmodified
+//          channelSelect 3 — sum L+R to mono, process, write result to both channels
 
 #include <QObject>
 #include <QMutex>
@@ -71,7 +72,7 @@ public:
     void setBypassed(bool bypass);
     void setNrEnabled(bool en);
     void setNrMode(RxNrMode mode);
-    void setChannelSelect(int ch);   // 0,1,2,3
+    void setChannelSelect(int ch);   // 1=L, 2=R, 3=mono sum
 
     // Speex
     void setSpeexSuppression(int dB);
@@ -110,6 +111,7 @@ public:
     bool  nrEnabled()      const;
     RxNrMode nrMode()      const;
     int   channelSelect()  const;
+    int   activeChannels() const;   // current stream channel count (1 or 2)
     float outputGainDB()   const;
 
     // Latency estimate from the active processor (ms, 0 if bypassed/disabled)
@@ -155,6 +157,8 @@ public slots:
 signals:
     void rxInputLevel(float peak);
     void rxOutputLevel(float peak);
+    // Emitted when the audio stream channel count changes (1 or 2).
+    void rxAudioChannelsChanged(int channels);
     // Emitted from stopAnrProfile() after the profile is built.
     void anrProfileReady(bool success);
     // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
@@ -176,7 +180,7 @@ private:
         bool     bypass        = false;
         bool     nrEnabled     = false;
         RxNrMode nrMode        = RxNrMode::None;
-        int      channelSelect = 0;
+        int      channelSelect = 3;   // 1=L, 2=R, 3=mono sum
 
         // Speex
         int   speexSuppression    = -30;

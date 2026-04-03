@@ -94,10 +94,8 @@ private:
     // ── Master bypass ─────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck    {nullptr};
 
-    // ── Channel select ────────────────────────────────────────────────────────
-    QGroupBox*    channelGrp     {nullptr};
-    QComboBox*    channelCombo   {nullptr};  // auto / Ch1 / Ch2 / Ch1+Ch2
-    QLabel*       lblChannel     {nullptr};
+    // ── Channel select (next to bypass checkbox) ──────────────────────────────
+    QComboBox*    channelCombo   {nullptr};  // L / R / Mono(sum) or just "Mono"
 
     // ── Algorithm selector ────────────────────────────────────────────────────
     QGroupBox*     algoGrp       {nullptr};

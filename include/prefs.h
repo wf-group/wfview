@@ -215,9 +215,9 @@ struct rxAudioProcessingPrefs {
     bool       nrEnabled   = false;  // enable noise reduction
     RxNrMode   nrMode      = RxNrMode::None;
 
-    // ── Channel selection ────────────────────────────────────────────────────
-    // 0=auto (mono pass-through / sum if stereo), 1=ch1 only, 2=ch2 only, 3=ch1+ch2 sum
-    int  channelSelect = 0;
+    // ── Channel selection (stereo only; ignored for mono) ──────────────────
+    // 1=left only, 2=right only, 3=sum to mono
+    int  channelSelect = 3;
 
     // ── Speex parameters ─────────────────────────────────────────────────────
     int  speexSuppression  = -30;    // max noise attenuation dB (negative, e.g. -30)
