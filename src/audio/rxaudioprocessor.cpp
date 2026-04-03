@@ -138,8 +138,18 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     if (p.bypass) {
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
-        if (specActive)
-            appendSpectrumSamples(samples, samples);  // input == output in bypass
+        if (specActive) {
+            if (channels == 2) {
+                // Downmix to mono for the spectrum FFT
+                const int frames = static_cast<int>(samples.size()) / 2;
+                Eigen::VectorXf mono(frames);
+                for (int i = 0; i < frames; ++i)
+                    mono[i] = (samples[i * 2] + samples[i * 2 + 1]) * 0.5f;
+                appendSpectrumSamples(mono, mono);
+            } else {
+                appendSpectrumSamples(samples, samples);
+            }
+        }
         return samples;
     }
 
