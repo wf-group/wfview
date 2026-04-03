@@ -143,8 +143,7 @@ private:
     QVBoxLayout*  m_dspOrderLayout {nullptr};
 
     // ── Spectrum display ─────────────────────────────────────────────────────
-    QGroupBox*      specGrp              {nullptr};
-    QCheckBox*      specEnable           {nullptr};
+    CollapsibleSection* specGrp          {nullptr};
     QCheckBox*      specInhibitDuringRx  {nullptr};
     SpectrumWidget* specWidget           {nullptr};
 

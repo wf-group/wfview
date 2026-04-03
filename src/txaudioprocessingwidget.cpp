@@ -64,7 +64,7 @@ txAudioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
     p.sidetoneLevel   = sidetoneLevel->value() * 0.01f;
     p.muteRx = muteRxCheck->isChecked();
 
-    p.spectrumEnabled     = specEnable->isChecked();
+    p.spectrumEnabled     = specGrp->isExpanded();
     p.spectrumFPS         = m_spectrumFps;
     p.specInhibitDuringRx = specInhibitDuringRx->isChecked();
 
@@ -182,13 +182,8 @@ void TxAudioProcessingWidget::onPluginOrderChanged(int index)
 
 void TxAudioProcessingWidget::onSpecEnableToggled(bool enabled)
 {
-    specWidget->setVisible(enabled);
-    // setVisible() on a child posts an async LayoutRequest but does not
-    // synchronously invalidate ancestor layout caches.  Explicitly dirty
-    // specGrp's own layout and then propagate upward so updateSizeConstraints()
-    // sees the correct (smaller) sizeHint for specGrp.
-    specGrp->layout()->invalidate();
-    specGrp->updateGeometry();
+    // CollapsibleSection already shows/hides the body widget.
+    specInhibitDuringRx->setEnabled(enabled);
     if (!enabled) {
         specWidget->spectrumPrimary.clear();
         specWidget->spectrumSecondary.clear();
@@ -230,7 +225,7 @@ void TxAudioProcessingWidget::onSpectrumBins(QVector<double> inBins,
                                             float rawSR)
 {
     if (!m_radioConnected) return;
-    if (!specEnable || !specEnable->isChecked()) return;
+    if (!specGrp || !specGrp->isExpanded()) return;
     // Inhibit during receive: drop bins while not transmitting.
     if (!m_isTransmitting && specInhibitDuringRx && specInhibitDuringRx->isChecked()) return;
     ++m_batchCount;
@@ -262,7 +257,7 @@ void TxAudioProcessingWidget::updateEqBandVisibility(float sampleRate)
 
 void TxAudioProcessingWidget::onSpecDiagTimer()
 {
-    if (!specEnable || !specEnable->isChecked()) {
+    if (!specGrp || !specGrp->isExpanded()) {
         m_batchCount = 0;
         return;
     }
@@ -585,21 +580,15 @@ void TxAudioProcessingWidget::buildUi()
 
     // ── TX Spectrum ──────────────────────────────────────────────────────────
     {
-        specGrp = new QGroupBox(tr("TX Spectrum"));
-        auto* grp  = specGrp;
-        auto* vbox = new QVBoxLayout(grp);
-
-        specEnable = new QCheckBox(tr("Enable spectrum display"));
-        specEnable->setToolTip(tr("Show TX audio spectrum (input: green, output: orange). "
-                                  "Uses a 1024-point sliding DFT, 50 Hz – 8 kHz."));
-        vbox->addWidget(specEnable);
-
         specInhibitDuringRx = new QCheckBox(tr("Inhibit during receive"));
         specInhibitDuringRx->setToolTip(tr(
             "Pause the TX spectrum display while the radio is receiving.\n"
             "Automatically disabled when self-monitoring is enabled."));
         specInhibitDuringRx->setChecked(true);
-        vbox->addWidget(specInhibitDuringRx);
+
+        auto* specBody = new QWidget;
+        auto* vbox = new QVBoxLayout(specBody);
+        vbox->setContentsMargins(0, 0, 0, 0);
 
         specWidget = new SpectrumWidget;
         specWidget->logBins    = true;
@@ -607,17 +596,18 @@ void TxAudioProcessingWidget::buildUi()
         specWidget->sampleRate = 48000.0;
         specWidget->showSecondary = true;
         specWidget->setMinimumHeight(120);
-        specWidget->setVisible(false);   // hidden until checkbox is ticked
-        // Expanding so specWidget (and therefore specGrp) absorbs all extra
-        // vertical space when the user drags the window taller.
-        specWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-        vbox->addWidget(specWidget);
+        specWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        specWidget->setToolTip(tr("TX audio spectrum (input: green, output: orange). "
+                                  "Uses a 1024-point sliding DFT, 50 Hz – 8 kHz."));
+        vbox->addWidget(specWidget, 1);
 
-        // Stretch factor 1: when the window is taller than minimum, this group
-        // (and only this group) grows to fill the extra space.
-        mainLayout->addWidget(grp, 1);
+        specGrp = new CollapsibleSection(tr("TX Spectrum"), specInhibitDuringRx);
+        specGrp->setBodyWidget(specBody);
+        specGrp->setExpanded(false);  // collapsed by default (spectrum off)
+        specInhibitDuringRx->setEnabled(false);
+        mainLayout->addWidget(specGrp, 1);
 
-        connect(specEnable, &QCheckBox::toggled,
+        connect(specGrp, &CollapsibleSection::expandedChanged,
                 this, &TxAudioProcessingWidget::onSpecEnableToggled);
         connect(specInhibitDuringRx, &QCheckBox::toggled,
                 this, &TxAudioProcessingWidget::onAnyControlChanged);
@@ -756,7 +746,7 @@ void TxAudioProcessingWidget::updateSizeConstraints()
     const int minH = qMax(sizeHint().height(), minimumSizeHint().height());
     setMinimumHeight(minH);
 
-    if (specEnable->isChecked()) {
+    if (specGrp->isExpanded()) {
         // Spectrum visible: allow vertical expansion beyond minimum so the
         // spectrum widget (the only Expanding item) absorbs extra space.
         setMaximumHeight(QWIDGETSIZE_MAX);
@@ -787,7 +777,7 @@ void TxAudioProcessingWidget::blockAll(bool block)
     sidetoneEnable->blockSignals(block);
     sidetoneLevel->blockSignals(block);
     muteRxCheck->blockSignals(block);
-    specEnable->blockSignals(block);
+    specGrp->blockSignals(block);
     gateEnable->blockSignals(block);
     gateThreshold->blockSignals(block);
     gateAttack->blockSignals(block);
@@ -826,9 +816,9 @@ void TxAudioProcessingWidget::populateFromPrefs(const txAudioProcessingPrefs& p)
     sidetoneLevel->setValue(static_cast<int>(std::round(p.sidetoneLevel * 100.0f)));
     muteRxCheck->setChecked(false);
 
-    specEnable->setChecked(p.spectrumEnabled);
+    specGrp->setExpanded(p.spectrumEnabled);
+    specInhibitDuringRx->setEnabled(p.spectrumEnabled);
     specInhibitDuringRx->setChecked(p.specInhibitDuringRx);
-    specWidget->setVisible(p.spectrumEnabled);
 
     m_spectrumFps = qBound(1, p.spectrumFPS, 60);
     specWidget->setFps(m_spectrumFps);
