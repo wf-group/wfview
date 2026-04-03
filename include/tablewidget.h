@@ -25,6 +25,12 @@ public:
     void editing(bool val) { editingEnabled = val; };
     void addAction(QAction* action) { menuActions.append(action); }
 
+public slots:
+    void addItem();
+    void insertItem();
+    void cloneItem();
+    void deleteItem();
+
 signals:
     void rowAdded(int row);
     void rowDeleted(int num);
