@@ -253,6 +253,12 @@ void settingswidget::acceptUdpPreferencesPtr(udpPreferences *upptr)
         audioDev->enumerate();
     }
 
+    // Apply manufacturer-specific UI visibility now that both prefs and udpPrefs are available.
+    // Without this, the Radio Access page shows a merged view of all manufacturer controls.
+    if(havePrefs) {
+        ui->manufacturerCombo->setCurrentIndex(ui->manufacturerCombo->findData(prefs->manufacturer));
+        on_manufacturerCombo_currentIndexChanged(ui->manufacturerCombo->currentIndex());
+    }
 }
 
 void settingswidget::acceptServerConfig(SERVERCONFIG *sc)
