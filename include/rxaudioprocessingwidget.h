@@ -48,12 +48,16 @@ public:
     void setConnected(bool connected);
     // Call when the audio feed channel count is known (1 or 2)
     void setAudioChannels(int ch);
+    // Show the debug capture button (only when --debug flag is active)
+    void setDebugMode(bool debug);
 
 signals:
     void prefsChanged(rxAudioProcessingPrefs p);
     // Emitted when the user clicks the collect/stop button.
     // true = start collecting, false = stop collecting (finalize profile).
     void anrCollectToggled(bool collecting);
+    // Emitted when the user clicks the debug capture button.
+    void debugCaptureRequested();
 
 public slots:
     // Called by wfmain after the ANR profile has been built (or failed).
@@ -75,8 +79,11 @@ private slots:
     void onAnrCollectTimeout();
     void onSpecEnableToggled(bool enabled);
     void onSpecDiagTimer();
+    void onDebugCaptureClicked();
+    void onDebugCaptureCountdown();
 
 public slots:
+    void onDebugCaptureComplete(QString filePath);
     // Connected to RxAudioProcessor::rxSpectrumBins (Qt::AutoConnection).
     void onSpectrumBins(QVector<double> inBins, QVector<double> outBins, float rawSR);
     // Connected to RxAudioProcessor::anrNoiseProfileBins — displays noise profile.
@@ -93,6 +100,12 @@ private:
 
     // ── Master bypass ─────────────────────────────────────────────────────────
     QCheckBox*    bypassCheck    {nullptr};
+
+    // ── Debug capture ────────────────────────────────────────────────────────
+    QPushButton*  debugCaptureBtn  {nullptr};
+    QTimer*       debugCaptureTimer {nullptr};
+    int           m_debugCountdown = 0;
+    bool          m_debugMode      = false;
 
     // ── Channel select (next to bypass checkbox) ──────────────────────────────
     QComboBox*    channelCombo   {nullptr};  // L / R / Mono(sum) or just "Mono"

@@ -541,7 +541,7 @@ void TxAudioProcessingWidget::buildUi()
             col->setContentsMargins(1, 0, 1, 0);
 
             eqSliders[i] = new QSlider(Qt::Vertical);
-            eqSliders[i]->setRange(-100, 100);  // ×0.1 dB → -10..+10 dB
+            eqSliders[i]->setRange(-90, 90);  // ×0.1 dB → -9..+9 dB
             eqSliders[i]->setValue(0);
             eqSliders[i]->setTickPosition(QSlider::TicksRight);
             eqSliders[i]->setTickInterval(10); // 1.0 dB ticks

@@ -12,6 +12,7 @@
 
 #include "rxaudioprocessingwidget.h"
 #include "collapsiblesection.h"
+#include "logcategories.h"
 #include "speexnrprocessor.h"   // SpeexNrProcessor::presetCount() / bandsForPreset()
 #include <cmath>
 #include <QScrollArea>
@@ -158,7 +159,7 @@ void RxAudioProcessingWidget::onAnyControlChanged()
         eqGainLabel[i]->setText(QString::number(eqGainSlider[i]->value() * 0.1f, 'f', 1) + " dB");
         int freq = eqFreqDial[i]->value();
         if (freq >= 1000)
-            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 1) + " kHz");
+            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 2) + " kHz");
         else
             eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
     }
@@ -275,6 +276,20 @@ void RxAudioProcessingWidget::buildUi()
                 this, &RxAudioProcessingWidget::onBypassToggled);
         connect(channelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &RxAudioProcessingWidget::onAnyControlChanged);
+    }
+
+    // ── Debug capture button (hidden unless --debug) ─────────────────────────
+    {
+        debugCaptureBtn = new QPushButton(tr("Capture RX Audio (5 s)"));
+        debugCaptureBtn->setVisible(false);  // shown only via setDebugMode(true)
+        mainLayout->addWidget(debugCaptureBtn);
+        connect(debugCaptureBtn, &QPushButton::clicked,
+                this, &RxAudioProcessingWidget::onDebugCaptureClicked);
+
+        debugCaptureTimer = new QTimer(this);
+        debugCaptureTimer->setInterval(1000);
+        connect(debugCaptureTimer, &QTimer::timeout,
+                this, &RxAudioProcessingWidget::onDebugCaptureCountdown);
     }
 
     // ── Algorithm selector ────────────────────────────────────────────────────
@@ -647,8 +662,9 @@ void RxAudioProcessingWidget::buildUi()
             eqFreqDial[i] = new QDial;
             eqFreqDial[i]->setRange(bandDefs[i].freqMin, bandDefs[i].freqMax);
             eqFreqDial[i]->setValue(bandDefs[i].freqDefault);
+            eqFreqDial[i]->setSingleStep((bandDefs[i].freqMax-bandDefs[i].freqMin) / 100);
             eqFreqDial[i]->setWrapping(false);
-            eqFreqDial[i]->setNotchesVisible(true);
+            eqFreqDial[i]->setNotchesVisible(false);
             eqFreqDial[i]->setFixedSize(35, 35);
             eqFreqDial[i]->setToolTip(tr("%1: adjust frequency for this band (%2–%3 Hz)")
                 .arg(bandDefs[i].name)
@@ -659,7 +675,7 @@ void RxAudioProcessingWidget::buildUi()
             // Frequency label (below dial)
             int defFreq = bandDefs[i].freqDefault;
             if (defFreq >= 1000)
-                eqFreqLabel[i] = new QLabel(QString::number(defFreq * 0.001, 'f', 1) + " kHz");
+                eqFreqLabel[i] = new QLabel(QString::number(defFreq * 0.001, 'f', 2) + " kHz");
             else
                 eqFreqLabel[i] = new QLabel(QString::number(defFreq) + " Hz");
             eqFreqLabel[i]->setAlignment(Qt::AlignCenter);
@@ -879,7 +895,7 @@ void RxAudioProcessingWidget::populateFromPrefs(const rxAudioProcessingPrefs& p)
         eqGainLabel[i]->setText(QString::number(p.eqGain[i], 'f', 1) + " dB");
         int freq = qRound(p.eqFreq[i]);
         if (freq >= 1000)
-            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 1) + " kHz");
+            eqFreqLabel[i]->setText(QString::number(freq * 0.001, 'f', 2) + " kHz");
         else
             eqFreqLabel[i]->setText(QString::number(freq) + " Hz");
     }
@@ -1132,4 +1148,42 @@ void RxAudioProcessingWidget::resizeEvent(QResizeEvent* event)
         int extra = event->size().height() - (contentH + margins);
         m_userSpectrumHeight = qMax(0, extra);
     }
+}
+
+// ─── Debug capture ──────────────────────────────────────────────────────────
+
+void RxAudioProcessingWidget::setDebugMode(bool debug)
+{
+    m_debugMode = debug;
+    if (debugCaptureBtn)
+        debugCaptureBtn->setVisible(debug);
+}
+
+void RxAudioProcessingWidget::onDebugCaptureClicked()
+{
+    debugCaptureBtn->setEnabled(false);
+    m_debugCountdown = 5;
+    debugCaptureBtn->setText(tr("Recording... (%1)").arg(m_debugCountdown));
+    debugCaptureTimer->start();
+    emit debugCaptureRequested();
+}
+
+void RxAudioProcessingWidget::onDebugCaptureCountdown()
+{
+    m_debugCountdown--;
+    if (m_debugCountdown > 0) {
+        debugCaptureBtn->setText(tr("Recording... (%1)").arg(m_debugCountdown));
+    } else {
+        debugCaptureTimer->stop();
+        debugCaptureBtn->setText(tr("Finishing..."));
+    }
+}
+
+void RxAudioProcessingWidget::onDebugCaptureComplete(QString filePath)
+{
+    debugCaptureTimer->stop();
+    debugCaptureBtn->setEnabled(true);
+    debugCaptureBtn->setText(tr("Capture RX Audio (5 s)"));
+    if (!filePath.isEmpty())
+        qInfo(logAudio) << "Debug capture saved:" << filePath;
 }

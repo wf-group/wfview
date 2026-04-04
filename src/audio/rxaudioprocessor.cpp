@@ -70,6 +70,25 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
 {
     if (samples.size() == 0) return samples;
 
+    // ── Debug WAV capture (raw input, before any processing) ────────────────
+    if (m_debugCapturing.load(std::memory_order_acquire)) {
+        if (m_debugCaptureSR == 0.0f) {
+            m_debugCaptureSR = sampleRate;
+            m_debugCaptureCh = channels;
+            m_debugCaptureNeeded = static_cast<int>(sampleRate) * channels * 5;
+        }
+        int remaining = m_debugCaptureNeeded - static_cast<int>(m_debugCaptureBuf.size());
+        if (remaining > 0) {
+            int toCapture = std::min(static_cast<int>(samples.size()), remaining);
+            m_debugCaptureBuf.insert(m_debugCaptureBuf.end(),
+                                     samples.data(), samples.data() + toCapture);
+        }
+        if (static_cast<int>(m_debugCaptureBuf.size()) >= m_debugCaptureNeeded) {
+            m_debugCapturing.store(false, std::memory_order_release);
+            writeDebugWav();
+        }
+    }
+
     // Snapshot parameters
     Params p;
     {
@@ -737,6 +756,79 @@ bool RxAudioProcessor::loadProfileForMode(const QString& modeName)
                        << "from" << m_noiseStorePath
                        << "(SR=" << sampleRate << "windowSize=" << windowSize << ")";
     return true;
+}
+
+// ─── Debug WAV capture ──────────────────────────────────────────────────────
+
+void RxAudioProcessor::startDebugCapture()
+{
+    m_debugCaptureBuf.clear();
+    m_debugCaptureBuf.reserve(48000 * 2 * 5);  // reasonable pre-alloc
+    m_debugCaptureSR = 0.0f;
+    m_debugCaptureCh = 0;
+    m_debugCaptureNeeded = 0;
+    m_debugCapturing.store(true, std::memory_order_release);
+    emit debugCaptureStarted();
+}
+
+void RxAudioProcessor::writeDebugWav()
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString stamp = QDateTime::currentDateTime().toString("yyyyMMdd-hhmmss");
+    const QString path = dir + "/wfview-rxaudio-" + stamp + ".wav";
+
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly)) {
+        qWarning(logAudio) << "Debug capture: cannot open" << path;
+        emit debugCaptureComplete(QString());
+        return;
+    }
+
+    const int numSamples = static_cast<int>(m_debugCaptureBuf.size());
+    const int channels   = m_debugCaptureCh;
+    const int sampleRate = static_cast<int>(m_debugCaptureSR);
+    const int bitsPerSample = 32;
+    const int blockAlign = channels * (bitsPerSample / 8);
+    const int byteRate   = sampleRate * blockAlign;
+    const int dataSize   = numSamples * static_cast<int>(sizeof(float));
+
+    // RIFF header
+    f.write("RIFF", 4);
+    quint32 riffSize = 36 + dataSize;
+    f.write(reinterpret_cast<const char*>(&riffSize), 4);
+    f.write("WAVE", 4);
+
+    // fmt chunk — IEEE float (format tag 3)
+    f.write("fmt ", 4);
+    quint32 fmtSize = 16;
+    f.write(reinterpret_cast<const char*>(&fmtSize), 4);
+    quint16 fmtTag = 3;  // IEEE float
+    f.write(reinterpret_cast<const char*>(&fmtTag), 2);
+    quint16 ch = static_cast<quint16>(channels);
+    f.write(reinterpret_cast<const char*>(&ch), 2);
+    quint32 sr = static_cast<quint32>(sampleRate);
+    f.write(reinterpret_cast<const char*>(&sr), 4);
+    quint32 br = static_cast<quint32>(byteRate);
+    f.write(reinterpret_cast<const char*>(&br), 4);
+    quint16 ba = static_cast<quint16>(blockAlign);
+    f.write(reinterpret_cast<const char*>(&ba), 2);
+    quint16 bps = static_cast<quint16>(bitsPerSample);
+    f.write(reinterpret_cast<const char*>(&bps), 2);
+
+    // data chunk
+    f.write("data", 4);
+    quint32 ds = static_cast<quint32>(dataSize);
+    f.write(reinterpret_cast<const char*>(&ds), 4);
+    f.write(reinterpret_cast<const char*>(m_debugCaptureBuf.data()), dataSize);
+
+    f.close();
+    qInfo(logAudio) << "Debug capture: wrote" << path
+                     << "(" << sampleRate << "Hz," << channels << "ch,"
+                     << (numSamples / channels / sampleRate) << "s)";
+
+    m_debugCaptureBuf.clear();
+    m_debugCaptureBuf.shrink_to_fit();
+    emit debugCaptureComplete(path);
 }
 
 // ─── ANR profile control ─────────────────────────────────────────────────────

@@ -5824,6 +5824,7 @@ void wfmain::on_RXaudioProcBtn_clicked()
 {
     if (!rxAudioProcWin) {
         rxAudioProcWin = new RxAudioProcessingWidget(this);
+        rxAudioProcWin->setDebugMode(debugMode);
         rxAudioProcWin->setPrefs(prefs.rxAudioProc);
 
         connect(rxAudioProcWin, &RxAudioProcessingWidget::prefsChanged,
@@ -5860,6 +5861,14 @@ void wfmain::on_RXaudioProcBtn_clicked()
         // ANR profile collection: widget toggle → wfmain → rxProc
         connect(rxAudioProcWin, &RxAudioProcessingWidget::anrCollectToggled,
                 this, &wfmain::onAnrCollectToggled);
+
+        // Debug audio capture: widget → rxProc, rxProc → widget
+        if (rxProc) {
+            connect(rxAudioProcWin, &RxAudioProcessingWidget::debugCaptureRequested,
+                    rxProc, &RxAudioProcessor::startDebugCapture);
+            connect(rxProc, &RxAudioProcessor::debugCaptureComplete,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onDebugCaptureComplete);
+        }
     }
     rxAudioProcWin->show();
     rxAudioProcWin->raise();

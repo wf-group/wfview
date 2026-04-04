@@ -23,6 +23,8 @@
 #include <QMutexLocker>
 #include <QString>
 #include <QVector>
+#include <QStandardPaths>
+#include <QDateTime>
 #include <atomic>
 
 // Forward-declare pocketfft plan (full C header not needed in every TU).
@@ -130,6 +132,10 @@ public:
     bool anrIsProfiling() const;
     bool anrHasProfile()  const;
 
+    // ── Debug WAV capture ──────────────────────────────────────────────────────
+    // Captures 5 seconds of raw input audio (before any processing) to a WAV file.
+    void startDebugCapture();
+
     // ── ANR noise profile persistence (main thread only) ──────────────────────
     // setNoiseStorePath() provides the full path to the per-radio .noise file.
     // Must be called before setRxMode() to enable load/save.
@@ -173,6 +179,9 @@ signals:
     // modeName is the current mode string; hasProfile is true when a valid
     // profile is active for that mode.
     void anrModeProfileStatus(QString modeName, bool hasProfile);
+    // Debug capture signals
+    void debugCaptureComplete(QString filePath);
+    void debugCaptureStarted();
 
 private:
     // ── Params snapshot (copied once per block under mutex) ───────────────────
@@ -288,6 +297,15 @@ private:
     // Load and restore the ANR profile for modeName from m_noiseStorePath.
     // Returns true when a valid profile was found and successfully restored.
     bool loadProfileForMode(const QString& modeName);
+
+    // ── Debug WAV capture state (converter-thread-only except atomic flag) ────
+    std::atomic<bool>      m_debugCapturing   { false };
+    std::vector<float>     m_debugCaptureBuf;
+    float                  m_debugCaptureSR   = 0.0f;
+    int                    m_debugCaptureCh   = 0;
+    int                    m_debugCaptureNeeded = 0;  // total float samples for 5 s
+
+    void writeDebugWav();
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     void pushSpeexParams(const Params& p);
