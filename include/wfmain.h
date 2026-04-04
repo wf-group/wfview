@@ -406,7 +406,7 @@ private slots:
 
     void on_monitorSlider_valueChanged(int value);
 
-    void on_monitorLabel_linkActivated(const QString&);
+    void on_monitorLabel_clicked();
 
     void on_tuneNowBtn_clicked();
     void on_tuneEnableChk_clicked(bool checked);

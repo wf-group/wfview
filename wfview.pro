@@ -360,6 +360,7 @@ SOURCES += \
     src/memories.cpp \
     src/meter.cpp \
     src/pttyhandler.cpp \
+    src/clickablelabel.cpp \
     src/qledlabel.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomserver.cpp \
@@ -462,6 +463,7 @@ HEADERS  += \
     include/prefs.h \
     include/printhex.h \
     include/pttyhandler.h \
+    include/clickablelabel.h \
     include/qledlabel.h \
     include/receiverwidget.h \
     include/repeaterattributes.h \

@@ -38,8 +38,9 @@ CollapsibleSection::CollapsibleSection(const QString& title,
 
     header->addStretch(1);
 
-    if (pinnedWidget)
-        header->addWidget(pinnedWidget);
+    m_pinnedWidget = pinnedWidget;
+    if (m_pinnedWidget)
+        header->addWidget(m_pinnedWidget);
 
     outer->addWidget(headerWidget);
 
@@ -74,6 +75,14 @@ void CollapsibleSection::setExpanded(bool expanded)
     m_expanded = expanded;
     applyState();
     emit expandedChanged(m_expanded);
+}
+
+void CollapsibleSection::setContentEnabled(bool enabled)
+{
+    if (m_body)
+        m_body->setEnabled(enabled);
+    if (m_pinnedWidget)
+        m_pinnedWidget->setEnabled(enabled);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -285,10 +285,10 @@ void TxAudioProcessingWidget::onSpecDiagTimer()
 void TxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     orderRow->setEnabled(enabled);
-    gateGrp->setEnabled(enabled);
+    gateGrp->setContentEnabled(enabled);
     gainGrp->setEnabled(enabled);
-    eqGrp->setEnabled(enabled);
-    compGrp->setEnabled(enabled);
+    eqGrp->setContentEnabled(enabled);
+    compGrp->setContentEnabled(enabled);
     // Self-Monitor group is always available regardless of bypass state.
 }
 

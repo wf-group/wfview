@@ -212,11 +212,11 @@ void RxAudioProcessingWidget::onAlgorithmGroupToggled(bool)
 void RxAudioProcessingWidget::setProcessingControlsEnabled(bool enabled)
 {
     algoGrp->setEnabled(enabled);
-    speexGrp->setEnabled(enabled);
-    eqGrp->setEnabled(enabled);
+    speexGrp->setContentEnabled(enabled);
+    eqGrp->setContentEnabled(enabled);
     gainGrp->setEnabled(enabled);
     // ANR group: outer box enabled by bypass, but inner controls gated by profile
-    anrGrp->setEnabled(enabled);
+    anrGrp->setContentEnabled(enabled);
     if (enabled)
         updateAnrControlState();
     // channelCombo is gated by bypass AND channel count in onBypassToggled()

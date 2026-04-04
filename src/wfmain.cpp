@@ -39,7 +39,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ui->setupUi(this);
     setWindowTitle(QString("wfview"));
 
-    ui->monitorLabel->setText("<a href=\"#\" style=\"color:white; text-decoration:none;\">Mon</a>");
+    ui->monitorLabel->setText("Mon");
 
 
     logWindow = new loggingWindow(logFile);
@@ -4491,7 +4491,7 @@ void wfmain::on_monitorSlider_valueChanged(int value)
     queue->addUnique(priorityImmediate,queueItem(funcMonitorGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
-void wfmain::on_monitorLabel_linkActivated(const QString&)
+void wfmain::on_monitorLabel_clicked()
 {
     cacheItem ca = queue->getCache(funcMonitor);
     bool mon = ca.value.toBool();
@@ -4929,10 +4929,7 @@ void wfmain::receiveMeter(meter_t inMeter, double level)
 
 void wfmain::receiveMonitor(bool en)
 {
-    if (en)
-        ui->monitorLabel->setText(QString("<b><a href=\"#\" style=\"color:%0; text-decoration:none;\">Mon</a></b>").arg(colorPrefs->textColor.name()));
-    else
-        ui->monitorLabel->setText(QString("<a href=\"#\" style=\"color:%0; text-decoration:none;\">Mon</a>").arg(colorPrefs->textColor.name()));
+    ui->monitorLabel->setActive(en);
 }
 
 

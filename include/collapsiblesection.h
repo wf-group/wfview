@@ -42,6 +42,9 @@ public:
     bool isExpanded() const { return m_expanded; }
     void setExpanded(bool expanded);
 
+    // Disable/enable the body content while keeping the collapse toggle functional.
+    void setContentEnabled(bool enabled);
+
 signals:
     void expandedChanged(bool expanded);
 
@@ -51,9 +54,10 @@ private slots:
 private:
     void applyState();
 
-    QToolButton* m_toggle   {nullptr};
-    QWidget*     m_body     {nullptr};
-    bool         m_expanded {true};
+    QToolButton* m_toggle       {nullptr};
+    QWidget*     m_pinnedWidget {nullptr};
+    QWidget*     m_body         {nullptr};
+    bool         m_expanded     {true};
 };
 
 #endif // COLLAPSIBLESECTION_H

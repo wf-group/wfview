@@ -672,27 +672,15 @@
                 </widget>
                </item>
                <item>
-                <widget class="QLabel" name="monitorLabel">
+                <widget class="ClickableLabel" name="monitorLabel">
                  <property name="maximumSize">
                   <size>
                    <width>16777215</width>
                    <height>15</height>
                   </size>
                  </property>
-                 <property name="mouseTracking">
-                  <bool>true</bool>
-                 </property>
                  <property name="text">
-                  <string>&lt;a href='#'&gt;Mon&lt;/a&gt;</string>
-                 </property>
-                 <property name="textFormat">
-                  <enum>Qt::RichText</enum>
-                 </property>
-                 <property name="openExternalLinks">
-                  <bool>false</bool>
-                 </property>
-                 <property name="textInteractionFlags">
-                  <set>Qt::NoTextInteraction</set>
+                  <string>Mon</string>
                  </property>
                 </widget>
                </item>
@@ -1368,6 +1356,11 @@
    <extends>QWidget</extends>
    <header>meter.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ClickableLabel</class>
+   <extends>QLabel</extends>
+   <header>clickablelabel.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
