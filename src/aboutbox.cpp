@@ -15,7 +15,7 @@ aboutbox::aboutbox(QWidget *parent) :
     ui->topText->setText("wfview version " + QString(WFVIEW_VERSION));
 
     QString head = QString("<html><head></head><body>");
-    QString copyright = QString("Copyright 2017-2024 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://gitlab.com/eliggett/wfview/-/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.");
+    QString copyright = QString("Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://gitlab.com/eliggett/wfview/-/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.");
     QString scm = QString("<br/><br/>Source code and issues managed by Roeland Jansen, PA3MET");
     QString doctest = QString("<br/><br/>Testing and development mentorship from Jim Nijkamp, PA8E.");
 
