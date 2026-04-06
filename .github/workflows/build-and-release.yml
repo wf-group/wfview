@@ -35,12 +35,13 @@ jobs:
       - name: Determine version
         id: version_info
         run: |
-          REF="${{ github.ref_name }}"
           SHORT=$(git -C wfview rev-parse --short HEAD)
-          if [ -z "$REF" ]; then
-            REF="$SHORT"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION_STRING="${{ github.ref_name }}"
+          else
+            VERSION_STRING="$SHORT"
           fi
-          echo "version_string=$REF" >> "$GITHUB_OUTPUT"
+          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
           echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
 
       - name: Install Official Qt6 (Universal)
@@ -326,12 +327,13 @@ jobs:
     - name: Determine version
       id: version_info
       run: |
-        REF="${{ github.ref_name }}"
         SHORT=$(git rev-parse --short HEAD)
-        if [ -z "$REF" ]; then
-          REF="$SHORT"
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION_STRING="${{ github.ref_name }}"
+        else
+          VERSION_STRING="$SHORT"
         fi
-        echo "version_string=$REF" >> "$GITHUB_OUTPUT"
+        echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
         echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
 
     # ─── Capture metadata ───────────────────────────────────────────────
@@ -697,12 +699,13 @@ jobs:
       - name: Gather release metadata
         id: meta
         run: |
-          REF="${{ github.ref_name }}"
           SHORT=$(git rev-parse --short HEAD)
-          if [ -z "$REF" ]; then
-            REF="$SHORT"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION_STRING="${{ github.ref_name }}"
+          else
+            VERSION_STRING="$SHORT"
           fi
-          echo "version_string=$REF" >> "$GITHUB_OUTPUT"
+          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
           echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
           echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
           echo "git_msg<<EOF" >> "$GITHUB_OUTPUT"
@@ -727,8 +730,8 @@ jobs:
         with:
           tag_name: beta-${{ steps.meta.outputs.version_string }}-${{ github.run_number }}
           name: "wfview Beta Build #${{ github.run_number }} (${{ steps.meta.outputs.version_string }})"
-          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          make_latest: ${{ !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
+          prerelease: ${{ github.ref_name != 'master' || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          make_latest: ${{ github.ref_name == 'master' && !contains(github.ref, 'beta') && !contains(github.ref, 'rc') }}
           files: |
             artifacts/wfview.dmg
             artifacts/wfview-installer.sh
