@@ -21,7 +21,14 @@ contains(DEFINES,USB_CONTROLLER){
 TARGET = wfview
 TEMPLATE = app
 
-DEFINES += WFVIEW_VERSION=\\\"2.22\\\"
+# VERSION can be overridden on the qmake command line, e.g.:
+#   qmake ... VERSION="1.2.3"
+# If set, it replaces the default WFVIEW_VERSION.
+isEmpty(VERSION) {
+    DEFINES += WFVIEW_VERSION=\\\"2.22\\\"
+} else {
+    DEFINES += WFVIEW_VERSION=\\\"$$VERSION\\\"
+}
 
 DEFINES += BUILD_WFVIEW
 
