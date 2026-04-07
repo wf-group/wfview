@@ -1,6 +1,6 @@
 stages:
   - deploy
-  
+
 variables:
   # Branches to mirror to GitHub. Edit this list as needed.
   MIRROR_BRANCHES: "master newscope audioprocessing"
@@ -8,10 +8,10 @@ variables:
 mirror-to-github:
   stage: deploy
   variables:
-    GIT_DEPTH: "1"
+    GIT_DEPTH: "0"
   rules:
     - if: $CI_COMMIT_BRANCH
-  image: 
+  image:
     name: alpine/git:latest
     entrypoint: [""]
   script:
@@ -32,19 +32,34 @@ mirror-to-github:
 
       echo "Mirroring branch '$CI_COMMIT_BRANCH' to GitHub..."
 
+      GITHUB_URL="https://x-access-token:${GITHUB_PAT}@github.com/eliggett/wfview.git"
+
       # Set up git identity (required for some git operations)
       git config user.email "ci@mirror"
       git config user.name "GitLab Mirror"
 
-      # Fetch just the current branch at depth 1 from origin
-      #git fetch --depth=1 origin $CI_COMMIT_BRANCH
+      # Check if the original commit has a tag before we rewrite history
+      ORIGINAL_TAG=$(git tag --points-at "$CI_COMMIT_SHA" | head -1)
+      if [ -n "$ORIGINAL_TAG" ]; then
+        echo "Found tag '$ORIGINAL_TAG' on commit $CI_COMMIT_SHA"
+      else
+        echo "No tag on this commit."
+      fi
+
+      # Create orphan branch with the current tree
       git checkout --orphan mirror_branch
       git add -A
       git commit -m "Mirror of $CI_COMMIT_SHORT_SHA"
 
-      # Force push to GitHub
-      git push --force --no-thin \
-        "https://x-access-token:${GITHUB_PAT}@github.com/eliggett/wfview.git" \
-        "HEAD:refs/heads/$CI_COMMIT_BRANCH"
+      # If the original commit had a tag, recreate it on the new commit
+      PUSH_REFS="HEAD:refs/heads/$CI_COMMIT_BRANCH"
+      if [ -n "$ORIGINAL_TAG" ]; then
+        git tag -f "$ORIGINAL_TAG" HEAD
+        PUSH_REFS="$PUSH_REFS refs/tags/$ORIGINAL_TAG"
+        echo "Tag '$ORIGINAL_TAG' applied to mirrored commit."
+      fi
+
+      # Push branch (and tag if present) to GitHub in one operation
+      git push --force --no-thin "$GITHUB_URL" $PUSH_REFS
 
       echo "Done."
