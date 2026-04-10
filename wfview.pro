@@ -12,7 +12,7 @@ QT       += core gui serialport network multimedia xml
 #Uncomment The following line to enable USB controllers (Shuttle/RC-28 etc.)
 DEFINES += USB_CONTROLLER
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick charts quickcontrols2 quickwidgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickcontrols2 quickwidgets
 
 contains(DEFINES,USB_CONTROLLER){
     lessThan(QT_MAJOR_VERSION, 6): QT += gamepad
