@@ -1,4 +1,9 @@
-# How to install wfview
+# How to install wfview on Linux platforms
+
+## You might not need to:
+We now have an automated linux AppImage build process. You can try one of our beta builds from here: https://github.com/eliggett/wfview/releases The install procedure is super simple and is given in each release (it's three steps). 
+
+## Compiling it yourself:
 
 ### 1. Install prerequisites:
 (Note, some packages may have slightly different version numbers, this should be ok for minor differences.)
@@ -133,8 +138,6 @@ g++ -O2 -s -Wl,-O1 -Wl,-rpath,/usr/lib64 -Wl,-rpath-link,/usr/lib64 -o wfview  m
 sudo make install
 ~~~
 
-
-
 ---
 
 ### Fedora install ###
@@ -163,13 +166,3 @@ sudo make install
 ```
 
 wfview is now installed in /usr/local/bin and you can start it from launcher or from command line with command `wfview`.
-
-# How to configure your RC-28 knob under Linux
-
-To use RC-28 knob you need to add udev rules, please execute as root:
-
-~~~
-echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0c26", ATTRS{idProduct}=="001e", MODE="0666"' >> /etc/udev/rules.d/99-ham-wfview.rules
-udevadm control --reload-rules && udevadm trigger
-~~~
----

@@ -13,6 +13,43 @@ tableWidget::tableWidget(QWidget *parent): QTableWidget(parent)
     menuActions.append(new QAction("Delete Item"));
 }
 
+void tableWidget::addItem()
+{
+    int row=this->rowCount();
+    this->insertRow(this->rowCount());
+    emit rowAdded(row);
+}
+
+void tableWidget::insertItem()
+{
+    int row=this->currentRow();
+    this->insertRow(this->currentRow());
+    emit rowAdded(row);
+}
+
+void tableWidget::cloneItem()
+{
+    this->setSortingEnabled(false);
+    int row=this->currentRow(); // This will be the new row with the old one as row+1
+    this->insertRow(this->currentRow());
+    for (int i=0;i<this->columnCount();i++)
+    {
+        if (this->item(row+1,i) != NULL && dynamic_cast<QComboBox*>(this->item(row+1,i)) == nullptr) // Don't try to copy checkbox
+            this->model()->setData(this->model()->index(row,i),this->item(row+1,i)->text());
+    }
+    emit rowAdded(row);
+    this->setSortingEnabled(true);
+}
+
+void tableWidget::deleteItem()
+{
+    if (this->currentRow() < 0)
+        return;
+    emit rowDeleted(this->currentRow());
+    emit rowValDeleted((this->item(this->currentRow(),1) == NULL) ? 0 : this->item(this->currentRow(),1)->text().toUInt());
+    this->removeRow(this->currentRow());
+}
+
 void tableWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if(event->button() == Qt::RightButton && editingEnabled)
@@ -28,34 +65,19 @@ void tableWidget::mouseReleaseEvent(QMouseEvent *event)
 
         if(selectedAction == menuActions[0])
         {
-            int row=this->rowCount();
-            this->insertRow(this->rowCount());
-            emit rowAdded(row);
+            addItem();
         }
         else if(selectedAction == menuActions[1])
         {
-            int row=this->currentRow();
-            this->insertRow(this->currentRow());
-            emit rowAdded(row);
+            insertItem();
         }
         else if( selectedAction == menuActions[2] )
         {
-            this->setSortingEnabled(false);
-            int row=this->currentRow(); // This will be the new row with the old one as row+1
-            this->insertRow(this->currentRow());
-            for (int i=0;i<this->columnCount();i++)
-            {
-                if (this->item(row+1,i) != NULL && dynamic_cast<QComboBox*>(this->item(row+1,i)) == nullptr) // Don't try to copy checkbox
-                    this->model()->setData(this->model()->index(row,i),this->item(row+1,i)->text());
-            }
-            emit rowAdded(row);
-            this->setSortingEnabled(true);
+            cloneItem();
         }
         else if( selectedAction == menuActions[3] )
         {
-            emit rowDeleted(this->currentRow());
-            emit rowValDeleted((this->item(this->currentRow(),1) == NULL) ? 0 : this->item(this->currentRow(),1)->text().toUInt());
-            this->removeRow(this->currentRow());
+            deleteItem();
         } else
         {
             emit menuAction(selectedAction,this->currentRow());

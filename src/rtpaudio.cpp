@@ -18,31 +18,68 @@ rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inS
     }
 }
 
-rtpAudio::~rtpAudio()
+void rtpAudio::shutdown()
 {
-    if (udp != Q_NULLPTR)
-    {
-        qDebug(logUdp()) << "Closing RTP connection";
+    qDebug(logUdp()) << "[SHUTDOWN] rtpAudio::shutdown() enter";
+
+    // Close the UDP socket first — this stops readyRead signals and unblocks
+    // the event loop so that quit() can be processed after we return.
+    if (udp != Q_NULLPTR) {
+        qDebug(logUdp()) << "[SHUTDOWN] Closing RTP connection";
         udp->close();
         delete udp;
         udp = Q_NULLPTR;
     }
+
+    // dispose() audio handlers while the audio threads' event loops are still
+    // running (needed for BlockingQueuedConnection in dispose()).
+    if (outaudio) {
+        qDebug(logUdp()) << "[SHUTDOWN] outaudio->dispose() ...";
+        outaudio->dispose();
+        qDebug(logUdp()) << "[SHUTDOWN] outaudio->dispose() done";
+    }
+    if (inaudio) {
+        qDebug(logUdp()) << "[SHUTDOWN] inaudio->dispose() ...";
+        inaudio->dispose();
+        qDebug(logUdp()) << "[SHUTDOWN] inaudio->dispose() done";
+    }
+
     if (outAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "Stopping outaudio thread";
+        qDebug(logUdp()) << "[SHUTDOWN] outAudioThread->quit()";
         outAudioThread->quit();
+        qDebug(logUdp()) << "[SHUTDOWN] outAudioThread->wait() ...";
         outAudioThread->wait();
+        qDebug(logUdp()) << "[SHUTDOWN] outAudioThread done";
     }
 
     if (inAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "Stopping inaudio thread";
+        qDebug(logUdp()) << "[SHUTDOWN] inAudioThread->quit()";
         inAudioThread->quit();
+        qDebug(logUdp()) << "[SHUTDOWN] inAudioThread->wait() ...";
         inAudioThread->wait();
+        qDebug(logUdp()) << "[SHUTDOWN] inAudioThread done";
+    }
+
+    qDebug(logUdp()) << "[SHUTDOWN] rtpAudio::shutdown() complete";
+}
+
+rtpAudio::~rtpAudio()
+{
+    qDebug(logUdp()) << "[SHUTDOWN] ~rtpAudio enter";
+    // shutdown() should have been called already; safety net if not:
+    if (udp != Q_NULLPTR) {
+        udp->close();
+        delete udp;
+        udp = Q_NULLPTR;
     }
     debugFile.close();
+    qDebug(logUdp()) << "[SHUTDOWN] ~rtpAudio complete";
 }
 
 void rtpAudio::init()
 {
+    qDebug(logUdp()) << "[DIAG] rtpAudio::init() enter, thread=" << QThread::currentThread();
+
     udp = new QUdpSocket(this);
 
     if (!udp->bind(port))
@@ -59,6 +96,7 @@ void rtpAudio::init()
 
     if (enableOut)
     {
+        qDebug(logUdp()) << "[DIAG] creating output audio handler, type=" << outSetup.type;
         if (outSetup.type == qtAudio) {
             outaudio = new audioHandlerQtOutput();
         }
@@ -77,6 +115,7 @@ void rtpAudio::init()
         {
             qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
         }
+        qDebug(logUdp()) << "[DIAG] output audio handler created";
 
         outAudioThread = new QThread(this);
         outAudioThread->setObjectName("outAudio()");
@@ -91,13 +130,16 @@ void rtpAudio::init()
         connect(this, SIGNAL(haveSetVolume(quint8)), outaudio, SLOT(setVolume(quint8)));
         connect(outaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getOutLevels(quint16, quint16, quint16, quint16, bool, bool)));
         connect(outAudioThread, SIGNAL(finished()), outaudio, SLOT(deleteLater()));
+        connect(outaudio, &audioHandlerBase::initFailed, this, &rtpAudio::onOutAudioInitFailed);
 
         outAudioThread->start(QThread::TimeCriticalPriority);
 
         emit setupOutAudio(outSetup);
+        qDebug(logUdp()) << "[DIAG] output audio thread started and setupOutAudio emitted";
     }
 
     if (enableIn) {
+        qDebug(logUdp()) << "[DIAG] creating input audio handler, type=" << inSetup.type;
         if (inSetup.type == qtAudio) {
             inaudio = new audioHandlerQtInput();
         }
@@ -116,6 +158,7 @@ void rtpAudio::init()
         {
             qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";
         }
+        qDebug(logUdp()) << "[DIAG] input audio handler created";
 
         inAudioThread = new QThread(this);
         inAudioThread->setObjectName("inAudio()");
@@ -127,11 +170,27 @@ void rtpAudio::init()
         connect(inaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getInLevels(quint16, quint16, quint16, quint16, bool, bool)));
 
         connect(inAudioThread, SIGNAL(finished()), inaudio, SLOT(deleteLater()));
+        connect(inaudio, &audioHandlerBase::initFailed, this, &rtpAudio::onInAudioInitFailed);
 
         inAudioThread->start(QThread::TimeCriticalPriority);
 
         emit setupInAudio(inSetup);
+        qDebug(logUdp()) << "[DIAG] input audio thread started and setupInAudio emitted";
     }
+
+    // Heartbeat timer — confirms the event loop is responsive after init returns
+    auto* heartbeat = new QTimer(this);
+    connect(heartbeat, &QTimer::timeout, this, [this]{
+        static int hbCount = 0;
+        if (hbCount < 5) { // Log first 5 heartbeats then stop to reduce noise
+            qDebug(logUdp()) << "[DIAG] rtpThread heartbeat" << hbCount
+                             << "dataPackets=" << packetCount;
+            hbCount++;
+        }
+    });
+    heartbeat->start(1000);
+
+    qDebug(logUdp()) << "[DIAG] rtpAudio::init() complete, event loop should now be free";
 }
 
 void rtpAudio::dataReceived()
@@ -155,43 +214,12 @@ void rtpAudio::dataReceived()
         if (m_rxMuted)
             tempAudio.data.fill(0);
 
-        // Mix any buffered sidetone into the RX packet (saturating int16 add).
-        if (!m_sidetoneBuf.isEmpty()) {
-            const int mixBytes   = std::min(tempAudio.data.size(), m_sidetoneBuf.size());
-            const int mixSamples = mixBytes / int(sizeof(qint16));
-            qint16*       rx = reinterpret_cast<qint16*>(tempAudio.data.data());
-            const qint16* st = reinterpret_cast<const qint16*>(m_sidetoneBuf.constData());
-            for (int i = 0; i < mixSamples; ++i) {
-                const int32_t sum = int32_t(rx[i]) + int32_t(st[i]);
-                rx[i] = static_cast<qint16>(qBound<int32_t>(-32768, sum, 32767));
-            }
-            m_sidetoneBuf.remove(0, mixSamples * int(sizeof(qint16)));
-        }
-
         emit haveAudioData(tempAudio);
         packetCount++;
         size = size + tempAudio.data.size();
     }
 }
 
-void rtpAudio::injectSidetone(Eigen::VectorXf samples, quint32 sampleRate)
-{
-    Q_UNUSED(sampleRate)
-    if (samples.size() == 0) return;
-
-    // Convert float → PCM16 and buffer for mixing into incoming RX packets.
-    const int n = static_cast<int>(samples.size());
-    QByteArray pcm(n * static_cast<int>(sizeof(qint16)), Qt::Uninitialized);
-    qint16* dst = reinterpret_cast<qint16*>(pcm.data());
-    for (int i = 0; i < n; ++i) {
-        float s = std::max(-1.0f, std::min(1.0f, samples[i]));
-        dst[i] = static_cast<qint16>(s * 32767.0f);
-    }
-
-    constexpr int kMaxBufBytes = 48000 * 2 / 2;  // 0.5 s at 48 kHz mono PCM16
-    if (m_sidetoneBuf.size() < kMaxBufBytes)
-        m_sidetoneBuf.append(pcm);
-}
 
 void rtpAudio::setRxMuted(bool muted)
 {
@@ -227,7 +255,10 @@ void rtpAudio::receiveAudioData(audioPacket audio)
     if (audio.data.length() > 0) {
         int len = 0;
 
-        while (len < audio.data.length()) {
+        while (len < audio.data.length() && udp != NULL
+
+
+               ) {
             QByteArray partial = audio.data.mid(len, 640);
             rtp_header p;
             memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
@@ -247,4 +278,22 @@ void rtpAudio::receiveAudioData(audioPacket audio)
             udp->writeDatagram(in, ip, port);
         }
     }
+}
+
+void rtpAudio::onOutAudioInitFailed()
+{
+    qWarning(logAudio()) << "Output Audio Initialization failed. Cleaning up.";
+    if (outAudioThread) {
+        outAudioThread->quit();
+    }
+    outaudio = nullptr;
+}
+
+void rtpAudio::onInAudioInitFailed()
+{
+    qWarning(logAudio()) << "Input Audio Initialization failed. Cleaning up.";
+    if (inAudioThread) {
+        inAudioThread->quit();
+    }
+    inaudio = nullptr;
 }

@@ -54,8 +54,9 @@ struct audioPacket {
     qreal volume = 1.0;
 };
 
-// Forward declaration — defined in txaudioprocessor.h
-class TxAudioProcessor;
+// Forward declarations
+class TxAudioProcessor;   // defined in txaudioprocessor.h
+class RxAudioProcessor;   // defined in rxaudioprocessor.h
 
 struct audioSetup {
     audioType type;
@@ -78,6 +79,8 @@ struct audioSetup {
     void* tci = Q_NULLPTR;
     // Optional TX processing engine; non-null only for TX input handlers.
     TxAudioProcessor* txProc = nullptr;
+    // Optional RX processing engine; non-null only for RX output handlers.
+    RxAudioProcessor* rxProc = nullptr;
 };
 
 class audioConverter : public QObject
@@ -93,7 +96,13 @@ public slots:
     bool convert(audioPacket audio);
     // Install (or clear) a synchronous audio processing hook.
     // The hook is called after resampling and before encoding, in the converter thread.
+    // Used for TX processing (mic→codec path, post-resample at codec rate).
     void setProcessingHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook);
+
+    // Install (or clear) a pre-resample processing hook.
+    // Called BEFORE channel conversion and resampling, at the codec's native rate.
+    // Used for RX processing (codec→device path, pre-resample at codec rate).
+    void setPreResampleHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook);
 
 signals:
     void converted(audioPacket audio);
@@ -116,8 +125,10 @@ protected:
     QByteArray scratchOut;
     Eigen::VectorXf scratchF;
 
-    // TX processing hook — null when disabled
+    // TX processing hook — called after resample (post-resample, at codec rate for TX)
     std::function<Eigen::VectorXf(Eigen::VectorXf)> processingHook;
+    // RX processing hook — called before channel conversion and resample (at codec rate)
+    std::function<Eigen::VectorXf(Eigen::VectorXf)> preResampleHook;
 };
 
 

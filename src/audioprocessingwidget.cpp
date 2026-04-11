@@ -564,6 +564,7 @@ void AudioProcessingWidget::buildUi()
         vbox->addWidget(specEnable);
 
         specWidget = new SpectrumWidget;
+        specWidget->logBins    = true;
         specWidget->fftLength  = TxAudioProcessor::SPEC_FFT_LEN;
         specWidget->sampleRate = 48000.0;
         specWidget->showSecondary = true;

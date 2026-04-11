@@ -11,6 +11,11 @@ void audioConverter::setProcessingHook(std::function<Eigen::VectorXf(Eigen::Vect
     processingHook = std::move(hook);
 }
 
+void audioConverter::setPreResampleHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook)
+{
+    preResampleHook = std::move(hook);
+}
+
 bool audioConverter::init(QAudioFormat inFormat, codecType inCodec, QAudioFormat outFormat, codecType outCodec, quint8 opusComplexity, quint8 resampleQuality)
 {
 
@@ -243,13 +248,24 @@ bool audioConverter::convert(audioPacket audio)
             // samplesF is currently raw samples as received from the radio:
             emit floatAudio(samplesF);
 
-            if(!processingHook) {
+            if(!processingHook && !preResampleHook) {
                 audio.amplitudePeak = samplesF.array().abs().maxCoeff();
                 audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
             }
 
             // Set the volume
             samplesF *= audio.volume;
+
+            // ── RX audio processing hook (NR / sidetone mix) ─────────────────
+            // Called BEFORE channel conversion and resampling so the hook sees
+            // samples at the radio's native codec rate and channel count.
+            // Used by RxAudioProcessor; sidetone is mixed at codec rate so
+            // there is no sample-rate mismatch with the TX sidetone signal.
+            if (preResampleHook && samplesF.size() > 0) {
+                samplesF = preResampleHook(samplesF);
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            }
 
             /*
                 samplesF is now an Eigen Vector of the current samples in float format

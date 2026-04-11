@@ -47,6 +47,14 @@ public:
     static constexpr int EQ_BANDS    = MbeqProcessor::BANDS; // 15
     static constexpr int SPEC_FFT_LEN = 1024;               // bins = SPEC_FFT_LEN/2
 
+    // Log-spaced spectrum rebinning parameters.
+    // Output bins are spaced logarithmically from SPEC_FREQ_MIN to SPEC_FREQ_MAX,
+    // with SPEC_BINS_PER_DECADE bins per frequency decade.  This gives even
+    // resolution per octave when displayed on a log frequency axis.
+    static constexpr int   SPEC_BINS_PER_DECADE = 48;
+    static constexpr float SPEC_FREQ_MIN        = 50.0f;    // Hz
+    static constexpr float SPEC_FREQ_MAX        = 8000.0f;  // Hz
+
     explicit TxAudioProcessor(QObject* parent = nullptr);
     ~TxAudioProcessor();
 
@@ -70,6 +78,7 @@ public:
     void setCompSlowRatio(float ratio);     // 0‥1, default 0.3
     void setSidetoneEnabled(bool enabled);
     void setSidetoneLevel(float level);     // 0‥1 linear gain
+    void setSidetoneDelay(int delay);
     void setMuteRx(bool muted);             // mute RX while self-monitoring
     // Enable/disable spectrum capture and set target frame rate (thread-safe; main thread).
     void setSpectrumEnabled(bool en);
@@ -116,8 +125,8 @@ signals:
     void txInputLevels(float RMS, float peak);
     // Linear gain from compressor (1.0 = no gain reduction; 0.0 = −∞ dB).
     void txGainReduction(float linearGain);
-    // Sidetone: processed float audio at given sample rate.
-    void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate);
+    // Sidetone: processed float audio at given sample rate, channel count, format description.
+    void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate, int channels, QString format);
     // Emitted when the RX mute state changes; connect to audio class setRxMuted().
     void haveRxMuted(bool muted);
     // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
@@ -128,6 +137,11 @@ signals:
                         float rawSR);
 
 private:
+    // ── Sidetone buffer (for RtAudio compatibility) ───────────────────────────
+    QList<Eigen::VectorXf>    m_sidetoneBuffer;
+    int                       m_sidetoneDelay = 0;
+    bool                      m_sidetoneLoggedOnce = false;
+
     // ── Thread-safe parameter block ──────────────────────────────────────────
     struct Params {
         bool  bypass        = false;   // master bypass
@@ -185,6 +199,16 @@ private:
     int                    m_specFftTrigger  = 0;       // decimated-sample counter
     QVector<double>        m_specInBins;                // reused output bins (deep-copied on emit)
     QVector<double>        m_specOutBins;
+
+    // ── Log-bin resampling (precomputed when sample rate changes) ─────────
+    // Each log bin maps to a fractional range of linear FFT bins.
+    struct LogBinSpec {
+        float linBinLo;   // fractional lower linear-bin index
+        float linBinHi;   // fractional upper linear-bin index
+    };
+    std::vector<LogBinSpec> m_specLogBins;     // one per log-spaced output bin
+    std::vector<double>     m_specLinMag;      // scratch: linear magnitudes from FFT
+    int                     m_specNumLogBins = 0;
 
     // Decimates, fills ring buffers, triggers FFT and emits txSpectrumBins.
     void appendSpectrumSamples(const Eigen::VectorXf& in,

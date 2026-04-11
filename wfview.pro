@@ -21,7 +21,14 @@ contains(DEFINES,USB_CONTROLLER){
 TARGET = wfview
 TEMPLATE = app
 
-DEFINES += WFVIEW_VERSION=\\\"2.21\\\"
+# VERSION can be overridden on the qmake command line, e.g.:
+#   qmake ... VERSION="1.2.3"
+# If set, it replaces the default WFVIEW_VERSION.
+isEmpty(VERSION) {
+    DEFINES += WFVIEW_VERSION=\\\"2.22\\\"
+} else {
+    DEFINES += WFVIEW_VERSION=\\\"$$VERSION\\\"
+}
 
 DEFINES += BUILD_WFVIEW
 
@@ -301,7 +308,15 @@ INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/plugins
 INCLUDEPATH += src/audio/pocketfft
 INCLUDEPATH += src/audio/resampler
+INCLUDEPATH += src/audio/speexdspmini/src
+INCLUDEPATH += src/audio/speexdspmini/include
+INCLUDEPATH += src/audio/anr
 INCLUDEPATH += src
+
+# speexdspmini: self-contained Speex preprocessor (no system libspeexdsp needed)
+DEFINES += FLOATING_POINT
+DEFINES += USE_KISS_FFT
+DEFINES += "EXPORT="
 
 SOURCES += \
     src/aboutbox.cpp \
@@ -313,10 +328,24 @@ SOURCES += \
     src/audio/plugins/dyson_compress.cpp \
     src/audio/plugins/mbeq.cpp \
     src/audio/plugins/noisegate.cpp \
+    src/audio/plugins/triple_para.cpp \
     src/audio/pocketfft/pocketfft.c \
     src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
-    src/audioprocessingwidget.cpp \
+    src/audio/rxaudioprocessor.cpp \
+    src/audio/anr/loguru.cpp \
+    src/audio/anr/NoiseReduction.cpp \
+    src/audio/anr/RealFFTf.cpp \
+    src/audio/anr/InputTrack.cpp \
+    src/audio/anr/OutputTrack.cpp \
+    src/audio/speexdspmini/src/preprocess.c \
+    src/audio/speexdspmini/src/fftwrap.c \
+    src/audio/speexdspmini/src/filterbank.c \
+    src/audio/speexdspmini/src/kiss_fft.c \
+    src/audio/speexdspmini/src/kiss_fftr.c \
+    src/txaudioprocessingwidget.cpp \
+    src/rxaudioprocessingwidget.cpp \
+    src/collapsiblesection.cpp \
     src/audio/audiohandlerpainput.cpp \
     src/audio/audiohandlerpaoutput.cpp \
     src/audio/audiohandlerqtinput.cpp \
@@ -348,6 +377,7 @@ SOURCES += \
     src/memories.cpp \
     src/meter.cpp \
     src/pttyhandler.cpp \
+    src/clickablelabel.cpp \
     src/qledlabel.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomserver.cpp \
@@ -396,10 +426,17 @@ HEADERS  += \
     include/audiohandler.h \
     include/audiohandlerbase.h \
     include/audioprocessingwidget.h \
+    include/txaudioprocessingwidget.h \
     include/txaudioprocessor.h \
+    include/rxaudioprocessor.h \
+    include/rxaudioprocessingwidget.h \
+    include/collapsiblesection.h \
+    src/audio/speexnrprocessor.h \
+    src/audio/anrnrprocessor.h \
     src/audio/plugins/dysoncompress.h \
     src/audio/plugins/mbeq.h \
     src/audio/plugins/noisegate.h \
+    src/audio/plugins/triple_para.h \
     include/audiohandlerpainput.h \
     include/audiohandlerpaoutput.h \
     include/audiohandlerqtinput.h \
@@ -443,6 +480,7 @@ HEADERS  += \
     include/prefs.h \
     include/printhex.h \
     include/pttyhandler.h \
+    include/clickablelabel.h \
     include/qledlabel.h \
     include/receiverwidget.h \
     include/repeaterattributes.h \

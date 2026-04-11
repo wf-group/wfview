@@ -17,6 +17,9 @@
 
 #include <iostream>
 #include "wfmain.h"
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
 
 #include "logcategories.h"
 
@@ -111,6 +114,7 @@ int main(int argc, char *argv[])
     a.setOrganizationName("wfview");
     a.setOrganizationDomain("wfview.org");
     a.setApplicationName("wfview");
+    a.setDesktopFileName("wfview");
 #endif
 
 #ifdef QT_DEBUG
@@ -209,6 +213,41 @@ int main(int argc, char *argv[])
                         settings = new QSettings(path + file, QSettings::Format::IniFormat);
                     }
                     settings->clear();
+
+                    // Derive the companion .noise profile path the same way wfmain does.
+                    QString noisePath;
+                    const QString sf = settings->fileName();
+                    const QFileInfo fi(sf);
+                    if (!sf.isEmpty() && fi.suffix().length() >= 2 && fi.suffix().length() <= 5
+                            && fi.absoluteDir().exists()) {
+                        noisePath = fi.absoluteDir().absoluteFilePath(fi.baseName() + ".noise");
+                    } else {
+                        QString appData = QStandardPaths::writableLocation(
+                                              QStandardPaths::AppDataLocation);
+                        if (appData.isEmpty())
+                            appData = QDir::homePath();
+                        noisePath = appData + "/wfview.noise";
+                    }
+
+                    // Overwrite the noise file with an empty profile store so
+                    // stale profiles from the old configuration are discarded.
+                    QJsonObject emptyRoot;
+                    emptyRoot["version"]  = 1;
+                    emptyRoot["profiles"] = QJsonObject();
+                    QSaveFile nf(noisePath);
+                    if (nf.open(QIODevice::WriteOnly)) {
+                        nf.write(QJsonDocument(emptyRoot).toJson(QJsonDocument::Compact));
+                        if (nf.commit())
+                            std::cout << QString("ANR noise profiles cleared: %1\n")
+                                             .arg(noisePath).toStdString();
+                        else
+                            std::cout << QString("Warning: could not write noise profile file: %1\n")
+                                             .arg(noisePath).toStdString();
+                    } else {
+                        std::cout << QString("Warning: could not open noise profile file for writing: %1\n")
+                                         .arg(noisePath).toStdString();
+                    }
+
                     delete settings;
                     std::cout << QString("All wfview settings cleared.\n").toStdString();
                     exit(0);

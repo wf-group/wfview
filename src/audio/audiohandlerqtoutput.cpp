@@ -29,6 +29,14 @@ bool audioHandlerQtOutput::openDevice() noexcept
     audioDevice = audioOutput->start();
     if (!audioDevice) return false;
 
+    // Pre-fill half the buffer with silence so ALSA has data to pull
+    // before the first real audio packet arrives from the network.
+    {
+        const int prefillBytes = audioOutput->bufferSize() / 2;
+        QByteArray silence(prefillBytes, '\0');
+        audioDevice->write(silence.constData(), silence.size());
+    }
+
     connect(audioOutput, SIGNAL(destroyed()), audioDevice, SLOT(deleteLater()), Qt::UniqueConnection);
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     qInfo(logAudio()) << "Connected to Qt audio output device" << deviceInfo.deviceName();
@@ -69,6 +77,20 @@ void audioHandlerQtOutput::writeToOutputDevice(QByteArray data, quint32 seq, flo
 {
     Q_UNUSED(seq);
     if (!audioOutput || !audioDevice) return;
+
+    // Recover from underrun: re-prime the buffer with silence so the device
+    // has a cushion before real audio resumes, preventing click cascades.
+    if (isUnderrun.load(std::memory_order_relaxed)) {
+        const int prefillBytes = audioOutput->bufferSize() / 2;
+        const int freeBytes    = static_cast<int>(audioOutput->bytesFree());
+        const int silenceBytes = qMin(prefillBytes, freeBytes);
+        if (silenceBytes > 0) {
+            QByteArray silence(silenceBytes, '\0');
+            audioDevice->write(silence.constData(), silence.size());
+        }
+        isUnderrun.store(false, std::memory_order_relaxed);
+        if (underTimer && underTimer->isActive()) underTimer->stop();
+    }
 
     qint64 buffered = audioOutput->bufferSize() - audioOutput->bytesFree();
     int devLatencyMs = static_cast<int>(nativeFormat.durationForBytes(buffered) / 1000);

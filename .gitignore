@@ -1,4 +1,6 @@
 *.pro.user
+*.pro.user*
+.vscode
 .vs
 .qmake.stash
 .qtc_clangd

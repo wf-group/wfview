@@ -36,7 +36,15 @@ private:
     void handleCallbackInput(const void* in, unsigned nFrames, RtAudioStreamStatus st);
 
 private:
+#if defined(Q_OS_LINUX)
+    RtAudio rtaudio{RtAudio::Api::LINUX_ALSA};
+#elif defined(Q_OS_WIN)
+    RtAudio rtaudio{RtAudio::Api::WINDOWS_WASAPI};
+#elif defined(Q_OS_MACOS)
+    RtAudio rtaudio{RtAudio::Api::MACOSX_CORE};
+#else
     RtAudio rtaudio;
+#endif
     RtAudioFormat fmt{RTAUDIO_SINT16};
     unsigned bytesPerSample{2};
     unsigned bytesPerFrame{2};

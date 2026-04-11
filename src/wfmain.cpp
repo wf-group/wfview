@@ -39,7 +39,7 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
     ui->setupUi(this);
     setWindowTitle(QString("wfview"));
 
-    ui->monitorLabel->setText("<a href=\"#\" style=\"color:white; text-decoration:none;\">Mon</a>");
+    ui->monitorLabel->setText("Mon");
 
 
     logWindow = new loggingWindow(logFile);
@@ -187,6 +187,27 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
 
     getSettingsFilePath(settingsFile);
+
+    // Derive the per-radio ANR noise profile store path from the settings file.
+    // For an explicit --settings file: place the .noise file in the same directory
+    // with the same base name (e.g. ic7610.conf → ic7610.noise).
+    // For the default QSettings (macOS plist / Windows registry / Linux ~/.config):
+    // use AppDataLocation so the file always lands in a real writable directory.
+    {
+        const QString sf = settings->fileName();
+        const QFileInfo fi(sf);
+        // Test for an ordinary file path — registry keys don't have a readable suffix.
+        if (!sf.isEmpty() && fi.suffix().length() >= 2 && fi.suffix().length() <= 5
+                && fi.absoluteDir().exists()) {
+            m_noiseStorePath = fi.absoluteDir().absoluteFilePath(fi.baseName() + ".noise");
+        } else {
+            QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            if (appData.isEmpty())
+                appData = QDir::homePath();
+            QDir().mkpath(appData);
+            m_noiseStorePath = appData + "/wfview.noise";
+        }
+    }
 
     setDefaultColorPresets();
 
@@ -486,8 +507,21 @@ void wfmain::openRig()
                     audioProcWin, &AudioProcessingWidget::onSpectrumBins);
         }
     }
-    applyAudioProcPrefs(prefs.audioProc);
+    applyAudioProcPrefs(prefs.txAudioProc);
     prefs.txSetup.txProc = txProc;
+
+    if (prefs.audioSystem == rtAudio)
+        txProc->setSidetoneDelay(2);
+    else
+        txProc->setSidetoneDelay(0);
+
+    // Attach RX audio processor to the RX output setup
+    if (!rxProc) {
+        rxProc = new RxAudioProcessor(this);
+        rxProc->setNoiseStorePath(m_noiseStorePath);
+    }
+    applyRxAudioProcPrefs(prefs.rxAudioProc);
+    prefs.rxSetup.rxProc = rxProc;
 
     makeRig();
 
@@ -650,8 +684,11 @@ void wfmain::removeRig()
 
     if (rigThread != Q_NULLPTR)
     {
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread->quit()";
         rigThread->quit();
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread->wait() ...";
         rigThread->wait();
+        qDebug(logSystem()) << "[SHUTDOWN] rigThread finished";
         rig = Q_NULLPTR;
         rigThread = Q_NULLPTR;
     }
@@ -2103,30 +2140,64 @@ void wfmain::loadSettings()
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
 
     // TX audio processing prefs
-    prefs.audioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
-    prefs.audioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
-    prefs.audioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
-    prefs.audioProc.inputGainDB   = settings->value("TxProcInputGain",     10.0f).toFloat();
-    prefs.audioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
-    prefs.audioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
-    prefs.audioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
-    prefs.audioProc.compFastRatio = settings->value("TxProcCompFast",      0.2f).toFloat();
-    prefs.audioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.2f).toFloat();
-    prefs.audioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
-    prefs.audioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
-    prefs.audioProc.spectrumEnabled = settings->value("TxProcSpectrumEnabled", false).toBool();
-    prefs.audioProc.spectrumFPS     = settings->value("TxProcSpectrumFps",     10).toInt();
+    prefs.txAudioProc.bypass        = settings->value("TxProcBypass",   true).toBool();
+    prefs.txAudioProc.compEnabled   = settings->value("TxProcCompEnabled",   false).toBool();
+    prefs.txAudioProc.eqEnabled     = settings->value("TxProcEqEnabled",     false).toBool();
+    prefs.txAudioProc.eqFirst       = settings->value("TxProcEqFirst",       true).toBool();
+    prefs.txAudioProc.inputGainDB   = settings->value("TxProcInputGain",     10.0f).toFloat();
+    prefs.txAudioProc.outputGainDB  = settings->value("TxProcOutputGain",    0.0f).toFloat();
+    prefs.txAudioProc.compPeakLimit = settings->value("TxProcCompPeak",     -10.0f).toFloat();
+    prefs.txAudioProc.compRelease   = settings->value("TxProcCompRelease",   0.1f).toFloat();
+    prefs.txAudioProc.compFastRatio = settings->value("TxProcCompFast",      0.2f).toFloat();
+    prefs.txAudioProc.compSlowRatio = settings->value("TxProcCompSlow",      0.2f).toFloat();
+    prefs.txAudioProc.sidetoneEnabled = settings->value("TxProcSidetone",        false).toBool();
+    prefs.txAudioProc.sidetoneLevel   = settings->value("TxProcSidetoneLevel",   0.5f).toFloat();
+    prefs.txAudioProc.spectrumEnabled     = settings->value("TxProcSpectrumEnabled",     false).toBool();
+    prefs.txAudioProc.spectrumFPS         = settings->value("TxProcSpectrumFps",         10).toInt();
+    prefs.txAudioProc.specInhibitDuringRx = settings->value("TxProcSpecInhibitDuringRx", true).toBool();
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
-        prefs.audioProc.eqBands[i] = settings->value(
+        prefs.txAudioProc.eqBands[i] = settings->value(
             QString("TxProcEqBand%1").arg(i), 0.0f).toFloat();
-    prefs.audioProc.gateEnabled   = settings->value("TxProcGateEnabled",   false).toBool();
-    prefs.audioProc.gateThreshold = settings->value("TxProcGateThreshold", -60.0f).toFloat();
-    prefs.audioProc.gateAttack    = settings->value("TxProcGateAttack",     5.0f).toFloat();
-    prefs.audioProc.gateHold      = settings->value("TxProcGateHold",      40.0f).toFloat();
-    prefs.audioProc.gateDecay     = settings->value("TxProcGateDecay",     20.0f).toFloat();
-    prefs.audioProc.gateRange     = settings->value("TxProcGateRange",     -90.0f).toFloat();
-    prefs.audioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
-    prefs.audioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
+    prefs.txAudioProc.gateEnabled   = settings->value("TxProcGateEnabled",   false).toBool();
+    prefs.txAudioProc.gateThreshold = settings->value("TxProcGateThreshold", -60.0f).toFloat();
+    prefs.txAudioProc.gateAttack    = settings->value("TxProcGateAttack",     5.0f).toFloat();
+    prefs.txAudioProc.gateHold      = settings->value("TxProcGateHold",      40.0f).toFloat();
+    prefs.txAudioProc.gateDecay     = settings->value("TxProcGateDecay",     20.0f).toFloat();
+    prefs.txAudioProc.gateRange     = settings->value("TxProcGateRange",     -90.0f).toFloat();
+    prefs.txAudioProc.gateLfCutoff  = settings->value("TxProcGateLfCutoff",   380.0f).toFloat();
+    prefs.txAudioProc.gateHfCutoff  = settings->value("TxProcGateHfCutoff", 2700.0f).toFloat();
+
+    // RX audio processing prefs
+    prefs.rxAudioProc.bypass           = settings->value("RxProcBypass",           true).toBool();
+    prefs.rxAudioProc.nrEnabled        = settings->value("RxProcNrEnabled",         false).toBool();
+    prefs.rxAudioProc.nrMode           = static_cast<RxNrMode>(settings->value("RxProcNrMode", 0).toInt());
+    prefs.rxAudioProc.channelSelect    = settings->value("RxProcChannelSelect",     0).toInt();
+    prefs.rxAudioProc.speexSuppression = settings->value("RxProcSpeexSuppression", -30).toInt();
+    prefs.rxAudioProc.speexBandsPreset = settings->value("RxProcSpeexBandsPreset",   3).toInt();
+    prefs.rxAudioProc.speexFrameMs     = settings->value("RxProcSpeexFrameMs",      20).toInt();
+    prefs.rxAudioProc.speexAgc         = settings->value("RxProcSpeexAgc",         false).toBool();
+    prefs.rxAudioProc.speexAgcLevel    = settings->value("RxProcSpeexAgcLevel",  8000.0f).toFloat();
+    prefs.rxAudioProc.speexAgcMaxGain  = settings->value("RxProcSpeexAgcMaxGain",    30).toInt();
+    prefs.rxAudioProc.speexVad         = settings->value("RxProcSpeexVad",         false).toBool();
+    prefs.rxAudioProc.speexVadProbStart= settings->value("RxProcSpeexVadProbStart",   85).toInt();
+    prefs.rxAudioProc.speexVadProbCont = settings->value("RxProcSpeexVadProbCont",    65).toInt();
+    prefs.rxAudioProc.speexSnrDecay        = settings->value("RxProcSpeexSnrDecay",        0.7f).toFloat();
+    prefs.rxAudioProc.speexNoiseUpdateRate = settings->value("RxProcSpeexNoiseUpdateRate", 0.03f).toFloat();
+    prefs.rxAudioProc.speexPriorBase       = settings->value("RxProcSpeexPriorBase",       0.1f).toFloat();
+    prefs.rxAudioProc.anrNoiseReductionDb = settings->value("RxProcAnrNoiseReductionDb", 20.0).toDouble();
+    prefs.rxAudioProc.anrSensitivity      = settings->value("RxProcAnrSensitivity",       1.1).toDouble();
+    prefs.rxAudioProc.anrFreqSmoothing    = settings->value("RxProcAnrFreqSmoothing",       4).toInt();
+    prefs.rxAudioProc.eqEnabled         = settings->value("RxProcEqEnabled",          false).toBool();
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        prefs.rxAudioProc.eqGain[i] = settings->value(QString("RxProcEqGain%1").arg(i), 0.0f).toFloat();
+        prefs.rxAudioProc.eqFreq[i] = settings->value(QString("RxProcEqFreq%1").arg(i),
+            (i == 0 ? 100.0f : i == 1 ? 800.0f : i == 2 ? 2000.0f : 3500.0f)).toFloat();
+        prefs.rxAudioProc.eqQ[i]    = settings->value(QString("RxProcEqQ%1").arg(i), 1.0f).toFloat();
+    }
+    prefs.rxAudioProc.outputGainDB      = settings->value("RxProcOutputGainDB",      0.0f).toFloat();
+    prefs.rxAudioProc.spectrumEnabled       = settings->value("RxProcSpectrumEnabled",       false).toBool();
+    prefs.rxAudioProc.spectrumFPS           = settings->value("RxProcSpectrumFps",           10).toInt();
+    prefs.rxAudioProc.specInhibitDuringTx   = settings->value("RxProcSpecInhibitDuringTx",   true).toBool();
 
     if (prefs.tciPort > 0 && tci == Q_NULLPTR) {
 
@@ -3391,29 +3462,63 @@ void wfmain::saveSettings()
     settings->setValue("ClientName", udpPrefs.clientName);
 
     // TX audio processing prefs
-    settings->setValue("TxProcCompEnabled",   prefs.audioProc.compEnabled);
-    settings->setValue("TxProcEqEnabled",     prefs.audioProc.eqEnabled);
-    settings->setValue("TxProcEqFirst",       prefs.audioProc.eqFirst);
-    settings->setValue("TxProcInputGain",     prefs.audioProc.inputGainDB);
-    settings->setValue("TxProcOutputGain",    prefs.audioProc.outputGainDB);
-    settings->setValue("TxProcCompPeak",      prefs.audioProc.compPeakLimit);
-    settings->setValue("TxProcCompRelease",   prefs.audioProc.compRelease);
-    settings->setValue("TxProcCompFast",      prefs.audioProc.compFastRatio);
-    settings->setValue("TxProcCompSlow",      prefs.audioProc.compSlowRatio);
-    settings->setValue("TxProcSidetone",         prefs.audioProc.sidetoneEnabled);
-    settings->setValue("TxProcSidetoneLevel",    prefs.audioProc.sidetoneLevel);
-    settings->setValue("TxProcSpectrumEnabled",  prefs.audioProc.spectrumEnabled);
-    settings->setValue("TxProcSpectrumFps",      prefs.audioProc.spectrumFPS);
+    settings->setValue("TxProcBypass",        prefs.txAudioProc.bypass);
+    settings->setValue("TxProcCompEnabled",   prefs.txAudioProc.compEnabled);
+    settings->setValue("TxProcEqEnabled",     prefs.txAudioProc.eqEnabled);
+    settings->setValue("TxProcEqFirst",       prefs.txAudioProc.eqFirst);
+    settings->setValue("TxProcInputGain",     prefs.txAudioProc.inputGainDB);
+    settings->setValue("TxProcOutputGain",    prefs.txAudioProc.outputGainDB);
+    settings->setValue("TxProcCompPeak",      prefs.txAudioProc.compPeakLimit);
+    settings->setValue("TxProcCompRelease",   prefs.txAudioProc.compRelease);
+    settings->setValue("TxProcCompFast",      prefs.txAudioProc.compFastRatio);
+    settings->setValue("TxProcCompSlow",      prefs.txAudioProc.compSlowRatio);
+    settings->setValue("TxProcSidetone",         prefs.txAudioProc.sidetoneEnabled);
+    settings->setValue("TxProcSidetoneLevel",    prefs.txAudioProc.sidetoneLevel);
+    settings->setValue("TxProcSpectrumEnabled",     prefs.txAudioProc.spectrumEnabled);
+    settings->setValue("TxProcSpectrumFps",         prefs.txAudioProc.spectrumFPS);
+    settings->setValue("TxProcSpecInhibitDuringRx", prefs.txAudioProc.specInhibitDuringRx);
     for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
-        settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.audioProc.eqBands[i]);
-    settings->setValue("TxProcGateEnabled",   prefs.audioProc.gateEnabled);
-    settings->setValue("TxProcGateThreshold", prefs.audioProc.gateThreshold);
-    settings->setValue("TxProcGateAttack",    prefs.audioProc.gateAttack);
-    settings->setValue("TxProcGateHold",      prefs.audioProc.gateHold);
-    settings->setValue("TxProcGateDecay",     prefs.audioProc.gateDecay);
-    settings->setValue("TxProcGateRange",     prefs.audioProc.gateRange);
-    settings->setValue("TxProcGateLfCutoff",  prefs.audioProc.gateLfCutoff);
-    settings->setValue("TxProcGateHfCutoff",  prefs.audioProc.gateHfCutoff);
+        settings->setValue(QString("TxProcEqBand%1").arg(i), prefs.txAudioProc.eqBands[i]);
+    settings->setValue("TxProcGateEnabled",   prefs.txAudioProc.gateEnabled);
+    settings->setValue("TxProcGateThreshold", prefs.txAudioProc.gateThreshold);
+    settings->setValue("TxProcGateAttack",    prefs.txAudioProc.gateAttack);
+    settings->setValue("TxProcGateHold",      prefs.txAudioProc.gateHold);
+    settings->setValue("TxProcGateDecay",     prefs.txAudioProc.gateDecay);
+    settings->setValue("TxProcGateRange",     prefs.txAudioProc.gateRange);
+    settings->setValue("TxProcGateLfCutoff",  prefs.txAudioProc.gateLfCutoff);
+    settings->setValue("TxProcGateHfCutoff",  prefs.txAudioProc.gateHfCutoff);
+
+    // RX audio processing prefs
+    settings->setValue("RxProcBypass",           prefs.rxAudioProc.bypass);
+    settings->setValue("RxProcNrEnabled",         prefs.rxAudioProc.nrEnabled);
+    settings->setValue("RxProcNrMode",            static_cast<int>(prefs.rxAudioProc.nrMode));
+    settings->setValue("RxProcChannelSelect",     prefs.rxAudioProc.channelSelect);
+    settings->setValue("RxProcSpeexSuppression",  prefs.rxAudioProc.speexSuppression);
+    settings->setValue("RxProcSpeexBandsPreset",  prefs.rxAudioProc.speexBandsPreset);
+    settings->setValue("RxProcSpeexFrameMs",      prefs.rxAudioProc.speexFrameMs);
+    settings->setValue("RxProcSpeexAgc",          prefs.rxAudioProc.speexAgc);
+    settings->setValue("RxProcSpeexAgcLevel",     prefs.rxAudioProc.speexAgcLevel);
+    settings->setValue("RxProcSpeexAgcMaxGain",   prefs.rxAudioProc.speexAgcMaxGain);
+    settings->setValue("RxProcSpeexVad",          prefs.rxAudioProc.speexVad);
+    settings->setValue("RxProcSpeexVadProbStart", prefs.rxAudioProc.speexVadProbStart);
+    settings->setValue("RxProcSpeexVadProbCont",  prefs.rxAudioProc.speexVadProbCont);
+    settings->setValue("RxProcSpeexSnrDecay",        prefs.rxAudioProc.speexSnrDecay);
+    settings->setValue("RxProcSpeexNoiseUpdateRate", prefs.rxAudioProc.speexNoiseUpdateRate);
+    settings->setValue("RxProcSpeexPriorBase",       prefs.rxAudioProc.speexPriorBase);
+    settings->setValue("RxProcAnrNoiseReductionDb", prefs.rxAudioProc.anrNoiseReductionDb);
+    settings->setValue("RxProcAnrSensitivity",      prefs.rxAudioProc.anrSensitivity);
+    settings->setValue("RxProcAnrFreqSmoothing",    prefs.rxAudioProc.anrFreqSmoothing);
+    settings->setValue("RxProcEqEnabled",          prefs.rxAudioProc.eqEnabled);
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        settings->setValue(QString("RxProcEqGain%1").arg(i), prefs.rxAudioProc.eqGain[i]);
+        settings->setValue(QString("RxProcEqFreq%1").arg(i), prefs.rxAudioProc.eqFreq[i]);
+        settings->setValue(QString("RxProcEqQ%1").arg(i),    prefs.rxAudioProc.eqQ[i]);
+    }
+    settings->setValue("RxProcOutputGainDB",      prefs.rxAudioProc.outputGainDB);
+    settings->setValue("RxProcSpectrumEnabled",       prefs.rxAudioProc.spectrumEnabled);
+    settings->setValue("RxProcSpectrumFps",           prefs.rxAudioProc.spectrumFPS);
+    settings->setValue("RxProcSpecInhibitDuringTx",   prefs.rxAudioProc.specInhibitDuringTx);
+
     settings->setValue("WaterfallFormat", prefs.waterfallFormat);
     settings->setValue("HalfDuplex", udpPrefs.halfDuplex);
     settings->setValue("ConnectionType", udpPrefs.connectionType);
@@ -4149,6 +4254,8 @@ void wfmain::receivePTTstatus(bool pttOn)
     amTransmitting = pttOn;
     rpt->handleTransmitStatus(pttOn);
     changeTxBtn();
+    if (audioProcWin)   audioProcWin->setTransmitting(pttOn);
+    if (rxAudioProcWin) rxAudioProcWin->setTransmitting(pttOn);
 }
 
 void wfmain::changeTxBtn()
@@ -4384,7 +4491,7 @@ void wfmain::on_monitorSlider_valueChanged(int value)
     queue->addUnique(priorityImmediate,queueItem(funcMonitorGain,QVariant::fromValue<ushort>(value),false,currentReceiver));
 }
 
-void wfmain::on_monitorLabel_linkActivated(const QString&)
+void wfmain::on_monitorLabel_clicked()
 {
     cacheItem ca = queue->getCache(funcMonitor);
     bool mon = ca.value.toBool();
@@ -4822,10 +4929,7 @@ void wfmain::receiveMeter(meter_t inMeter, double level)
 
 void wfmain::receiveMonitor(bool en)
 {
-    if (en)
-        ui->monitorLabel->setText(QString("<b><a href=\"#\" style=\"color:%0; text-decoration:none;\">Mon</a></b>").arg(colorPrefs->textColor.name()));
-    else
-        ui->monitorLabel->setText(QString("<a href=\"#\" style=\"color:%0; text-decoration:none;\">Mon</a>").arg(colorPrefs->textColor.name()));
+    ui->monitorLabel->setActive(en);
 }
 
 
@@ -5643,11 +5747,11 @@ void wfmain::on_rigCreatorBtn_clicked()
     create->show();
 }
 
-void wfmain::on_audioProcBtn_clicked()
+void wfmain::on_TXaudioProcBtn_clicked()
 {
     if (!audioProcWin) {
         audioProcWin = new AudioProcessingWidget(this);
-        audioProcWin->setPrefs(prefs.audioProc);
+        audioProcWin->setPrefs(prefs.txAudioProc);
 
         connect(audioProcWin, &AudioProcessingWidget::prefsChanged,
                 this, &wfmain::onAudioProcPrefsChanged);
@@ -5676,13 +5780,13 @@ void wfmain::on_audioProcBtn_clicked()
     audioProcWin->activateWindow();
 }
 
-void wfmain::onAudioProcPrefsChanged(audioProcessingPrefs p)
+void wfmain::onAudioProcPrefsChanged(txAudioProcessingPrefs p)
 {
-    prefs.audioProc = p;
+    prefs.txAudioProc = p;
     applyAudioProcPrefs(p);
 }
 
-void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
+void wfmain::applyAudioProcPrefs(const txAudioProcessingPrefs& p)
 {
     if (!txProc) return;
 
@@ -5712,6 +5816,111 @@ void wfmain::applyAudioProcPrefs(const audioProcessingPrefs& p)
     txProc->setGateLfCutoff(p.gateLfCutoff);
     txProc->setGateHfCutoff(p.gateHfCutoff);
 }
+
+void wfmain::on_RXaudioProcBtn_clicked()
+{
+    if (!rxAudioProcWin) {
+        rxAudioProcWin = new RxAudioProcessingWidget(this);
+        rxAudioProcWin->setDebugMode(debugMode);
+        rxAudioProcWin->setPrefs(prefs.rxAudioProc);
+
+        connect(rxAudioProcWin, &RxAudioProcessingWidget::prefsChanged,
+                this, &wfmain::onRxAudioProcPrefsChanged);
+
+        connect(this, &wfmain::connectionStatus,
+                rxAudioProcWin, &RxAudioProcessingWidget::setConnected);
+        rxAudioProcWin->setConnected(connStatus == connConnected);
+
+        if (rxProc) {
+            connect(rxProc, &RxAudioProcessor::anrProfileReady,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrProfileReady);
+            connect(rxProc, &RxAudioProcessor::anrNoiseProfileBins,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrNoiseProfileBins);
+            connect(rxProc, &RxAudioProcessor::rxSpectrumBins,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onSpectrumBins);
+            connect(rxProc, &RxAudioProcessor::anrModeProfileStatus,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onAnrModeChanged);
+            connect(rxProc, &RxAudioProcessor::rxAudioChannelsChanged,
+                    rxAudioProcWin, &RxAudioProcessingWidget::setAudioChannels);
+            rxAudioProcWin->setAudioChannels(rxProc->activeChannels());
+            // Deliver the current mode and noise profile to the newly-opened widget.
+            if (!receivers.empty() && currentReceiver < (int)receivers.size()) {
+                rxAudioProcWin->onAnrModeChanged(
+                    receivers[currentReceiver]->currentMode().name,
+                    rxProc->anrHasProfile());
+                // Populate the noise floor plot if a profile is already active.
+                auto pb = rxProc->getAnrNoiseProfileBins();
+                if (!pb.bins.isEmpty())
+                    rxAudioProcWin->onAnrNoiseProfileBins(pb.bins, pb.sampleRate, pb.windowSize);
+            }
+        }
+
+        // ANR profile collection: widget toggle → wfmain → rxProc
+        connect(rxAudioProcWin, &RxAudioProcessingWidget::anrCollectToggled,
+                this, &wfmain::onAnrCollectToggled);
+
+        // Debug audio capture: widget → rxProc, rxProc → widget
+        if (rxProc) {
+            connect(rxAudioProcWin, &RxAudioProcessingWidget::debugCaptureRequested,
+                    rxProc, &RxAudioProcessor::startDebugCapture);
+            connect(rxProc, &RxAudioProcessor::debugCaptureComplete,
+                    rxAudioProcWin, &RxAudioProcessingWidget::onDebugCaptureComplete);
+        }
+    }
+    rxAudioProcWin->show();
+    rxAudioProcWin->raise();
+    rxAudioProcWin->activateWindow();
+}
+
+void wfmain::onRxAudioProcPrefsChanged(rxAudioProcessingPrefs p)
+{
+    prefs.rxAudioProc = p;
+    applyRxAudioProcPrefs(p);
+}
+
+void wfmain::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
+{
+    if (!rxProc) return;
+
+    rxProc->setBypassed(p.bypass);
+    rxProc->setNrEnabled(!p.bypass);   // NR active whenever bypass is off
+    rxProc->setNrMode(p.nrMode);
+    rxProc->setChannelSelect(p.channelSelect);
+    rxProc->setSpeexSuppression(p.speexSuppression);
+    rxProc->setSpeexBandsPreset(p.speexBandsPreset);
+    rxProc->setSpeexFrameMs(p.speexFrameMs);
+    rxProc->setSpeexAgc(p.speexAgc);
+    rxProc->setSpeexAgcLevel(p.speexAgcLevel);
+    rxProc->setSpeexAgcMaxGain(p.speexAgcMaxGain);
+    rxProc->setSpeexVad(p.speexVad);
+    rxProc->setSpeexVadProbStart(p.speexVadProbStart);
+    rxProc->setSpeexVadProbCont(p.speexVadProbCont);
+    rxProc->setSpeexSnrDecay(p.speexSnrDecay);
+    rxProc->setSpeexNoiseUpdateRate(p.speexNoiseUpdateRate);
+    rxProc->setSpeexPriorBase(p.speexPriorBase);
+    rxProc->setAnrNoiseReductionDb(p.anrNoiseReductionDb);
+    rxProc->setAnrSensitivity(p.anrSensitivity);
+    rxProc->setAnrFreqSmoothing(p.anrFreqSmoothing);
+    rxProc->setEqEnabled(p.eqEnabled);
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        rxProc->setEqBandGain(i, p.eqGain[i]);
+        rxProc->setEqBandFreq(i, p.eqFreq[i]);
+        rxProc->setEqBandQ(i, p.eqQ[i]);
+    }
+    rxProc->setOutputGainDB(p.outputGainDB);
+    rxProc->setSpectrumEnabled(p.spectrumEnabled);
+    rxProc->setSpectrumFps(p.spectrumFPS);
+}
+
+void wfmain::onAnrCollectToggled(bool collecting)
+{
+    if (!rxProc) return;
+    if (collecting)
+        rxProc->startAnrProfile();
+    else
+        rxProc->stopAnrProfile();  // emits anrProfileReady(bool) → widget
+}
+
 void wfmain::receiveValue(cacheItem val){
 
     uchar vfo=0;
@@ -5788,6 +5997,10 @@ void wfmain::receiveValue(cacheItem val){
             if (cw != Q_NULLPTR) {
                 cw->handleCurrentModeUpdate(m.mk);
             }
+            // Notify the ANR engine so it can swap in the saved noise profile
+            // for this mode (or save the current one before switching away).
+            if (rxProc && !m.name.isEmpty())
+                rxProc->setRxMode(m.name);
         }
         //qDebug() << funcString[val.command] << "receiver:" << val.receiver << "vfo:" << vfo << "mk:" << m.mk << "name:" << m.name << "data:" << m.data << "filter:" << m.filter;
 
@@ -6486,9 +6699,14 @@ void wfmain::receiveRigCaps(rigCapabilities* caps)
         ui->micGainSlider->setEnabled(rigCaps->hasTransmit);
         ui->txPowerSlider->setEnabled(rigCaps->hasTransmit);
         const bool audioProcAvail = rigCaps->hasTransmit && prefs.enableLAN;
-        ui->audioProcBtn->setEnabled(audioProcAvail);
+        ui->TXaudioProcBtn->setEnabled(audioProcAvail);
         if (!audioProcAvail && audioProcWin) {
             audioProcWin->close();
+        }
+        const bool rxAudioProcAvail = prefs.enableLAN;
+        ui->RXaudioProcBtn->setEnabled(rxAudioProcAvail);
+        if (!rxAudioProcAvail && rxAudioProcWin) {
+            rxAudioProcWin->close();
         }
 
         if (rigCaps->commands.contains(funcSendCW)) {

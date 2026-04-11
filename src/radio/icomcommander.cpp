@@ -36,25 +36,40 @@ icomCommander::icomCommander(quint8 guid[GUIDLEN], rigCommander* parent) : rigCo
 
 icomCommander::~icomCommander()
 {
-    qInfo(logRig()) << "closing instance of icomCommander()";
+    qInfo(logRig()) << "[SHUTDOWN] ~icomCommander enter";
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
     queue->setRigCaps(Q_NULLPTR); // Remove access to rigCaps
 
-    qDebug(logRig()) << "Closing rig comms";
+    qDebug(logRig()) << "[SHUTDOWN] Closing rig comms";
     if (comm != Q_NULLPTR) {
         delete comm;
     }
 
     if (udpHandlerThread != Q_NULLPTR) {
+        if (udp) {
+            qDebug(logRig()) << "[SHUTDOWN] posting udp->shutdown() via QueuedConnection ...";
+            QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
+                                      Qt::QueuedConnection);
+        }
+        qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread->quit()";
         udpHandlerThread->quit();
-        udpHandlerThread->wait();
+        qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread->wait(3000) ...";
+        if (!udpHandlerThread->wait(3000)) {
+            qWarning(logRig()) << "[SHUTDOWN] udpHandlerThread unresponsive, forcing shutdown";
+            if (udp) udp->shutdown();
+            udpHandlerThread->terminate();
+            udpHandlerThread->wait(2000);
+        } else {
+            qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread done";
+        }
     }
 
     if (ptty != Q_NULLPTR) {
         delete ptty;
     }
+    qDebug(logRig()) << "[SHUTDOWN] ~icomCommander complete";
 }
 
 
@@ -179,15 +194,29 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
 
 void icomCommander::closeComm()
 {
-    qDebug(logRig()) << "Closing rig comms";
+    qDebug(logRig()) << "[SHUTDOWN] closeComm() enter";
     if (comm != Q_NULLPTR) {
         delete comm;
     }
     comm = Q_NULLPTR;
 
     if (udpHandlerThread != Q_NULLPTR) {
+        if (udp) {
+            qDebug(logRig()) << "[SHUTDOWN] closeComm() posting udp->shutdown() ...";
+            QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
+                                      Qt::QueuedConnection);
+        }
+        qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread->quit()";
         udpHandlerThread->quit();
-        udpHandlerThread->wait();
+        qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread->wait(3000) ...";
+        if (!udpHandlerThread->wait(3000)) {
+            qWarning(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread unresponsive, forcing shutdown";
+            if (udp) udp->shutdown();
+            udpHandlerThread->terminate();
+            udpHandlerThread->wait(2000);
+        } else {
+            qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread done";
+        }
     }
     udp = Q_NULLPTR;
 

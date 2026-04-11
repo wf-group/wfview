@@ -85,8 +85,49 @@ void icomUdpHandler::init()
     areYouThereTimer->start(AREYOUTHERE_PERIOD);
 }
 
+void icomUdpHandler::shutdown()
+{
+    qDebug(logUdp()) << "[SHUTDOWN] icomUdpHandler::shutdown() enter";
+
+    // Stop timers so they don't keep the event loop busy.
+    if (tokenTimer) { tokenTimer->stop(); }
+    if (areYouThereTimer) { areYouThereTimer->stop(); }
+
+    // Delete audio/civ sub-objects — their destructors close their own
+    // sockets, dispose audio handlers, and wait on audio threads.
+    if (streamOpened) {
+        if (audio != Q_NULLPTR) {
+            qDebug(logUdp()) << "[SHUTDOWN] deleting audio ...";
+            delete audio;
+            audio = Q_NULLPTR;
+            qDebug(logUdp()) << "[SHUTDOWN] audio deleted";
+        }
+        if (civ != Q_NULLPTR) {
+            qDebug(logUdp()) << "[SHUTDOWN] deleting civ ...";
+            delete civ;
+            civ = Q_NULLPTR;
+            qDebug(logUdp()) << "[SHUTDOWN] civ deleted";
+        }
+        qInfo(logUdp()) << "Sending token removal packet";
+        sendToken(0x01);
+        streamOpened = false;
+    }
+
+    // Close our own UDP socket — this stops readyRead signals so the
+    // event loop can process quit() after we return.
+    if (udp != Q_NULLPTR) {
+        qDebug(logUdp()) << "[SHUTDOWN] closing handler UDP socket";
+        udp->close();
+        delete udp;
+        udp = Q_NULLPTR;
+    }
+
+    qDebug(logUdp()) << "[SHUTDOWN] icomUdpHandler::shutdown() complete";
+}
+
 icomUdpHandler::~icomUdpHandler()
 {
+    // shutdown() should have been called already; safety net if not:
     if (streamOpened) {
         if (audio != Q_NULLPTR) {
             delete audio;

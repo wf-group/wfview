@@ -172,8 +172,8 @@ enum prefUDPItem {
 // TX Audio Processing preferences
 // All defaults produce a flat/bypass signal (no DSP applied).
 // ─────────────────────────────────────────────────────────────────────────────
-struct audioProcessingPrefs {
-    bool  bypass        = false;   // master bypass — skips all DSP and gain
+struct txAudioProcessingPrefs {
+    bool  bypass        = true;   // master bypass — skips all DSP and gain
     bool  compEnabled   = false;
     bool  eqEnabled     = false;
     bool  eqFirst       = false;    // true = EQ→Comp, false = Comp→EQ
@@ -187,8 +187,9 @@ struct audioProcessingPrefs {
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
     bool  muteRx          = false; // mute RX audio while self-monitoring, not saved to preferences
-    bool  spectrumEnabled = false; // enable TX spectrum display
-    int   spectrumFPS     = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
+    bool  spectrumEnabled       = false; // enable TX spectrum display
+    int   spectrumFPS           = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
+    bool  specInhibitDuringRx   = true; // pause TX spectrum while not transmitting
 
     // Noise gate — runs before input gain on the raw microphone signal.
     bool  gateEnabled   = false;
@@ -199,6 +200,58 @@ struct audioProcessingPrefs {
     float gateRange     = -90.0f; // dB attenuation when closed, -90 .. 0
     float gateLfCutoff  =  380.0f; // Hz, key highpass, 20 .. 4000
     float gateHfCutoff  = 2700.0f;// Hz, key lowpass,  200 .. 20000
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RX Audio Processing preferences
+// Defaults mirror the algorithm defaults from the demo programs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Which NR algorithm is active
+enum class RxNrMode { None = 0, Speex = 1, Anr = 2 };
+
+struct rxAudioProcessingPrefs {
+    bool       bypass      = true;  // master bypass — skips NR and output gain
+    bool       nrEnabled   = false;  // enable noise reduction
+    RxNrMode   nrMode      = RxNrMode::None;
+
+    // ── Channel selection (stereo only; ignored for mono) ──────────────────
+    // 1=left only, 2=right only, 3=sum to mono
+    int  channelSelect = 3;
+
+    // ── Speex parameters ─────────────────────────────────────────────────────
+    int  speexSuppression  = -30;    // max noise attenuation dB (negative, e.g. -30)
+    int  speexBandsPreset  =  3;     // index into band_presets[] in filterbank.h
+    int  speexFrameMs      = 20;     // frame size in ms (10 or 20 typical)
+    bool speexAgc            = false;
+    float speexAgcLevel      = 8000.0f;
+    int   speexAgcMaxGain    = 30;   // dB
+    bool  speexVad           = false;
+    int   speexVadProbStart  = 85;   // 0–100 %; probability to enter voice state
+    int   speexVadProbCont   = 65;   // 0–100 %; probability to stay in voice state
+    float speexSnrDecay       = 0.7f;   // 0.0–0.95; zeta smoothing (lower = faster recovery)
+    float speexNoiseUpdateRate= 0.03f;  // 0.01–0.5; noise floor adaptation speed
+    float speexPriorBase      = 0.1f;   // 0.05–0.5; min weight on current observation
+
+    // ── ANR (Audacity Noise Reduction) parameters ─────────────────────────────
+    double anrNoiseReductionDb =  20.0;  // dB of suppression, 0–48
+    double anrSensitivity      =   1.1;  // –log10(prob), 0–24
+    int    anrFreqSmoothing    =   4;    // frequency-smoothing bands, 0–6
+
+    // ── RX Equalizer (TriplePara: low shelf, low-mid, high-mid, high shelf) ──
+    static constexpr int RX_EQ_BANDS = 4;
+    bool  eqEnabled     = false;     // master EQ enable
+    float eqGain[RX_EQ_BANDS]  = {0.0f, 0.0f, 0.0f, 0.0f};  // dB, ±6
+    float eqFreq[RX_EQ_BANDS]  = {100.0f, 800.0f, 2000.0f, 3500.0f};  // Hz
+    float eqQ[RX_EQ_BANDS]     = {1.0f, 1.0f, 1.0f, 1.0f};  // Q for mid bands; slope for shelves
+
+    // ── Output gain ──────────────────────────────────────────────────────────
+    float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain
+
+    // ── Spectrum display ─────────────────────────────────────────────────────
+    bool spectrumEnabled       = false;  // enable RX spectrum display
+    int  spectrumFPS           = 10;     // repaint rate (fps)
+    bool specInhibitDuringTx   = true;   // pause RX spectrum while transmitting
 };
 
 struct preferences {
@@ -300,7 +353,8 @@ struct preferences {
 
     audioSetup rxSetup;
     audioSetup txSetup;
-    audioProcessingPrefs audioProc;
+    txAudioProcessingPrefs txAudioProc;
+    rxAudioProcessingPrefs rxAudioProc;
 
     QChar decimalSeparator;
     QChar groupSeparator;

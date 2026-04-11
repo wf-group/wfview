@@ -13,6 +13,10 @@ settingswidget::settingswidget(QWidget *parent) :
 
     connect(ui->serverUsersTable,SIGNAL(rowAdded(int)),this, SLOT(serverAddUserLine(int)));
     connect(ui->serverUsersTable,SIGNAL(rowDeleted(int)),this,SLOT(serverDeleteUserLine(int)));
+    connect(ui->serverUsersAddBtn, &QPushButton::clicked, ui->serverUsersTable, &tableWidget::addItem);
+    connect(ui->serverUsersInsertBtn, &QPushButton::clicked, ui->serverUsersTable, &tableWidget::insertItem);
+    connect(ui->serverUsersCloneBtn, &QPushButton::clicked, ui->serverUsersTable, &tableWidget::cloneItem);
+    connect(ui->serverUsersDeleteBtn, &QPushButton::clicked, ui->serverUsersTable, &tableWidget::deleteItem);
     createSettingsListItems();
     populateComboBoxes();
 
@@ -253,6 +257,12 @@ void settingswidget::acceptUdpPreferencesPtr(udpPreferences *upptr)
         audioDev->enumerate();
     }
 
+    // Apply manufacturer-specific UI visibility now that both prefs and udpPrefs are available.
+    // Without this, the Radio Access page shows a merged view of all manufacturer controls.
+    if(havePrefs) {
+        ui->manufacturerCombo->setCurrentIndex(ui->manufacturerCombo->findData(prefs->manufacturer));
+        on_manufacturerCombo_currentIndexChanged(ui->manufacturerCombo->currentIndex());
+    }
 }
 
 void settingswidget::acceptServerConfig(SERVERCONFIG *sc)
@@ -1447,48 +1457,50 @@ void settingswidget::serverDeleteUserLine(int row)
 
 void settingswidget::serverAddUserLine(int row, const QString &user, const QString &pass, const int &type)
 {
-    Q_UNUSED(row)
     // migration TODO: Review these signals/slots
     ui->serverUsersTable->blockSignals(true);
 
-    ui->serverUsersTable->setItem(ui->serverUsersTable->rowCount() - 1, 0, new QTableWidgetItem());
-    ui->serverUsersTable->setItem(ui->serverUsersTable->rowCount() - 1, 1, new QTableWidgetItem());
-    ui->serverUsersTable->setItem(ui->serverUsersTable->rowCount() - 1, 2, new QTableWidgetItem());
-    ui->serverUsersTable->setItem(ui->serverUsersTable->rowCount() - 1, 3, new QTableWidgetItem());
+    ui->serverUsersTable->setItem(row, 0, new QTableWidgetItem());
+    ui->serverUsersTable->setItem(row, 1, new QTableWidgetItem());
+    ui->serverUsersTable->setItem(row, 2, new QTableWidgetItem());
+    ui->serverUsersTable->setItem(row, 3, new QTableWidgetItem());
 
     QLineEdit* username = new QLineEdit();
-    username->setProperty("row", (int)ui->serverUsersTable->rowCount() - 1);
+    username->setProperty("row", row);
     username->setProperty("col", (int)0);
     username->setText(user);
     connect(username, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
-    ui->serverUsersTable->setCellWidget(ui->serverUsersTable->rowCount() - 1, 0, username);
+    ui->serverUsersTable->setCellWidget(row, 0, username);
 
     QLineEdit* password = new QLineEdit();
-    password->setProperty("row", (int)ui->serverUsersTable->rowCount() - 1);
+    password->setProperty("row", row);
     password->setProperty("col", (int)1);
     password->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     password->setText(pass);
     connect(password, SIGNAL(editingFinished()), this, SLOT(onServerUserFieldChanged()));
-    ui->serverUsersTable->setCellWidget(ui->serverUsersTable->rowCount() - 1, 1, password);
+    ui->serverUsersTable->setCellWidget(row, 1, password);
 
     QComboBox* comboBox = new QComboBox();
     comboBox->insertItems(0, { tr("Admin User"), tr("Normal User"), tr("Normal with no TX","Monitor only")});
-    comboBox->setProperty("row", (int)ui->serverUsersTable->rowCount() - 1);
+    comboBox->setProperty("row", row);
     comboBox->setProperty("col", (int)2);
     comboBox->setCurrentIndex(type);
     connect(comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onServerUserFieldChanged()));
-    ui->serverUsersTable->setCellWidget(ui->serverUsersTable->rowCount() - 1, 2, comboBox);
+    ui->serverUsersTable->setCellWidget(row, 2, comboBox);
 
     QPushButton* button = new QPushButton();
     button->setText(tr("Delete"));
-    button->setProperty("row", (int)ui->serverUsersTable->rowCount() - 1);
+    button->setProperty("row", row);
     button->setProperty("col", (int)3);
     connect(button, SIGNAL(clicked()), this, SLOT(onServerUserFieldChanged()));
-    ui->serverUsersTable->setCellWidget(ui->serverUsersTable->rowCount() - 1, 3, button);
+    ui->serverUsersTable->setCellWidget(row, 3, button);
 
     if (ui->serverUsersTable->rowCount() > serverConfig->users.count())
     {
-        serverConfig->users.append(SERVERUSER());
+        if (row < serverConfig->users.count())
+            serverConfig->users.insert(row, SERVERUSER());
+        else
+            serverConfig->users.append(SERVERUSER());
     }
 
     ui->serverUsersTable->blockSignals(false);
@@ -3383,6 +3395,10 @@ void settingswidget::connectionStatus(bool conn)
     ui->serverCivPortText->setEnabled(!conn);
     ui->serverScopePortText->setEnabled(!conn);
     ui->serverUsersTable->setEnabled(!conn);
+    ui->serverUsersAddBtn->setEnabled(!conn);
+    ui->serverUsersInsertBtn->setEnabled(!conn);
+    ui->serverUsersCloneBtn->setEnabled(!conn);
+    ui->serverUsersDeleteBtn->setEnabled(!conn);
     ui->serverDisconnectLabel->setVisible(conn);
     ui->radioDisconnectLabel->setVisible(conn);
 

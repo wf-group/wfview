@@ -1,17 +1,3 @@
-the following people currently contribute to this Project:
+The wfview [team](https://wfview.org/core-development-team/) regularly accepts code contributions from people around the world. 
 
-(alphabetical)
-
-- Elliot          W6EL
-- Jim             PA8E
-- Phil            M0VSE
-- Roeland         PA3MET
-
-
-Also contributions by:
-
-Daniele Forsi <dforsi@gmail.com>
-Russ Woodman - K5TUX <k5tux@k5tux.us>
-(and some others I will add too)
-
-
+For a list of recent contributors, please see [our gitlab page](https://gitlab.com/eliggett/wfview/-/graphs/master?ref_type=heads). 
