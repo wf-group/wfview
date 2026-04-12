@@ -1,7 +1,9 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
+#ifndef BUILD_WFSERVER
 #include "txaudioprocessor.h"
 #include "rxaudioprocessor.h"
+#endif
 #include <algorithm>
 #include <cstring>
 
@@ -147,6 +149,7 @@ void yaesuUdpAudio::init()
     // Sidetone: always route through RxAudioProcessor (mixed AFTER NR,
     // resampled if needed).  RX mute still goes to this class for packet-level silencing.
     // Disconnect first — txProc/rxProc survive reconnects.
+#ifndef BUILD_WFSERVER
     if (txSetup.txProc && rxSetup.rxProc) {
         disconnect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                    rxSetup.rxProc, &RxAudioProcessor::injectSidetone);
@@ -164,6 +167,7 @@ void yaesuUdpAudio::init()
                 this, &yaesuUdpAudio::setRxMuted,
                 Qt::QueuedConnection);
     }
+#endif
 
     emit setupTxAudio(txSetup);
 

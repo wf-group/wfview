@@ -33,8 +33,13 @@
 #include "audiotaper.h"
 #include "audioconverter.h"
 #include "logcategories.h"
+#ifndef BUILD_WFSERVER
 #include "txaudioprocessor.h"
 #include "rxaudioprocessor.h"
+#else
+class TxAudioProcessor;
+class RxAudioProcessor;
+#endif
 
 class audioHandlerBase : public QObject
 {
@@ -51,8 +56,10 @@ public:
     virtual void stop();
 
     // Returns the TX/RX processor pointers set in audioSetup (null when not set).
+#ifndef BUILD_WFSERVER
     TxAudioProcessor* txProcessor() const { return setupData.txProc; }
     RxAudioProcessor* rxProcessor() const { return setupData.rxProc; }
+#endif
 
 signals:
     void initFailed();

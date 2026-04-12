@@ -16,7 +16,11 @@
 #endif
 
 #include <iostream>
+#ifdef BUILD_WFSERVER
+#include "servermain.h"
+#else
 #include "wfmain.h"
+#endif
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
