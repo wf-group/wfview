@@ -121,13 +121,16 @@ int selectFromList(const QString& header, const QStringList& items)
 }
 
 // Returns -2 if user entered "Q" to re-pick audio system.
-int selectAudioDevice(const QString& header, const QStringList& items)
+int selectAudioDevice(const QString& header, const QStringList& items, const QString& footer = QString())
 {
     std::cout << header.toStdString() << "\n";
     for (int i = 0; i < items.size(); ++i) {
         std::cout << "  [" << i << "] " << items[i].toStdString() << "\n";
     }
     std::cout << "  [Q] Re-select audio backend\n";
+    if (!footer.isEmpty()) {
+        std::cout << footer.toStdString() << "\n";
+    }
     while (true) {
         QString s = prompt("Enter selection number (or Q): ");
         if (s.compare("q", Qt::CaseInsensitive) == 0) return -2;
@@ -174,15 +177,25 @@ int run(const QString& settingsFile)
         portLabels.append(label);
         portPaths.append(path);
     }
-    // Append special options at the end of the list.
-    const int autoIdx = portLabels.size();
-    portLabels.append("auto  (wfserver auto-detects an Icom serial port at startup)");
-    portPaths.append("auto");
-    const int manualIdx = portLabels.size();
-    portLabels.append("Enter a serial port path manually");
-    portPaths.append(QString());
+    const int autoIdx = -2;
+    const int manualIdx = -3;
 
-    int portIdx = selectFromList("\nAvailable serial ports:", portLabels);
+    std::cout << "\nAvailable serial ports:\n";
+    for (int i = 0; i < portLabels.size(); ++i) {
+        std::cout << "  [" << i << "] " << portLabels[i].toStdString() << "\n";
+    }
+    std::cout << "  [A] auto  (wfserver auto-detects an Icom serial port at startup)\n";
+    std::cout << "  [M] Enter a serial port path manually\n";
+    int portIdx = -1;
+    while (portIdx == -1) {
+        QString s = prompt("Enter selection: ");
+        if (s.compare("a", Qt::CaseInsensitive) == 0) { portIdx = autoIdx; break; }
+        if (s.compare("m", Qt::CaseInsensitive) == 0) { portIdx = manualIdx; break; }
+        bool ok = false;
+        int v = s.toInt(&ok);
+        if (ok && v >= 0 && v < portLabels.size()) { portIdx = v; break; }
+        std::cout << "Invalid selection.\n";
+    }
     QString serialPort;
     if (portIdx == autoIdx) {
         serialPort = "auto";
@@ -199,7 +212,8 @@ int run(const QString& settingsFile)
     std::cout << "\nCommon baud rates: 4800, 9600, 19200, 38400, 57600, 115200\n";
     quint32 baud = 0;
     while (baud == 0) {
-        QString s = prompt("Enter baud rate: ");
+        QString s = prompt("Enter baud rate [115200]: ");
+        if (s.isEmpty()) { baud = 115200; break; }
         bool ok = false;
         quint32 v = s.toUInt(&ok);
         if (ok && v > 0) baud = v;
@@ -209,16 +223,19 @@ int run(const QString& settingsFile)
     // --- PTT type ---
     bool forceRTSasPTT = false;
     pttType_t pttType = pttCIV;
+    std::cout << "\nPTT method -- use RTS for older radios (ex. IC-718),\n";
+    std::cout << "and use CI-V for more modern radios (ex. IC-7300).\n";
     while (true) {
-        QString s = prompt("\nPTT method -- 'rts' for serial RTS, 'civ' for CI-V command: ");
+        QString s = prompt("Enter 'rts' or 'civ' [CI-V]: ");
+        if (s.isEmpty() || s.compare("civ", Qt::CaseInsensitive) == 0
+            || s.compare("ci-v", Qt::CaseInsensitive) == 0) {
+            forceRTSasPTT = false;
+            pttType = pttCIV;
+            break;
+        }
         if (s.compare("rts", Qt::CaseInsensitive) == 0) {
             forceRTSasPTT = true;
             pttType = pttRTS;
-            break;
-        }
-        if (s.compare("civ", Qt::CaseInsensitive) == 0) {
-            forceRTSasPTT = false;
-            pttType = pttCIV;
             break;
         }
         std::cout << "Please enter 'rts' or 'civ'.\n";
@@ -232,7 +249,8 @@ int run(const QString& settingsFile)
     while (true) {
         int menu;
         while (true) {
-            QString s = prompt("\nAudio backend -- [0] Qt  [1] Port Audio  [2] RT Audio: ");
+            QString s = prompt("\nAudio backend -- [0] Qt  [1] Port Audio  [2] RT Audio [0]: ");
+            if (s.isEmpty()) { menu = 0; break; }
             bool ok = false;
             menu = s.toInt(&ok);
             if (ok && menu >= 0 && menu <= 2) break;
@@ -252,9 +270,11 @@ int run(const QString& settingsFile)
             continue;
         }
 
-        int ri = selectAudioDevice("\nAvailable audio INPUT devices:", ins);
+        int ri = selectAudioDevice("\nAvailable audio INPUT devices:", ins,
+            "Note: The audio input should be the radio's receive audio.");
         if (ri == -2) continue;
-        int ro = selectAudioDevice("\nAvailable audio OUTPUT devices:", outs);
+        int ro = selectAudioDevice("\nAvailable audio OUTPUT devices:", outs,
+            "Note: The audio output should go to the radio's transmit audio input.");
         if (ro == -2) continue;
 
         rxName = devs.getInputName(ri);
@@ -267,8 +287,53 @@ int run(const QString& settingsFile)
     std::cout << "No spaces, printable ASCII, max 16 characters.\n";
     QString rigName = promptConstrained("Rig name: ", 16, false);
 
+    // --- CI-V address ---
+    std::cout << "\nCI-V address.\n";
+    std::cout << "It is strongly recommended to enable CI-V Transceive on the radio\n";
+    std::cout << "and then set the CI-V address in wfserver to auto. To manually\n";
+    std::cout << "define the CI-V address, type it here. You may type it as an integer\n";
+    std::cout << "(ie, \"152\"), or a hexadecimal value (ie, \"0x98\" or \"h98\").\n";
+    int civAddr = -1; // -1 => auto (do not write)
+    while (true) {
+        QString s = prompt("CI-V address [auto]: ");
+        if (s.isEmpty() || s.compare("auto", Qt::CaseInsensitive) == 0) {
+            civAddr = -1;
+            break;
+        }
+        QString norm = s;
+        int base = 10;
+        if (norm.startsWith("0x", Qt::CaseInsensitive)) {
+            norm = norm.mid(2);
+            base = 16;
+        } else if (norm.startsWith("h", Qt::CaseInsensitive)) {
+            norm = norm.mid(1);
+            base = 16;
+        }
+        bool ok = false;
+        int v = norm.toInt(&ok, base);
+        if (ok && v >= 0 && v <= 255) {
+            civAddr = v;
+            break;
+        }
+        std::cout << "Enter a value 0-255 (decimal, 0xNN, or hNN), or 'auto'.\n";
+    }
+
+    // --- Waterfall format ---
+    std::cout << "\nWaterfall format:\n";
+    std::cout << "  [0] chunk format, serial-style\n";
+    std::cout << "  [1] combined format, network-style\n";
+    int waterfallFormat = 0;
+    while (true) {
+        QString s = prompt("Enter selection [0]: ");
+        if (s.isEmpty()) { waterfallFormat = 0; break; }
+        bool ok = false;
+        int v = s.toInt(&ok);
+        if (ok && (v == 0 || v == 1)) { waterfallFormat = v; break; }
+        std::cout << "Enter 0 or 1.\n";
+    }
+
     // --- Network ports ---
-    std::cout << "\nNetwork ports (press Enter to accept defaults):\n";
+    std::cout << "\nNetwork ports (UDP, press Enter to accept defaults):\n";
     int controlPort = promptPort("Control port", 50001);
     int civPort     = promptPort("CI-V port",    50002);
     int audioPort   = promptPort("Audio port",   50003);
@@ -286,19 +351,33 @@ int run(const QString& settingsFile)
                      case rtAudio: return "RT Audio"; default: return "?"; }
     };
     std::cout << "\n--- Review ---\n";
-    std::cout << "Settings file : " << resolvedPath.toStdString() << "\n";
-    std::cout << "Serial port   : " << serialPort.toStdString() << "\n";
-    std::cout << "Baud rate     : " << baud << "\n";
-    std::cout << "PTT method    : " << (forceRTSasPTT ? "RTS" : "CI-V") << "\n";
-    std::cout << "Audio backend : " << backendLabel(audioSystem)
-              << " (AudioSystem=" << static_cast<int>(audioSystem) << ")\n";
-    std::cout << "Audio input   : " << rxName.toStdString() << "\n";
-    std::cout << "Audio output  : " << txName.toStdString() << "\n";
-    std::cout << "Rig name      : " << rigName.toStdString() << "\n";
-    std::cout << "Control port  : " << controlPort << "\n";
-    std::cout << "CI-V port     : " << civPort << "\n";
-    std::cout << "Audio port    : " << audioPort << "\n";
-    std::cout << "Admin user    : " << username.toStdString() << " (UserType=0)\n";
+    std::cout << "Settings file: " << resolvedPath.toStdString() << "\n";
+    std::cout << "\n[General]\n";
+    std::cout << "  AudioSystem      = " << static_cast<int>(audioSystem)
+              << "  (" << backendLabel(audioSystem) << ")\n";
+    std::cout << "  Manufacturer     = " << static_cast<int>(manufIcom) << "\n";
+    std::cout << "\n[Radios]\n";
+    std::cout << "  SerialPortRadio  = " << serialPort.toStdString() << "\n";
+    std::cout << "  SerialPortBaud   = " << baud << "\n";
+    std::cout << "  PTTType          = " << static_cast<int>(pttType)
+              << "  (" << (forceRTSasPTT ? "RTS" : "CI-V") << ")\n";
+    std::cout << "  ForceRTSasPTT    = " << (forceRTSasPTT ? "true" : "false") << "\n";
+    std::cout << "  AudioInput       = " << rxName.toStdString() << "\n";
+    std::cout << "  AudioOutput      = " << txName.toStdString() << "\n";
+    std::cout << "  RigName          = " << rigName.toStdString() << "\n";
+    std::cout << "  RigCIVuInt       = "
+              << (civAddr < 0 ? std::string("<NONE> (auto)") : std::to_string(civAddr)) << "\n";
+    std::cout << "  WaterfallFormat  = " << waterfallFormat << "\n";
+    std::cout << "\n[Server]\n";
+    std::cout << "  ServerEnabled    = true\n";
+    std::cout << "  ServerControlPort= " << controlPort << "\n";
+    std::cout << "  ServerCivPort    = " << civPort << "\n";
+    std::cout << "  ServerAudioPort  = " << audioPort << "\n";
+    QByteArray encoded;
+    passcode(password, encoded);
+    std::cout << "  Users\\1\\Username = " << username.toStdString() << "  (UserType=0)\n";
+    std::cout << "  Users\\1\\Password = " << QString(encoded).toStdString()
+              << "  (decodes as " << password.toStdString() << ")\n";
 
     QString confirm = prompt("\nSave these settings? (y/N): ");
     if (confirm.compare("y", Qt::CaseInsensitive) != 0) {
@@ -315,7 +394,9 @@ int run(const QString& settingsFile)
 
     s->beginWriteArray("Radios");
     s->setArrayIndex(0);
-    s->setValue("RigCIVuInt", 0);
+    if (civAddr >= 0) {
+        s->setValue("RigCIVuInt", civAddr);
+    }
     s->setValue("PTTType", static_cast<int>(pttType));
     s->setValue("ForceRTSasPTT", forceRTSasPTT);
     s->setValue("SerialPortRadio", serialPort);
@@ -323,7 +404,7 @@ int run(const QString& settingsFile)
     s->setValue("SerialPortBaud", baud);
     s->setValue("AudioInput", rxName);
     s->setValue("AudioOutput", txName);
-    s->setValue("WaterfallFormat", 0);
+    s->setValue("WaterfallFormat", waterfallFormat);
     s->setValue("GUID", QUuid::createUuid().toString());
     s->endArray();
 
@@ -336,8 +417,6 @@ int run(const QString& settingsFile)
     s->beginWriteArray("Users");
     s->setArrayIndex(0);
     s->setValue("Username", username);
-    QByteArray encoded;
-    passcode(password, encoded);
     s->setValue("Password", QString(encoded));
     s->setValue("UserType", 0);
     s->endArray();
