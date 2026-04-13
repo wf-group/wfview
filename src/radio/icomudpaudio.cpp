@@ -1,7 +1,9 @@
 #include "icomudpaudio.h"
 #include "logcategories.h"
+#ifndef BUILD_WFSERVER
 #include "txaudioprocessor.h"
 #include "rxaudioprocessor.h"
+#endif
 #include <algorithm>
 #include <cstring>
 
@@ -324,6 +326,7 @@ void icomUdpAudio::startAudio() {
         connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
         connect(txaudio, &audioHandlerBase::initFailed, this, &icomUdpAudio::onTxAudioInitFailed);
 
+#ifndef BUILD_WFSERVER
         // Sidetone: always route through RxAudioProcessor (mixed AFTER NR,
         // resampled if needed).  RX mute still goes to this class for packet-level silencing.
         // Disconnect first — txProc/rxProc survive reconnects.
@@ -344,6 +347,7 @@ void icomUdpAudio::startAudio() {
                     this, &icomUdpAudio::setRxMuted,
                     Qt::QueuedConnection);
         }
+#endif
 
         emit setupTxAudio(txSetup);
     }

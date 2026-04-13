@@ -216,6 +216,7 @@ SOURCES += \
     src/cachingqueue.cpp \
     src/main.cpp\
     src/servermain.cpp \
+    src/serverwizard.cpp \
     src/commhandler.cpp \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
@@ -230,6 +231,7 @@ SOURCES += \
 
 HEADERS  += \
     include/servermain.h \
+    include/serverwizard.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
     src/audio/resampler/speex_resampler.h \

@@ -185,6 +185,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
         return false;
     }
 
+#ifndef BUILD_WFSERVER
     // Install TX processing hook (input converters only).
     // The hook is invoked after resampling mic→codec rate.
     if (setup.isinput && setup.txProc) {
@@ -196,6 +197,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
             });
         }, Qt::QueuedConnection);
     }
+#endif
 
     // Install RX processing hook (output converters only).
     // Uses setPreResampleHook so the hook runs BEFORE channel conversion and
@@ -204,6 +206,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
     // bug that would occur if we mixed 8 kHz sidetone into 48 kHz (post-resample)
     // audio.  Sidetone is mixed inside RxAudioProcessor AFTER noise reduction,
     // ensuring the user's voice is not NR-processed.
+#ifndef BUILD_WFSERVER
     if (!setup.isinput && setup.rxProc) {
         RxAudioProcessor* proc = setup.rxProc;
         const float sr = static_cast<float>(radioFormat.sampleRate());
@@ -214,6 +217,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
             });
         }, Qt::QueuedConnection);
     }
+#endif
 
     initialized = true;
     qInfo(logAudio()) << role() << "thread id" << QThread::currentThreadId();

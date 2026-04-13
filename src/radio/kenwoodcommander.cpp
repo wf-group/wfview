@@ -879,6 +879,7 @@ void kenwoodCommander::parseData(QByteArray data)
                 // Disconnect first — txProc/rxProc survive reconnects, so a prior
                 // connection may still exist.  Without this, each reconnect adds a
                 // duplicate delivery, causing choppy/robotic sidetone.
+#ifndef BUILD_WFSERVER
                 if (txSetup.txProc && rxSetup.rxProc) {
                     disconnect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
                                rxSetup.rxProc, &RxAudioProcessor::injectSidetone);
@@ -896,6 +897,7 @@ void kenwoodCommander::parseData(QByteArray data)
                             rtp, &rtpAudio::setRxMuted,
                             Qt::QueuedConnection);
                 }
+#endif
                 // Audio from UDP
                 connect(rtp, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
                 QObject::connect(rtp, SIGNAL(haveOutLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));
