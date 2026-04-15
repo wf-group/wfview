@@ -309,11 +309,14 @@ jobs:
             fi
           done
 
+      - name: Rename macOS DMG
+        run: mv wfview.dmg wfview-macos.dmg
+
       - name: Upload macOS DMG artifact
         uses: actions/upload-artifact@v4
         with:
           name: wfview-macos-dmg
-          path: wfview.dmg
+          path: wfview-macos.dmg
           if-no-files-found: warn
 
   # ═══════════════════════════════════════════════════════════════════
@@ -601,6 +604,41 @@ jobs:
             echo "Backup created."
         fi
 
+        # ─── Offer to back up prior wfview binaries ───────────────────
+        PRIOR_BINS=()
+        [ -f /usr/local/bin/wfview ] && PRIOR_BINS+=("/usr/local/bin/wfview")
+        [ -f /usr/bin/wfview ]       && PRIOR_BINS+=("/usr/bin/wfview")
+
+        if [ ${#PRIOR_BINS[@]} -gt 0 ]; then
+            echo ""
+            echo "Existing wfview binary detected at:"
+            for b in "${PRIOR_BINS[@]}"; do echo "  $b"; done
+            echo ""
+            if [ "${IS_ROOT}" = true ]; then
+                MV_CMD=(mv -f)
+            else
+                MV_CMD=(sudo mv -f)
+                echo "Note: sudo will be used to move the existing binary (you may be prompted for your password)."
+            fi
+            if [ -t 0 ]; then
+                read -r -p "Back up existing binary to <path>-prior before installing? [Y/n] " REPLY
+            else
+                REPLY="Y"
+                echo "Non-interactive shell; backing up by default."
+            fi
+            case "${REPLY}" in
+                ""|y|Y|yes|YES|Yes)
+                    for b in "${PRIOR_BINS[@]}"; do
+                        echo "Moving $b -> ${b}-prior"
+                        "${MV_CMD[@]}" "$b" "${b}-prior"
+                    done
+                    ;;
+                *)
+                    echo "Skipping backup of prior wfview binaries."
+                    ;;
+            esac
+        fi
+
         # ─── Install AppImage ─────────────────────────────────────────
         echo "Installing AppImage to ${BIN_DIR}/wfview ..."
         cp "${SCRIPT_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/wfview"
@@ -682,18 +720,18 @@ jobs:
         makeself \
           --gzip \
           installer-payload \
-          wfview-installer.sh \
+          wfview-linux-installer.sh \
           "wfview AppImage Installer (commit ${{ steps.meta.outputs.git_short }})" \
           ./install.sh
 
-        ls -lh wfview-installer.sh
+        ls -lh wfview-linux-installer.sh
 
     # ─── Upload artifact ────────────────────────────────────────────────
     - name: Upload installer artifact
       uses: actions/upload-artifact@v4
       with:
         name: wfview-linux-appimage-installer
-        path: wfview-installer.sh
+        path: wfview-linux-installer.sh
         retention-days: 30
 
   # ═══════════════════════════════════════════════════════════════════
@@ -743,8 +781,8 @@ jobs:
           prerelease: ${{ contains(steps.meta.outputs.version_string, 'beta') || contains(steps.meta.outputs.version_string, 'rc') }}
           make_latest: ${{ !contains(steps.meta.outputs.version_string, 'beta') && !contains(steps.meta.outputs.version_string, 'rc') }}
           files: |
-            artifacts/wfview.dmg
-            artifacts/wfview-installer.sh
+            artifacts/wfview-macos.dmg
+            artifacts/wfview-linux-installer.sh
           body: |
             ## wfview ${{ steps.meta.outputs.version_string }}
 
@@ -765,7 +803,7 @@ jobs:
             | **Framework** | Qt 6.8.1 |
             | **Compatibility** | macOS 12 (Monterey) and newer |
 
-            **Install:** Download `wfview.dmg`, open it, and drag wfview to your Applications folder.
+            **Install:** Download `wfview-macos.dmg`, open it, and drag wfview to your Applications folder.
 
             ---
 
@@ -779,15 +817,19 @@ jobs:
 
             **Install instructions:**
 
+            Run **either** the user install **or** the system-wide install — not both.
+
             ```bash
             cd ~/Downloads
-            chmod +x wfview-installer.sh
+            chmod +x wfview-linux-installer.sh
 
             # User install (to ~/.local):
-            ./wfview-installer.sh
+            ./wfview-linux-installer.sh
+
+            # --- OR ---
 
             # System-wide install (to /usr/local):
-            sudo ./wfview-installer.sh
+            sudo ./wfview-linux-installer.sh
             ```
 
             **User install notes:**
