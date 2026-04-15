@@ -3,10 +3,10 @@
 `wfserver` is the command-line, headless server build of wfview. It exposes
 a networked radio server (Icom / Kenwood / Yaesu) without any GUI, and is
 intended for always-on machines such as a Raspberry Pi or a small Linux
-host located near the radio.
+host located near the radio. It can also be compiled on a Microsoft Windows host, but that procedure is yet to be documented. 
 
 This document describes how to build and install `wfserver` on Ubuntu
-22.04 LTS and Ubuntu 24.04 LTS.
+22.04 LTS and Ubuntu 24.04 LTS. It may be adapted for use with other linux distributions. 
 
 ## Build dependencies
 
