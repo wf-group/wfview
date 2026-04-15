@@ -1268,7 +1268,7 @@ void wfmain::setupKeyShortcuts()
 
 void wfmain::runShortcut(const QKeySequence k)
 {
-    qInfo() << "Running shortcut for key:" << k;
+    qDebug() << "Running shortcut for key:" << k;
 
     if (k == Qt::Key_F1)
     {
