@@ -1,7 +1,7 @@
 # Building wfserver
 
 `wfserver` is the command-line, headless server build of wfview. It exposes
-a networked radio server (Icom / Kenwood / Yaesu) without any GUI, and is
+a networked radio server (for only Icom radios at this time) without any GUI, and is
 intended for always-on machines such as a Raspberry Pi or a small Linux
 host located near the radio. It can also be compiled on a Microsoft Windows host, but that procedure is yet to be documented. 
 
