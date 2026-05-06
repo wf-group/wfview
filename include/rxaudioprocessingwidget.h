@@ -10,7 +10,7 @@
 //   - Each logical section maps to one QGroupBox, making QML Column/GroupBox
 //     conversion straightforward.
 
-#include <QDialog>
+#include <QWidget>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QGroupBox>
@@ -34,7 +34,7 @@
 #include "spectrumwidget.h"
 #include "collapsiblesection.h"
 
-class RxAudioProcessingWidget : public QDialog
+class RxAudioProcessingWidget : public QWidget
 {
     Q_OBJECT
 

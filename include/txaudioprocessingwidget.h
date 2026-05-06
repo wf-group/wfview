@@ -1,7 +1,7 @@
 #ifndef TXAUDIOPROCESSINGWIDGET_H
 #define TXAUDIOPROCESSINGWIDGET_H
 
-#include <QDialog>
+#include <QWidget>
 #include <QSlider>
 #include <QLabel>
 #include <QCheckBox>
@@ -33,7 +33,7 @@
 // Connect TxAudioProcessor meter signals to the updateXxxLevel() slots.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class TxAudioProcessingWidget : public QDialog
+class TxAudioProcessingWidget : public QWidget
 {
     Q_OBJECT
 

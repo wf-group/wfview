@@ -21,10 +21,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 RxAudioProcessingWidget::RxAudioProcessingWidget(QWidget* parent)
-    : QDialog(parent)
+    : QWidget(nullptr, Qt::Window)
 {
+    Q_UNUSED(parent);  // intentionally ignored — this is an independent top-level
+                       // window; passing a parent would set WM_TRANSIENT_FOR on X11
+                       // and force the window to stay above the main window.
     setWindowTitle(tr("RX Audio Processing"));
-    setWindowFlags(windowFlags() | Qt::Window);
     buildUi();
     connect(&m_specDiagTimer, &QTimer::timeout,
             this, &RxAudioProcessingWidget::onSpecDiagTimer);
@@ -1149,7 +1151,7 @@ void RxAudioProcessingWidget::updateSizeConstraints()
 
 void RxAudioProcessingWidget::resizeEvent(QResizeEvent* event)
 {
-    QDialog::resizeEvent(event);
+    QWidget::resizeEvent(event);
     if (m_programmaticResize)
         return;
     // User is dragging the window — capture the extra height beyond content.

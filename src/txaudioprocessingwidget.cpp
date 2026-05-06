@@ -20,10 +20,12 @@ static QString freqLabel(float hz)
 // ─────────────────────────────────────────────────────────────────────────────
 
 TxAudioProcessingWidget::TxAudioProcessingWidget(QWidget* parent)
-    : QDialog(parent)
+    : QWidget(nullptr, Qt::Window)
 {
+    Q_UNUSED(parent);  // intentionally ignored — this is an independent top-level
+                       // window; passing a parent would set WM_TRANSIENT_FOR on X11
+                       // and force the window to stay above the main window.
     setWindowTitle(tr("TX Audio Processing"));
-    setWindowFlags(windowFlags() | Qt::Window);
     buildUi();
     connect(&m_specDiagTimer, &QTimer::timeout,
             this, &TxAudioProcessingWidget::onSpecDiagTimer);
