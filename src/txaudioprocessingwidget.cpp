@@ -80,6 +80,14 @@ txAudioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
     return p;
 }
 
+void TxAudioProcessingWidget::setAntiAlias(bool on)
+{
+    if (specWidget) {
+        specWidget->antiAlias = on;
+        specWidget->update();
+    }
+}
+
 // ─── Level meter updates ──────────────────────────────────────────────────────
 
 void TxAudioProcessingWidget::updateInputLevel(float peak)

@@ -43,6 +43,9 @@ public:
     void setPrefs(const txAudioProcessingPrefs& p);
     txAudioProcessingPrefs getPrefs() const;
 
+    // Mirror the global wfAntiAlias preference onto the spectrum display.
+    void setAntiAlias(bool on);
+
 signals:
     void prefsChanged(txAudioProcessingPrefs p);
 

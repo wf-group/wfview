@@ -98,6 +98,18 @@ rxAudioProcessingPrefs RxAudioProcessingWidget::getPrefs() const
     return p;
 }
 
+void RxAudioProcessingWidget::setAntiAlias(bool on)
+{
+    if (specWidget) {
+        specWidget->antiAlias = on;
+        specWidget->update();
+    }
+    if (anrProfileSpec) {
+        anrProfileSpec->antiAlias = on;
+        anrProfileSpec->update();
+    }
+}
+
 // ─── setConnected / setAudioChannels ─────────────────────────────────────────
 
 void RxAudioProcessingWidget::setConnected(bool connected)

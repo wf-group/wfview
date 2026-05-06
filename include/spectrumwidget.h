@@ -80,6 +80,15 @@ public:
     QString primaryLabel   = tr("Input");
     QString secondaryLabel = tr("Output");
 
+    // When true, skip any bin that would map to the same integer pixel as the
+    // previously drawn point.  Avoids emitting more polyline vertices than the
+    // widget has horizontal pixels.  Set to false to compare timings.
+    bool decimate = true;
+
+    // Mirror the global wfAntiAlias preference: when false, paint without
+    // QPainter::Antialiasing (faster, sharper pixels).
+    bool antiAlias = true;
+
 protected:
     void paintEvent(QPaintEvent *) override
     {
@@ -87,7 +96,8 @@ protected:
         t.start();
 
         QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
+        if (antiAlias)
+            painter.setRenderHint(QPainter::Antialiasing);
         painter.fillRect(rect(), QColor(20, 20, 20));
         drawGrid(painter);
 
@@ -189,6 +199,8 @@ private:
         const int numBins = static_cast<int>(data.size());
         if (numBins < 2) return;
 
+        int lastX = -1;  // for decimation: skip bins mapping to same pixel column
+
         if (logBins) {
             // Bins are already log-spaced from 50 Hz to 8 kHz, so bin index
             // maps linearly to x position (the x-axis is also log over the
@@ -197,6 +209,11 @@ private:
             const double h = static_cast<double>(height());
             for (int i = 0; i < numBins; ++i) {
                 const double x    = (static_cast<double>(i) / (numBins - 1)) * w;
+                if (decimate) {
+                    const int xi = static_cast<int>(x);
+                    if (xi == lastX) continue;
+                    lastX = xi;
+                }
                 const double yN   = (data[i] - minDb) / (maxDb - minDb);
                 const double y    = h - yN * h;
                 pts << QPointF(x, y);
@@ -209,9 +226,14 @@ private:
             for (int i = 1; i < maxBin; ++i) {
                 const double freq  = i * binRes;
                 if (freq < 50.0) continue;
+                const int x = freqToX(freq);
+                if (decimate) {
+                    if (x == lastX) continue;
+                    lastX = x;
+                }
                 const float  yNorm = static_cast<float>((data[i] - minDb) / (maxDb - minDb));
                 const float  y     = static_cast<float>(height()) - yNorm * static_cast<float>(height());
-                pts << QPointF(freqToX(freq), static_cast<double>(y));
+                pts << QPointF(x, static_cast<double>(y));
             }
         }
         p.drawPolyline(pts);

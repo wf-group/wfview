@@ -50,6 +50,8 @@ public:
     void setAudioChannels(int ch);
     // Show the debug capture button (only when --debug flag is active)
     void setDebugMode(bool debug);
+    // Mirror the global wfAntiAlias preference onto the spectrum displays.
+    void setAntiAlias(bool on);
 
 signals:
     void prefsChanged(rxAudioProcessingPrefs p);

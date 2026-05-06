@@ -2709,6 +2709,8 @@ void wfmain::extChangedIfPref(prefIfItem i)
         for (const auto& receiver: receivers) {
             receiver->wfAntiAliased(prefs.wfAntiAlias);
         }
+        if (audioProcWin)   audioProcWin->setAntiAlias(prefs.wfAntiAlias);
+        if (rxAudioProcWin) rxAudioProcWin->setAntiAlias(prefs.wfAntiAlias);
         break;
     case if_wfInterpolate:
         for (const auto& receiver: receivers) {
@@ -5752,6 +5754,7 @@ void wfmain::on_TXaudioProcBtn_clicked()
     if (!audioProcWin) {
         audioProcWin = new AudioProcessingWidget(this);
         audioProcWin->setPrefs(prefs.txAudioProc);
+        audioProcWin->setAntiAlias(prefs.wfAntiAlias);
 
         connect(audioProcWin, &AudioProcessingWidget::prefsChanged,
                 this, &wfmain::onAudioProcPrefsChanged);
@@ -5823,6 +5826,7 @@ void wfmain::on_RXaudioProcBtn_clicked()
         rxAudioProcWin = new RxAudioProcessingWidget(this);
         rxAudioProcWin->setDebugMode(debugMode);
         rxAudioProcWin->setPrefs(prefs.rxAudioProc);
+        rxAudioProcWin->setAntiAlias(prefs.wfAntiAlias);
 
         connect(rxAudioProcWin, &RxAudioProcessingWidget::prefsChanged,
                 this, &wfmain::onRxAudioProcPrefsChanged);
