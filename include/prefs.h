@@ -185,6 +185,69 @@ enum prefUDPItem {
     u_all = ~0
 };
 
+static constexpr int TX_AUDIO_EQ_BANDS = 15;
+
+struct txAudioProcessingPrefs {
+    bool  bypass        = true;
+    bool  compEnabled   = false;
+    bool  eqEnabled     = false;
+    bool  eqFirst       = false;
+    float inputGainDB   = 10.0f;
+    float outputGainDB  = 0.0f;
+    float eqBands[TX_AUDIO_EQ_BANDS] = {};
+    float compPeakLimit = -10.0f;
+    float compRelease   = 0.1f;
+    float compFastRatio = 0.2f;
+    float compSlowRatio = 0.2f;
+    bool  sidetoneEnabled = false;
+    float sidetoneLevel   = 0.5f;
+    bool  muteRx          = false;
+    bool  spectrumEnabled       = false;
+    int   spectrumFPS           = 10;
+    bool  specInhibitDuringRx   = true;
+    bool  gateEnabled   = false;
+    float gateThreshold = -65.0f;
+    float gateAttack    = 5.0f;
+    float gateHold      = 40.0f;
+    float gateDecay     = 20.0f;
+    float gateRange     = -90.0f;
+    float gateLfCutoff  = 380.0f;
+    float gateHfCutoff  = 2700.0f;
+};
+
+enum class RxNrMode { None = 0, Speex = 1, Anr = 2 };
+
+struct rxAudioProcessingPrefs {
+    bool       bypass      = true;
+    bool       nrEnabled   = false;
+    RxNrMode   nrMode      = RxNrMode::None;
+    int        channelSelect = 3;
+    int        speexSuppression  = -30;
+    int        speexBandsPreset  = 3;
+    int        speexFrameMs      = 20;
+    bool       speexAgc          = false;
+    float      speexAgcLevel     = 8000.0f;
+    int        speexAgcMaxGain   = 30;
+    bool       speexVad          = false;
+    int        speexVadProbStart = 85;
+    int        speexVadProbCont  = 65;
+    float      speexSnrDecay       = 0.7f;
+    float      speexNoiseUpdateRate= 0.03f;
+    float      speexPriorBase      = 0.1f;
+    double     anrNoiseReductionDb = 20.0;
+    double     anrSensitivity      = 1.1;
+    int        anrFreqSmoothing    = 4;
+    static constexpr int RX_EQ_BANDS = 4;
+    bool       eqEnabled = false;
+    float      eqGain[RX_EQ_BANDS] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float      eqFreq[RX_EQ_BANDS] = {100.0f, 800.0f, 2000.0f, 3500.0f};
+    float      eqQ[RX_EQ_BANDS]    = {1.0f, 1.0f, 1.0f, 1.0f};
+    float      outputGainDB = 0.0f;
+    bool       spectrumEnabled     = false;
+    int        spectrumFPS         = 10;
+    bool       specInhibitDuringTx = true;
+};
+
 
 struct preferences {
     // Program:
@@ -285,6 +348,8 @@ struct preferences {
 
     audioSetup rxSetup;
     audioSetup txSetup;
+    txAudioProcessingPrefs txAudioProc;
+    rxAudioProcessingPrefs rxAudioProc;
 
     QChar decimalSeparator;
     QChar groupSeparator;

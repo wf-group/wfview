@@ -29,7 +29,9 @@ private slots:
 private:
     static int paCallback(const void* input, void* output, unsigned long frameCount, const PaStreamCallbackTimeInfo*, PaStreamCallbackFlags statusFlags, void* user);
     void handleCallbackOutput(void* output, unsigned long frameCount, PaStreamCallbackFlags statusFlags);
+    void prefillRingBuffer();
 
+    QElapsedTimer lastRecovery;
     PaStream* stream=nullptr;
     unsigned bytesPerSample{2};
     unsigned bytesPerFrame{2};

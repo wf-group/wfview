@@ -103,7 +103,7 @@ void servermain::openRig()
         {
             //qInfo(logSystem()) << "Got rig";
             QMetaObject::invokeMethod(radio->rig, [=]() {
-                radio->rig->commSetup(rigList,radio->civAddr, radio->serialPort, radio->baudRate, QString("none"),0 ,radio->waterfallFormat);
+                radio->rig->serialCommSetup(rigList, radio->civAddr, radio->serialPort, radio->baudRate, QString("none"), 0, radio->waterfallFormat);
             }, Qt::QueuedConnection);
         }
     }

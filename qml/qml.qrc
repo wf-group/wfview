@@ -12,5 +12,6 @@
         <file>CWSender.qml</file>
         <file>FirstTimeSetup.qml</file>
         <file>ControllerSettings.qml</file>
+        <file>AudioProcessing.qml</file>
     </qresource>
 </RCC>

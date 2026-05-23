@@ -25,6 +25,7 @@ bool ft4222Handler::loadFTDILibraries()
     if (!ft4222Lib.load())
     {
         // Try with version number
+        qDebug(logRig()) << "Loading with filename 'libft4222' did not work, attempting to load from filename 'libft4222.so.1.4.4.44'";
         ft4222Lib.setFileName("libft4222.so.1.4.4.44");
     }
 
@@ -304,6 +305,7 @@ bool ft4222Handler::setup()
     if (FT_OK != ftStatus)
     {
         qInfo(logRig()) << "Could not open FT4222 device";
+        qInfo(logRig()) << "The specific error was error number " << (int)ftStatus;
         device = nullptr;
         return false;
     }

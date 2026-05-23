@@ -11,6 +11,10 @@ QT       += core gui serialport network multimedia xml
 
 #Uncomment The following line to enable USB controllers (Shuttle/RC-28 etc.)
 DEFINES += USB_CONTROLLER
+DEFINES += OUTSIDE_SPEEX
+DEFINES += FLOATING_POINT
+DEFINES += USE_KISS_FFT
+DEFINES += "EXPORT="
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickcontrols2 quickwidgets
 
@@ -63,13 +67,13 @@ win32:DEFINES += __WINDOWS_WASAPI__
 #linux:DEFINES += __LINUX_OSS__
 linux:DEFINES += __LINUX_PULSE__
 macx:DEFINES += __MACOSX_CORE__
-!linux:SOURCES += ../rtaudio/RTAudio.cpp
-!linux:HEADERS += ../rtaudio/RTAudio.h
-!linux:INCLUDEPATH += ../rtaudio
+!linux:SOURCES += $$PWD/../rtaudio/RTAudio.cpp
+!linux:HEADERS += $$PWD/../rtaudio/RTAudio.h
+!linux:INCLUDEPATH += $$PWD/../rtaudio
 
 linux:LIBS += -lpulse -lpulse-simple -lrtaudio -lpthread -ludev
 
-win32:INCLUDEPATH += ../portaudio/include
+win32:INCLUDEPATH += $$PWD/../portaudio/include
 !win32:LIBS += -lportaudio
 
 # The following define makes your compiler emit warnings if you use
@@ -172,29 +176,29 @@ CONFIG(debug, release|debug) {
 
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
-      LIBS += -L../opus/win32/VS2015/x64/DebugDLL/
-      LIBS += -L../qcustomplot/x64 -lqcustomplotd2
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\x64\qcustomplotd2.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Debug\portaudio_x64.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
-      LIBS += -L../portaudio/msvc/X64/Debug/ -lportaudio_x64
+      LIBS += -L$$PWD/../opus/win32/VS2015/x64/DebugDLL/
+      LIBS += -L$$PWD/../qcustomplot/x64 -lqcustomplotd2
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/x64/qcustomplotd2.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      LIBS += -L$$PWD/../portaudio/msvc/X64/Debug/ -lportaudio_x64
       contains(DEFINES,USB_CONTROLLER){
-            LIBS += -L../hidapi/windows/x64/debug -lhidapi
+            LIBS += -L$$PWD/../hidapi/windows/x64/debug -lhidapi
       }
     } else {
-      LIBS += -L../opus/win32/VS2015/win32/DebugDLL/
-      LIBS += -L../portaudio/msvc/Win32/Debug/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\win32\qcustomplotd2.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Debug\portaudio_x86.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Debug\hidapi.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\DebugDLL\opus-0.dll wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/win32/qcustomplotd2.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
-        LIBS += -L../hidapi/windows/debug -lhidapi
+        LIBS += -L$$PWD/../hidapi/windows/debug -lhidapi
       }
     }
   }
@@ -202,28 +206,28 @@ CONFIG(debug, release|debug) {
 
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
-      LIBS += -L../opus/win32/VS2015/x64/ReleaseDLL/
-      LIBS += -L../portaudio/msvc/X64/Release/ -lportaudio_x64
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\x64\qcustomplot2.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Release\portaudio_x64.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\X64\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      LIBS += -L$$PWD/../opus/win32/VS2015/x64/ReleaseDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/X64/Release/ -lportaudio_x64
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/x64/qcustomplot2.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
-            LIBS += -L../hidapi/windows/x64/release -lhidapi
+            LIBS += -L$$PWD/../hidapi/windows/x64/release -lhidapi
       }
     } else {
-      LIBS += -L../opus/win32/VS2015/win32/ReleaseDLL/
-      LIBS += -L../portaudio/msvc/Win32/Release/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.8\imports\LibFT4222\dll\i386\LibFT4222.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\qcustomplot\win32\qcustomplot2.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Release\portaudio_x86.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\hidapi\windows\Release\hidapi.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\ReleaseDLL\opus-0.dll wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/win32/qcustomplot2.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
-            win32:LIBS += -L../hidapi/windows/release -lhidapi
+            win32:LIBS += -L$$PWD/../hidapi/windows/release -lhidapi
       }
     }
   }
@@ -232,7 +236,7 @@ CONFIG(debug, release|debug) {
 contains(DEFINES,USB_CONTROLLER){
     linux:LIBS += -L./ -lhidapi-libusb
     macx:LIBS += -lhidapi
-    win32:INCLUDEPATH += ../hidapi/hidapi
+    win32:INCLUDEPATH += $$PWD/../hidapi/hidapi
 }
 
 !win32:LIBS += -L./ -lopus
@@ -243,20 +247,25 @@ win32:LIBS += -lopus -lole32 -luser32
 #  !win32:LIBS += -lft4222
 #}
 
-win32:INCLUDEPATH += ../hidapi/hidapi
+win32:INCLUDEPATH += $$PWD/../hidapi/hidapi
 
 #contains(DEFINES,FTDI_SUPPORT){
 #  win32:INCLUDEPATH += ../LibFT4222-v1.4.7\imports\LibFT4222\inc
 #  win32:INCLUDEPATH += ../LibFT4222-v1.4.7\imports\ftd2xx
 #}
 
-!linux:INCLUDEPATH += ../opus/include
-!linux:INCLUDEPATH += ../eigen
-!linux:INCLUDEPATH += ../r8brain-free-src
+!linux:INCLUDEPATH += $$PWD/../opus/include
+!linux:INCLUDEPATH += $$PWD/../eigen
+!linux:INCLUDEPATH += $$PWD/../r8brain-free-src
 
 INCLUDEPATH += include
 INCLUDEPATH += src/audio
 INCLUDEPATH += src/audio/resampler
+INCLUDEPATH += src/audio/plugins
+INCLUDEPATH += src/audio/pocketfft
+INCLUDEPATH += src/audio/speexdspmini/src
+INCLUDEPATH += src/audio/speexdspmini/include
+INCLUDEPATH += src/audio/anr
 
 SOURCES += \
     src/CWSenderController.cpp \
@@ -284,10 +293,30 @@ SOURCES += \
     src/audio/audiohandlerrtoutput.cpp \
     src/audio/audiohandlertciinput.cpp \
     src/audio/audiohandlertcioutput.cpp \
+    src/audio/plugins/dyson_compress.cpp \
+    src/audio/plugins/mbeq.cpp \
+    src/audio/plugins/noisegate.cpp \
+    src/audio/plugins/triple_para.cpp \
+    src/audio/pocketfft/pocketfft.c \
     src/audio/resampler/resample.c \
+    src/audio/spectrumwidget.cpp \
+    src/audio/txaudioprocessor.cpp \
+    src/audio/rxaudioprocessor.cpp \
+    src/audio/anr/loguru.cpp \
+    src/audio/anr/NoiseReduction.cpp \
+    src/audio/anr/RealFFTf.cpp \
+    src/audio/anr/InputTrack.cpp \
+    src/audio/anr/OutputTrack.cpp \
+    src/audio/speexdspmini/src/preprocess.c \
+    src/audio/speexdspmini/src/fftwrap.c \
+    src/audio/speexdspmini/src/filterbank.c \
+    src/audio/speexdspmini/src/kiss_fft.c \
+    src/audio/speexdspmini/src/kiss_fftr.c \
     src/cachingqueue.cpp \
     src/calibrationwindow.cpp \
+    src/clickablelabel.cpp \
     src/cluster.cpp \
+    src/collapsiblesection.cpp \
     src/commhandler.cpp \
     src/controllersetup.cpp \
     src/cwsidetone.cpp \
@@ -327,6 +356,8 @@ SOURCES += \
     src/spectrumitem.cpp \
     src/tciserver.cpp \
     src/tcpserver.cpp \
+    src/txaudioprocessingwidget.cpp \
+    src/rxaudioprocessingwidget.cpp \
     src/usbcontroller.cpp \
     src/waterfallitem.cpp
 
@@ -364,11 +395,14 @@ HEADERS  += \
     include/audiohandlerrtoutput.h \
     include/audiohandlertciinput.h \
     include/audiohandlertcioutput.h \
+    include/audioprocessingwidget.h \
     include/audiotaper.h \
     include/bytering.h \
     include/cachingqueue.h \
     include/calibrationwindow.h \
+    include/clickablelabel.h \
     include/cluster.h \
+    include/collapsiblesection.h \
     include/colorprefs.h \
     include/commhandler.h \
     include/controllersetup.h \
@@ -399,11 +433,16 @@ HEADERS  += \
     include/rigserver.h \
     include/rigstate.h \
     include/rtpaudio.h \
+    include/rxaudioprocessingwidget.h \
+    include/rxaudioprocessor.h \
     include/satellitesetup.h \
     include/scrolltest.h \
     include/sidebandchooser.h \
+    include/spectrumwidget.h \
     include/tciserver.h \
     include/tcpserver.h \
+    include/txaudioprocessingwidget.h \
+    include/txaudioprocessor.h \
     include/usbcontroller.h \
     include/wfviewtypes.h \
     include/yaesucommander.h \
@@ -413,6 +452,13 @@ HEADERS  += \
     include/yaesuudpcat.h \
     include/yaesuudpcontrol.h \
     include/yaesuudpscope.h \
+    src/audio/speexnrprocessor.h \
+    src/audio/anrnrprocessor.h \
+    src/audio/spacnrprocessor.h \
+    src/audio/plugins/dysoncompress.h \
+    src/audio/plugins/mbeq.h \
+    src/audio/plugins/noisegate.h \
+    src/audio/plugins/triple_para.h
 
 
 FORMS    += \
@@ -428,4 +474,3 @@ DISTFILES += \
     src/audio/adpcm/library.properties \
     src/audio/adpcm/license.txt \
     src/audio/resampler/COPYING
-

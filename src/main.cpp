@@ -2,6 +2,8 @@
 #ifdef BUILD_WFSERVER
 #include <QtCore/QCoreApplication>
 #include "keyboard.h"
+#include "servermain.h"
+#include "serverwizard.h"
 #else
 #include "qqmlapplicationengine.h"
 #include <QtQml/qqml.h>   // declares qmlRegisterSingletonType/Instance
@@ -169,8 +171,7 @@ int main(int argc, char *argv[])
 #ifdef BUILD_WFSERVER
     QCoreApplication a(argc, argv);
     a.setApplicationName("wfserver");
-    keyboard* kb = new keyboard();
-    kb->start();
+    keyboard* kb = Q_NULLPTR;
 #else
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
@@ -235,9 +236,13 @@ int main(int argc, char *argv[])
     qRegisterMetaType<clusterSettings>();
     qRegisterMetaType<colorPrefsType>();
     qRegisterMetaType<scopeData>();
+    qRegisterMetaType<QVector<double>>("QVector<double>");
 
     a.setOrganizationName("wfview");
     a.setOrganizationDomain("wfview.org");
+#ifndef BUILD_WFSERVER
+    a.setDesktopFileName("wfview");
+#endif
 
 
 #ifdef QT_DEBUG
@@ -250,9 +255,16 @@ int main(int argc, char *argv[])
 
     QString settingsFile = NULL;
     QString currentArg;
+#ifdef BUILD_WFSERVER
+    bool runSetup = false;
+#endif
 
 
-    const QString helpText = QString("\nUsage: -l --logfile filename.log, -s --settings filename.ini, -c --clearconfig CONFIRM, -b --background (not Windows), -d --debug, -v --version\n"); // TODO...
+    const QString helpText = QString("\nUsage: -l --logfile filename.log, -s --settings filename.ini, -c --clearconfig CONFIRM, -b --background (not Windows), -d --debug, -v --version"
+#ifdef BUILD_WFSERVER
+                                     ", --setup (interactive config wizard)"
+#endif
+                                     "\n"); // TODO...
 #ifdef BUILD_WFSERVER
     const QString version = QString("wfserver version: %1 (Git:%2 on %3 at %4 by %5@%6)\nOperating System: %7 (%8)\nBuild Qt Version %9. Current Qt Version: %10\n")
         .arg(QString(WFVIEW_VERSION))
@@ -350,6 +362,10 @@ int main(int argc, char *argv[])
         {
             initDaemon();
         }
+        else if (currentArg == "--setup")
+        {
+            runSetup = true;
+        }
 #endif
         else if ((currentArg == "-?") || (currentArg == "--help"))
         {
@@ -370,6 +386,10 @@ int main(int argc, char *argv[])
     }
 
 #ifdef BUILD_WFSERVER
+    if (runSetup) {
+        return serverwizard::run(settingsFile);
+    }
+
     // Set the logging file before doing anything else.
     m_logFile.reset(new QFile(logFilename));
     // Open the file logging
@@ -386,6 +406,8 @@ int main(int argc, char *argv[])
     signal(SIGTERM, cleanup);
     signal(SIGKILL, cleanup);
  #endif
+    kb = new keyboard();
+    kb->start();
     w = new servermain(settingsFile);
 #else
 

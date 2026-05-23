@@ -422,6 +422,7 @@ signals:
     void clusterChanged(prefClusterItems items);
     void udpChanged(prefUDPItems items);
     void serverChanged(prefServerItems items);
+    void audioProcChanged();
 
     void optionChanged(const QString& key, const QVariant& value);
     void dirtyChanged();
@@ -494,4 +495,3 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefUDPItems)
 Q_DECLARE_OPERATORS_FOR_FLAGS(SettingsController::prefServerItems)
 
 #endif // SETTINGSCONTROLLER_H
-

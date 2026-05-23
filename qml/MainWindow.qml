@@ -11,6 +11,7 @@ ApplicationWindow {
     title: MainController.windowTitle
 
     property int connStatus: Number(MainController.connStatus)
+    property var audioProcessingWindow: null
 
     width: 946
     visible: true
@@ -173,6 +174,17 @@ ApplicationWindow {
     Component {
             id: rigCreatorComponent
             RigCreator { }
+    }
+
+    Component {
+        id: audioProcessingComponent
+        AudioProcessing {
+            controller: MainController.settings
+            onClosing: function(close) {
+                win.audioProcessingWindow = null
+                destroy()
+            }
+        }
     }
 
     ColumnLayout {
@@ -511,6 +523,20 @@ ApplicationWindow {
                     onClicked: settings.show()
                 }
                 Button {
+                    text: "Audio Processing"
+                    onClicked: {
+                        MainController.ensureAudioProcessors()
+                        if (!win.audioProcessingWindow) {
+                            win.audioProcessingWindow = audioProcessingComponent.createObject(null)
+                        }
+                        if (win.audioProcessingWindow) {
+                            win.audioProcessingWindow.show()
+                            win.audioProcessingWindow.raise()
+                            win.audioProcessingWindow.requestActivate()
+                        }
+                    }
+                }
+                Button {
                     text: "Save Settings"
                     onClicked: MainController.settings.save()
                 }
@@ -603,4 +629,3 @@ ApplicationWindow {
     }
 
 }
-

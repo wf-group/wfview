@@ -24,6 +24,8 @@
 #include "themebridge.h"
 
 #include "SettingsController.h"
+#include "txaudioprocessor.h"
+#include "rxaudioprocessor.h"
 
 class MainController : public QObject {
     Q_OBJECT
@@ -156,6 +158,11 @@ public:
         }
     }
 
+    Q_INVOKABLE void applyAudioProcessingSettings();
+    Q_INVOKABLE void ensureAudioProcessors();
+    Q_INVOKABLE void startAnrNoiseProfile();
+    Q_INVOKABLE void stopAnrNoiseProfile();
+
 signals:
     void windowTitleChanged();
     void receiverCountChanged();
@@ -184,6 +191,12 @@ signals:
 
     void memoriesModelChanged();
     void slowLoadChanged();
+    void txAudioSpectrumChanged(QVariantList input, QVariantList output, double sampleRate);
+    void rxAudioSpectrumChanged(QVariantList input, QVariantList output, double sampleRate);
+    void txAudioMetersChanged(double input, double output, double gainReduction);
+    void rxAudioMetersChanged(double input, double output);
+    void audioProcessingBlocksChanged(quint64 txBlocks, quint64 rxBlocks);
+    void audioProcessingSpectrumStateChanged(bool txEnabled, bool rxEnabled);
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -217,6 +230,8 @@ private:
     void startRigConnection();
     void getInitialRigState();
     void setInitialTiming();
+    void applyTxAudioProcPrefs(const txAudioProcessingPrefs& p);
+    void applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p);
 
 
     QString windowTitle = "wfview";
@@ -242,6 +257,18 @@ private:
 
     rigCommander * rig = nullptr;
     QThread* rigThread = nullptr;
+    TxAudioProcessor* txProc = nullptr;
+    RxAudioProcessor* rxProc = nullptr;
+    double m_txAudioInputLevel = 0.0;
+    double m_txAudioOutputLevel = 0.0;
+    double m_txAudioGainReduction = 0.0;
+    double m_rxAudioInputLevel = 0.0;
+    double m_rxAudioOutputLevel = 0.0;
+    quint64 m_txAudioBlocks = 0;
+    quint64 m_rxAudioBlocks = 0;
+    bool m_txSpectrumEnabled = false;
+    bool m_rxSpectrumEnabled = false;
+    bool m_audioProcessorSignalsConnected = false;
 
 
     connectionStatus_t connStatus = connDisconnected;

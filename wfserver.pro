@@ -6,7 +6,7 @@
 
 QT       += core serialport network multimedia
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport xml quick
 
 TARGET = wfserver
 TEMPLATE = app
@@ -25,27 +25,27 @@ CONFIG(debug, release|debug) {
   linux:QMAKE_CXXFLAGS += -faligned-new
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
-      LIBS += -L../opus/win32/VS2015/x64/DebugDLL/
-      LIBS += -L../portaudio/msvc/X64/Debug/ -lportaudio_x64
+      LIBS += -L$$PWD/../opus/win32/VS2015/x64/DebugDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/X64/Debug/ -lportaudio_x64
       contains(DEFINES,FTDI_SUPPORT){
-        LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\amd64 -lftd2xx
-        LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64 -lLibFT4222-64
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfserver-debug $$escape_expand(\\n\\t))
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
+        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfserver-debug $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Debug\portaudio_x64.dll wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\DebugDLL\opus-0.dll wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
     } else {
-      LIBS += -L../opus/win32/VS2015/win32/DebugDLL/
-      LIBS += -L../portaudio/msvc/Win32/Debug/ -lportaudio_x86
+      LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
       contains(DEFINES,FTDI_SUPPORT){
-        LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\i386 -lftd2xx
-        LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\i386 -lLibFT4222
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\i386\LibFT4222.dll wfserver-debug $$escape_expand(\\n\\t))
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
+        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386/LibFT4222.dll) wfserver-debug $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Debug\portaudio_x86.dll wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\DebugDLL\opus-0.dll wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
     }
     DESTDIR = wfserver-debug
   }
@@ -59,27 +59,27 @@ CONFIG(debug, release|debug) {
 
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
-      LIBS += -L../opus/win32/VS2015/x64/ReleaseDLL/
-      LIBS += -L../portaudio/msvc/X64/Release/ -lportaudio_x64
+      LIBS += -L$$PWD/../opus/win32/VS2015/x64/ReleaseDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/X64/Release/ -lportaudio_x64
       contains(DEFINES,FTDI_SUPPORT){
-        LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\amd64 -lftd2xx
-        LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64 -lLibFT4222-64
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\amd64\LibFT4222-64.dll wfserver-release $$escape_expand(\\n\\t))
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
+        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfserver-release $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\x64\Release\portaudio_x64.dll wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\x64\ReleaseDLL\opus-0.dll wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
     } else {
-      LIBS += -L../opus/win32/VS2015/win32/ReleaseDLL/
-      LIBS += -L../portaudio/msvc/Win32/Release/ -lportaudio_x86
+      LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
+      LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
       contains(DEFINES,FTDI_SUPPORT){
-        LIBS += -L../LibFT4222-v1.4.7\imports\ftd2xx\dll\i386 -lftd2xx
-        LIBS += -L../LibFT4222-v1.4.7\imports\LibFT4222\dll\i386 -lLibFT4222
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\LibFT4222-v1.4.7\imports\LibFT4222\dll\i386\LibFT4222.dll wfserver-release $$escape_expand(\\n\\t))
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
+        LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
+        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386/LibFT4222.dll) wfserver-release $$escape_expand(\\n\\t))
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\portaudio\msvc\win32\Release\portaudio_x86.dll wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y ..\opus\win32\VS2015\win32\ReleaseDLL\opus-0.dll wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y ..\wfview\rigs\*.* wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
     }
     DESTDIR = wfserver-release
   }
@@ -93,12 +93,12 @@ win32:DEFINES += __WINDOWS_WASAPI__
 #linux:DEFINES += __LINUX_OSS__
 linux:DEFINES += __LINUX_PULSE__
 macx:DEFINES += __MACOSX_CORE__
-!linux:SOURCES += ../rtaudio/RTAudio.cpp
-!linux:HEADERS += ../rtaudio/RTAUdio.h
-!linux:INCLUDEPATH += ../rtaudio
+!linux:SOURCES += $$PWD/../rtaudio/RTAudio.cpp
+!linux:HEADERS += $$PWD/../rtaudio/RTAudio.h
+!linux:INCLUDEPATH += $$PWD/../rtaudio
 linux:LIBS += -lpulse -lpulse-simple -lrtaudio -lpthread
 
-win32:INCLUDEPATH += ../portaudio/include
+win32:INCLUDEPATH += $$PWD/../portaudio/include
 
 win32:LIBS += -lopus -lole32 -luser32
 !win32:LIBS += -lportaudio
@@ -171,13 +171,13 @@ linux:LIBS += -L./ -lopus
 macx:LIBS += -framework CoreAudio -framework CoreFoundation -lpthread -lopus 
 
 contains(DEFINES,FTDI_SUPPORT){
-  win32:INCLUDEPATH += ../LibFT4222-v1.4.7\imports\LibFT4222\inc
-  win32:INCLUDEPATH += ../LibFT4222-v1.4.7\imports\ftd2xx
+  win32:INCLUDEPATH += $$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/inc
+  win32:INCLUDEPATH += $$PWD/../LibFT4222-v1.4.7/imports/ftd2xx
 }
 
-!linux:INCLUDEPATH += ../opus/include
-!linux:INCLUDEPATH += ../eigen
-!linux:INCLUDEPATH += ../r8brain-free-src
+!linux:INCLUDEPATH += $$PWD/../opus/include
+!linux:INCLUDEPATH += $$PWD/../eigen
+!linux:INCLUDEPATH += $$PWD/../r8brain-free-src
 
 INCLUDEPATH += include
 INCLUDEPATH += src/audio
@@ -216,6 +216,7 @@ SOURCES += \
     src/cachingqueue.cpp \
     src/main.cpp\
     src/servermain.cpp \
+    src/serverwizard.cpp \
     src/commhandler.cpp \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
@@ -230,6 +231,7 @@ SOURCES += \
 
 HEADERS  += \
     include/servermain.h \
+    include/serverwizard.h \
     src/audio/adpcm/adpcm-lib.h \
     src/audio/resampler/resample_neon.h \
     src/audio/resampler/speex_resampler.h \
@@ -258,8 +260,6 @@ HEADERS  += \
     include/rigidentities.h \
     include/rtpaudio.h \
     include/logcategories.h \
-    include/audiohandler.h \
-    include/audioconverter.h \
     include/rigserver.h \
     include/packettypes.h \
     include/repeaterattributes.h \
@@ -267,15 +267,11 @@ HEADERS  += \
     include/audiotaper.h \
     include/keyboard.h \
     include/wfviewtypes.h \
-    include/audiodevices.h \
     include/pttyhandler.h \
-    include/icomcommander.h \
-    include/icomserver.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \
     include/icomudpcivdata.h \
     include/icomudphandler.h \
-    include/kenwoodcommander.h \
     include/kenwoodserver.h \
     include/yaesucommander.h \
     include/yaesuserver.h \

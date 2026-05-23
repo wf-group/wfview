@@ -43,11 +43,12 @@ struct queueItem {
     qint64 id = nextId++;
     //qint64 id = QDateTime::currentMSecsSinceEpoch();
 
-    // Equality intentionally ignores param:
-    // used for removing duplicate recurring commands by command/receiver only
     bool operator==(const queueItem& lhs) const
     {
-        return (lhs.command == command && lhs.receiver == receiver && lhs.recurring == recurring);
+        return (lhs.command == command &&
+                lhs.receiver == receiver &&
+                lhs.recurring == recurring &&
+                lhs.param.isValid() == param.isValid());
     }
 };
 

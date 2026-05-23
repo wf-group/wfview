@@ -1,6 +1,17 @@
 #include "MainController.h"
 
 #include "logcategories.h"
+#include <QDir>
+#include <QStandardPaths>
+
+static QVariantList spectrumToVariantList(const QVector<double>& bins)
+{
+    QVariantList out;
+    out.reserve(bins.size());
+    for (double v : bins)
+        out.append(v);
+    return out;
+}
 
 MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
     : QObject(p)
@@ -43,8 +54,10 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
+    connect(m_settings.get(), &SettingsController::audioProcChanged, this, &MainController::applyAudioProcessingSettings);
     queue->interval(cmdStartupInterval_ms);
 
+    ensureAudioProcessors();
     startRigConnection();
 
 }
@@ -147,6 +160,165 @@ void MainController::updateApplicationPalette()
     qInfo() << "Disabled WindowText:" << palette.color(QPalette::Disabled, QPalette::WindowText);
     qInfo() << "Normal ButtonText:" << palette.color(QPalette::Active, QPalette::ButtonText);
     qInfo() << "Disabled ButtonText:" << palette.color(QPalette::Disabled, QPalette::ButtonText);
+}
+
+void MainController::ensureAudioProcessors()
+{
+    if (!txProc) {
+        txProc = new TxAudioProcessor(this);
+    }
+
+    if (!rxProc) {
+        rxProc = new RxAudioProcessor(this);
+        QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        if (appData.isEmpty())
+            appData = QDir::homePath();
+        QDir().mkpath(appData);
+        rxProc->setNoiseStorePath(appData + "/wfview.noise");
+    }
+
+    if (!m_audioProcessorSignalsConnected) {
+        connect(txProc, &TxAudioProcessor::haveSidetoneFloat,
+                rxProc, &RxAudioProcessor::injectSidetone,
+                Qt::DirectConnection);
+        connect(txProc, &TxAudioProcessor::txSpectrumBins,
+                this, [this](QVector<double> inBins, QVector<double> outBins, float rawSR) {
+                    emit txAudioSpectrumChanged(spectrumToVariantList(inBins),
+                                                spectrumToVariantList(outBins),
+                                                rawSR);
+                });
+        connect(txProc, &TxAudioProcessor::txInputLevel,
+                this, [this](float peak) {
+                    ++m_txAudioBlocks;
+                    if ((m_txAudioBlocks % 20) == 0)
+                        emit audioProcessingBlocksChanged(m_txAudioBlocks, m_rxAudioBlocks);
+                    m_txAudioInputLevel = peak;
+                    emit txAudioMetersChanged(m_txAudioInputLevel, m_txAudioOutputLevel, m_txAudioGainReduction);
+                });
+        connect(txProc, &TxAudioProcessor::txOutputLevel,
+                this, [this](float peak) {
+                    m_txAudioOutputLevel = peak;
+                    emit txAudioMetersChanged(m_txAudioInputLevel, m_txAudioOutputLevel, m_txAudioGainReduction);
+                });
+        connect(txProc, &TxAudioProcessor::txGainReduction,
+                this, [this](float linearGain) {
+                    m_txAudioGainReduction = qBound(0.0, (1.0 - double(linearGain)) * 100.0, 100.0);
+                    emit txAudioMetersChanged(m_txAudioInputLevel, m_txAudioOutputLevel, m_txAudioGainReduction);
+                });
+        connect(rxProc, &RxAudioProcessor::rxSpectrumBins,
+                this, [this](QVector<double> inBins, QVector<double> outBins, float rawSR) {
+                    emit rxAudioSpectrumChanged(spectrumToVariantList(inBins),
+                                                spectrumToVariantList(outBins),
+                                                rawSR);
+                });
+        connect(rxProc, &RxAudioProcessor::rxInputLevel,
+                this, [this](float peak) {
+                    ++m_rxAudioBlocks;
+                    if ((m_rxAudioBlocks % 20) == 0)
+                        emit audioProcessingBlocksChanged(m_txAudioBlocks, m_rxAudioBlocks);
+                    m_rxAudioInputLevel = peak;
+                    emit rxAudioMetersChanged(m_rxAudioInputLevel, m_rxAudioOutputLevel);
+                });
+        connect(rxProc, &RxAudioProcessor::rxOutputLevel,
+                this, [this](float peak) {
+                    m_rxAudioOutputLevel = peak;
+                    emit rxAudioMetersChanged(m_rxAudioInputLevel, m_rxAudioOutputLevel);
+                });
+        m_audioProcessorSignalsConnected = true;
+    }
+
+    applyAudioProcessingSettings();
+    prefs->txSetup.txProc = txProc;
+    prefs->rxSetup.rxProc = rxProc;
+}
+
+void MainController::applyAudioProcessingSettings()
+{
+    applyTxAudioProcPrefs(prefs->txAudioProc);
+    applyRxAudioProcPrefs(prefs->rxAudioProc);
+}
+
+void MainController::applyTxAudioProcPrefs(const txAudioProcessingPrefs& p)
+{
+    if (!txProc)
+        return;
+
+    txProc->setCompEnabled(p.compEnabled);
+    txProc->setEqEnabled(p.eqEnabled);
+    txProc->setEqFirst(p.eqFirst);
+    txProc->setInputGainDB(p.inputGainDB);
+    txProc->setOutputGainDB(p.outputGainDB);
+    for (int i = 0; i < TxAudioProcessor::EQ_BANDS; ++i)
+        txProc->setEqBand(i, p.eqBands[i]);
+    txProc->setCompPeakLimit(p.compPeakLimit);
+    txProc->setCompRelease(p.compRelease);
+    txProc->setCompFastRatio(p.compFastRatio);
+    txProc->setCompSlowRatio(p.compSlowRatio);
+    txProc->setSidetoneEnabled(p.sidetoneEnabled);
+    txProc->setSidetoneLevel(p.sidetoneLevel);
+    txProc->setMuteRx(p.muteRx);
+    txProc->setSpectrumEnabled(p.spectrumEnabled);
+    m_txSpectrumEnabled = p.spectrumEnabled;
+    emit audioProcessingSpectrumStateChanged(m_txSpectrumEnabled, m_rxSpectrumEnabled);
+    txProc->setSpectrumFps(p.spectrumFPS);
+    txProc->setBypassed(p.bypass);
+    txProc->setGateEnabled(p.gateEnabled);
+    txProc->setGateThreshold(p.gateThreshold);
+    txProc->setGateAttack(p.gateAttack);
+    txProc->setGateHold(p.gateHold);
+    txProc->setGateDecay(p.gateDecay);
+    txProc->setGateRange(p.gateRange);
+    txProc->setGateLfCutoff(p.gateLfCutoff);
+    txProc->setGateHfCutoff(p.gateHfCutoff);
+}
+
+void MainController::applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p)
+{
+    if (!rxProc)
+        return;
+
+    rxProc->setBypassed(p.bypass);
+    rxProc->setNrEnabled(!p.bypass);
+    rxProc->setNrMode(p.nrMode);
+    rxProc->setChannelSelect(p.channelSelect);
+    rxProc->setSpeexSuppression(p.speexSuppression);
+    rxProc->setSpeexBandsPreset(p.speexBandsPreset);
+    rxProc->setSpeexFrameMs(p.speexFrameMs);
+    rxProc->setSpeexAgc(p.speexAgc);
+    rxProc->setSpeexAgcLevel(p.speexAgcLevel);
+    rxProc->setSpeexAgcMaxGain(p.speexAgcMaxGain);
+    rxProc->setSpeexVad(p.speexVad);
+    rxProc->setSpeexVadProbStart(p.speexVadProbStart);
+    rxProc->setSpeexVadProbCont(p.speexVadProbCont);
+    rxProc->setSpeexSnrDecay(p.speexSnrDecay);
+    rxProc->setSpeexNoiseUpdateRate(p.speexNoiseUpdateRate);
+    rxProc->setSpeexPriorBase(p.speexPriorBase);
+    rxProc->setAnrNoiseReductionDb(p.anrNoiseReductionDb);
+    rxProc->setAnrSensitivity(p.anrSensitivity);
+    rxProc->setAnrFreqSmoothing(p.anrFreqSmoothing);
+    rxProc->setEqEnabled(p.eqEnabled);
+    for (int i = 0; i < rxAudioProcessingPrefs::RX_EQ_BANDS; ++i) {
+        rxProc->setEqBandGain(i, p.eqGain[i]);
+        rxProc->setEqBandFreq(i, p.eqFreq[i]);
+        rxProc->setEqBandQ(i, p.eqQ[i]);
+    }
+    rxProc->setOutputGainDB(p.outputGainDB);
+    rxProc->setSpectrumEnabled(p.spectrumEnabled);
+    m_rxSpectrumEnabled = p.spectrumEnabled;
+    emit audioProcessingSpectrumStateChanged(m_txSpectrumEnabled, m_rxSpectrumEnabled);
+    rxProc->setSpectrumFps(p.spectrumFPS);
+}
+
+void MainController::startAnrNoiseProfile()
+{
+    if (rxProc)
+        rxProc->startAnrProfile();
+}
+
+void MainController::stopAnrNoiseProfile()
+{
+    if (rxProc)
+        rxProc->stopAnrProfile();
 }
 
 void MainController::ifChanged(prefIfItems items)
@@ -603,6 +775,11 @@ void MainController::setAppTheme(bool isCustom)
         QFile f(":"+prefs->stylesheetPath); // built-in resource
 #else
         QFile f(PREFIX "/share/wfview/" + prefs->stylesheetPath);
+        if (!f.exists())
+        {
+            // Fallback to built-in resource for AppImage and non-root installs.
+            f.setFileName(":" + prefs->stylesheetPath);
+        }
 #endif
         if (!f.exists())
         {
@@ -2342,22 +2519,20 @@ void MainController::setManufacturer(manufacturersType_t man)
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
 #ifndef Q_OS_LINUX
-    QString systemRigLocation = QCoreApplication::applicationDirPath();
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
 #else
-    QString systemRigLocation = PREFIX;
-#endif
-
-#ifdef Q_OS_LINUX
-    systemRigLocation += "/share/wfview/rigs";
-#else
-    systemRigLocation +="/rigs";
+    // When running as an AppImage, APPDIR is set and PREFIX is not useful.
+    QString systemRigLocation = qEnvironmentVariable("APPDIR").isEmpty()
+        ? QString(PREFIX "/share/wfview/rigs")
+        : QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/wfview/rigs";
 #endif
 
     QDir systemRigDir(systemRigLocation);
 
     if (!systemRigDir.exists()) {
-        qWarning() << "********* Rig directory does not exist ********";
+        qWarning() << "********* Rig directory " << systemRigLocation << "does not exist ********";
     } else {
+        qDebug(logRig()) << "Loaded rigs from directory " << systemRigLocation;
         QStringList rigs = systemRigDir.entryList(QStringList() << "*.rig" << "*.RIG", QDir::Files);
         for (QString &rig: rigs) {
             QSettings* rigSettings = new QSettings(systemRigDir.absoluteFilePath(rig), QSettings::Format::IniFormat);
@@ -2473,5 +2648,3 @@ void MainController::setStepSize(quint64 st)
 
     }
 }
-
-

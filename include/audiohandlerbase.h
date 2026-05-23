@@ -33,6 +33,13 @@
 #include "audiotaper.h"
 #include "audioconverter.h"
 #include "logcategories.h"
+#ifndef BUILD_WFSERVER
+#include "txaudioprocessor.h"
+#include "rxaudioprocessor.h"
+#else
+class TxAudioProcessor;
+class RxAudioProcessor;
+#endif
 
 class audioHandlerBase : public QObject
 {
@@ -48,7 +55,14 @@ public:
     virtual void start();
     virtual void stop();
 
+    // Returns the TX/RX processor pointers set in audioSetup (null when not set).
+#ifndef BUILD_WFSERVER
+    TxAudioProcessor* txProcessor() const { return setupData.txProc; }
+    RxAudioProcessor* rxProcessor() const { return setupData.rxProc; }
+#endif
+
 signals:
+    void initFailed();
     void audioMessage(QString message);
     void haveAudioData(const audioPacket& data);
     void haveLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 configuredLatency, quint16 measuredLatency, bool underrun, bool overrun);
@@ -60,7 +74,7 @@ public slots:
     void setVolume(quint8 volumeIdx);
     void changeLatency(quint16 newLatencyMs);
     void stateChanged(QAudio::State state);
-    void clearUnderrun();    
+    void clearUnderrun();
 
 protected:
     virtual bool openDevice() noexcept = 0;

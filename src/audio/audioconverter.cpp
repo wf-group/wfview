@@ -6,6 +6,16 @@ audioConverter::audioConverter(QObject* parent) : QObject(parent)
 {
 }
 
+void audioConverter::setProcessingHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook)
+{
+    processingHook = std::move(hook);
+}
+
+void audioConverter::setPreResampleHook(std::function<Eigen::VectorXf(Eigen::VectorXf)> hook)
+{
+    preResampleHook = std::move(hook);
+}
+
 bool audioConverter::init(QAudioFormat inFormat, codecType inCodec, QAudioFormat outFormat, codecType outCodec, quint8 opusComplexity, quint8 resampleQuality)
 {
 
@@ -83,24 +93,24 @@ audioConverter::~audioConverter()
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleFormat();
 #endif
 
-    if (opusEncoder != nullptr) {
+    if (opusEncoder != Q_NULLPTR) {
         qInfo(logAudioConverter()) << "Destroying opus encoder";
         opus_encoder_destroy(opusEncoder);
     }
 
-    if (opusDecoder != nullptr) {
+    if (opusDecoder != Q_NULLPTR) {
         qInfo(logAudioConverter()) << "Destroying opus decoder";
         opus_decoder_destroy(opusDecoder);
     }
 
-    if (adpcmContext != nullptr) {
+    if (adpcmContext != Q_NULLPTR) {
         qDebug(logAudioConverter()) << "adpcm context closed";
         adpcm_free_context(adpcmContext);
     }
 
-    if (resampler != nullptr) {
+    if (resampler != Q_NULLPTR) {
         wf_resampler_destroy(resampler);
-        resampler = nullptr;
+        resampler = Q_NULLPTR;
         qDebug(logAudioConverter()) << "Resampler closed";
     }
 
@@ -238,11 +248,24 @@ bool audioConverter::convert(audioPacket audio)
             // samplesF is currently raw samples as received from the radio:
             emit floatAudio(samplesF);
 
-            audio.amplitudePeak = samplesF.array().abs().maxCoeff();
-            audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            if(!processingHook && !preResampleHook) {
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            }
 
             // Set the volume
             samplesF *= audio.volume;
+
+            // ── RX audio processing hook (NR / sidetone mix) ─────────────────
+            // Called BEFORE channel conversion and resampling so the hook sees
+            // samples at the radio's native codec rate and channel count.
+            // Used by RxAudioProcessor; sidetone is mixed at codec rate so
+            // there is no sample-rate mismatch with the TX sidetone signal.
+            if (preResampleHook && samplesF.size() > 0) {
+                samplesF = preResampleHook(samplesF);
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
+            }
 
             /*
                 samplesF is now an Eigen Vector of the current samples in float format
@@ -268,7 +291,7 @@ bool audioConverter::convert(audioPacket audio)
                 Next step is to resample (if needed)
             */
 
-            if (resampler != nullptr && resampleRatio != 1.0)
+            if (resampler != Q_NULLPTR && resampleRatio != 1.0)
             {
                 quint32 outFrames = ((samplesF.size() / outFormat.channelCount()) * resampleRatio);
                 quint32 inFrames = (samplesF.size() / outFormat.channelCount());
@@ -288,6 +311,13 @@ bool audioConverter::convert(audioPacket audio)
                     qInfo(logAudioConverter()) << "Resampler error " << err << " inFrames:" << inFrames << " outFrames:" << outFrames;
                 }
                 samplesF = Eigen::Map<Eigen::VectorXf>(reinterpret_cast<float*>(scratchOut.data()), scratchOut.size() / int(sizeof(float)));
+            }
+
+            // ── TX audio processing hook (EQ / compression) ──────────────────
+            if (processingHook && samplesF.size() > 0) {
+                samplesF = processingHook(samplesF);
+                audio.amplitudePeak = samplesF.array().abs().maxCoeff();
+                audio.amplitudeRMS = std::sqrt((samplesF.array() * samplesF.array()).mean());
             }
 
             /*

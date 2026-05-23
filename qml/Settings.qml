@@ -51,6 +51,13 @@ ApplicationWindow {
         return -1
     }
 
+    function showAudioProcessing() {
+        settingsStack.currentIndex = 8
+        show()
+        raise()
+        requestActivate()
+    }
+
 
     component ColorRow : RowLayout {
         spacing: 8
@@ -209,6 +216,81 @@ ApplicationWindow {
             Layout.preferredWidth: parent.fieldWidth
         }
     }
+
+    component ProcSwitch: CheckBox {
+        property string key: ""
+        checked: controller && controller.options ? Boolean(controller.options[key]) : false
+        onToggled: {
+            if (!controller) return
+            controller.setOption(key, checked)
+            MainController.applyAudioProcessingSettings()
+        }
+    }
+
+    component ProcCombo: RowLayout {
+        property string key: ""
+        property string label: ""
+        property var values: []
+        spacing: 8
+        Label { text: parent.label; Layout.preferredWidth: 130 }
+        ComboBox {
+            id: combo
+            Layout.preferredWidth: 180
+            textRole: "text"
+            valueRole: "value"
+            model: values
+            currentIndex: controller && controller.options ? indexFromValue(combo, controller.options[key]) : -1
+            onActivated: {
+                if (!controller) return
+                controller.setOption(key, currentValue)
+                MainController.applyAudioProcessingSettings()
+            }
+        }
+    }
+
+    component ProcSlider: RowLayout {
+        property string key: ""
+        property string label: ""
+        property real from: 0
+        property real to: 1
+        property real step: 1
+        property int decimals: 0
+
+        function currentValue() {
+            if (!controller || !controller.options || controller.options[key] === undefined)
+                return from
+            return Number(controller.options[key])
+        }
+
+        function commit(v) {
+            if (!controller || isNaN(v)) return
+            var bounded = Math.max(from, Math.min(to, v))
+            controller.setOption(key, bounded)
+            MainController.applyAudioProcessingSettings()
+        }
+
+        spacing: 8
+        Label {
+            text: parent.label
+            Layout.preferredWidth: 150
+            elide: Text.ElideRight
+        }
+        Slider {
+            id: slider
+            Layout.fillWidth: true
+            from: parent.from
+            to: parent.to
+            stepSize: parent.step
+            value: parent.currentValue()
+            onMoved: parent.commit(value)
+        }
+        TextField {
+            Layout.preferredWidth: 72
+            text: Number(slider.value).toFixed(decimals)
+            inputMethodHints: Qt.ImhFormattedNumbersOnly
+            onEditingFinished: parent.commit(Number(text))
+        }
+    }
     // ---- Main Layout ----
     ColumnLayout {
         anchors.fill: parent
@@ -239,8 +321,7 @@ ApplicationWindow {
                     { title: "External Control" },
                     { title: "Controllers" },
                     { title: "DX Cluster" },
-                    { title: "Experimental" },
-                    { title: "Audio Processing" }
+                    { title: "Experimental" }
                 ]
 
                 currentIndex: settingsStack.currentIndex
@@ -1857,13 +1938,173 @@ ApplicationWindow {
                 }
 
                 // =========================
-                // Page 8: Audio Processing (empty in .ui)
+                // Page 8: Audio Processing
                 // =========================
-                Item {
+                ScrollView {
                     id: audioProcessing
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Label { anchors.centerIn: parent; text: "Audio Processing (not implemented)" }
+
+                    RowLayout {
+                        width: audioProcessing.availableWidth
+                        spacing: 12
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
+
+                            GroupBox {
+                                title: "Transmit"
+                                Layout.fillWidth: true
+                                GridLayout {
+                                    columns: 2
+                                    anchors.fill: parent
+                                    ProcSwitch { text: "Bypass"; key: "AudioProc.Tx.Bypass" }
+                                    ProcSwitch { text: "EQ before compressor"; key: "AudioProc.Tx.EqFirst" }
+                                    ProcSwitch { text: "Compressor"; key: "AudioProc.Tx.CompEnabled" }
+                                    ProcSwitch { text: "Equalizer"; key: "AudioProc.Tx.EqEnabled" }
+                                    ProcSwitch { text: "Noise gate"; key: "AudioProc.Tx.GateEnabled" }
+                                    ProcSwitch { text: "Sidetone"; key: "AudioProc.Tx.SidetoneEnabled" }
+                                    ProcSwitch { text: "Mute RX on sidetone"; key: "AudioProc.Tx.MuteRx" }
+                                    ProcSwitch { text: "Spectrum"; key: "AudioProc.Tx.SpectrumEnabled" }
+                                }
+                            }
+
+                            GroupBox {
+                                title: "Transmit Levels"
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    ProcSlider { label: "Input gain dB"; key: "AudioProc.Tx.InputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: "Output gain dB"; key: "AudioProc.Tx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: "Comp peak dB"; key: "AudioProc.Tx.CompPeakLimit"; from: -30; to: 0; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: "Comp release s"; key: "AudioProc.Tx.CompRelease"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "Fast ratio"; key: "AudioProc.Tx.CompFastRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "Slow ratio"; key: "AudioProc.Tx.CompSlowRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "Sidetone level"; key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                }
+                            }
+
+                            GroupBox {
+                                title: "Transmit Gate"
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    ProcSlider { label: "Threshold dB"; key: "AudioProc.Tx.GateThreshold"; from: -90; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: "Attack ms"; key: "AudioProc.Tx.GateAttack"; from: 0; to: 1000; step: 1; decimals: 0 }
+                                    ProcSlider { label: "Hold ms"; key: "AudioProc.Tx.GateHold"; from: 0; to: 2000; step: 5; decimals: 0 }
+                                    ProcSlider { label: "Decay ms"; key: "AudioProc.Tx.GateDecay"; from: 0; to: 4000; step: 5; decimals: 0 }
+                                    ProcSlider { label: "Range dB"; key: "AudioProc.Tx.GateRange"; from: -90; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: "LF cutoff Hz"; key: "AudioProc.Tx.GateLfCutoff"; from: 20; to: 4000; step: 10; decimals: 0 }
+                                    ProcSlider { label: "HF cutoff Hz"; key: "AudioProc.Tx.GateHfCutoff"; from: 200; to: 20000; step: 10; decimals: 0 }
+                                    ProcSlider { label: "Spectrum FPS"; key: "AudioProc.Tx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
+                                }
+                            }
+
+                            GroupBox {
+                                title: "Transmit EQ"
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    Repeater {
+                                        model: 15
+                                        ProcSlider {
+                                            label: "Band " + (index + 1) + " dB"
+                                            key: "AudioProc.Tx.EqBand" + index
+                                            from: -70
+                                            to: 30
+                                            step: 0.5
+                                            decimals: 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
+
+                            GroupBox {
+                                title: "Receive"
+                                Layout.fillWidth: true
+                                GridLayout {
+                                    columns: 2
+                                    anchors.fill: parent
+                                    ProcSwitch { text: "Bypass"; key: "AudioProc.Rx.Bypass" }
+                                    ProcSwitch { text: "Noise reduction"; key: "AudioProc.Rx.NrEnabled" }
+                                    ProcSwitch { text: "Equalizer"; key: "AudioProc.Rx.EqEnabled" }
+                                    ProcSwitch { text: "Spectrum"; key: "AudioProc.Rx.SpectrumEnabled" }
+                                    ProcSwitch { text: "Speex AGC"; key: "AudioProc.Rx.SpeexAgc" }
+                                    ProcSwitch { text: "Speex VAD"; key: "AudioProc.Rx.SpeexVad" }
+                                }
+                            }
+
+                            GroupBox {
+                                title: "Receive Noise Reduction"
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    ProcCombo {
+                                        label: "NR mode"
+                                        key: "AudioProc.Rx.NrMode"
+                                        values: [
+                                            { text: "None", value: 0 },
+                                            { text: "Speex", value: 1 },
+                                            { text: "ANR", value: 2 }
+                                        ]
+                                    }
+                                    ProcCombo {
+                                        label: "Channel"
+                                        key: "AudioProc.Rx.ChannelSelect"
+                                        values: [
+                                            { text: "Auto", value: 0 },
+                                            { text: "Left", value: 1 },
+                                            { text: "Right", value: 2 },
+                                            { text: "Mono sum", value: 3 }
+                                        ]
+                                    }
+                                    RowLayout {
+                                        Button { text: "Collect ANR"; onClicked: MainController.startAnrNoiseProfile() }
+                                        Button { text: "Stop Collect"; onClicked: MainController.stopAnrNoiseProfile() }
+                                    }
+                                    ProcSlider { label: "Speex suppression"; key: "AudioProc.Rx.SpeexSuppression"; from: -60; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: "Speex bands"; key: "AudioProc.Rx.SpeexBandsPreset"; from: 0; to: 8; step: 1; decimals: 0 }
+                                    ProcSlider { label: "Frame ms"; key: "AudioProc.Rx.SpeexFrameMs"; from: 10; to: 60; step: 10; decimals: 0 }
+                                    ProcSlider { label: "AGC level"; key: "AudioProc.Rx.SpeexAgcLevel"; from: 1000; to: 30000; step: 100; decimals: 0 }
+                                    ProcSlider { label: "AGC max dB"; key: "AudioProc.Rx.SpeexAgcMaxGain"; from: 0; to: 60; step: 1; decimals: 0 }
+                                    ProcSlider { label: "VAD start %"; key: "AudioProc.Rx.SpeexVadProbStart"; from: 0; to: 100; step: 1; decimals: 0 }
+                                    ProcSlider { label: "VAD continue %"; key: "AudioProc.Rx.SpeexVadProbCont"; from: 0; to: 100; step: 1; decimals: 0 }
+                                    ProcSlider { label: "SNR decay"; key: "AudioProc.Rx.SpeexSnrDecay"; from: 0; to: 0.95; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "Noise update"; key: "AudioProc.Rx.SpeexNoiseUpdateRate"; from: 0.01; to: 0.5; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "Prior base"; key: "AudioProc.Rx.SpeexPriorBase"; from: 0.05; to: 0.5; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: "ANR reduction dB"; key: "AudioProc.Rx.AnrNoiseReductionDb"; from: 0; to: 40; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: "ANR sensitivity"; key: "AudioProc.Rx.AnrSensitivity"; from: 0; to: 12; step: 0.1; decimals: 1 }
+                                    ProcSlider { label: "ANR smoothing"; key: "AudioProc.Rx.AnrFreqSmoothing"; from: 0; to: 12; step: 1; decimals: 0 }
+                                }
+                            }
+
+                            GroupBox {
+                                title: "Receive Output and EQ"
+                                Layout.fillWidth: true
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    ProcSlider { label: "Output gain dB"; key: "AudioProc.Rx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: "Spectrum FPS"; key: "AudioProc.Rx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
+                                    Repeater {
+                                        model: 4
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Label { text: "EQ band " + (index + 1) }
+                                            ProcSlider { label: "Gain dB"; key: "AudioProc.Rx.EqGain" + index; from: -24; to: 24; step: 0.5; decimals: 1 }
+                                            ProcSlider { label: "Freq Hz"; key: "AudioProc.Rx.EqFreq" + index; from: 20; to: 8000; step: 10; decimals: 0 }
+                                            ProcSlider { label: "Q"; key: "AudioProc.Rx.EqQ" + index; from: 0.1; to: 10; step: 0.1; decimals: 1 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

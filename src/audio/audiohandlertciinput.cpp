@@ -10,7 +10,7 @@ bool audioHandlerTciInput::openDevice() noexcept
 
     connect(this, &audioHandlerBase::sendToConverter, converter, &audioConverter::convert);
     connect(converter, SIGNAL(converted(audioPacket)), this, SLOT(onConverted(audioPacket)));
-    if (setupData.tci != nullptr) {
+    if (setupData.tci != Q_NULLPTR) {
         connect((tciServer*)setupData.tci, SIGNAL(sendTCIAudio(QByteArray)), this, SLOT(receiveTCIAudio(QByteArray)));
         //connect(this,SIGNAL(setupTxPacket(int)), (tciServer*)setup.tci, SLOT(setupTxPacket(int)));
         //emit setupTxPacket((nativeFormat.bytesForDuration(setup.blockSize * 1000)*2)/sizeof(float));
@@ -28,7 +28,7 @@ void audioHandlerTciInput::closeDevice() noexcept
 
 void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet) {
 
-    if (packet.size()==0) return;
+    if (packet.size()==0 || !inRB) return;
     inRB->push(static_cast<const char*>(packet), packet.size());
     QMetaObject::invokeMethod(this, [this]{ onReadyRead(); }, Qt::QueuedConnection);
 }

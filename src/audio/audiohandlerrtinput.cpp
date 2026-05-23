@@ -14,7 +14,7 @@ int audioHandlerRtInput::rtCallback(void* out, void* in, unsigned nFrames, doubl
 void audioHandlerRtInput::handleCallbackInput(const void* in, unsigned nFrames, RtAudioStreamStatus st)
 {
     if (st & RTAUDIO_INPUT_OVERFLOW) isOverrun.store(true);
-    if (!in) return;
+    if (!in || !inRB) return;
     const size_t nBytes = nFrames * bytesPerFrame;
     inRB->push(static_cast<const char*>(in), nBytes);
     QMetaObject::invokeMethod(this, [this]{ onReadyRead(); }, Qt::QueuedConnection);
@@ -94,27 +94,37 @@ bool audioHandlerRtInput::openDevice() noexcept
 
 void audioHandlerRtInput::closeDevice() noexcept
 {
+    qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeDevice() enter, streamOpen=" << rtaudio.isStreamOpen();
 #if RTAUDIO_VERSION_MAJOR < 6
     try {
         if (rtaudio.isStreamOpen())
         {
             if (rtaudio.isStreamRunning())
             {
-                rtaudio.stopStream();
+                qDebug(logAudio()) << "[SHUTDOWN] RtInput::abortStream() ...";
+                rtaudio.abortStream();
+                qDebug(logAudio()) << "[SHUTDOWN] RtInput::abortStream() done";
             }
+            qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeStream() ...";
             rtaudio.closeStream();
+            qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeStream() done";
         }
     } catch(...) {}
 #else
     if (rtaudio.isStreamOpen()) {
         if (rtaudio.isStreamRunning())
         {
-            rtaudio.stopStream();
+            qDebug(logAudio()) << "[SHUTDOWN] RtInput::abortStream() ...";
+            rtaudio.abortStream();
+            qDebug(logAudio()) << "[SHUTDOWN] RtInput::abortStream() done";
         }
+        qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeStream() ...";
         rtaudio.closeStream();
+        qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeStream() done";
     }
 #endif
     inRB.reset();
+    qDebug(logAudio()) << "[SHUTDOWN] RtInput::closeDevice() complete";
 }
 
 void audioHandlerRtInput::onReadyRead()

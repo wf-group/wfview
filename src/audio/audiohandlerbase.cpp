@@ -10,23 +10,41 @@ audioHandlerBase::audioHandlerBase(QObject* parent)
 
 audioHandlerBase::~audioHandlerBase()
 {
+    // Safety net: if dispose() was never called, stop the converter thread
+    // now so QThread::~QThread() won't abort.
+    if (converterThread) {
+        converterThread->quit();
+        converterThread->wait();
+        delete converterThread;
+        converterThread = nullptr;
+    }
 }
 
 
 void audioHandlerBase::dispose()
 {
-    bool expected = false;
-    if (!disposed.compare_exchange_strong(expected, true)) return; // already disposed
-
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() enter, role=" << role()
+                       << "onCorrectThread=" << (QThread::currentThread() == thread());
     // Ensure we run on this object's thread (prevent races with audio callbacks)
     if (QThread::currentThread() != thread()) {
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() marshaling via BlockingQueuedConnection ...";
         QMetaObject::invokeMethod(this, [this]{ dispose(); },
                                   Qt::BlockingQueuedConnection);
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() BlockingQueuedConnection returned";
         return;
     }
 
+    bool expected = false;
+    if (!disposed.compare_exchange_strong(expected, true)) {
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() already disposed, returning";
+        return;
+    }
+
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() locking devMutex, role=" << role();
     QMutexLocker lock(&devMutex);
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() calling closeDevice(), role=" << role();
     closeDevice();
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() closeDevice() done, role=" << role();
 
     if (underTimer) {
         underTimer->stop();
@@ -37,11 +55,14 @@ void audioHandlerBase::dispose()
     if (converterThread) {
         disconnect(this, nullptr, nullptr, nullptr);
         disconnect(converterThread, nullptr, nullptr, nullptr);
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() converterThread->quit(), role=" << role();
         converterThread->quit();
         converterThread->wait();
-        converterThread->deleteLater();
+        qDebug(logAudio()) << "[SHUTDOWN] dispose() converterThread done, role=" << role();
+        delete converterThread;
         converterThread = nullptr;
     }
+    qDebug(logAudio()) << "[SHUTDOWN] dispose() complete, role=" << role();
 }
 
 void audioHandlerBase::reportError(const QString& msg)
@@ -115,6 +136,13 @@ bool audioHandlerBase::init(const audioSetup& setup)
     setupData = setup;
     radioFormat = toQAudioFormat(setup.codec, setup.sampleRate);
 
+    qInfo(logAudio()) << role() << "audio processor setup:"
+                      << "isinput=" << setup.isinput
+                      << "txProc=" << setup.txProc
+                      << "rxProc=" << setup.rxProc
+                      << "codec=" << setup.codec
+                      << "sampleRate=" << setup.sampleRate;
+
     codec = codecType::LPCM;
     if (setup.codec == 0x01 || setup.codec == 0x20)      codec = codecType::PCMU;
     else if (setup.codec == 0x40 || setup.codec == 0x41) codec = codecType::OPUS;
@@ -123,19 +151,24 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     if (setup.port.isNull() && setup.portInt == -1) {
         reportError("No audio device was found (install Qt Multimedia plugins?)");
+        emit initFailed();
         return false;
     }
     deviceInfo = setup.port;
 #else
     if (setup.port.isNull() && setup.port.description().isEmpty() && setup.portInt == -1) {
         reportError("Audio device is NULL, check device selection in settings");
+        emit initFailed();
         return false;
     } else {
         deviceInfo = setup.port;
     }
 #endif
 
-    if (!negotiateFormat(48000)) return false;
+    if (!negotiateFormat(48000)) {
+        emit initFailed();
+        return false;
+    }
 
     converter   = new audioConverter();
     converterThread  = new QThread(this);
@@ -155,8 +188,48 @@ bool audioHandlerBase::init(const audioSetup& setup)
 
     if (!openDevice()) {
         reportError("Failed to open device");
+        emit initFailed();
         return false;
     }
+
+#ifndef BUILD_WFSERVER
+    // Install TX processing hook (input converters only).
+    // The hook is invoked after resampling mic→codec rate.
+    if (setup.isinput && setup.txProc) {
+        TxAudioProcessor* proc = setup.txProc;
+        const float sr = static_cast<float>(radioFormat.sampleRate());
+        qInfo(logAudio()) << role() << "installing TX audio processing hook"
+                          << "proc=" << proc << "sampleRate=" << sr;
+        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
+            converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
+                return proc->processAudio(std::move(s), sr);
+            });
+        }, Qt::QueuedConnection);
+    }
+#endif
+
+    // Install RX processing hook (output converters only).
+    // Uses setPreResampleHook so the hook runs BEFORE channel conversion and
+    // resampling.  The samples therefore arrive at the radio's codec rate and
+    // channel count — matching the TX sidetone rate — which avoids the 2×-pitch
+    // bug that would occur if we mixed 8 kHz sidetone into 48 kHz (post-resample)
+    // audio.  Sidetone is mixed inside RxAudioProcessor AFTER noise reduction,
+    // ensuring the user's voice is not NR-processed.
+#ifndef BUILD_WFSERVER
+    if (!setup.isinput && setup.rxProc) {
+        RxAudioProcessor* proc = setup.rxProc;
+        const float sr = static_cast<float>(radioFormat.sampleRate());
+        const int   ch = radioFormat.channelCount();
+        qInfo(logAudio()) << role() << "installing RX audio processing hook"
+                          << "proc=" << proc << "sampleRate=" << sr
+                          << "channels=" << ch;
+        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr, ch]{
+            converter->setPreResampleHook([proc, sr, ch](Eigen::VectorXf s){
+                return proc->processAudio(std::move(s), sr, ch);
+            });
+        }, Qt::QueuedConnection);
+    }
+#endif
 
     initialized = true;
     qInfo(logAudio()) << role() << "thread id" << QThread::currentThreadId();
@@ -197,5 +270,4 @@ void audioHandlerBase::stateChanged(QAudio::State state)
 }
 
 void audioHandlerBase::clearUnderrun() { isUnderrun.store(false, std::memory_order_relaxed); }
-
 
