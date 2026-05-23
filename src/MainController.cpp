@@ -368,11 +368,176 @@ void MainController::ifChanged(prefIfItems items)
             case if_useSystemTheme:
                 updateApplicationPalette();
                 break;
+            case if_meter2Type:
+                configureOptionalMeter(2, prefs ? prefs->meter2Type : meterNone);
+                emit optionalMetersChanged();
+                break;
+            case if_meter3Type:
+                configureOptionalMeter(3, prefs ? prefs->meter3Type : meterNone);
+                emit optionalMetersChanged();
+                break;
             default:
                 break;
             }
         }
     }
+}
+
+QVariantList MainController::optionalMeterOptions() const
+{
+    const QList<meter_t> types = {
+        meterNone, meterCenter, meterSWR, meterALC, meterComp,
+        meterVoltage, meterCurrent, meterAudio, meterRxAudio, meterTxMod,
+        meterdBu, meterdBuEMF, meterdBm
+    };
+
+    QVariantList options;
+    for (meter_t type : types) {
+        QVariantMap option;
+        option["text"] = meterString[int(type)];
+        option["value"] = int(type);
+        option["available"] = isOptionalMeterAvailable(int(type));
+        options.push_back(option);
+    }
+    return options;
+}
+
+bool MainController::isOptionalMeterAvailable(int meterType) const
+{
+    const meter_t type = meter_t(meterType);
+    if (type == meterNone || type == meterAudio || type == meterRxAudio || type == meterTxMod)
+        return true;
+
+    const funcs command = meterCommandForType(type);
+    if (command == funcNone)
+        return false;
+
+    return !rigCaps || rigCaps->commands.contains(command);
+}
+
+QVariantMap MainController::optionalMeterExtremities(int meterType) const
+{
+    const meter_t type = meter_t(meterType);
+    QVariantMap ext;
+    double low = 0.0;
+    double high = 255.0;
+    double red = 241.0;
+
+    switch (type) {
+    case meterComp:
+        low = 0.0; high = 100.0; red = 75.0;
+        break;
+    case meterdBu:
+        low = 0.0; high = 80.0; red = 80.0;
+        break;
+    case meterdBuEMF:
+        low = 0.0; high = 85.0; red = 85.0;
+        break;
+    case meterdBm:
+        low = -100.0; high = -20.0; red = -20.0;
+        break;
+    default:
+        if (rigCaps && type > meterNone && type <= meterUnknown && rigCaps->meters[type].size()) {
+            low = UINT16_MAX;
+            high = -double(UINT16_MAX);
+            red = rigCaps->meterLines[type];
+            for (auto it = rigCaps->meters[type].keyValueBegin(); it != rigCaps->meters[type].keyValueEnd(); ++it) {
+                low = qMin(low, it->second);
+                high = qMax(high, it->second);
+            }
+        }
+        break;
+    }
+
+    ext["low"] = low;
+    ext["high"] = high;
+    ext["red"] = red;
+    return ext;
+}
+
+void MainController::setOptionalMeterType(int slot, int meterType)
+{
+    if (!m_settings || (slot != 2 && slot != 3))
+        return;
+
+    const meter_t oldType = slot == 2 ? (prefs ? prefs->meter2Type : meterNone)
+                                      : (prefs ? prefs->meter3Type : meterNone);
+    const meter_t otherType = slot == 2 ? (prefs ? prefs->meter3Type : meterNone)
+                                        : (prefs ? prefs->meter2Type : meterNone);
+    const funcs oldCommand = meterCommandForType(oldType);
+    const funcs newCommand = meterCommandForType(meter_t(meterType));
+    if (oldCommand != funcNone && oldCommand != newCommand && oldCommand != meterCommandForType(otherType)) {
+        queue->del(oldCommand, (oldType == meterSubS) ? uchar(1) : uchar(0));
+    }
+
+    const QString key = slot == 2 ? QStringLiteral("Interface.Meter2Type")
+                                  : QStringLiteral("Interface.Meter3Type");
+    m_settings->setOption(key, meterType);
+    configureOptionalMeter(slot, meter_t(meterType));
+    emit optionalMetersChanged();
+}
+
+funcs MainController::meterCommandForType(meter_t meterType) const
+{
+    switch (meterType) {
+    case meterS:
+    case meterSubS:
+        return funcSMeter;
+    case meterCenter:
+        return funcCenterMeter;
+    case meterPower:
+        return funcPowerMeter;
+    case meterSWR:
+        return funcSWRMeter;
+    case meterALC:
+        return funcALCMeter;
+    case meterComp:
+        return funcCompMeter;
+    case meterCurrent:
+        return funcIdMeter;
+    case meterVoltage:
+        return funcVdMeter;
+    case meterdBu:
+    case meterdBm:
+    case meterdBuEMF:
+        return funcAbsoluteMeter;
+    default:
+        return funcNone;
+    }
+}
+
+void MainController::configureOptionalMeter(int slot, meter_t meterType)
+{
+    if (slot != 2 && slot != 3)
+        return;
+
+    const funcs newCommand = meterCommandForType(meterType);
+
+    if (slot == 2)
+        m_optionalMeter2Level = 0.0;
+    else
+        m_optionalMeter3Level = 0.0;
+
+    if (meterType != meterNone && newCommand != funcNone && rigCaps && rigCaps->commands.contains(newCommand)) {
+        queue->addUnique(priorityHighest, queueItem(newCommand, true, (meterType == meterSubS) ? uchar(1) : uchar(0)));
+    }
+}
+
+void MainController::receiveOptionalMeter(meter_t meterType, double level)
+{
+    bool changed = false;
+    if (prefs && (prefs->meter2Type == meterType ||
+                  (prefs->meter2Type == meterAudio && ((meterType == meterTxMod && m_transmitting) || (meterType == meterRxAudio && !m_transmitting))))) {
+        m_optionalMeter2Level = level;
+        changed = true;
+    }
+    if (prefs && (prefs->meter3Type == meterType ||
+                  (prefs->meter3Type == meterAudio && ((meterType == meterTxMod && m_transmitting) || (meterType == meterRxAudio && !m_transmitting))))) {
+        m_optionalMeter3Level = level;
+        changed = true;
+    }
+    if (changed)
+        emit optionalMetersChanged();
 }
 
 void MainController::colChanged(prefColItems items)
@@ -970,6 +1135,9 @@ void MainController::getInitialRigState()
         queue->add(priorityImmediate,queueItem(funcVdMeter,QVariant::fromValue(uchar(1)),false,0));
         queue->add(priorityImmediate,queueItem(funcSWRMeter,QVariant::fromValue(uchar(1)),false,0));
     }
+
+    configureOptionalMeter(2, prefs->meter2Type);
+    configureOptionalMeter(3, prefs->meter3Type);
 
     if (prefs->forceVfoMode) {
         queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(vfoA)));
@@ -1681,14 +1849,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcAbsoluteMeter:
     {
-        /*
         meterkind m = val.value.value<meterkind>();
-        if (ui->meterSPoWidget->getMeterType() != m.type) {
-
-            changeMeterType(m.type,1);
-        }
-        ui->meterSPoWidget->setLevel(m.value);
-        */
+        receiveOptionalMeter(m.type, m.value);
         break;
     }
     case funcMeterType:
@@ -1706,26 +1868,26 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //receivers[val.receiver]->overflow(val.value.value<bool>());
         break;
     case funcCenterMeter:
-        //receiveMeter(meter_t::meterCenter,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterCenter, val.value.value<double>());
         break;
     case funcPowerMeter:
         //receivers[val.receiver]->receiveMeter(meter_t::meterS,val.value.value<double>());
-        //receiveMeter(meter_t::meterPower,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterPower, val.value.value<double>());
         break;
     case funcSWRMeter:
-        //receiveMeter(meter_t::meterSWR,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterSWR, val.value.value<double>());
         break;
     case funcALCMeter:
-        //receiveMeter(meter_t::meterALC,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterALC, val.value.value<double>());
         break;
     case funcCompMeter:
-        //receiveMeter(meter_t::meterComp,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterComp, val.value.value<double>());
         break;
     case funcVdMeter:
-        //receiveMeter(meter_t::meterVoltage,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterVoltage, val.value.value<double>());
         break;
     case funcIdMeter:
-        //receiveMeter(meter_t::meterCurrent,val.value.value<double>());
+        receiveOptionalMeter(meter_t::meterCurrent, val.value.value<double>());
         break;
     // 0x16 enable/disable functions:
     case funcPreamp:

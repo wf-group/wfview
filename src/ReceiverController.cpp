@@ -127,6 +127,15 @@ void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
     if (!clicks)
         return;
 
+    tuneSteps(clicks, modifiers);
+    scrollWheelOffsetAccumulated = 0.0;
+}
+
+void ReceiverController::tuneSteps(int steps, int modifiers, bool uniqueQueue)
+{
+    if (steps == 0)
+        return;
+
     unsigned int stepsHz = stepSize;
 
     const Qt::KeyboardModifiers mods = Qt::KeyboardModifiers(modifiers);
@@ -140,13 +149,19 @@ void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
     vfoCommandType t = queue->getVfoCommand(vfoA, receiver, true);
 
     freqt f;
-    f.Hz = roundFrequency(frequencyA, clicks, stepsHz);
+    f.Hz = roundFrequency(frequencyA, steps, stepsHz);
     f.MHzDouble = f.Hz / 1E6;
 
-    queue->add(priorityImmediate,
-               queueItem(t.freqFunc, QVariant::fromValue<freqt>(f), false, receiver));
+    if (f.Hz == 0)
+        return;
 
-    scrollWheelOffsetAccumulated = 0.0;
+    setFrequencyA(f.Hz, false);
+    queueItem item(t.freqFunc, QVariant::fromValue<freqt>(f), false, t.receiver);
+    if (uniqueQueue) {
+        queue->addUnique(priorityImmediate, item);
+    } else {
+        queue->add(priorityImmediate, item);
+    }
 }
 
 void ReceiverController::selectVfoB(bool enabled)

@@ -16,8 +16,9 @@ MeterItem::MeterItem(QQuickItem *parent) : QQuickPaintedItem(parent)
     m_peakColor    = colorFromString("#3CA0DB").lighter();
     m_averageColor = colorFromString("#3FB7CD");
     m_lowTextColor = colorFromString("#000000");
-    //m_lowTextColor = colorFromString("#eff0f1");
     m_lowLineColor = m_lowTextColor;
+    m_highTextColor = Qt::red;
+    m_highLineColor = Qt::red;
 
     m_midScaleColor = Qt::yellow;
     m_centerTuningColor = Qt::green;
@@ -289,6 +290,42 @@ void MeterItem::setDrawLabels(bool d)
     setImplicitWidth(m_scalePixelWidth + m_mXstart + 15);
 
     emit drawLabelsChanged();
+    markScaleDirty();
+}
+
+void MeterItem::setScaleTextColor(const QColor &color)
+{
+    if (!color.isValid() || m_lowTextColor == color)
+        return;
+    m_lowTextColor = color;
+    emit scaleColorsChanged();
+    markScaleDirty();
+}
+
+void MeterItem::setScaleLineColor(const QColor &color)
+{
+    if (!color.isValid() || m_lowLineColor == color)
+        return;
+    m_lowLineColor = color;
+    emit scaleColorsChanged();
+    markScaleDirty();
+}
+
+void MeterItem::setScaleHighTextColor(const QColor &color)
+{
+    if (!color.isValid() || m_highTextColor == color)
+        return;
+    m_highTextColor = color;
+    emit scaleColorsChanged();
+    markScaleDirty();
+}
+
+void MeterItem::setScaleHighLineColor(const QColor &color)
+{
+    if (!color.isValid() || m_highLineColor == color)
+        return;
+    m_highLineColor = color;
+    emit scaleColorsChanged();
     markScaleDirty();
 }
 

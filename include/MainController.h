@@ -68,6 +68,8 @@ public:
     Q_PROPERTY(bool splitEnabled READ splitEnabled WRITE setSplitEnabled NOTIFY splitEnabledChanged)
     Q_PROPERTY(bool compressorEnabled READ compressorEnabled WRITE setCompressorEnabled NOTIFY compressorEnabledChanged)
     Q_PROPERTY(bool voxEnabled READ voxEnabled WRITE setVoxEnabled NOTIFY voxEnabledChanged)
+    Q_PROPERTY(double optionalMeter2Level READ optionalMeter2Level NOTIFY optionalMetersChanged)
+    Q_PROPERTY(double optionalMeter3Level READ optionalMeter3Level NOTIFY optionalMetersChanged)
 
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
     Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
@@ -160,6 +162,8 @@ public:
     bool splitEnabled() const { return m_splitEnabled; }
     bool compressorEnabled() const { return m_compressorEnabled; }
     bool voxEnabled() const { return m_voxEnabled; }
+    double optionalMeter2Level() const { return m_optionalMeter2Level; }
+    double optionalMeter3Level() const { return m_optionalMeter3Level; }
 
     MemoriesModel* memoriesModel() const { return m_memoriesModel; }
     bool slowLoad() const { return m_slowLoad; }
@@ -193,6 +197,10 @@ public:
     Q_INVOKABLE void selectMainSub();
     Q_INVOKABLE void swapMainSub();
     Q_INVOKABLE void equalizeMainSub();
+    Q_INVOKABLE QVariantList optionalMeterOptions() const;
+    Q_INVOKABLE QVariantMap optionalMeterExtremities(int meterType) const;
+    Q_INVOKABLE bool isOptionalMeterAvailable(int meterType) const;
+    Q_INVOKABLE void setOptionalMeterType(int slot, int meterType);
 
 public slots:
     void setTxPower(int value);
@@ -254,6 +262,7 @@ signals:
     void splitEnabledChanged();
     void compressorEnabledChanged();
     void voxEnabledChanged();
+    void optionalMetersChanged();
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -278,6 +287,9 @@ private slots:
 
 private:
     void buildUiSpecs();
+    funcs meterCommandForType(meter_t meterType) const;
+    void configureOptionalMeter(int slot, meter_t meterType);
+    void receiveOptionalMeter(meter_t meterType, double level);
     QVariantMap uiSpecs;
 
     //void setDefPrefs();
@@ -338,6 +350,8 @@ private:
     bool m_splitEnabled = false;
     bool m_compressorEnabled = false;
     bool m_voxEnabled = false;
+    double m_optionalMeter2Level = 0.0;
+    double m_optionalMeter3Level = 0.0;
     uchar currentReceiver = 0;
     bool freqLock = false;
 

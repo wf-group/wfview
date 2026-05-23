@@ -28,6 +28,10 @@ class MeterItem : public QQuickPaintedItem
     Q_PROPERTY(bool reverseCompMeter READ reverseCompMeter WRITE setReverseCompMeter NOTIFY reverseCompMeterChanged)
     Q_PROPERTY(bool useGradients READ useGradients WRITE setUseGradients NOTIFY useGradientsChanged)
     Q_PROPERTY(bool drawLabels READ drawLabels WRITE setDrawLabels NOTIFY drawLabelsChanged)
+    Q_PROPERTY(QColor scaleTextColor READ scaleTextColor WRITE setScaleTextColor NOTIFY scaleColorsChanged)
+    Q_PROPERTY(QColor scaleLineColor READ scaleLineColor WRITE setScaleLineColor NOTIFY scaleColorsChanged)
+    Q_PROPERTY(QColor scaleHighTextColor READ scaleHighTextColor WRITE setScaleHighTextColor NOTIFY scaleColorsChanged)
+    Q_PROPERTY(QColor scaleHighLineColor READ scaleHighLineColor WRITE setScaleHighLineColor NOTIFY scaleColorsChanged)
 
 public:
     explicit MeterItem(QQuickItem *parent = nullptr);
@@ -65,6 +69,18 @@ public:
     bool drawLabels() const { return m_drawLabels; }
     void setDrawLabels(bool d);
 
+    QColor scaleTextColor() const { return m_lowTextColor; }
+    void setScaleTextColor(const QColor &color);
+
+    QColor scaleLineColor() const { return m_lowLineColor; }
+    void setScaleLineColor(const QColor &color);
+
+    QColor scaleHighTextColor() const { return m_highTextColor; }
+    void setScaleHighTextColor(const QColor &color);
+
+    QColor scaleHighLineColor() const { return m_highLineColor; }
+    void setScaleHighLineColor(const QColor &color);
+
     Q_INVOKABLE void setLevels(double current, double peak, double average);
     Q_INVOKABLE void setLevels2(double current, double peak);   // like your overload
     Q_INVOKABLE void clearMeter();
@@ -79,6 +95,7 @@ signals:
     void reverseCompMeterChanged();
     void useGradientsChanged();
     void drawLabelsChanged();
+    void scaleColorsChanged();
 
 protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;

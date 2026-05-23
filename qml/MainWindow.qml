@@ -27,6 +27,91 @@ ApplicationWindow {
                    + mainLayout.spacing * 2
     height: minimumHeight
 
+    component OptionalMeterSlot: Item {
+        id: optionalMeterSlot
+
+        property int slot: 2
+        readonly property string optionKey: slot === 2 ? "Interface.Meter2Type" : "Interface.Meter3Type"
+        readonly property int meterChoice: Number(MainController.settings.options[optionKey] || 0)
+        readonly property double meterLevel: slot === 2 ? MainController.optionalMeter2Level : MainController.optionalMeter3Level
+
+        width: 300
+        height: 40
+
+        function applyExtremities() {
+            const ext = MainController.optionalMeterExtremities(meterChoice)
+            optionalMeter.setMeterExtremities(ext.low, ext.high, ext.red)
+        }
+
+        Meter {
+            id: optionalMeter
+            anchors.fill: parent
+            visible: optionalMeterSlot.meterChoice !== 0
+            meterType: optionalMeterSlot.meterChoice
+            current: optionalMeterSlot.meterLevel
+            drawLabels: true
+            reverseCompMeter: Boolean(MainController.settings.options["Interface.CompMeterReverse"])
+            scaleTextColor: win.palette.windowText
+            scaleLineColor: win.palette.windowText
+            scaleHighTextColor: MainController.settings.options["Color.MeterHighScale"]
+            scaleHighLineColor: MainController.settings.options["Color.MeterHighScale"]
+            onConfigureMeterRequested: meterMenu.open()
+            Component.onCompleted: optionalMeterSlot.applyExtremities()
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: optionalMeterSlot.meterChoice === 0
+            color: Qt.rgba(win.palette.button.r, win.palette.button.g, win.palette.button.b, 0.35)
+            border.color: win.palette.mid
+
+            Label {
+                anchors.centerIn: parent
+                text: "Double-click to add meter"
+                color: win.palette.windowText
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            onDoubleClicked: meterMenu.open()
+        }
+
+        Popup {
+            id: meterMenu
+            modal: false
+            focus: true
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            padding: 4
+
+            ColumnLayout {
+                spacing: 2
+                Repeater {
+                    model: MainController.optionalMeterOptions()
+                    Button {
+                        Layout.fillWidth: true
+                        text: modelData.text === "" ? "None" : modelData.text
+                        enabled: modelData.available
+                        checkable: true
+                        checked: optionalMeterSlot.meterChoice === modelData.value
+                        onClicked: {
+                            MainController.setOptionalMeterType(optionalMeterSlot.slot, modelData.value)
+                            meterMenu.close()
+                        }
+                    }
+                }
+            }
+        }
+
+        onMeterChoiceChanged: applyExtremities()
+        Connections {
+            target: MainController
+            function onUiSpecsChanged() { optionalMeterSlot.applyExtremities() }
+            function onOptionalMetersChanged() { optionalMeterSlot.applyExtremities() }
+        }
+    }
+
     LoggingWindow {
         id: loggingWindow
     }
@@ -339,6 +424,23 @@ ApplicationWindow {
                             title: "Receiver " + (index + 1)
                             width: 900
                             height: 500
+                            color: palette.window
+
+                            palette {
+                                window: MainController.settings.options["Color.Window"]
+                                windowText: MainController.settings.options["Color.WindowText"]
+                                base: MainController.settings.options["Color.Base"]
+                                alternateBase: MainController.settings.options["Color.AlternateBase"]
+                                text: MainController.settings.options["Color.MainText"]
+                                button: MainController.settings.options["Color.Button"]
+                                buttonText: MainController.settings.options["Color.ButtonText"]
+                                brightText: MainController.settings.options["Color.BrightText"]
+                                highlight: MainController.settings.options["Color.Highlight"]
+                                highlightedText: MainController.settings.options["Color.HighlightedText"]
+                                mid: MainController.settings.options["Color.Mid"]
+                                dark: MainController.settings.options["Color.Dark"]
+                                light: MainController.settings.options["Color.Light"]
+                            }
 
                             Item { id: detachedHost; anchors.fill: parent }
 
@@ -402,27 +504,13 @@ ApplicationWindow {
                     ColumnLayout {
                         spacing: 0
 
-                        Meter {
-                            id: meter1
-                            width: 300
-                            height: 40
-                            //meterType: MainController ? MainController.meter1Type : 0
-                            // only set the "current" level; MeterItem does peak/avg itself
-                            //current: MainController ? MainController.meter1 : 0.0
-
-                            drawLabels: true
-                            Component.onCompleted: meter1.setMeterExtremities(-54, 60, 0)
-                        }
-                        Meter {
-                            id: meter2
-                            width: 300
-                            height: 40
-                            //meterType: MainController ? MainController.meter2Type : 0
-                            // only set the "current" level; MeterItem does peak/avg itself
-                            //current: MainController ? MainController.meter2 : 0.0
-
-                            drawLabels: true
-                            Component.onCompleted: meter2.setMeterExtremities(-54, 60, 0)
+                        Repeater {
+                            model: [2, 3]
+                            OptionalMeterSlot {
+                                slot: modelData
+                                Layout.preferredWidth: 300
+                                Layout.preferredHeight: 40
+                            }
                         }
                     }
 
@@ -441,13 +529,57 @@ ApplicationWindow {
 
                     Dial {
                         id: freqDial
+                        property real lastValue: value
+                        property bool syncing: false
+                        property double lastMoveTime: 0
                         Layout.preferredWidth: 80
                         Layout.preferredHeight: 80
                         from: 3000
                         to: 4000
                         stepSize: 10
                         wrap: true
-                        // onMoved: rig.setVfoDial(value)   // if you want live tracking
+                        enabled: firstReceiver !== null
+                        onMoved: {
+                            if (syncing || !firstReceiver)
+                                return
+
+                            const fullSweep = to - from
+                            var delta = value - lastValue
+                            if (delta > fullSweep / 2)
+                                delta -= fullSweep
+                            else if (delta < -fullSweep / 2)
+                                delta += fullSweep
+
+                            var steps = 0
+                            if (Math.abs(delta) < stepSize)
+                                steps = delta > 0 ? 1 : -1
+                            else
+                                steps = Math.round(delta / stepSize)
+
+                            if (steps !== 0) {
+                                const now = Date.now()
+                                const elapsed = lastMoveTime > 0 ? Math.max(1, now - lastMoveTime) : 0
+                                const rate = elapsed > 0 ? Math.abs(steps) * 1000 / elapsed : 0
+                                var multiplier = 1
+                                if (rate >= 45)
+                                    multiplier = 25
+                                else if (rate >= 25)
+                                    multiplier = 10
+                                else if (rate >= 12)
+                                    multiplier = 5
+                                else if (rate >= 6)
+                                    multiplier = 2
+
+                                firstReceiver.tuneSteps(steps * multiplier, 0, true)
+                                lastMoveTime = now
+                            }
+
+                            lastValue = value
+                        }
+                        Component.onCompleted: {
+                            lastValue = value
+                            lastMoveTime = 0
+                        }
                     }
 
                     ComboBox {
@@ -510,6 +642,11 @@ ApplicationWindow {
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: if (firstReceiver) firstReceiver.afGain = Math.round(value)
+
+                                HoverHandler { id: hoverVolume }
+                                ToolTip.visible: hoverVolume.hovered
+                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                ToolTip.delay: 300
                             }
                             Label { text: "Vol"; horizontalAlignment: Text.AlignHCenter }
                         }
@@ -524,6 +661,11 @@ ApplicationWindow {
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: MainController.txPower = Math.round(value)
+
+                                HoverHandler { id: hoverTxPower }
+                                ToolTip.visible: hoverTxPower.hovered
+                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                ToolTip.delay: 300
                             }
                             Label { text: "TX"; horizontalAlignment: Text.AlignHCenter }
                         }
@@ -538,6 +680,11 @@ ApplicationWindow {
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: MainController.monitorGain = Math.round(value)
+
+                                HoverHandler { id: hoverMonitor }
+                                ToolTip.visible: hoverMonitor.hovered
+                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                ToolTip.delay: 300
                             }
                             Label { text: "Mon"; horizontalAlignment: Text.AlignHCenter }
                         }
@@ -552,6 +699,11 @@ ApplicationWindow {
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: MainController.micGain = Math.round(value)
+
+                                HoverHandler { id: hoverMicGain }
+                                ToolTip.visible: hoverMicGain.hovered
+                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                ToolTip.delay: 300
                             }
                             Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
                         }

@@ -188,6 +188,7 @@ public:
     void setMeter(double v);
 
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
+    Q_INVOKABLE void tuneSteps(int steps, int modifiers = 0, bool uniqueQueue = false);
     Q_INVOKABLE void storeBsr();
     Q_INVOKABLE void selectVfoB(bool enabled);
     Q_INVOKABLE void swapVfoAB();
