@@ -190,7 +190,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     clearPeaksButton = new QPushButton("Clear Peaks");
 
-    confButton = new QPushButton("<");
+    confButton = new QPushButton("◀");
     confButton->setAccessibleName(tr("Configure Scope"));
     confButton->setAccessibleDescription(tr("Change various settings of the current Scope"));
     confButton->setToolTip(tr("Configure Scope"));
@@ -2307,9 +2307,9 @@ void receiverWidget::configPressed()
     this->configGroup->setVisible(!this->configGroup->isVisible());
     //QTimer::singleShot(200, this, [this]() {
         if (this->configGroup->isVisible())
-            this->confButton->setText(">");
+            this->confButton->setText("▶");
         else
-            this->confButton->setText("<");
+            this->confButton->setText("◀");
     //});
 }
 
