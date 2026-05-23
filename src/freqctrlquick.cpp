@@ -87,6 +87,27 @@ FreqCtrlQuick::FreqCtrlQuick()
 
 FreqCtrlQuick::~FreqCtrlQuick()
 {
+    if (window() && m_DirectEntryFilterInstalled)
+        window()->removeEventFilter(this);
+}
+
+bool FreqCtrlQuick::eventFilter(QObject *watched, QEvent *event)
+{
+    if (m_DirectEntryMode && watched == window() && event->type() == QEvent::MouseButtonPress) {
+        auto *mouseEvent = static_cast<QMouseEvent *>(event);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        const QPointF windowPos = mouseEvent->localPos();
+#else
+        const QPointF windowPos = mouseEvent->position();
+#endif
+        const QPointF itemTopLeft = mapToScene(QPointF(0, 0));
+        const QRectF itemRect(itemTopLeft, QSizeF(width(), height()));
+        if (!itemRect.contains(windowPos)) {
+            cancelDirectEntry();
+        }
+    }
+
+    return QQuickPaintedItem::eventFilter(watched, event);
 }
 
 /*
@@ -107,6 +128,16 @@ bool FreqCtrlQuick::inRect(QRect &rect, QPointF &point)
         return true;
     else
         return false;
+}
+
+bool FreqCtrlQuick::isDigitHit(const QPointF &point) const
+{
+    const QPoint p = point.toPoint();
+    for (int i = m_DigStart; i < m_NumDigits; ++i) {
+        if (m_DigitInfo[i].dQRect.contains(p))
+            return true;
+    }
+    return false;
 }
 
 void FreqCtrlQuick::setActiveDigit(int idx)
@@ -630,6 +661,17 @@ void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::mouseDoubleClickEvent(QMouseEvent *event)
 {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    const QPointF pt = event->localPos();
+#else
+    const QPointF pt = event->position();
+#endif
+
+    if (isDigitHit(pt)) {
+        mousePressEvent(event);
+        return;
+    }
+
     if (event->button() == Qt::LeftButton) {
         beginDirectEntry();
         event->accept();
@@ -684,12 +726,24 @@ void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
     event->setAccepted(true);
 }
 
+void FreqCtrlQuick::focusOutEvent(QFocusEvent *event)
+{
+    if (m_DirectEntryMode)
+        cancelDirectEntry();
+
+    QQuickPaintedItem::focusOutEvent(event);
+}
+
 void FreqCtrlQuick::beginDirectEntry()
 {
     forceActiveFocus(Qt::MouseFocusReason);
     m_DirectEntryMode = true;
     m_DirectEntryAllSelected = true;
     m_DirectEntryText = directEntryTextForFrequency(m_freq);
+    if (window() && !m_DirectEntryFilterInstalled) {
+        window()->installEventFilter(this);
+        m_DirectEntryFilterInstalled = true;
+    }
 
     if (m_ActiveEditDigit >= 0 && m_DigitInfo[m_ActiveEditDigit].editmode) {
         m_DigitInfo[m_ActiveEditDigit].editmode = false;
@@ -702,6 +756,10 @@ void FreqCtrlQuick::beginDirectEntry()
 
 void FreqCtrlQuick::cancelDirectEntry()
 {
+    if (window() && m_DirectEntryFilterInstalled) {
+        window()->removeEventFilter(this);
+        m_DirectEntryFilterInstalled = false;
+    }
     m_DirectEntryMode = false;
     m_DirectEntryAllSelected = false;
     m_DirectEntryText.clear();
@@ -719,6 +777,10 @@ bool FreqCtrlQuick::commitDirectEntry()
     m_DirectEntryMode = false;
     m_DirectEntryAllSelected = false;
     m_DirectEntryText.clear();
+    if (window() && m_DirectEntryFilterInstalled) {
+        window()->removeEventFilter(this);
+        m_DirectEntryFilterInstalled = false;
+    }
     setFrequency(freq);
     updateCtrl(true);
     return true;

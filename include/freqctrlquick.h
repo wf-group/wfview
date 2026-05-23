@@ -63,6 +63,7 @@ class FreqCtrlQuick : public QQuickPaintedItem
 public:
     explicit FreqCtrlQuick();
     ~FreqCtrlQuick() override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     // Use NumDigits=0 for auto
     Q_INVOKABLE void setup(int NumDigits,
@@ -183,6 +184,7 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
     void hoverMoveEvent(QHoverEvent *event) override;
     void hoverLeaveEvent(QHoverEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
@@ -206,6 +208,7 @@ private:
     void moveCursorLeft();
     void moveCursorRight();
     bool inRect(QRect &rect, QPointF &point);
+    bool isDigitHit(const QPointF &point) const;
     void setActiveDigit(int idx);
 
     bool        m_UpdateAll = true;
@@ -213,6 +216,7 @@ private:
     bool        m_LRMouseFreqSel = false;
     bool        m_DirectEntryMode = false;
     bool        m_DirectEntryAllSelected = false;
+    bool        m_DirectEntryFilterInstalled = false;
 
     bool        m_ResetLowerDigits = false;
     bool        m_InvertScrolling = false;
