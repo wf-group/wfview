@@ -7,10 +7,27 @@ import WFVIEW 1.0
 ApplicationWindow {
     id: win
     title: mode === "rx" ? "RX Audio Processing" : "TX Audio Processing"
+    color: palette.window
     width: mode === "rx" ? 860 : 635
     height: mode === "rx" ? 660 : 980
     minimumWidth: mode === "rx" ? 760 : 620
     minimumHeight: 520
+
+    palette {
+        window: MainController.settings.options["Color.Window"]
+        windowText: MainController.settings.options["Color.WindowText"]
+        base: MainController.settings.options["Color.Base"]
+        alternateBase: MainController.settings.options["Color.AlternateBase"]
+        text: MainController.settings.options["Color.MainText"]
+        button: MainController.settings.options["Color.Button"]
+        buttonText: MainController.settings.options["Color.ButtonText"]
+        brightText: MainController.settings.options["Color.BrightText"]
+        highlight: MainController.settings.options["Color.Highlight"]
+        highlightedText: MainController.settings.options["Color.HighlightedText"]
+        mid: MainController.settings.options["Color.Mid"]
+        dark: MainController.settings.options["Color.Dark"]
+        light: MainController.settings.options["Color.Light"]
+    }
 
     property string mode: "tx"
     readonly property bool txMode: mode === "tx"
@@ -41,6 +58,11 @@ ApplicationWindow {
             return
         controller.setOption(key, value)
         MainController.applyAudioProcessingSettings()
+    }
+
+    onVisibleChanged: {
+        if (visible)
+            MainController.updateApplicationPalette()
     }
 
     function comboIndex(combo, value) {
@@ -225,9 +247,9 @@ ApplicationWindow {
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.reset()
-                    ctx.fillStyle = "#11161c"
+                    ctx.fillStyle = win.palette.base
                     ctx.fillRect(0, 0, width, height)
-                    ctx.strokeStyle = "#303a44"
+                    ctx.strokeStyle = win.palette.mid
                     ctx.lineWidth = 1
                     for (var i = 1; i < 4; ++i) {
                         var y = height * i / 4
@@ -237,13 +259,13 @@ ApplicationWindow {
                         ctx.stroke()
                     }
                     if (!box.spectrumEnabled) {
-                        ctx.fillStyle = "#9aa4ad"
+                        ctx.fillStyle = win.palette.text
                         ctx.textAlign = "center"
                         ctx.fillText("Enable spectrum to view audio FFT data", width / 2, height / 2)
                         return
                     }
                     if ((!box.inputBins || box.inputBins.length < 2) && (!box.outputBins || box.outputBins.length < 2)) {
-                        ctx.fillStyle = "#9aa4ad"
+                        ctx.fillStyle = win.palette.text
                         ctx.textAlign = "center"
                         var status = "Waiting for audio spectrum data"
                         status += " | blocks: " + box.blocksProcessed
