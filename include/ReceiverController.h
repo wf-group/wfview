@@ -22,7 +22,7 @@ class ReceiverController : public QObject
     Q_PROPERTY(uchar scopeMode READ getScopeMode WRITE setScopeMode NOTIFY scopeModeChanged)
     Q_PROPERTY(uchar scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
     Q_PROPERTY(uchar scopeEdge READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeChanged)
-    Q_PROPERTY(uchar toFixed WRITE toFixedEdge)
+    Q_PROPERTY(uchar toFixed READ getToFixedEdge WRITE toFixedEdge)
     Q_PROPERTY(rigMode_t mode READ getMode WRITE setMode NOTIFY modeChanged)
     Q_PROPERTY(uchar dataMode READ getDataMode WRITE setDataMode NOTIFY dataModeChanged)
     Q_PROPERTY(uchar filter READ getFilter WRITE setFilter NOTIFY filterChanged)
@@ -73,6 +73,10 @@ class ReceiverController : public QObject
 
     Q_PROPERTY(availableBands band READ getBand WRITE setBand NOTIFY bandChanged)
     Q_PROPERTY(uchar bsrReg READ getBsrReg WRITE setBsrReg NOTIFY bsrRegChanged)
+    Q_PROPERTY(bool vfoBSelected READ vfoBSelected NOTIFY vfoBSelectedChanged)
+    Q_PROPERTY(bool memoryMode READ memoryMode NOTIFY memoryModeChanged)
+    Q_PROPERTY(bool satelliteMode READ satelliteMode NOTIFY satelliteModeChanged)
+    Q_PROPERTY(bool splitEnabled READ splitEnabled NOTIFY splitEnabledChanged)
 
 public:
     explicit ReceiverController(int rxIndex = 0, QString region="", QObject *parent = nullptr);
@@ -112,6 +116,7 @@ public:
     uchar getScopeMode() { return scopeMode;}
     uchar getScopeSpan() { return scopeSpan.reg;}
     uchar getScopeEdge() { return scopeEdge;}
+    uchar getToFixedEdge() const { return scopeEdge; }
     rigMode_t getMode() { return mode.mk;}
     uchar getDataMode() { return mode.data;}
     uchar getFilter() { return mode.filter;}
@@ -121,6 +126,10 @@ public:
     availableBands getBand() {return band.band;}
     uchar getBsrReg() {return bsr.reg;}
     void receiveBSR(bandStackType& bsr);
+    bool vfoBSelected() const { return m_vfoBSelected; }
+    bool memoryMode() const { return m_memoryMode; }
+    bool satelliteMode() const { return m_satelliteMode; }
+    bool splitEnabled() const { return m_splitEnabled; }
 
     uchar getSpeed() { return speed;}
     WaterfallItem::Theme getTheme() { return theme;}
@@ -180,6 +189,9 @@ public:
 
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
     Q_INVOKABLE void storeBsr();
+    Q_INVOKABLE void selectVfoB(bool enabled);
+    Q_INVOKABLE void swapVfoAB();
+    Q_INVOKABLE void equalizeVfoAB();
 
 public slots:
 
@@ -231,6 +243,9 @@ public slots:
     void setFrequencyB(quint64 f, bool u=true);
 
     void setBand(availableBands b, bool u=true);
+    void setMemoryMode(bool enabled, bool u=true);
+    void setSatelliteMode(bool enabled, bool u=true);
+    void setSplitEnabled(bool enabled, bool u=true);
 
     void setColors (colorPrefsType c)
     {
@@ -314,6 +329,10 @@ signals:
 
     void bandChanged();
     void bsrRegChanged();
+    void vfoBSelectedChanged();
+    void memoryModeChanged();
+    void satelliteModeChanged();
+    void splitEnabledChanged();
 
 private:
     void buildUiSpecs();
@@ -323,6 +342,10 @@ private:
 
     uchar receiver = 0;
     bool scopeReceived = false;
+    bool m_vfoBSelected = false;
+    bool m_memoryMode = false;
+    bool m_satelliteMode = false;
+    bool m_splitEnabled = false;
 
     qreal scrollWheelOffsetAccumulated = 0.0;
 

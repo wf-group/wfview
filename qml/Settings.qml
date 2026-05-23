@@ -455,7 +455,7 @@ ApplicationWindow {
                                         ToolTip.text: "Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio."
 
                                         checked: controller ? Boolean(controller.options["Radio.CIVisRadioModel"]) : false
-                                        onClicked: if (controller) controller.setOption("Radio.CIVisRadioModel", true)
+                                        onClicked: if (controller) controller.setOption("Radio.CIVisRadioModel", checked)
                                     }
                                 }
                             }
@@ -517,14 +517,18 @@ ApplicationWindow {
                                         { text: "115,200", value: 115200 },
                                         { text: "57,600", value: 57600 },
                                         { text: "38,400", value: 38400 },
-                                        { text: "28,800", value: 38400 },
-                                        { text: "19,200", value: 38400 },
-                                        { text: "9,600", value: 38400 },
-                                        { text: "4,800", value: 38400 },
-                                        { text: "2,400", value: 38400 },
-                                        { text: "1,200", value: 38400 },
-                                        { text: "600", value: 38400 }
+                                        { text: "28,800", value: 28800 },
+                                        { text: "19,200", value: 19200 },
+                                        { text: "9,600", value: 9600 },
+                                        { text: "4,800", value: 4800 },
+                                        { text: "2,400", value: 2400 },
+                                        { text: "1,200", value: 1200 },
+                                        { text: "600", value: 600 }
                                     ]
+                                    currentIndex: (controller && controller.options)
+                                                  ? indexFromValue(baudRateCombo, controller.options["Radio.SerialPortBaud"])
+                                                  : -1
+                                    onActivated: if (controller) controller.setOption("Radio.SerialPortBaud", currentValue)
                                 }
 
                                 Label { id: pttTypeLabel; text: "PTT Type" }
@@ -1127,12 +1131,14 @@ ApplicationWindow {
                             CheckBox {
                                 id: forceVfoModeChk;
                                 text: "Force VFO Mode";
-                                checked: true
+                                checked: controller ? Boolean(controller.options["Interface.ForceVfoMode"]) : true
+                                onClicked: if (controller) controller.setOption("Interface.ForceVfoMode", checked)
                             }
                             CheckBox {
                                 id: autoPowerOnChk;
                                 text: "Auto Power-on radio";
-                                checked: true
+                                checked: controller ? Boolean(controller.options["Interface.AutoPowerOn"]) : true
+                                onClicked: if (controller) controller.setOption("Interface.AutoPowerOn", checked)
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -1143,24 +1149,30 @@ ApplicationWindow {
                             Label { id: underlayLabel; text: "Underlay Mode" }
                             ButtonGroup { id: underlayGroup }
 
-                            RadioButton { id: underlayNone; text: "None"; checked: true; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "No underlay graphics" }
-                            RadioButton { id: underlayPeakHold; text: "Peak Hold"; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Indefinite peak hold" }
-                            RadioButton { id: underlayPeakBuffer; text: "Peak"; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Peak value within the buffer" }
-                            RadioButton { id: underlayAverageBuffer; text: "Average"; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Average value within the buffer" }
+                            RadioButton { id: underlayNone; text: "None"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 0 : true; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "No underlay graphics"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 0) }
+                            RadioButton { id: underlayPeakHold; text: "Peak Hold"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 1 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Indefinite peak hold"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 1) }
+                            RadioButton { id: underlayPeakBuffer; text: "Peak"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 2 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Peak value within the buffer"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 2) }
+                            RadioButton { id: underlayAverageBuffer; text: "Average"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 3 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Average value within the buffer"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 3) }
 
                             Label { text: "Underlay Buffer Size:" }
                             Slider {
                                 id: underlayBufferSlider
                                 from: 8
                                 to: 128
-                                value: 64
+                                value: controller ? Number(controller.options["Interface.UnderlayBufferSize"]) : 64
                                 stepSize: 1
                                 Layout.preferredWidth: 100
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Size of buffer for spectrum data. Shorter values are more responsive."
+                                onMoved: if (controller) controller.setOption("Interface.UnderlayBufferSize", Math.round(value))
                             }
 
-                            CheckBox { id: showBandsChk; text: "Show Bands" }
+                            CheckBox {
+                                id: showBandsChk
+                                text: "Show Bands"
+                                checked: controller ? Boolean(controller.options["Interface.ShowBands"]) : true
+                                onClicked: if (controller) controller.setOption("Interface.ShowBands", checked)
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1186,6 +1198,8 @@ ApplicationWindow {
                                     { text: "Tx Audio", value: 10 },
                                     { text: "Rx Audio", value: 11 }
                                 ]
+                                currentIndex: controller ? indexFromValue(meter2selectionCombo, controller.options["Interface.Meter2Type"]) : -1
+                                onActivated: if (controller) controller.setOption("Interface.Meter2Type", currentValue)
                             }
 
                             ComboBox {
@@ -1204,33 +1218,47 @@ ApplicationWindow {
                                     { text: "Tx Audio", value: 10 },
                                     { text: "Rx Audio", value: 11 }
                                 ]
+                                currentIndex: controller ? indexFromValue(meter3selectionCombo, controller.options["Interface.Meter3Type"]) : -1
+                                onActivated: if (controller) controller.setOption("Interface.Meter3Type", currentValue)
                             }
-                            CheckBox { id: revCompMeterBtn; text: "Reverse Comp Meter"; ToolTip.visible: hovered; ToolTip.text: "Broadcast-style reduction meter" }
+                            CheckBox {
+                                id: revCompMeterBtn
+                                text: "Reverse Comp Meter"
+                                checked: controller ? Boolean(controller.options["Interface.CompMeterReverse"]) : false
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Broadcast-style reduction meter"
+                                onClicked: if (controller) controller.setOption("Interface.CompMeterReverse", checked)
+                            }
 
                             ButtonGroup { id: pollingButtonGroup }
                             RadioButton {
                                 id: autoPollBtn
                                 text: "AutoPolling"
-                                checked: true
+                                checked: controller ? Number(controller.options["Radio.PollingMS"]) === 0 : true
                                 ButtonGroup.group: pollingButtonGroup
                                 ToolTip.visible: hovered
                                 ToolTip.text: "wfview will automatically calculate command polling. Recommended."
+                                onClicked: if (controller) controller.setOption("Radio.PollingMS", 0)
                             }
                             RadioButton {
                                 id: manualPollBtn
                                 text: "Manual Polling Interval:"
+                                checked: controller ? Number(controller.options["Radio.PollingMS"]) !== 0 : false
                                 ButtonGroup.group: pollingButtonGroup
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Manual (user-defined) command polling"
+                                onClicked: if (controller && Number(controller.options["Radio.PollingMS"]) === 0) controller.setOption("Radio.PollingMS", pollTimeMsSpin.value)
                             }
                             SpinBox {
                                 id: pollTimeMsSpin
                                 from: 1
                                 to: 250
-                                value: 25
+                                value: controller ? Math.max(1, Number(controller.options["Radio.PollingMS"]) || 25) : 25
                                 editable: true
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Sets the polling interval, in ms. Automatic polling is recommended. Serial/USB radios should not poll quicker than about 75ms."
+                                enabled: manualPollBtn.checked
+                                onValueModified: if (controller && manualPollBtn.checked) controller.setOption("Radio.PollingMS", value)
                             }
                             Label { text: "ms" }
 
@@ -1270,8 +1298,8 @@ ApplicationWindow {
                                 ToolTip.text: "Select a color preset here."
                             }
 
-                            Button { id: colorRevertPresetBtn; text: "Revert"; ToolTip.visible: hovered; ToolTip.text: "Revert the selected color preset to the default." }
-                            Button { id: colorRenamePresetBtn; text: "Rename Preset"; ToolTip.visible: hovered; ToolTip.text: "Rename the selected color preset. Max length is 10 characters." }
+                            Button { id: colorRevertPresetBtn; text: "Revert"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Color preset reset has not been ported to QML yet." }
+                            Button { id: colorRenamePresetBtn; text: "Rename Preset"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Color preset rename has not been ported to QML yet." }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1402,14 +1430,17 @@ ApplicationWindow {
                                 id: modInputCombo
                                 Accessible.name: "Modulation Input"
                                 Accessible.description: "Transmit modulation source"
+                                enabled: false
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Modulation input selection needs a QML model and controller binding."
                                 model: [] // TODO
                             }
                             Label { id: modInputData1ComboText; text: "(Data Mod Inputs) DATA1:" }
-                            ComboBox { id: modInputData1Combo; model: [] }
+                            ComboBox { id: modInputData1Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA1 modulation input selection needs a QML model and controller binding." }
                             Label { id: modInputData2ComboText; text: "DATA2:" }
-                            ComboBox { id: modInputData2Combo; model: [] }
+                            ComboBox { id: modInputData2Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA2 modulation input selection needs a QML model and controller binding." }
                             Label { id: modInputData3ComboText; text: "DATA3:" }
-                            ComboBox { id: modInputData3Combo; model: [] }
+                            ComboBox { id: modInputData3Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA3 modulation input selection needs a QML model and controller binding." }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1418,31 +1449,46 @@ ApplicationWindow {
                             Button {
                                 id: setClockBtn
                                 text: "Set Clock"
+                                enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Sets the radio clock when seconds go to zero."
+                                ToolTip.text: "Manual radio clock sync has not been ported to QML yet."
                             }
                             CheckBox {
                                 id: useUTCChk
                                 text: "Use UTC"
+                                checked: controller ? Boolean(controller.options["Radio.UseUTC"]) : false
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Set radio clock to UTC; otherwise uses local timezone."
+                                onClicked: if (controller) controller.setOption("Radio.UseUTC", checked)
                             }
-                            CheckBox { id: setRadioTimeChk; text: "Set radio time on connect (takes up to a minute)" }
+                            CheckBox {
+                                id: setRadioTimeChk
+                                text: "Set radio time on connect (takes up to a minute)"
+                                checked: controller ? Boolean(controller.options["Radio.SetRadioTime"]) : false
+                                onClicked: if (controller) controller.setOption("Radio.SetRadioTime", checked)
+                            }
                             Item { Layout.fillWidth: true }
-                            Button { id: satOpsBtn; text: "Satellite Ops" }
+                            Button {
+                                id: satOpsBtn
+                                text: "Satellite Ops"
+                                enabled: false
+                                ToolTip.visible: hovered
+                                ToolTip.text: "Satellite setup has not been ported to QML yet."
+                            }
                             Button {
                                 id: adjRefBtn
                                 text: "Adjust Reference"
+                                enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Adjust the frequency reference on the IC-9700."
+                                ToolTip.text: "Reference adjustment has not been ported to QML yet."
                             }
                         }
 
                         RowLayout {
                             spacing: 8
                             Label { text: "Manual PTT Toggle" }
-                            Button { id: pttOnBtn; text: "PTT On" }
-                            Button { id: pttOffBtn; text: "PTT Off" }
+                            Button { id: pttOnBtn; text: "PTT On"; onClicked: MainController.setTransmit(true) }
+                            Button { id: pttOffBtn; text: "PTT Off"; onClicked: MainController.setTransmit(false) }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1464,9 +1510,19 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 12
-                            CheckBox { id: serverEnableCheckbox; text: "Enable" }
+                            CheckBox {
+                                id: serverEnableCheckbox
+                                text: "Enable"
+                                checked: controller ? Boolean(controller.options["Server.Enabled"]) : false
+                                onClicked: if (controller) controller.setOption("Server.Enabled", checked)
+                            }
                             Item { width: 20 }
-                            CheckBox { id: serverDisableUIChk; text: "Disable local user controls when in use (restart required)" }
+                            CheckBox {
+                                id: serverDisableUIChk
+                                text: "Disable local user controls when in use (restart required)"
+                                checked: controller ? Boolean(controller.options["Server.DisableUI"]) : false
+                                onClicked: if (controller) controller.setOption("Server.DisableUI", checked)
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1484,16 +1540,16 @@ ApplicationWindow {
                                     spacing: 8
 
                                     Label { id: serverControlPortLabel; text: "Control Port" }
-                                    TextField { id: serverControlPortText; text: "50001"; Layout.preferredWidth: 130; inputMask: "99999" }
+                                    TextField { id: serverControlPortText; text: controller ? String(controller.options["Server.ControlPort"]) : "50001"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.ControlPort", Number(text)) }
 
                                     Label { id: serverCATPortLabel; text: "CAT Port" }
-                                    TextField { id: serverCivPortText; text: "50002"; Layout.preferredWidth: 130; inputMask: "99999" }
+                                    TextField { id: serverCivPortText; text: controller ? String(controller.options["Server.CivPort"]) : "50002"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.CivPort", Number(text)) }
 
                                     Label { id: serverAudioPortLabel; text: "Audio Port" }
-                                    TextField { id: serverAudioPortText; text: "50003"; Layout.preferredWidth: 130; inputMask: "99999" }
+                                    TextField { id: serverAudioPortText; text: controller ? String(controller.options["Server.AudioPort"]) : "50003"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.AudioPort", Number(text)) }
 
                                     Label { id: serverScopePortLabel; text: "Scope Port" }
-                                    TextField { id: serverScopePortText; text: "50004"; Layout.preferredWidth: 130; inputMask: "99999" }
+                                    TextField { id: serverScopePortText; text: "50004"; enabled: false; Layout.preferredWidth: 130; inputMask: "99999"; ToolTip.visible: hovered; ToolTip.text: "The server scope port is not exposed by the current server config." }
 
                                     Item { Layout.fillWidth: true }
                                 }
@@ -1502,12 +1558,12 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
                                     Label { text: "RX Audio Input" }
-                                    ComboBox { id: serverRXAudioInputCombo; model: []; Layout.preferredWidth: 160 }
+                                    ComboBox { id: serverRXAudioInputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: "Server audio input selection needs a QML model." }
                                     Label { text: "TX Audio Output" }
-                                    ComboBox { id: serverTXAudioOutputCombo; model: []; Layout.preferredWidth: 160 }
+                                    ComboBox { id: serverTXAudioOutputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: "Server audio output selection needs a QML model." }
                                     Item { width: 20 }
                                     Label { text: "Audio System" }
-                                    ComboBox { id: audioSystemServerCombo; model: ["Qt Audio", "PortAudio", "RT Audio"] }
+                                    ComboBox { id: audioSystemServerCombo; model: ["Qt Audio", "PortAudio", "RT Audio"]; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Server audio system selection is not wired yet." }
                                     Item { Layout.fillWidth: true }
                                 }
 
@@ -1573,14 +1629,18 @@ ApplicationWindow {
                             CheckBox {
                                 id: enableRigctldChk
                                 text: "Enable RigCtld"
+                                checked: controller ? Boolean(controller.options["LAN.EnableRigCtlD"]) : false
+                                onClicked: if (controller) controller.setOption("LAN.EnableRigCtlD", checked)
                                 Accessible.name: "Enable RIGCTLD checkbox"
                             }
                             Item { width: 20 }
                             Label { text: "Port" }
                             TextField {
                                 id: rigctldPortTxt
+                                text: controller ? String(controller.options["LAN.RigCtlPort"]) : ""
                                 Layout.preferredWidth: 75
                                 Layout.maximumWidth: 75
+                                onEditingFinished: if (controller) controller.setOption("LAN.RigCtlPort", Number(text))
                                 Accessible.name: "RIGCTLD server port"
                             }
                             Item { Layout.fillWidth: true }
@@ -1597,6 +1657,7 @@ ApplicationWindow {
                                 ToolTip.visible: hovered
                                 ToolTip.text: "Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal."
                                 model: [] // TODO
+                                enabled: false
                             }
                             Label { id: ptyDeviceLabel; text: "" }
                             Item { Layout.fillWidth: true }
@@ -1605,7 +1666,7 @@ ApplicationWindow {
                         RowLayout {
                             spacing: 8
                             Label { text: "TCP Server Port" }
-                            TextField { id: tcpServerPortTxt; Layout.preferredWidth: 80 }
+                            TextField { id: tcpServerPortTxt; text: controller ? String(controller.options["LAN.TCPPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCPPort", Number(text)) }
                             Label { text: "Enter port for TCP server, 0 = disabled (restart required if changed)" }
                             Item { Layout.fillWidth: true }
                         }
@@ -1613,7 +1674,7 @@ ApplicationWindow {
                         RowLayout {
                             spacing: 8
                             Label { text: "TCI Server Port" }
-                            TextField { id: tciServerPortTxt; Layout.preferredWidth: 80 }
+                            TextField { id: tciServerPortTxt; text: controller ? String(controller.options["LAN.TCIPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCIPort", Number(text)) }
                             Label { text: "Enter port for TCI server 0 = disabled (restart required if changed)" }
                             Item { Layout.fillWidth: true }
                         }
@@ -1621,7 +1682,18 @@ ApplicationWindow {
                         RowLayout {
                             spacing: 8
                             Label { text: "Waterfall Format" }
-                            ComboBox { id: waterfallFormatCombo; model: ["Default", "Single (network)", "Multi (serial)"] }
+                            ComboBox {
+                                id: waterfallFormatCombo
+                                model: [
+                                    { text: "Default", value: 0 },
+                                    { text: "Single (network)", value: 1 },
+                                    { text: "Multi (serial)", value: 2 }
+                                ]
+                                textRole: "text"
+                                valueRole: "value"
+                                currentIndex: controller ? indexFromValue(waterfallFormatCombo, controller.options["LAN.WaterfallFormat"]) : -1
+                                onActivated: if (controller) controller.setOption("LAN.WaterfallFormat", currentValue)
+                            }
                             Label { text: "Only change this if you are absolutely sure you need it (connecting to N1MM+ or similar)" }
                             Item { Layout.fillWidth: true }
                         }
@@ -1643,9 +1715,15 @@ ApplicationWindow {
                         spacing: 10
                         RowLayout {
                             spacing: 8
-                            CheckBox { id: enableUsbChk; text: "Enable USB Controllers"; Accessible.name: "Enable USB Controllers Checkbox" }
+                            CheckBox {
+                                id: enableUsbChk
+                                text: "Enable USB Controllers"
+                                checked: controller ? Boolean(controller.options["Controls.EnableUSBControllers"]) : false
+                                onClicked: if (controller) controller.setOption("Controls.EnableUSBControllers", checked)
+                                Accessible.name: "Enable USB Controllers Checkbox"
+                            }
                             Item { width: 20 }
-                            Button { id: usbControllersReset; text: "Reset Buttons"; Accessible.name: "Reset USB Controllers Button" }
+                            Button { id: usbControllersReset; text: "Reset Buttons"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "USB controller reset has not been ported to QML yet."; Accessible.name: "Reset USB Controllers Button" }
                             Label { id: usbResetLbl; text: "Only reset buttons/commands if you have issues." }
                             Item { Layout.fillWidth: true }
                         }
@@ -1899,7 +1977,12 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            CheckBox { id: clusterSkimmerSpotsEnable; text: "Show Skimmer Spots" }
+                            CheckBox {
+                                id: clusterSkimmerSpotsEnable
+                                text: "Show Skimmer Spots"
+                                checked: controller ? Boolean(controller.options["Cluster.SkimmerSpotsEnable"]) : false
+                                onClicked: if (controller) controller.setOption("Cluster.SkimmerSpotsEnable", checked)
+                            }
                             Item { Layout.fillWidth: true }
                         }
                     }
@@ -1927,8 +2010,9 @@ ApplicationWindow {
                             Button {
                                 id: debugBtn
                                 text: "Debug"
+                                enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Runs debug functions (see wfmain::on_debugBtn_clicked in wfmain.cpp)."
+                                ToolTip.text: "The old debug action has not been ported to QML yet."
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -2125,6 +2209,9 @@ ApplicationWindow {
             Button {
                 id: revertSettingsBtn
                 text: "Revert to Default"
+                enabled: false
+                ToolTip.visible: hovered
+                ToolTip.text: "Full preference reset has not been ported to QML yet."
                 Accessible.name: "Revert to Default"
             }
 

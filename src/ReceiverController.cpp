@@ -149,6 +149,54 @@ void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
     scrollWheelOffsetAccumulated = 0.0;
 }
 
+void ReceiverController::selectVfoB(bool enabled)
+{
+    setMemoryMode(false, false);
+
+    const vfo_t target = enabled ? vfoB : vfoA;
+    vfoCommandType t = queue->getVfoCommand(target, receiver, false);
+
+    queue->add(priorityImmediate, queueItem(funcSelectVFO, QVariant::fromValue<vfo_t>(target), false, t.receiver));
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+
+    t = queue->getVfoCommand(enabled ? vfoA : vfoB, receiver, false);
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+
+    if (m_vfoBSelected != enabled) {
+        m_vfoBSelected = enabled;
+        emit vfoBSelectedChanged();
+    }
+}
+
+void ReceiverController::swapVfoAB()
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcVFOSwapAB))
+        return;
+
+    queue->add(priorityImmediate, funcVFOSwapAB, false, receiver);
+
+    vfoCommandType t = queue->getVfoCommand(vfoA, receiver, false);
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+
+    t = queue->getVfoCommand(vfoB, receiver, false);
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+}
+
+void ReceiverController::equalizeVfoAB()
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcVFOEqualAB))
+        return;
+
+    vfoCommandType t = queue->getVfoCommand(vfoB, receiver, false);
+    queue->add(priorityImmediate, funcVFOEqualAB, false, uchar(0));
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+}
+
 
 void ReceiverController::setTitle(QString t)
 {
@@ -891,6 +939,51 @@ void ReceiverController::setFrequencyB(quint64 f, bool u)
             queue->addUnique(priorityImmediate,queueItem(t.freqFunc,QVariant::fromValue<freqt>(fr),false,t.receiver));
         }
     }
+}
+
+void ReceiverController::setMemoryMode(bool enabled, bool u)
+{
+    if (m_memoryMode != enabled) {
+        m_memoryMode = enabled;
+        emit memoryModeChanged();
+    }
+
+    if (!u)
+        return;
+
+    const vfo_t target = enabled ? vfoMem : vfoA;
+    vfoCommandType t = queue->getVfoCommand(target, receiver, false);
+
+    queue->add(priorityImmediate, queueItem(funcSelectVFO, QVariant::fromValue<vfo_t>(target), false, t.receiver));
+    queue->add(priorityHighest, t.freqFunc, false, t.receiver);
+    queue->add(priorityHighest, t.modeFunc, false, t.receiver);
+
+    if (enabled && m_vfoBSelected) {
+        m_vfoBSelected = false;
+        emit vfoBSelectedChanged();
+    }
+}
+
+void ReceiverController::setSatelliteMode(bool enabled, bool u)
+{
+    if (m_satelliteMode != enabled) {
+        m_satelliteMode = enabled;
+        emit satelliteModeChanged();
+    }
+
+    if (u && rigCaps && rigCaps->commands.contains(funcSatelliteMode))
+        queue->add(priorityImmediate, queueItem(funcSatelliteMode, QVariant::fromValue<bool>(enabled), false, uchar(0)));
+}
+
+void ReceiverController::setSplitEnabled(bool enabled, bool u)
+{
+    if (m_splitEnabled != enabled) {
+        m_splitEnabled = enabled;
+        emit splitEnabledChanged();
+    }
+
+    if (u && rigCaps && rigCaps->commands.contains(funcSplitStatus))
+        queue->add(priorityImmediate, queueItem(funcSplitStatus, QVariant::fromValue<uchar>(enabled), false, uchar(0)));
 }
 
 void ReceiverController::buildUiSpecs()

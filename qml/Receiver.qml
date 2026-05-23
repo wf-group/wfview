@@ -13,6 +13,8 @@ Control {
     readonly property var hostWin: ApplicationWindow.window
     property int receiverIndex: 0
     property var controller: null
+    property alias bandPanelOpen: bandPanel.open
+    property alias sidePanelOpen: sidePanel.open
 
     signal requestDetach(var globalPos)
     padding: 1
@@ -287,8 +289,11 @@ Control {
 
                             Button {
                                 id: vfoButton;
-                                text: "VFOA";
+                                text: controller && controller.vfoBSelected ? "VFOB" : "VFOA";
+                                checkable: true
+                                checked: controller ? controller.vfoBSelected : false
                                 visible: controller && (controller.uiFlags & ReceiverController.ShowVfoButton) !== 0
+                                onClicked: if (controller) controller.selectVfoB(checked)
                             }
 
                             Item {
@@ -304,31 +309,44 @@ Control {
                                     Button {
                                         id: swapABButton;
                                         text: "A↔B";
+                                        enabled: true
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSwapABButton) !== 0
+                                        onClicked: if (controller) controller.swapVfoAB()
                                     }
 
                                     Button {
                                         id: equalsABButton;
                                         text: "A=B";
+                                        enabled: true
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowEqualsABButton) !== 0
+                                        onClicked: if (controller) controller.equalizeVfoAB()
                                     }
 
                                     Button {
                                         id: vmButton;
                                         text: "V/M";
+                                        checkable: true
+                                        checked: controller ? controller.memoryMode : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowVMButton) !== 0
+                                        onClicked: if (controller) controller.setMemoryMode(checked)
                                     }
 
                                     Button {
                                         id: satButton;
                                         text: "SAT";
+                                        checkable: true
+                                        checked: controller ? controller.satelliteMode : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSatButton) !== 0
+                                        onClicked: if (controller) controller.setSatelliteMode(checked)
                                     }
 
                                     Button {
                                         id: splitButton;
                                         text: "SPLIT";
+                                        checkable: true
+                                        checked: controller ? controller.splitEnabled : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSplitButton) !== 0
+                                        onClicked: if (controller) controller.setSplitEnabled(checked)
                                     }
                                 }
                             }

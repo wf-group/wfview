@@ -1851,6 +1851,12 @@ void SettingsController::buildBindings()
     WF_I32("Radio.PollingMS", prefs.polling_ms,
            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_polling_ms)); });
 
+    WF_BOOL("Radio.UseUTC", prefs.useUTC,
+            [this](){ emit rsChanged(prefRsItems(prefRsItem::rs_clockUseUtc)); });
+
+    WF_BOOL("Radio.SetRadioTime", prefs.setRadioTime,
+            [this](){ emit rsChanged(prefRsItems(prefRsItem::rs_setRadioTime)); });
+
     WF_STR("Radio.SerialPortRadio", prefs.serialPortRadio,
            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_serialPortRadio)); });
 
@@ -1913,6 +1919,15 @@ void SettingsController::buildBindings()
 
     WF_BOOL("Interface.ShowBands", prefs.showBands,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_showBands)); });
+
+    WF_ENUM_I32("Interface.Meter2Type", prefs.meter2Type, meter_t,
+                [this](){ emit ifChanged(prefIfItems(prefIfItem::if_meter2Type)); });
+
+    WF_ENUM_I32("Interface.Meter3Type", prefs.meter3Type, meter_t,
+                [this](){ emit ifChanged(prefIfItems(prefIfItem::if_meter3Type)); });
+
+    WF_BOOL("Interface.CompMeterReverse", prefs.compMeterReverse,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_compMeterReverse)); });
 
     WF_CHAR("Interface.DecimalSeparator", prefs.decimalSeparator,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_separators)); });
@@ -2028,6 +2043,24 @@ void SettingsController::buildBindings()
 
     WF_STR("UDP.RxAudio", prefs.rxSetup.name,
            [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioOutput)); });
+
+    // -------------------------
+    // Server group
+    // -------------------------
+    WF_BOOL("Server.Enabled", serverConfig.enabled,
+            [this](){ emit serverChanged(prefServerItems(prefServerItem::s_enabled)); });
+
+    WF_BOOL("Server.DisableUI", serverConfig.disableUI,
+            [this](){ emit serverChanged(prefServerItems(prefServerItem::s_disableui)); });
+
+    WF_I32("Server.ControlPort", serverConfig.controlPort,
+           [this](){ emit serverChanged(prefServerItems(prefServerItem::s_controlPort)); });
+
+    WF_I32("Server.CivPort", serverConfig.civPort,
+           [this](){ emit serverChanged(prefServerItems(prefServerItem::s_civPort)); });
+
+    WF_I32("Server.AudioPort", serverConfig.audioPort,
+           [this](){ emit serverChanged(prefServerItems(prefServerItem::s_audioPort)); });
 
     auto audioNotify = [this](){ emit audioProcChanged(); };
 

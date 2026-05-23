@@ -18,6 +18,8 @@
 #include <QPixmap>
 #include <QSize>
 #include <QFontDatabase>
+#include <QKeyEvent>
+#include <QMouseEvent>
 
 #include "rigidentities.h"
 #include <wfviewtypes.h>
@@ -177,12 +179,20 @@ protected:
 
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void hoverMoveEvent(QHoverEvent *event) override;
     void hoverLeaveEvent(QHoverEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
+    void beginDirectEntry();
+    void cancelDirectEntry();
+    bool commitDirectEntry();
+    bool parseDirectEntry(const QString &text, qint64 &freq) const;
+    QString directEntryTextForFrequency(qint64 freq) const;
+    QString directEntryDisplayText() const;
+    void drawDirectEntry(QPainter &painter);
     void updateCtrl(bool all);
     void drawBkGround(QPainter &Painter);
     void drawDigits(QPainter &Painter);
@@ -201,6 +211,8 @@ private:
     bool        m_UpdateAll = true;
     bool        m_ExternalKeyActive = false;
     bool        m_LRMouseFreqSel = false;
+    bool        m_DirectEntryMode = false;
+    bool        m_DirectEntryAllSelected = false;
 
     bool        m_ResetLowerDigits = false;
     bool        m_InvertScrolling = false;
@@ -239,6 +251,7 @@ private:
     QRect       m_SepRect[FCTL_MAX_DIGITS]; // separation rectangles
 
     QString     m_UnitString;
+    QString     m_DirectEntryText;
 
     QFont       m_DigitFont;
     QFont       m_UnitsFont;

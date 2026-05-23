@@ -1517,6 +1517,10 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     }
     case funcSatelliteMode:
+    {
+        const bool enabled = val.value.value<bool>();
+        for (const auto &receiver : std::as_const(receivers))
+            receiver->setSatelliteMode(enabled, false);
         // If satellite mode is enabled, disable mode/freq query commands.
         /*
         for (auto r: receivers){
@@ -1529,6 +1533,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         */
         //qInfo(logRig()) << "Is radio currently in satellite mode?" << val.value.value<bool>();
         break;
+    }
     case funcSatelliteMemory:
     case funcMemoryContents:
         emit memoryReceived(val.value.value<memoryType>());
@@ -1556,6 +1561,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
             m_splitEnabled = enabled;
             emit splitEnabledChanged();
         }
+        for (const auto &receiver : std::as_const(receivers))
+            receiver->setSplitEnabled(enabled, false);
         //rpt->receiveDuplexMode(val.value.value<duplexMode_t>());
         //receivers[val.receiver]->setSplit(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
         break;

@@ -165,6 +165,22 @@ ApplicationWindow {
         return spec ? spec : { "available": false, "min": fallbackMin, "max": fallbackMax }
     }
 
+    function activeReceiverItem() {
+        for (var i = 0; i < receiversRepeater.count; ++i) {
+            var row = receiversRepeater.itemAt(i)
+            if (row && row.receiverController && row.receiverController.active && row.receiverItem)
+                return row.receiverItem
+        }
+        var firstRow = receiversRepeater.count > 0 ? receiversRepeater.itemAt(0) : null
+        return firstRow ? firstRow.receiverItem : null
+    }
+
+    function openActiveReceiverBands() {
+        var receiver = activeReceiverItem()
+        if (receiver)
+            receiver.bandPanelOpen = true
+    }
+
     Component {
             id: rigCreatorComponent
             RigCreator { }
@@ -198,6 +214,7 @@ ApplicationWindow {
                 spacing: 0
 
                 Repeater {
+                    id: receiversRepeater
                     model: MainController.receiverCount
 
                     delegate: Item {
@@ -222,6 +239,7 @@ ApplicationWindow {
                         property bool havePendingPos: false
                         property bool detached: false
                         readonly property var receiverController: MainController.receiver(index)
+                        readonly property var receiverItem: rxLoader.item
                         readonly property bool receiverVisible: receiverController
                                                                && (receiverController.active
                                                                    || MainController.dualScope)
@@ -534,7 +552,12 @@ ApplicationWindow {
                         onClicked: MainController.cwSender.visible = true
                     }
 
-                    Button { text: "Rpt/Split" }
+                    Button {
+                        text: "Rpt/Split"
+                        enabled: false
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Repeater setup has not been ported to QML yet."
+                    }
                     Button {
                         text: "Memories"
                         enabled: (connStatus === 2) // Only enable button if connected
@@ -679,8 +702,16 @@ ApplicationWindow {
                         loggingWindow.requestActivate()
                     }
                 }
-                Button { text: "Bands" }
-                Button { text: "Frequency" }
+                Button {
+                    text: "Bands"
+                    onClicked: openActiveReceiverBands()
+                }
+                Button {
+                    text: "Frequency"
+                    enabled: false
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Frequency input has not been ported to QML yet."
+                }
                 Button {
                     text: "Rig Creator"
                     onClicked: {

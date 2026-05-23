@@ -33,6 +33,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <QDebug>
+#include <QLocale>
 #include <cmath>
 #include "freqctrlquick.h"
 #include "logcategories.h"
@@ -481,6 +482,11 @@ void FreqCtrlQuick::geometryChanged(const QRectF &newGeometry,
 
 void FreqCtrlQuick::hoverLeaveEvent(QHoverEvent *event)
 {
+    if (m_DirectEntryMode) {
+        QQuickPaintedItem::hoverLeaveEvent(event);
+        return;
+    }
+
     // called when mouse cursor leaves this control so deactivate any highlights
     if (m_ActiveEditDigit >= 0)
     {
@@ -515,6 +521,9 @@ void FreqCtrlQuick::paint(QPainter *p)
 
     // Now blit the pixmap into the Qt Quick scene
     p->drawPixmap(0, 0, m_Pixmap);
+
+    if (m_DirectEntryMode)
+        drawDirectEntry(*p);
 }
 
 
@@ -561,6 +570,14 @@ void FreqCtrlQuick::mouseMoveEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
 {
+    if (m_DirectEntryMode) {
+        forceActiveFocus(Qt::MouseFocusReason);
+        m_DirectEntryAllSelected = true;
+        update();
+        event->accept();
+        return;
+    }
+
     event->setAccepted(true);
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -611,8 +628,24 @@ void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
     }
 }
 
+void FreqCtrlQuick::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        beginDirectEntry();
+        event->accept();
+        return;
+    }
+
+    QQuickPaintedItem::mouseDoubleClickEvent(event);
+}
+
 void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
 {
+    if (m_DirectEntryMode) {
+        event->ignore();
+        return;
+    }
+
     event->setAccepted(true);
 #if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
     QPointF   pt = QPointF(event->pos());
@@ -651,8 +684,273 @@ void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
     event->setAccepted(true);
 }
 
+void FreqCtrlQuick::beginDirectEntry()
+{
+    forceActiveFocus(Qt::MouseFocusReason);
+    m_DirectEntryMode = true;
+    m_DirectEntryAllSelected = true;
+    m_DirectEntryText = directEntryTextForFrequency(m_freq);
+
+    if (m_ActiveEditDigit >= 0 && m_DigitInfo[m_ActiveEditDigit].editmode) {
+        m_DigitInfo[m_ActiveEditDigit].editmode = false;
+        m_DigitInfo[m_ActiveEditDigit].modified = true;
+        m_ActiveEditDigit = -1;
+    }
+
+    updateCtrl(false);
+}
+
+void FreqCtrlQuick::cancelDirectEntry()
+{
+    m_DirectEntryMode = false;
+    m_DirectEntryAllSelected = false;
+    m_DirectEntryText.clear();
+    updateCtrl(true);
+}
+
+bool FreqCtrlQuick::commitDirectEntry()
+{
+    qint64 freq = 0;
+    if (!parseDirectEntry(m_DirectEntryText, freq)) {
+        cancelDirectEntry();
+        return true;
+    }
+
+    m_DirectEntryMode = false;
+    m_DirectEntryAllSelected = false;
+    m_DirectEntryText.clear();
+    setFrequency(freq);
+    updateCtrl(true);
+    return true;
+}
+
+QString FreqCtrlQuick::directEntryTextForFrequency(qint64 freq) const
+{
+    qint64 rem = qBound(m_MinFreq, freq, m_MaxFreq);
+    QString text;
+
+    for (int i = m_NumDigits - 1; i >= m_DigStart; --i) {
+        text.append(QChar('0' + int((rem / m_DigitInfo[i].weight) % 10)));
+
+        if (i > m_DigStart && (i % 3) == 0) {
+            QChar sep = gsep;
+            if (m_Unit == FCTL_UNIT_NONE)
+                sep = (m_LeadZeroPos > i) ? dsep : gsep;
+            else
+                sep = (i == m_DecPos) ? dsep : gsep;
+            text.append(sep);
+        }
+    }
+
+    while (text.size() > 1 && text.startsWith('0') && text.at(1).isDigit())
+        text.remove(0, 1);
+
+    if (text.startsWith(gsep) || text.startsWith(dsep))
+        text.prepend('0');
+
+    return text;
+}
+
+QString FreqCtrlQuick::directEntryDisplayText() const
+{
+    QString text = m_DirectEntryText.trimmed();
+    if (text.isEmpty())
+        return QString();
+
+    if (text.endsWith("mhz", Qt::CaseInsensitive))
+        text.chop(3);
+    else if (text.endsWith("khz", Qt::CaseInsensitive))
+        text.chop(3);
+    else if (text.endsWith("ghz", Qt::CaseInsensitive))
+        text.chop(3);
+    else if (text.endsWith("hz", Qt::CaseInsensitive))
+        text.chop(2);
+    else if (text.endsWith('m', Qt::CaseInsensitive) ||
+             text.endsWith('k', Qt::CaseInsensitive) ||
+             text.endsWith('g', Qt::CaseInsensitive))
+        text.chop(1);
+
+    return text.trimmed();
+}
+
+bool FreqCtrlQuick::parseDirectEntry(const QString &text, qint64 &freq) const
+{
+    QString s = text.trimmed();
+    if (s.isEmpty())
+        return false;
+
+    s.remove(' ');
+    s.remove('\'');
+    s.remove('_');
+    if (!gsep.isNull() && gsep != '.' && gsep != ',')
+        s.remove(gsep);
+
+    QString lower = s.toLower();
+    qreal multiplier = 0.0;
+
+    if (lower.endsWith("mhz")) {
+        multiplier = 1000000.0;
+        lower.chop(3);
+    } else if (lower.endsWith('m')) {
+        multiplier = 1000000.0;
+        lower.chop(1);
+    } else if (lower.endsWith("khz")) {
+        multiplier = 1000.0;
+        lower.chop(3);
+    } else if (lower.endsWith('k')) {
+        multiplier = 1000.0;
+        lower.chop(1);
+    } else if (lower.endsWith("ghz")) {
+        multiplier = 1000000000.0;
+        lower.chop(3);
+    } else if (lower.endsWith('g')) {
+        multiplier = 1000000000.0;
+        lower.chop(1);
+    } else if (lower.endsWith("hz")) {
+        multiplier = 1.0;
+        lower.chop(2);
+    }
+
+    const int dotCount = lower.count('.');
+    const int commaCount = lower.count(',');
+    if (dotCount + commaCount > 1) {
+        lower.remove('.');
+        lower.remove(',');
+    } else {
+        lower.replace(',', '.');
+    }
+
+    bool ok = false;
+    const double value = QLocale::c().toDouble(lower, &ok);
+    if (!ok || !std::isfinite(value) || value < 0.0)
+        return false;
+
+    if (multiplier == 0.0) {
+        // Decimal input is conventionally MHz. Short integer entry is kHz
+        // so "14195" tunes 14.195 MHz, while "14195000" remains Hz.
+        multiplier = lower.contains('.') ? 1000000.0
+                                         : (lower.length() <= 6 ? 1000.0 : 1.0);
+    }
+
+    qint64 parsed = qRound64(value * multiplier);
+    if (parsed < m_MinFreq)
+        parsed = m_MinFreq;
+    if (parsed > m_MaxFreq)
+        parsed = m_MaxFreq;
+
+    parsed -= parsed % m_MinStep;
+    freq = parsed;
+    return true;
+}
+
+void FreqCtrlQuick::drawDirectEntry(QPainter &painter)
+{
+    QString display = directEntryDisplayText();
+    int charIndex = display.length() - 1;
+
+    painter.save();
+    painter.setFont(m_DigitFont);
+
+    for (int i = m_DigStart; i < m_NumDigits; ++i) {
+        if (!m_SepRect[i].isNull())
+            painter.fillRect(m_SepRect[i], m_DirectEntryAllSelected ? m_HighlightColor : m_BkColor);
+        painter.fillRect(m_DigitInfo[i].dQRect, m_DirectEntryAllSelected ? m_HighlightColor : m_BkColor);
+    }
+
+    for (int i = m_DigStart; i < m_NumDigits; ++i) {
+        while (charIndex >= 0 && !display.at(charIndex).isDigit()) {
+            if (!m_SepRect[i].isNull()) {
+                painter.setPen(m_DigitColor);
+                painter.drawText(m_SepRect[i],
+                                 Qt::AlignHCenter | Qt::AlignVCenter,
+                                 display.at(charIndex));
+            }
+            --charIndex;
+        }
+
+        const QChar c = charIndex >= 0 ? display.at(charIndex--) : QChar(' ');
+        painter.setPen(c == QChar(' ') ? m_InactiveColor : m_DigitColor);
+        painter.drawText(m_DigitInfo[i].dQRect,
+                         Qt::AlignHCenter | Qt::AlignVCenter,
+                         c);
+    }
+
+    painter.setPen(QPen(m_HighlightColor, 1));
+    for (int i = m_DigStart; i < m_NumDigits; ++i)
+        painter.drawRect(m_DigitInfo[i].dQRect.adjusted(0, 0, -1, -1));
+
+    painter.restore();
+}
+
 void FreqCtrlQuick::keyPressEvent(QKeyEvent *event)
 {
+    if (m_DirectEntryMode) {
+        const int key = event->key();
+
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            if (commitDirectEntry())
+                event->accept();
+            return;
+        }
+
+        if (key == Qt::Key_Escape) {
+            cancelDirectEntry();
+            event->accept();
+            return;
+        }
+
+        if (key == Qt::Key_Backspace) {
+            if (m_DirectEntryAllSelected) {
+                m_DirectEntryText.clear();
+                m_DirectEntryAllSelected = false;
+            } else if (!m_DirectEntryText.isEmpty()) {
+                m_DirectEntryText.chop(1);
+            }
+            update();
+            event->accept();
+            return;
+        }
+
+        if (key == Qt::Key_Delete) {
+            m_DirectEntryText.clear();
+            m_DirectEntryAllSelected = false;
+            update();
+            event->accept();
+            return;
+        }
+
+        if (event->matches(QKeySequence::SelectAll)) {
+            m_DirectEntryAllSelected = true;
+            update();
+            event->accept();
+            return;
+        }
+
+        const QString text = event->text();
+        if (text.size() == 1) {
+            const QChar c = text.at(0);
+            const bool accepted = c.isDigit() || c == '.' || c == ',' ||
+                                  c == 'k' || c == 'K' ||
+                                  c == 'm' || c == 'M' ||
+                                  c == 'g' || c == 'G' ||
+                                  c == 'h' || c == 'H' ||
+                                  c == 'z' || c == 'Z';
+            if (accepted) {
+                if (m_DirectEntryAllSelected) {
+                    m_DirectEntryText.clear();
+                    m_DirectEntryAllSelected = false;
+                }
+                m_DirectEntryText.append(c);
+                update();
+                event->accept();
+                return;
+            }
+        }
+
+        event->ignore();
+        return;
+    }
+
     event->setAccepted(true);
     // call base class if dont over ride key
     bool      fSkipMsg = false;
@@ -1038,7 +1336,7 @@ void FreqCtrlQuick::setFrequencyFocus()
     int position = std::max(int(log10(m_freq)), 5);
 
     if (!hasFocus()) {
-        setFocus(Qt::ShortcutFocusReason);
+        forceActiveFocus(Qt::ShortcutFocusReason);
     }
 
     setActiveDigit(position);
