@@ -6,12 +6,15 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: win
-    title: "Audio Processing"
-    width: 720
-    height: 900
-    minimumWidth: 620
+    title: mode === "rx" ? "RX Audio Processing" : "TX Audio Processing"
+    width: mode === "rx" ? 860 : 635
+    height: mode === "rx" ? 660 : 980
+    minimumWidth: mode === "rx" ? 760 : 620
     minimumHeight: 520
 
+    property string mode: "tx"
+    readonly property bool txMode: mode === "tx"
+    readonly property bool rxMode: mode === "rx"
     property var controller
     property var txInBins: []
     property var txOutBins: []
@@ -97,6 +100,7 @@ ApplicationWindow {
         property int decimals: 0
         property string suffix: ""
         property int maxSliderWidth: 0
+        property real displayScale: 1
         spacing: 8
         Layout.preferredHeight: 28
         Label { text: row.label; Layout.preferredWidth: 118; elide: Text.ElideRight }
@@ -114,7 +118,7 @@ ApplicationWindow {
         Label {
             Layout.preferredWidth: 70
             horizontalAlignment: Text.AlignRight
-            text: Number(slider.value).toFixed(row.decimals) + row.suffix
+            text: Number(slider.value * row.displayScale).toFixed(row.decimals) + row.suffix
         }
     }
 
@@ -300,273 +304,281 @@ ApplicationWindow {
         }
     }
 
-    ColumnLayout {
+    ScrollView {
+        id: scrollView
         anchors.fill: parent
-        spacing: 6
+        anchors.margins: 7
+        clip: true
+        contentWidth: availableWidth
 
-        TabBar {
-            id: tabs
-            Layout.fillWidth: true
-            TabButton { text: "TX Audio Processing" }
-            TabButton { text: "RX Audio Processing" }
+        Loader {
+            width: scrollView.availableWidth
+            sourceComponent: win.txMode ? txPage : rxPage
         }
+    }
 
-        StackLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            currentIndex: tabs.currentIndex
+    Component {
+        id: txPage
+        ColumnLayout {
+            width: parent ? parent.width : 620
+            spacing: 16
 
-            ScrollView {
-                clip: true
-                contentWidth: availableWidth
+            SwitchRow { text: "Master Bypass (disable all DSP)"; key: "AudioProc.Tx.Bypass"; font.bold: true }
+
+            CollapsibleSection {
+                title: "Noise Gate (pre-gain)"
+                expanded: false
                 ColumnLayout {
-                    width: parent.availableWidth
-                    spacing: 8
-
-                    SwitchRow { text: "Master Bypass (disable all DSP)"; key: "AudioProc.Tx.Bypass"; font.bold: true }
-                    Label {
-                        text: "TX audio blocks processed: " + win.txBlocks
-                        color: "#777"
+                    anchors.fill: parent
+                    RowLayout {
+                        SwitchRow { text: "Enable Noise Gate"; key: "AudioProc.Tx.GateEnabled" }
+                        Item { Layout.fillWidth: true }
                     }
+                    SliderRow { label: "Threshold"; key: "AudioProc.Tx.GateThreshold"; from: -70; to: 0; step: 1; suffix: " dB" }
+                    SliderRow { label: "Attack"; key: "AudioProc.Tx.GateAttack"; from: 1; to: 500; step: 1; suffix: " ms" }
+                    SliderRow { label: "Hold"; key: "AudioProc.Tx.GateHold"; from: 2; to: 1000; step: 2; suffix: " ms" }
+                    SliderRow { label: "Decay"; key: "AudioProc.Tx.GateDecay"; from: 2; to: 1000; step: 2; suffix: " ms" }
+                    SliderRow { label: "Range"; key: "AudioProc.Tx.GateRange"; from: -90; to: 0; step: 1; suffix: " dB" }
+                    SliderRow { label: "LF cutoff"; key: "AudioProc.Tx.GateLfCutoff"; from: 20; to: 500; step: 5; suffix: " Hz" }
+                    SliderRow { label: "HF cutoff"; key: "AudioProc.Tx.GateHfCutoff"; from: 200; to: 4000; step: 10; suffix: " Hz" }
+                }
+            }
 
-                    CollapsibleSection {
-                        title: "Noise Gate"
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            SwitchRow { text: "Enable Noise Gate"; key: "AudioProc.Tx.GateEnabled" }
-                            SliderRow { label: "Threshold"; key: "AudioProc.Tx.GateThreshold"; from: -70; to: 0; step: 1; suffix: " dB" }
-                            SliderRow { label: "Attack"; key: "AudioProc.Tx.GateAttack"; from: 1; to: 500; step: 1; suffix: " ms" }
-                            SliderRow { label: "Hold"; key: "AudioProc.Tx.GateHold"; from: 2; to: 1000; step: 2; suffix: " ms" }
-                            SliderRow { label: "Decay"; key: "AudioProc.Tx.GateDecay"; from: 2; to: 1000; step: 2; suffix: " ms" }
-                            SliderRow { label: "Range"; key: "AudioProc.Tx.GateRange"; from: -90; to: 0; step: 1; suffix: " dB" }
-                            SliderRow { label: "LF cutoff"; key: "AudioProc.Tx.GateLfCutoff"; from: 20; to: 500; step: 5; suffix: " Hz" }
-                            SliderRow { label: "HF cutoff"; key: "AudioProc.Tx.GateHfCutoff"; from: 200; to: 4000; step: 10; suffix: " Hz" }
-                        }
-                    }
+            ComboRow {
+                key: "AudioProc.Tx.EqFirst"
+                label: "Plugin order"
+                values: [{ text: "EQ -> Compressor", value: true }, { text: "Compressor -> EQ", value: false }]
+            }
 
-                    CollapsibleSection {
-                        title: "Plugin Order"
-                        Layout.fillWidth: true
-                        ComboRow {
-                            key: "AudioProc.Tx.EqFirst"
-                            label: "Order"
-                            values: [{ text: "EQ -> Compressor", value: true }, { text: "Compressor -> EQ", value: false }]
-                        }
-                    }
+            GroupBox {
+                title: "Gain"
+                Layout.fillWidth: true
+                ColumnLayout {
+                    anchors.fill: parent
+                    SliderRow { label: "Input gain"; key: "AudioProc.Tx.InputGainDB"; from: -20; to: 20; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 86 }
+                    SliderRow { label: "Output gain"; key: "AudioProc.Tx.OutputGainDB"; from: -20; to: 20; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 86 }
+                }
+            }
 
-                    CollapsibleSection {
-                        title: "Gain"
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            SliderRow { label: "Input gain"; key: "AudioProc.Tx.InputGainDB"; from: -20; to: 20; step: 0.5; decimals: 1; suffix: " dB" }
-                            SliderRow { label: "Output gain"; key: "AudioProc.Tx.OutputGainDB"; from: -20; to: 20; step: 0.5; decimals: 1; suffix: " dB" }
-                        }
-                    }
-
-                    CollapsibleSection {
-                        title: "Compressor"
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            SwitchRow { text: "Enable Compressor"; key: "AudioProc.Tx.CompEnabled" }
-                            SliderRow { label: "Peak limit"; key: "AudioProc.Tx.CompPeakLimit"; from: -30; to: 0; step: 0.5; decimals: 1; suffix: " dB" }
-                            SliderRow { label: "Release"; key: "AudioProc.Tx.CompRelease"; from: 0.01; to: 1; step: 0.01; decimals: 2; suffix: " s" }
-                            SliderRow { label: "Fast ratio"; key: "AudioProc.Tx.CompFastRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                            SliderRow { label: "Slow ratio"; key: "AudioProc.Tx.CompSlowRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                        }
-                    }
-
-                    CollapsibleSection {
-                        title: "Equalizer"
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            RowLayout {
-                                SwitchRow { text: "Enable EQ"; key: "AudioProc.Tx.EqEnabled" }
-                                Button {
-                                    text: "Clear"
-                                    onClicked: {
-                                        for (var i = 0; i < 15; ++i)
-                                            win.setOpt("AudioProc.Tx.EqBand" + i, 0)
-                                    }
-                                }
-                                Item { Layout.fillWidth: true }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Repeater {
-                                    model: ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1.6k", "2.5k", "4k", "6.3k", "10k", "16k"]
-                                    VerticalEq { key: "AudioProc.Tx.EqBand" + index; label: modelData }
-                                }
+            CollapsibleSection {
+                title: "Multiband EQ"
+                expanded: false
+                ColumnLayout {
+                    anchors.fill: parent
+                    RowLayout {
+                        SwitchRow { text: "Enable EQ"; key: "AudioProc.Tx.EqEnabled" }
+                        Button {
+                            text: "Clear"
+                            onClicked: {
+                                for (var i = 0; i < 15; ++i)
+                                    win.setOpt("AudioProc.Tx.EqBand" + i, 0)
                             }
                         }
                     }
-
-                    SpectrumBox {
-                        title: "TX Spectrum"
-                        enableKey: "AudioProc.Tx.SpectrumEnabled"
-                        inhibitKey: "AudioProc.Tx.SpecInhibitDuringRx"
-                        fpsKey: "AudioProc.Tx.SpectrumFPS"
-                        blocksProcessed: win.txBlocks
-                        processorEnabled: win.txSpectrumEnabled
-                        inputBins: win.txInBins
-                        outputBins: win.txOutBins
-                    }
-
-                    CollapsibleSection {
-                        title: "Self-Monitor"
+                    RowLayout {
                         Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            RowLayout {
-                                SwitchRow { text: "Enable self-monitoring"; key: "AudioProc.Tx.SidetoneEnabled" }
-                                SwitchRow { text: "Mute RX Audio"; key: "AudioProc.Tx.MuteRx" }
-                            }
-                            SliderRow { label: "Level"; key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                        }
-                    }
-
-                    CollapsibleSection {
-                        title: "Meters"
-                        Layout.fillWidth: true
-                        RowLayout {
-                            anchors.fill: parent
-                            LevelMeter { label: "Input"; value: win.txInputLevel }
-                            LevelMeter { label: "Output"; value: win.txOutputLevel }
-                            LevelMeter { label: "Gain Reduction"; value: win.txGainReduction }
+                        Repeater {
+                            model: ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1.6k", "2.5k", "4k", "6.3k", "10k", "16k"]
+                            VerticalEq { key: "AudioProc.Tx.EqBand" + index; label: modelData }
                         }
                     }
                 }
             }
 
-            ScrollView {
-                clip: true
-                contentWidth: availableWidth
+            CollapsibleSection {
+                title: "Dyson Compressor"
                 ColumnLayout {
-                    width: parent.availableWidth
-                    spacing: 8
+                    anchors.fill: parent
+                    SwitchRow { text: "Enable Compressor"; key: "AudioProc.Tx.CompEnabled" }
+                    SliderRow { label: "Peak limit"; key: "AudioProc.Tx.CompPeakLimit"; from: -30; to: 0; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 86 }
+                    SliderRow { label: "Release time"; key: "AudioProc.Tx.CompRelease"; from: 0.01; to: 1; step: 0.01; decimals: 2; suffix: " s"; maxSliderWidth: 86 }
+                    SliderRow { label: "Fast ratio"; key: "AudioProc.Tx.CompFastRatio"; from: 0; to: 1; step: 0.01; decimals: 2; maxSliderWidth: 86 }
+                    SliderRow { label: "Slow ratio"; key: "AudioProc.Tx.CompSlowRatio"; from: 0; to: 1; step: 0.01; decimals: 2; maxSliderWidth: 86 }
+                }
+            }
 
+            SpectrumBox {
+                title: "TX Spectrum"
+                enableKey: "AudioProc.Tx.SpectrumEnabled"
+                inhibitKey: "AudioProc.Tx.SpecInhibitDuringRx"
+                fpsKey: "AudioProc.Tx.SpectrumFPS"
+                blocksProcessed: win.txBlocks
+                processorEnabled: win.txSpectrumEnabled
+                inputBins: win.txInBins
+                outputBins: win.txOutBins
+            }
+
+            GroupBox {
+                title: "Self-Monitor"
+                Layout.fillWidth: true
+                ColumnLayout {
+                    anchors.fill: parent
                     RowLayout {
-                        SwitchRow { text: "Master Bypass"; key: "AudioProc.Rx.Bypass"; font.bold: true }
-                        ComboRow {
-                            key: "AudioProc.Rx.ChannelSelect"
-                            label: "Channel"
-                            values: [{ text: "Auto", value: 0 }, { text: "Left", value: 1 }, { text: "Right", value: 2 }, { text: "Mono sum", value: 3 }]
-                        }
+                        SwitchRow { text: "Enable self-monitoring"; key: "AudioProc.Tx.SidetoneEnabled" }
+                        SwitchRow { text: "Mute RX Audio"; key: "AudioProc.Tx.MuteRx" }
                     }
-                    Label {
-                        text: "RX audio blocks processed: " + win.rxBlocks
-                        color: "#777"
-                    }
+                    SliderRow { label: "Monitor level"; key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 0; suffix: "%"; maxSliderWidth: 86; displayScale: 100 }
+                }
+            }
 
-                    CollapsibleSection {
-                        title: "Noise Reduction Algorithm"
-                        Layout.fillWidth: true
-                        RowLayout {
-                            anchors.fill: parent
-                            RadioButton { text: "None"; checked: Number(win.opt("AudioProc.Rx.NrMode", 0)) === 0; onClicked: win.setOpt("AudioProc.Rx.NrMode", 0) }
-                            RadioButton { text: "Speex"; checked: Number(win.opt("AudioProc.Rx.NrMode", 0)) === 1; onClicked: win.setOpt("AudioProc.Rx.NrMode", 1) }
-                            RadioButton { text: "ANR"; checked: Number(win.opt("AudioProc.Rx.NrMode", 0)) === 2; onClicked: win.setOpt("AudioProc.Rx.NrMode", 2) }
-                            Item { Layout.fillWidth: true }
-                        }
-                    }
+            GroupBox {
+                title: "Meters"
+                Layout.fillWidth: true
+                RowLayout {
+                    anchors.fill: parent
+                    LevelMeter { label: "Input"; value: win.txInputLevel }
+                    LevelMeter { label: "Output"; value: win.txOutputLevel }
+                    LevelMeter { label: "Gain Reduction"; value: win.txGainReduction }
+                }
+            }
+        }
+    }
 
-                    CollapsibleSection {
-                        title: "Speex DSP Noise Reduction"
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            SliderRow { label: "Suppression"; key: "AudioProc.Rx.SpeexSuppression"; from: -70; to: -1; step: 1; suffix: " dB"; maxSliderWidth: 260 }
-                            SliderRow { label: "Bark bands"; key: "AudioProc.Rx.SpeexBandsPreset"; from: 0; to: 8; step: 1; maxSliderWidth: 260 }
-                            ComboRow { label: "Frame size"; key: "AudioProc.Rx.SpeexFrameMs"; values: [{ text: "10 ms frames", value: 10 }, { text: "20 ms frames", value: 20 }] }
-                            SwitchRow { text: "Enable automatic gain control (AGC)"; key: "AudioProc.Rx.SpeexAgc" }
-                            SliderRow { label: "AGC level"; key: "AudioProc.Rx.SpeexAgcLevel"; from: 500; to: 32000; step: 100; maxSliderWidth: 260 }
-                            SliderRow { label: "AGC max gain"; key: "AudioProc.Rx.SpeexAgcMaxGain"; from: 0; to: 60; step: 1; suffix: " dB"; maxSliderWidth: 260 }
-                            SwitchRow { text: "Enable voice activity detection (VAD)"; key: "AudioProc.Rx.SpeexVad" }
-                            SliderRow { label: "VAD start"; key: "AudioProc.Rx.SpeexVadProbStart"; from: 0; to: 100; step: 1; suffix: " %"; maxSliderWidth: 260 }
-                            SliderRow { label: "VAD continue"; key: "AudioProc.Rx.SpeexVadProbCont"; from: 0; to: 100; step: 1; suffix: " %"; maxSliderWidth: 260 }
-                            SliderRow { label: "SNR decay"; key: "AudioProc.Rx.SpeexSnrDecay"; from: 0; to: 0.95; step: 0.01; decimals: 2; maxSliderWidth: 260 }
-                            SliderRow { label: "Noise update"; key: "AudioProc.Rx.SpeexNoiseUpdateRate"; from: 0.01; to: 0.5; step: 0.01; decimals: 2; maxSliderWidth: 260 }
-                            SliderRow { label: "Prior base"; key: "AudioProc.Rx.SpeexPriorBase"; from: 0.05; to: 0.5; step: 0.01; decimals: 2; maxSliderWidth: 260 }
-                        }
-                    }
+    Component {
+        id: rxPage
+        ColumnLayout {
+            width: parent ? parent.width : 840
+            spacing: 14
+            readonly property int nrMode: Number(win.opt("AudioProc.Rx.NrMode", 0))
 
-                    CollapsibleSection {
-                        title: "ANR Noise Reduction"
+            RowLayout {
+                Layout.fillWidth: true
+                SwitchRow { text: "Master Bypass (pass audio unchanged)"; key: "AudioProc.Rx.Bypass"; font.bold: true }
+                Item { Layout.fillWidth: true }
+                ComboBox {
+                    id: rxChannelCombo
+                    Layout.preferredWidth: 420
+                    textRole: "text"
+                    valueRole: "value"
+                    model: [{ text: "Auto", value: 0 }, { text: "Left", value: 1 }, { text: "Right", value: 2 }, { text: "Mono", value: 3 }]
+                    currentIndex: win.comboIndex(rxChannelCombo, win.opt("AudioProc.Rx.ChannelSelect", 0))
+                    onActivated: win.setOpt("AudioProc.Rx.ChannelSelect", currentValue)
+                }
+            }
+
+            GroupBox {
+                title: "Noise Reduction Algorithm"
+                Layout.fillWidth: true
+                RowLayout {
+                    anchors.fill: parent
+                    RadioButton { text: "None"; checked: nrMode === 0; onClicked: win.setOpt("AudioProc.Rx.NrMode", 0) }
+                    RadioButton { text: "Speex"; checked: nrMode === 1; onClicked: win.setOpt("AudioProc.Rx.NrMode", 1) }
+                    RadioButton { text: "ANR"; checked: nrMode === 2; onClicked: win.setOpt("AudioProc.Rx.NrMode", 2) }
+                    Item { Layout.fillWidth: true }
+                }
+            }
+
+            Label {
+                visible: nrMode === 0
+                text: "No noise reduction selected.\nAudio passes through to the equalizer and output gain."
+                font.italic: true
+            }
+
+            CollapsibleSection {
+                visible: nrMode === 1
+                title: "Speex DSP Noise Reduction"
+                ColumnLayout {
+                    anchors.fill: parent
+                    SliderRow { label: "Suppression"; key: "AudioProc.Rx.SpeexSuppression"; from: -70; to: -1; step: 1; suffix: " dB"; maxSliderWidth: 260 }
+                    SliderRow { label: "Bark bands"; key: "AudioProc.Rx.SpeexBandsPreset"; from: 0; to: 8; step: 1; maxSliderWidth: 260 }
+                    ComboRow { label: "Frame size"; key: "AudioProc.Rx.SpeexFrameMs"; values: [{ text: "10 ms frames", value: 10 }, { text: "20 ms frames", value: 20 }] }
+                    SwitchRow { text: "Enable automatic gain control (AGC)"; key: "AudioProc.Rx.SpeexAgc" }
+                    SliderRow { label: "AGC level"; key: "AudioProc.Rx.SpeexAgcLevel"; from: 500; to: 32000; step: 100; maxSliderWidth: 260 }
+                    SliderRow { label: "AGC max gain"; key: "AudioProc.Rx.SpeexAgcMaxGain"; from: 0; to: 60; step: 1; suffix: " dB"; maxSliderWidth: 260 }
+                    SwitchRow { text: "Enable voice activity detection (VAD)"; key: "AudioProc.Rx.SpeexVad" }
+                    SliderRow { label: "VAD start"; key: "AudioProc.Rx.SpeexVadProbStart"; from: 0; to: 100; step: 1; suffix: " %"; maxSliderWidth: 260 }
+                    SliderRow { label: "VAD continue"; key: "AudioProc.Rx.SpeexVadProbCont"; from: 0; to: 100; step: 1; suffix: " %"; maxSliderWidth: 260 }
+                    SliderRow { label: "SNR decay"; key: "AudioProc.Rx.SpeexSnrDecay"; from: 0; to: 0.95; step: 0.01; decimals: 2; maxSliderWidth: 260 }
+                    SliderRow { label: "Noise update"; key: "AudioProc.Rx.SpeexNoiseUpdateRate"; from: 0.01; to: 0.5; step: 0.01; decimals: 2; maxSliderWidth: 260 }
+                    SliderRow { label: "Prior base"; key: "AudioProc.Rx.SpeexPriorBase"; from: 0.05; to: 0.5; step: 0.01; decimals: 2; maxSliderWidth: 260 }
+                }
+            }
+
+            CollapsibleSection {
+                visible: nrMode === 2
+                title: "ANR Noise Reduction"
+                ColumnLayout {
+                    anchors.fill: parent
+                    SliderRow { label: "Noise reduction"; key: "AudioProc.Rx.AnrNoiseReductionDb"; from: 0; to: 48; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 260 }
+                    SliderRow { label: "Sensitivity"; key: "AudioProc.Rx.AnrSensitivity"; from: 0; to: 10; step: 0.1; decimals: 1; maxSliderWidth: 260 }
+                    SliderRow { label: "Smoothing"; key: "AudioProc.Rx.AnrFreqSmoothing"; from: 0; to: 6; step: 1; maxSliderWidth: 260 }
+                    RowLayout {
+                        Button { text: "Collect Noise Sample"; onClicked: MainController.startAnrNoiseProfile() }
+                        Button { text: "Stop Collecting"; onClicked: MainController.stopAnrNoiseProfile() }
+                    }
+                }
+            }
+
+            CollapsibleSection {
+                title: "Receive Equalizer"
+                ColumnLayout {
+                    anchors.fill: parent
+                    RowLayout {
                         Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            SliderRow { label: "Noise reduction"; key: "AudioProc.Rx.AnrNoiseReductionDb"; from: 0; to: 48; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 260 }
-                            SliderRow { label: "Sensitivity"; key: "AudioProc.Rx.AnrSensitivity"; from: 0; to: 10; step: 0.1; decimals: 1; maxSliderWidth: 260 }
-                            SliderRow { label: "Smoothing"; key: "AudioProc.Rx.AnrFreqSmoothing"; from: 0; to: 6; step: 1; maxSliderWidth: 260 }
-                            RowLayout {
-                                Button { text: "Collect Noise Sample"; onClicked: MainController.startAnrNoiseProfile() }
-                                Button { text: "Stop Collecting"; onClicked: MainController.stopAnrNoiseProfile() }
-                                Label { text: "Noise profile is stored per mode"; color: "#777" }
+                        Item { Layout.fillWidth: true }
+                        SwitchRow { text: "Enable EQ"; key: "AudioProc.Rx.EqEnabled" }
+                        Button {
+                            text: "Clear"
+                            onClicked: {
+                                for (var i = 0; i < 4; ++i)
+                                    win.setOpt("AudioProc.Rx.EqGain" + i, 0)
                             }
                         }
                     }
-
-                    CollapsibleSection {
-                        title: "RX Equalizer"
+                    RowLayout {
                         Layout.fillWidth: true
-                        ColumnLayout {
-                            anchors.fill: parent
-                            RowLayout {
-                                SwitchRow { text: "Enable EQ"; key: "AudioProc.Rx.EqEnabled" }
-                                Button {
-                                    text: "Clear"
-                                    onClicked: {
-                                        for (var i = 0; i < 4; ++i)
-                                            win.setOpt("AudioProc.Rx.EqGain" + i, 0)
-                                    }
-                                }
-                            }
-                            RowLayout {
+                        Repeater {
+                            model: [
+                                { name: "Low Shelf", freq: "100 Hz" },
+                                { name: "Low Mid", freq: "800 Hz" },
+                                { name: "High Mid", freq: "2.00 kHz" },
+                                { name: "High Shelf", freq: "3.50 kHz" }
+                            ]
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                Repeater {
-                                    model: ["Low", "Mid 1", "Mid 2", "High"]
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        Label { text: modelData; font.bold: true }
-                                        SliderRow { label: "Gain"; key: "AudioProc.Rx.EqGain" + index; from: -9; to: 9; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 140 }
-                                        SliderRow { label: "Freq"; key: "AudioProc.Rx.EqFreq" + index; from: 20; to: 8000; step: 10; suffix: " Hz"; maxSliderWidth: 140 }
-                                        SliderRow { label: "Q"; key: "AudioProc.Rx.EqQ" + index; from: 0.1; to: 10; step: 0.1; decimals: 1; maxSliderWidth: 140 }
-                                    }
+                                Label { text: modelData.name; font.bold: true; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                Label { text: Number(win.opt("AudioProc.Rx.EqGain" + index, 0)).toFixed(1) + " dB"; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+                                Slider {
+                                    orientation: Qt.Vertical
+                                    from: -9
+                                    to: 9
+                                    stepSize: 0.5
+                                    value: Number(win.opt("AudioProc.Rx.EqGain" + index, 0))
+                                    Layout.preferredHeight: 104
+                                    Layout.alignment: Qt.AlignHCenter
+                                    onMoved: win.setOpt("AudioProc.Rx.EqGain" + index, value)
                                 }
+                                Slider {
+                                    from: 20
+                                    to: 8000
+                                    stepSize: 10
+                                    value: Number(win.opt("AudioProc.Rx.EqFreq" + index, 0))
+                                    Layout.preferredWidth: 28
+                                    Layout.alignment: Qt.AlignHCenter
+                                    onMoved: win.setOpt("AudioProc.Rx.EqFreq" + index, value)
+                                }
+                                Label { text: modelData.freq; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
                             }
-                        }
-                    }
-
-                    CollapsibleSection {
-                        title: "Output Gain"
-                        Layout.fillWidth: true
-                        SliderRow { label: "Output gain"; key: "AudioProc.Rx.OutputGainDB"; from: -6; to: 20; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 260 }
-                    }
-
-                    SpectrumBox {
-                        title: "RX Spectrum"
-                        enableKey: "AudioProc.Rx.SpectrumEnabled"
-                        inhibitKey: "AudioProc.Rx.SpecInhibitDuringTx"
-                        fpsKey: "AudioProc.Rx.SpectrumFPS"
-                        blocksProcessed: win.rxBlocks
-                        processorEnabled: win.rxSpectrumEnabled
-                        inputBins: win.rxInBins
-                        outputBins: win.rxOutBins
-                    }
-
-                    CollapsibleSection {
-                        title: "Meters"
-                        Layout.fillWidth: true
-                        RowLayout {
-                            anchors.fill: parent
-                            LevelMeter { label: "Input"; value: win.rxInputLevel }
-                            LevelMeter { label: "Output"; value: win.rxOutputLevel }
                         }
                     }
                 }
+            }
+
+            GroupBox {
+                title: "Output Gain"
+                Layout.fillWidth: true
+                SliderRow { label: "Output gain"; key: "AudioProc.Rx.OutputGainDB"; from: -6; to: 20; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 86 }
+            }
+
+            SpectrumBox {
+                title: "RX Spectrum"
+                enableKey: "AudioProc.Rx.SpectrumEnabled"
+                inhibitKey: "AudioProc.Rx.SpecInhibitDuringTx"
+                fpsKey: "AudioProc.Rx.SpectrumFPS"
+                blocksProcessed: win.rxBlocks
+                processorEnabled: win.rxSpectrumEnabled
+                inputBins: win.rxInBins
+                outputBins: win.rxOutBins
             }
         }
     }

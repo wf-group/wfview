@@ -11,7 +11,8 @@ ApplicationWindow {
     title: MainController.windowTitle
 
     property int connStatus: Number(MainController.connStatus)
-    property var audioProcessingWindow: null
+    property var txAudioProcessingWindow: null
+    property var rxAudioProcessingWindow: null
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
@@ -187,13 +188,48 @@ ApplicationWindow {
     }
 
     Component {
-        id: audioProcessingComponent
+        id: txAudioProcessingComponent
         AudioProcessing {
+            mode: "tx"
             controller: MainController.settings
             onClosing: function(close) {
-                win.audioProcessingWindow = null
+                win.txAudioProcessingWindow = null
                 destroy()
             }
+        }
+    }
+
+    Component {
+        id: rxAudioProcessingComponent
+        AudioProcessing {
+            mode: "rx"
+            controller: MainController.settings
+            onClosing: function(close) {
+                win.rxAudioProcessingWindow = null
+                destroy()
+            }
+        }
+    }
+
+    function showTxAudioProcessing() {
+        MainController.ensureAudioProcessors()
+        if (!win.txAudioProcessingWindow)
+            win.txAudioProcessingWindow = txAudioProcessingComponent.createObject(null)
+        if (win.txAudioProcessingWindow) {
+            win.txAudioProcessingWindow.show()
+            win.txAudioProcessingWindow.raise()
+            win.txAudioProcessingWindow.requestActivate()
+        }
+    }
+
+    function showRxAudioProcessing() {
+        MainController.ensureAudioProcessors()
+        if (!win.rxAudioProcessingWindow)
+            win.rxAudioProcessingWindow = rxAudioProcessingComponent.createObject(null)
+        if (win.rxAudioProcessingWindow) {
+            win.rxAudioProcessingWindow.show()
+            win.rxAudioProcessingWindow.raise()
+            win.rxAudioProcessingWindow.requestActivate()
         }
     }
 
@@ -672,18 +708,12 @@ ApplicationWindow {
                     onClicked: settings.show()
                 }
                 Button {
-                    text: "Audio Processing"
-                    onClicked: {
-                        MainController.ensureAudioProcessors()
-                        if (!win.audioProcessingWindow) {
-                            win.audioProcessingWindow = audioProcessingComponent.createObject(null)
-                        }
-                        if (win.audioProcessingWindow) {
-                            win.audioProcessingWindow.show()
-                            win.audioProcessingWindow.raise()
-                            win.audioProcessingWindow.requestActivate()
-                        }
-                    }
+                    text: "TX Audio Proc"
+                    onClicked: showTxAudioProcessing()
+                }
+                Button {
+                    text: "RX Audio Proc"
+                    onClicked: showRxAudioProcessing()
                 }
                 Button {
                     text: "Save Settings"
