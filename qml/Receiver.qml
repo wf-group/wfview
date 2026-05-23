@@ -72,6 +72,11 @@ Control {
             id: contentLayout
             spacing: 2
             anchors.fill: parent
+            anchors.leftMargin: bandPanel.locked && bandPanel.open ? bandPanel.width : 0
+            anchors.rightMargin: sidePanel.locked && sidePanel.open ? sidePanel.width : 0
+
+            Behavior on anchors.leftMargin { NumberAnimation { duration: 140 } }
+            Behavior on anchors.rightMargin { NumberAnimation { duration: 140 } }
 
             Item {
                 id: header
@@ -81,7 +86,7 @@ Control {
                 Meter {
                     id: smeter
                     anchors.left: parent.left
-                    anchors.leftMargin: 6
+                    anchors.leftMargin: 36
                     anchors.top: parent.top
                     anchors.topMargin: 2
                     width: 300
@@ -89,6 +94,10 @@ Control {
                     meterType: root.controller ? root.controller.meterType : 0
                     // only set the "current" level; MeterItem does peak/avg itself
                     current: root.controller ? root.controller.meter : 0
+                    scaleTextColor: root.palette.windowText
+                    scaleLineColor: root.palette.windowText
+                    scaleHighTextColor: MainController.settings.options["Color.MeterHighScale"]
+                    scaleHighLineColor: MainController.settings.options["Color.MeterHighScale"]
 
                     drawLabels: true
                     Component.onCompleted: smeter.setMeterExtremities(-54, 60, 0)
@@ -139,7 +148,7 @@ Control {
                         color: Qt.darker(palette.window, 1.05)
 
                         // keep it out of the meter area when things get tight
-                        readonly property int leftLimit: smeter.width + 8
+                        readonly property int leftLimit: smeter.x + smeter.width + 8
                         readonly property int maxW: Math.max(0, header.width - leftLimit - 8)
 
                         width: Math.min(titleText.implicitWidth + 12, maxW)
@@ -153,6 +162,7 @@ Control {
                         id: titleText
                         anchors.centerIn: titleBg
                         text: root.controller && root.controller.title ? root.controller.title : ""
+                        color: root.palette.windowText
                         font.bold: true
                         font.pixelSize: 13
                         elide: Text.ElideRight
@@ -180,6 +190,21 @@ Control {
                         onCanceled: dragging = false
 
                         // your dragging logic here if you want it on the title pill
+                    }
+                }
+
+                ToolButton {
+                    id: bandDrawerButton
+                    text: "\u2630"
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.margins: 3
+                    width: 28
+                    height: 24
+                    z: 10
+                    onClicked: {
+                        bandPanel.open = !bandPanel.open
+                        bandPanel.slide = bandPanel.open ? bandPanel.width : 0
                     }
                 }
             }
@@ -560,6 +585,7 @@ Control {
             property int pad: 8
 
             property bool autoHide: true
+            property bool locked: false
             // computed by grid (see below)
             property int cols: 1
 
@@ -573,12 +599,19 @@ Control {
             readonly property int panelW: Math.min(320, Math.max(80, Math.round(receiverRoot.width * 0.35)))
             height: receiverRoot.height
 
-            x: -width + slide
+            x: locked && open ? 0 : -width + slide
             Behavior on slide { NumberAnimation { duration: 140 } }
 
             // keep slide consistent when open toggles / width changes
             onOpenChanged: slide = open ? width : 0
             onWidthChanged: slide = open ? width : 0
+            onLockedChanged: {
+                if (locked) {
+                    open = true
+                    slide = width
+                    autoHide = false
+                }
+            }
 
             Rectangle {
                 anchors.fill: parent
@@ -608,24 +641,34 @@ Control {
                     anchors.rightMargin: 6
                     icon.name: "window-close"
                     onClicked: {
+                        bandPanel.locked = false
                         bandPanel.open = false
                         bandPanel.slide = 0
                     }
                 }
 
-                CheckBox {
-                    anchors.horizontalCenter: parent.horizontalCenter;
-                    anchors.top: parent.top
-                    onCheckedChanged: bandPanel.autoHide = checked
-                    checked: bandPanel.autoHide
+                ToolButton {
+                    id: bandLockButton
+                    checkable: true
+                    checked: bandPanel.locked
+                    text: checked ? "\uD83D\uDD12" : "\uD83D\uDD13"
+                    anchors.right: parent.right
+                    anchors.rightMargin: 36
+                    anchors.verticalCenter: parent.verticalCenter
+                    onToggled: bandPanel.locked = checked
+                    ToolTip.visible: hovered
+                    ToolTip.text: checked ? "Unlock drawer" : "Lock drawer"
                 }
 
                 Label {
                     anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.leftMargin: 8
+                    anchors.rightMargin: 72
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Bands"
                     font.bold: true
+                    elide: Text.ElideRight
                 }
             }
 
@@ -748,7 +791,7 @@ Control {
                             onClicked: {
                                 if (bandPanel.controller)
                                     bandPanel.controller.band = modelData.value
-                                if (bandPanel.autoHide)
+                                if (bandPanel.autoHide && !bandPanel.locked)
                                     bandPanel.open = false
                             }
                         }
@@ -799,6 +842,7 @@ Control {
 
             property bool open: false
             property real slide: 0
+            property bool locked: false
             property var controller: root.controller
 
             // FIXED width
@@ -807,11 +851,17 @@ Control {
             height: receiverRoot.height
 
             // Right edge slide
-            x: receiverRoot.width - slide
+            x: locked && open ? receiverRoot.width - width : receiverRoot.width - slide
             Behavior on slide { NumberAnimation { duration: 140 } }
 
             onOpenChanged: slide = open ? width : 0
             onWidthChanged: slide = open ? width : 0
+            onLockedChanged: {
+                if (locked) {
+                    open = true
+                    slide = width
+                }
+            }
 
             z: 9999
             clip: true
@@ -839,16 +889,30 @@ Control {
                     anchors.rightMargin: 6
                     icon.name: "window-close"
                     onClicked: {
+                        sidePanel.locked = false
                         sidePanel.open = false
                         sidePanel.slide = 0
                     }
+                }
+
+                ToolButton {
+                    id: sideLockButton
+                    checkable: true
+                    checked: sidePanel.locked
+                    text: checked ? "\uD83D\uDD12" : "\uD83D\uDD13"
+                    anchors.right: parent.right
+                    anchors.rightMargin: 36
+                    anchors.verticalCenter: parent.verticalCenter
+                    onToggled: sidePanel.locked = checked
+                    ToolTip.visible: hovered
+                    ToolTip.text: checked ? "Unlock drawer" : "Lock drawer"
                 }
 
                 Label {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: 8
-                    anchors.rightMargin: 34
+                    anchors.rightMargin: 72
                     anchors.verticalCenter: parent.verticalCenter
                     text: controller ? controller.drawerTitle : ""
                     font.bold: true
