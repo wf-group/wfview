@@ -12,6 +12,7 @@ TARGET = wfserver
 TEMPLATE = app
 
 CONFIG += console
+CONFIG += c++17
 
 DEFINES += WFVIEW_VERSION=\\\"2.11\\\"
 

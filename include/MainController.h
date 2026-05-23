@@ -3,7 +3,6 @@
 
 #include <QObject>
 #include <QSettings>
-#include <QShortcut>
 
 #include "ReceiverController.h"
 #include "RigCreatorController.h"

@@ -10,7 +10,6 @@
 #include <QVector>
 #include <QTimer>
 #include <QSettings>
-#include <QShortcut>
 #include <QMetaType>
 
 #include "logcategories.h"
@@ -293,8 +292,6 @@ private:
 };
 
 
-Q_DECLARE_METATYPE(audioPacket)
-Q_DECLARE_METATYPE(audioSetup)
 Q_DECLARE_METATYPE(rigstate*)
 
 #endif // WFMAIN_H

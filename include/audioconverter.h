@@ -83,6 +83,9 @@ struct audioSetup {
     RxAudioProcessor* rxProc = nullptr;
 };
 
+Q_DECLARE_METATYPE(audioPacket)
+Q_DECLARE_METATYPE(audioSetup)
+
 class audioConverter : public QObject
 {
     Q_OBJECT
