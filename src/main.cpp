@@ -1,10 +1,10 @@
-#include "MemoriesModel.h"
 #ifdef BUILD_WFSERVER
 #include <QtCore/QCoreApplication>
 #include "keyboard.h"
 #include "servermain.h"
 #include "serverwizard.h"
 #else
+#include "MemoriesModel.h"
 #include "qqmlapplicationengine.h"
 #include <QtQml/qqml.h>   // declares qmlRegisterSingletonType/Instance
 #include <QQmlEngine>
@@ -41,25 +41,28 @@
 #include "freqmemory.h"
 #include "rigidentities.h"
 #include "repeaterattributes.h"
-#include "memories.h"
 
 #include "packettypes.h"
+#include "rigserver.h"
+#include "icomserver.h"
+#include "kenwoodserver.h"
+#include "yaesuserver.h"
+#include "rigctld.h"
+#include "audiodevices.h"
+#include "cachingqueue.h"
+
+#ifndef BUILD_WFSERVER
+#include "cluster.h"
+#include "colorprefs.h"
+#include "memories.h"
 #include "calibrationwindow.h"
 #include "repeatersetup.h"
 #include "satellitesetup.h"
 #include "bandbuttons.h"
 #include "frequencyinputwidget.h"
-#include "rigserver.h"
-#include "icomserver.h"
-#include "kenwoodserver.h"
-#include "yaesuserver.h"
 #include "qledlabel.h"
-#include "rigctld.h"
 #include "aboutbox.h"
-#include "colorprefs.h"
 #include "loggingwindow.h"
-#include "cluster.h"
-#include "audiodevices.h"
 #include "sidebandchooser.h"
 #include "tciserver.h"
 
@@ -72,7 +75,6 @@
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
 #include "CWSenderController.h"
-#include "cachingqueue.h"
 
 #include "waterfallitem.h"
 #include "spectrumitem.h"
@@ -84,15 +86,18 @@
 
 #include "logcategories.h"
 #include "LoggingController.h"
+#endif
 
 bool debugMode=false;
 
+#ifndef BUILD_WFSERVER
 struct QtMsgHandlerGuard {
     LoggingController* log = nullptr;
     ~QtMsgHandlerGuard() {
         if (log) log->uninstallQtMessageHandler();
     }
 };
+#endif
 
 #ifdef BUILD_WFSERVER
 // Smart pointer to log file
@@ -208,13 +213,14 @@ int main(int argc, char *argv[])
     qRegisterMetaType<timekind>();
     qRegisterMetaType<datekind>();
     qRegisterMetaType<QList<radio_cap_packet>>();
+#ifndef BUILD_WFSERVER
     qRegisterMetaType<QVector<BUTTON>*>();
     qRegisterMetaType<QVector<KNOB>*>();
     qRegisterMetaType<QVector<COMMAND>*>();
     qRegisterMetaType<const COMMAND*>();
     qRegisterMetaType<const USBDEVICE*>();
+#endif
     qRegisterMetaType<QList<radio_cap_packet>>();
-    qRegisterMetaType<QVector<spotData>>();
     qRegisterMetaType<networkStatus>();
     qRegisterMetaType<networkAudioLevels>();
     qRegisterMetaType<codecType>();
@@ -233,8 +239,11 @@ int main(int argc, char *argv[])
     qRegisterMetaType<widthsType>();
     qRegisterMetaType<yaesu_scope_data>();
     qRegisterMetaType<lpfhpf>();
+#ifndef BUILD_WFSERVER
+    qRegisterMetaType<QVector<spotData>>();
     qRegisterMetaType<clusterSettings>();
     qRegisterMetaType<colorPrefsType>();
+#endif
     qRegisterMetaType<scopeData>();
     qRegisterMetaType<QVector<double>>("QVector<double>");
 

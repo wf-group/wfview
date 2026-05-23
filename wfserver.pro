@@ -6,7 +6,7 @@
 
 QT       += core serialport network multimedia
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport xml quick
+greaterThan(QT_MAJOR_VERSION, 4): QT += xml
 
 TARGET = wfserver
 TEMPLATE = app
