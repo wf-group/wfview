@@ -36,12 +36,17 @@ Control {
         return -1
     }
 
+    function isCenterScopeMode(v) {
+        // Icom/Kenwood use numeric 0 for center mode. Yaesu CAT scope modes
+        // are ASCII values: '0', '3', and '4' are center variants.
+        return v === 0 || v === 48 || v === 51 || v === 52
+    }
+
     background: Rectangle {
         color: palette.window
         radius: 0
         border.width: 1
-        border.color: controller ? root.controller.active ? "red"
-            : Qt.darker(palette.window, 1.4) : Qt.darker(palette.window, 1.4)
+        border.color: Qt.darker(palette.window, 1.4)
         antialiasing: true
     }
 
@@ -391,7 +396,7 @@ Control {
                                 model: spec ? spec.model : []
                                 textRole: spec ? spec.textRole : "text"
                                 valueRole: spec ? spec.valueRole : "value"
-                                visible: spec ? (spec.visible ?? true) : false
+                                visible: (spec ? (spec.visible ?? true) : false) && root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 currentIndex: controller ? indexFromValue(scopeSpanCombo,controller.scopeSpan) : -1
                                 onActivated: controller.scopeSpan = currentValue
                                 Layout.preferredWidth: 80
@@ -403,7 +408,7 @@ Control {
                                 model: spec ? spec.model : []
                                 textRole: spec ? spec.textRole : "text"
                                 valueRole: spec ? spec.valueRole : "value"
-                                visible: spec ? (spec.visible ?? true) : false
+                                visible: (spec ? (spec.visible ?? true) : false) && !root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 currentIndex: controller ? indexFromValue(scopeEdgeCombo,controller.scopeEdge) : -1
                                 onActivated: controller.scopeEdge = currentValue
                                 Layout.preferredWidth: 110
@@ -412,7 +417,7 @@ Control {
                             Button {
                                 id: customEdgeButton
                                 objectName: "customEdge"
-                                visible: scopeModeCombo.currentValue > 0;
+                                visible: !root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 text: "Custom Edge"
                                 onClicked: customEdgeDialog.open()
                                 Layout.preferredWidth: 90
@@ -422,7 +427,7 @@ Control {
                                 id: toFixedButton
                                 objectName: "toFixed"
                                 text: "To Fixed"
-                                visible: scopeModeCombo.currentValue === 0;
+                                visible: root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 onClicked: edgeDialog.open()
                                 Layout.preferredWidth: 70
                             }
@@ -518,7 +523,6 @@ Control {
                     }
                 }
             }
-
         }
 
         // 2) Overlay band panel (receiver-local “drawer”), sibling of the layout
@@ -1888,4 +1892,3 @@ Control {
 
     }
 }
-

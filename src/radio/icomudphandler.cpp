@@ -87,6 +87,37 @@ void icomUdpHandler::init()
 
 icomUdpHandler::~icomUdpHandler()
 {
+    shutdown();
+}
+
+void icomUdpHandler::shutdown()
+{
+    if (shutdownComplete) {
+        return;
+    }
+    shutdownComplete = true;
+
+    qDebug(logUdp()) << "icomUdpHandler shutdown requested";
+
+    if (tokenTimer != nullptr) {
+        tokenTimer->stop();
+    }
+    if (areYouThereTimer != nullptr) {
+        areYouThereTimer->stop();
+    }
+    if (pingTimer != nullptr) {
+        pingTimer->stop();
+    }
+    if (idleTimer != nullptr) {
+        idleTimer->stop();
+    }
+    if (watchdogTimer != nullptr) {
+        watchdogTimer->stop();
+    }
+    if (retransmitTimer != nullptr) {
+        retransmitTimer->stop();
+    }
+
     if (streamOpened) {
         if (audio != nullptr) {
             delete audio;
@@ -100,6 +131,15 @@ icomUdpHandler::~icomUdpHandler()
 
         qInfo(logUdp()) << "Sending token removal packet";
         sendToken(0x01);
+        streamOpened = false;
+    }
+
+    if (udp != nullptr) {
+        qInfo(logUdp()) << "Sending Icom UDP disconnect packet";
+        sendControl(false, 0x05, 0x00);
+        udp->close();
+        delete udp;
+        udp = nullptr;
     }
 }
 
@@ -687,4 +727,3 @@ void icomUdpHandler::sendToken(uint8_t magic)
     //tokenTimer->start(100); // Set 100ms timer for retry (this will be cancelled if a response is received)
     return;
 }
-

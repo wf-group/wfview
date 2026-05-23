@@ -13,6 +13,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QGuiApplication>
+#include <QStyleHints>
 #include <QTranslator>
 #include <QDir>
 #include <QFile>
@@ -54,20 +55,9 @@
 #ifndef BUILD_WFSERVER
 #include "cluster.h"
 #include "colorprefs.h"
-#include "memories.h"
-#include "calibrationwindow.h"
-#include "repeatersetup.h"
-#include "satellitesetup.h"
-#include "bandbuttons.h"
-#include "frequencyinputwidget.h"
-#include "qledlabel.h"
-#include "aboutbox.h"
-#include "loggingwindow.h"
-#include "sidebandchooser.h"
 #include "tciserver.h"
 
 #include "usbcontroller.h"
-#include "controllersetup.h"
 #include "ControllerController.h"
 
 #include "MainController.h"
@@ -181,7 +171,7 @@ int main(int argc, char *argv[])
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
-    QApplication a(argc, argv);
+    QGuiApplication a(argc, argv);
 
     a.setApplicationName("wfview");
 
@@ -473,7 +463,7 @@ int main(int argc, char *argv[])
     qInfo(logSystem()).noquote() << QString("PORTAUDIO Version: %0").arg(Pa_GetVersionText());
 
 
-    a.setWheelScrollLines(1); // one line per wheel click
+    a.styleHints()->setWheelScrollLines(1); // one line per wheel click
 
     // Create MainWindow here
     std::cout << "DEBUG: Opening MainWindow()" << std::endl;
@@ -568,7 +558,7 @@ int main(int argc, char *argv[])
                              return;
 
                          const QString msg = QStringLiteral("Failed to load QML:\n%1").arg(url.toString());
-                         QMessageBox::critical(nullptr, QStringLiteral("Startup error"), msg);
+                         qCritical().noquote() << msg;
 
                          // Ensure we really quit even if something is half-initialized
                          QMetaObject::invokeMethod(&a, "quit", Qt::QueuedConnection);
@@ -581,7 +571,7 @@ int main(int argc, char *argv[])
     std::cout << "DEBUG: engine.load() returned" << std::endl;
     if (engine.rootObjects().isEmpty())
     {
-        QMessageBox::critical(nullptr, QStringLiteral("Startup error"), "rootObjects is empty");
+        qCritical() << "rootObjects is empty";
         return -1;
     }
 

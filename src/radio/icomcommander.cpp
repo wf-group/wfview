@@ -48,6 +48,12 @@ icomCommander::~icomCommander()
     }
 
     if (udpHandlerThread != nullptr) {
+        if (udp != nullptr) {
+            QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
+                                      !udpHandlerThread->isRunning() || udp->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
+        }
         udpHandlerThread->quit();
         udpHandlerThread->wait();
     }
@@ -186,6 +192,12 @@ void icomCommander::closeComm()
     comm = nullptr;
 
     if (udpHandlerThread != nullptr) {
+        if (udp != nullptr) {
+            QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
+                                      !udpHandlerThread->isRunning() || udp->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
+        }
         udpHandlerThread->quit();
         udpHandlerThread->wait();
     }
@@ -3096,4 +3108,3 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         queue->del(func,receiver);
     }
 }
-

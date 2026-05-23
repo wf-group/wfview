@@ -1725,14 +1725,6 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (b->parent == dev && b->page > val)
             {
-                if (b->text != nullptr) {
-                    delete b->text;
-                    b->text = nullptr;
-                }
-                if (b->bgRect != nullptr) {
-                    delete b->bgRect;
-                    b->bgRect = nullptr;
-                }
                 b->onCommand = nullptr;
                 b->offCommand = nullptr;
                 if (b->icon != nullptr) {
@@ -1750,11 +1742,7 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (k->parent == dev && k->page > val)
             {
-                if (k->text != nullptr) {
-                    delete k->text;
-                    k->text = nullptr;
-                    k->command = nullptr;
-                }
+                k->command = nullptr;
                 k = knobList->erase(k);
             } else {
                 ++k;
@@ -1962,14 +1950,6 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (b->parent == dev)
         {
-            if (b->text != nullptr) {
-                delete b->text;
-                b->text = nullptr;
-            }
-            if (b->bgRect != nullptr) {
-                delete b->bgRect;
-                b->bgRect = nullptr;
-            }
             b->onCommand = nullptr;
             b->offCommand = nullptr;
             if (b->icon != nullptr) {
@@ -2028,11 +2008,7 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (k->parent == dev)
         {
-            if (k->text != nullptr) {
-                delete k->text;
-                k->text = nullptr;
-                k->command = nullptr;
-            }
+            k->command = nullptr;
             k = knobList->erase(k);
         } else {
             ++k;

@@ -1,6 +1,8 @@
 #include "ReceiverController.h"
 
 #include "logcategories.h"
+#include <QGuiApplication>
+#include <QStyleHints>
 
 
 ReceiverController::ReceiverController(int rxIndex, QString region, QObject *parent)
@@ -111,7 +113,7 @@ void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
     if (steps == 0)
         return;
 
-    const qreal stepsToScroll = QApplication::wheelScrollLines() * steps;
+    const qreal stepsToScroll = QGuiApplication::styleHints()->wheelScrollLines() * steps;
 
     // Did we change direction?
     if ((scrollWheelOffsetAccumulated > 0 && steps > 0) ||

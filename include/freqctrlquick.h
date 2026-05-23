@@ -5,9 +5,10 @@
  * Frequency controller item for Qt Quick (ported from the QWidget version)
  */
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QQuickPaintedItem>
 #include <QQuickWindow>
+#include <QStyleHints>
 #include <QPainter>
 #include <QColor>
 #include <QFont>

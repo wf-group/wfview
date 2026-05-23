@@ -623,7 +623,7 @@ void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
     qreal     numDegrees = delta / 8;
     qreal     offset = numDegrees / 15;
 
-    qreal stepsToScroll = QApplication::wheelScrollLines() * offset;
+    qreal stepsToScroll = QGuiApplication::styleHints()->wheelScrollLines() * offset;
 
     if( (scrollWheelOffsetAccumulated > 0) && (offset > 0) ) {
         scrollWheelOffsetAccumulated += stepsToScroll;

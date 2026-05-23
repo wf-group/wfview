@@ -8,8 +8,6 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QRect>
-#include <QGraphicsTextItem>
-#include <QSpinBox>
 #include <QColor>
 #include <QVector>
 #include <QList>
@@ -18,13 +16,11 @@
 #include <QIODevice>
 #include <QtEndian>
 #include <QUuid>
-#include <QLabel>
 #include <QImage>
 #include <QPainter>
 #include <QImageWriter>
 #include <QBuffer>
 #include <QSettings>
-#include <QMessageBox>
 #include <memory>
 
 
@@ -138,11 +134,8 @@ struct USBDEVICE {
     QByteArray lastData;
     quint8 lastDialPos;
     QUuid uuid;
-    QLabel *message;
     int pages;
     int currentPage;
-    QGraphicsScene* scene = nullptr;
-    QSpinBox* pageSpin = nullptr;
     QImage image;
     quint8 ledStatus;
 };
@@ -192,8 +185,6 @@ struct BUTTON {
     QColor textColour;
     const COMMAND* onCommand = nullptr;
     const COMMAND* offCommand = nullptr;
-    QGraphicsRectItem* bgRect = nullptr;
-    QGraphicsTextItem* text = nullptr;
     QString on;
     QString off;
     QString path;
@@ -223,7 +214,6 @@ struct KNOB {
     QRect pos;
     QColor textColour;
     const COMMAND* command = nullptr;
-    QGraphicsTextItem* text = nullptr;
     QString cmd;
     QString path;
     int value=0;

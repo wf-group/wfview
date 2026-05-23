@@ -439,7 +439,284 @@ void MainController::buildUiSpecs()
         {"model", values},
         {"visible",!values.empty()}
     };
+
+    auto rangeSpec = [this](funcs f, int fallbackMin, int fallbackMax) {
+        QVariantMap spec;
+        spec["available"] = rigCaps->commands.contains(f);
+        spec["min"] = fallbackMin;
+        spec["max"] = fallbackMax;
+        if (rigCaps->commands.contains(f)) {
+            const auto cmd = rigCaps->commands.find(f).value();
+            spec["min"] = cmd.minVal;
+            spec["max"] = cmd.maxVal;
+        }
+        return spec;
+    };
+
+    uiSpecs["mainControls"] = QVariantMap{
+        {"canTransmit", rigCaps->hasTransmit && rigCaps->commands.contains(funcTransceiverStatus)},
+        {"canTune", rigCaps->commands.contains(funcTunerStatus)},
+        {"canRit", rigCaps->commands.contains(funcRitStatus) || rigCaps->commands.contains(funcRitFreq)},
+        {"canDualScope", rigCaps->numReceiver > 1},
+        {"canDualWatch", rigCaps->commands.contains(funcVFODualWatch)},
+        {"canSplit", rigCaps->commands.contains(funcSplitStatus)},
+        {"canMainSub", rigCaps->commands.contains(funcVFOBandMS)},
+        {"canSwapMainSub", rigCaps->commands.contains(funcVFOSwapMS)},
+        {"canEqualMainSub", rigCaps->commands.contains(funcVFOEqualMS)},
+        {"canCompressor", rigCaps->commands.contains(funcCompressor)},
+        {"canVox", rigCaps->commands.contains(funcVox)},
+        {"txPower", rangeSpec(funcRFPower, 0, 255)},
+        {"monitorGain", rangeSpec(funcMonitorGain, 0, 255)},
+        {"micGain", rangeSpec(funcMicGain, 0, 255)},
+        {"ritFrequency", rangeSpec(funcRitFreq, -500, 500)}
+    };
     emit uiSpecsChanged();
+}
+
+void MainController::powerOn()
+{
+    emit sendPowerOn();
+}
+
+void MainController::powerOff()
+{
+    emit sendPowerOff();
+}
+
+void MainController::toggleTransmit()
+{
+    setTransmit(!m_transmitting);
+}
+
+void MainController::setTransmit(bool enabled)
+{
+    if (!prefs->enablePTT) {
+        qInfo(logSystem()) << "PTT is disabled, not sending transmit command.";
+        return;
+    }
+
+    if (m_transmitting != enabled) {
+        m_transmitting = enabled;
+        emit transmittingChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcTransceiverStatus)) {
+        queue->add(priorityImmediate, queueItem(funcTransceiverStatus, QVariant::fromValue<bool>(enabled), false, uchar(0)));
+    }
+}
+
+void MainController::tuneNow()
+{
+    if (!prefs->enablePTT) {
+        qInfo(logSystem()) << "PTT is disabled, not sending tuner command.";
+        return;
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcTunerStatus)) {
+        queue->addUnique(priorityImmediate, queueItem(funcTunerStatus, QVariant::fromValue<uchar>(2U)));
+    }
+}
+
+void MainController::setTunerEnabled(bool enabled)
+{
+    if (m_tunerEnabled != enabled) {
+        m_tunerEnabled = enabled;
+        emit tunerEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcTunerStatus)) {
+        queue->addUnique(priorityImmediate, queueItem(funcTunerStatus, QVariant::fromValue<uchar>(enabled ? 1U : 0U)));
+    }
+}
+
+void MainController::setFrequencyLock(bool locked)
+{
+    if (freqLock == locked)
+        return;
+
+    freqLock = locked;
+    for (const auto &rx : std::as_const(receivers)) {
+        rx->setFreqLock(locked);
+    }
+}
+
+void MainController::setRitFrequency(int value)
+{
+    if (rigCaps && rigCaps->commands.contains(funcRitFreq)) {
+        const auto cmd = rigCaps->commands.find(funcRitFreq).value();
+        value = qBound(cmd.minVal, value, cmd.maxVal);
+    }
+
+    if (m_ritFrequency != value) {
+        m_ritFrequency = value;
+        emit ritFrequencyChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcRitFreq)) {
+        queue->add(priorityImmediate, queueItem(funcRitFreq, QVariant::fromValue(short(value))));
+    }
+}
+
+void MainController::setRitEnabled(bool enabled)
+{
+    if (m_ritEnabled != enabled) {
+        m_ritEnabled = enabled;
+        emit ritEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcRitStatus)) {
+        queue->add(priorityImmediate, queueItem(funcRitStatus, QVariant::fromValue(enabled)));
+    }
+}
+
+void MainController::setTxPower(int value)
+{
+    if (rigCaps && rigCaps->commands.contains(funcRFPower)) {
+        const auto cmd = rigCaps->commands.find(funcRFPower).value();
+        value = qBound(cmd.minVal, value, cmd.maxVal);
+    }
+
+    if (m_txPower != value) {
+        m_txPower = value;
+        emit txPowerChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcRFPower)) {
+        queue->addUnique(priorityImmediate, queueItem(funcRFPower, QVariant::fromValue<ushort>(ushort(value)), false));
+    }
+}
+
+void MainController::setMonitorGain(int value)
+{
+    if (rigCaps && rigCaps->commands.contains(funcMonitorGain)) {
+        const auto cmd = rigCaps->commands.find(funcMonitorGain).value();
+        value = qBound(cmd.minVal, value, cmd.maxVal);
+    }
+
+    if (m_monitorGain != value) {
+        m_monitorGain = value;
+        emit monitorGainChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcMonitorGain)) {
+        queue->addUnique(priorityImmediate, queueItem(funcMonitorGain, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+    }
+}
+
+void MainController::setMicGain(int value)
+{
+    if (rigCaps && rigCaps->commands.contains(funcMicGain)) {
+        const auto cmd = rigCaps->commands.find(funcMicGain).value();
+        value = qBound(cmd.minVal, value, cmd.maxVal);
+    }
+
+    if (m_micGain != value) {
+        m_micGain = value;
+        emit micGainChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcMicGain)) {
+        queue->addUnique(priorityImmediate, queueItem(funcMicGain, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+    }
+}
+
+void MainController::setDualScope(bool enabled)
+{
+    if (m_dualScope != enabled) {
+        m_dualScope = enabled;
+        emit dualScopeChanged();
+    }
+
+    if (!rigCaps || !rigCaps->commands.contains(funcScopeSingleDual))
+        return;
+
+    queue->add(priorityImmediate, queueItem(funcScopeSingleDual, QVariant::fromValue(enabled), false, uchar(0)));
+    queue->add(priorityImmediate, funcScopeMainSub, false, uchar(0));
+}
+
+void MainController::setDualWatch(bool enabled)
+{
+    if (m_dualWatch != enabled) {
+        m_dualWatch = enabled;
+        emit dualWatchChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcVFODualWatch)) {
+        queue->add(priorityImmediate, queueItem(funcVFODualWatch, QVariant::fromValue(enabled), false, uchar(0)));
+        if (!rigCaps->hasCommand29)
+            queue->add(priorityImmediate, funcScopeMainSub, false, uchar(0));
+    }
+}
+
+void MainController::setSplitEnabled(bool enabled)
+{
+    if (m_splitEnabled != enabled) {
+        m_splitEnabled = enabled;
+        emit splitEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcSplitStatus)) {
+        queue->add(priorityImmediate, queueItem(funcSplitStatus, QVariant::fromValue(enabled), false));
+    }
+}
+
+void MainController::selectMainSub()
+{
+    if (rigCaps && rigCaps->commands.contains(funcVFOBandMS)) {
+        queue->add(priorityImmediate, queueItem(funcVFOBandMS, QVariant::fromValue<uchar>(currentReceiver == 0), false, uchar(0)));
+    }
+}
+
+void MainController::swapMainSub()
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcVFOSwapMS))
+        return;
+
+    queue->add(priorityImmediate, funcVFOSwapMS);
+    for (const auto &receiver : std::as_const(receivers)) {
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoA, receiver->getReceiver(), true).freqFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoA, receiver->getReceiver(), true).modeFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoB, receiver->getReceiver(), true).freqFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoB, receiver->getReceiver(), true).modeFunc, false, receiver->getReceiver());
+    }
+}
+
+void MainController::equalizeMainSub()
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcVFOEqualMS))
+        return;
+
+    queue->add(priorityImmediate, funcVFOEqualMS);
+    for (const auto &receiver : std::as_const(receivers)) {
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoA, receiver->getReceiver(), true).modeFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoA, receiver->getReceiver(), true).freqFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoB, receiver->getReceiver(), true).modeFunc, false, receiver->getReceiver());
+        queue->add(priorityImmediate, queue->getVfoCommand(vfoB, receiver->getReceiver(), true).freqFunc, false, receiver->getReceiver());
+    }
+}
+
+void MainController::setCompressorEnabled(bool enabled)
+{
+    if (m_compressorEnabled != enabled) {
+        m_compressorEnabled = enabled;
+        emit compressorEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcCompressor)) {
+        queue->addUnique(priorityImmediate, queueItem(funcCompressor, QVariant::fromValue<bool>(enabled), false, currentReceiver));
+    }
+}
+
+void MainController::setVoxEnabled(bool enabled)
+{
+    if (m_voxEnabled != enabled) {
+        m_voxEnabled = enabled;
+        emit voxEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcVox)) {
+        queue->addUnique(priorityImmediate, queueItem(funcVox, QVariant::fromValue<bool>(enabled), false, currentReceiver));
+    }
 }
 
 
@@ -460,7 +737,12 @@ void MainController::shutdown()
     // running and must be explicitly stopped here to avoid "QThread destroyed while running".
     if (rigThread)
     {
-        emit sendCloseComm();
+        if (rig) {
+            QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
+                                      rig->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
+        }
         rigThread->quit();
         rigThread->wait();
         rig = nullptr;
@@ -490,9 +772,21 @@ void MainController::connectionHandler()
             if (r) r->deleteLater();
         }
         receivers.clear();
-        emit sendCloseComm();        
-        rigThread->quit();
-        rigThread->wait();
+        detached.clear();
+        currentReceiver = 0;
+        emit receiverCountChanged();
+        emit detachedChanged();
+
+        if (rig) {
+            QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
+                                      rig->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
+        }
+        if (rigThread) {
+            rigThread->quit();
+            rigThread->wait();
+        }
         rig = nullptr;
         rigThread = nullptr;
         if (m_memoriesModel) {
@@ -526,6 +820,10 @@ void MainController::startRigConnection()
             qCritical() << "Unknown Manufacturer, aborting...";
             break;
         }
+        if (!rig) {
+            setConnStatus(connectionStatus_t::connDisconnected);
+            return;
+        }
 
         // Set a suitable queue interval to ensure polling happens quickly enough.
         queue->interval(cmdStartupInterval_ms); // Currently 250ms but could be configurable
@@ -550,6 +848,7 @@ void MainController::startRigConnection()
 
         connect(this, &MainController::setRigID, rig, &rigCommander::setRigID);
         connect(this, &MainController::setCIVAddr, rig, &rigCommander::setCIVAddr);
+        connect(this, &MainController::setPTTType, rig, &rigCommander::setPTTType);
         connect(this, &MainController::sendPowerOn, rig, &rigCommander::powerOn);
         connect(this, &MainController::sendPowerOff, rig, &rigCommander::powerOff);
 
@@ -790,17 +1089,24 @@ void MainController::setAppTheme(bool isCustom)
         {
             if (f.open(QFile::ReadOnly | QFile::Text)) {
                 QTextStream ts(&f);
-                qApp->setStyleSheet(ts.readAll());
+                Q_UNUSED(ts)
+                qInfo() << "Ignoring QWidget stylesheet in QML UI:" << f.fileName();
             }
         }
     } else {
-        qApp->setStyleSheet("");
+        qInfo() << "Ignoring QWidget stylesheet reset in QML UI";
     }
 }
 void MainController::receiveRigCaps(rigCapabilities* caps)
 {
     this->rigCaps = caps;
 
+    for (auto *r : std::as_const(receivers)) {
+        if (r) r->deleteLater();
+    }
+    receivers.clear();
+    detached.clear();
+    currentReceiver = 0;
 
     if (rigCaps) {
         if(prefs->polling_ms != 0)
@@ -832,8 +1138,6 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
-
-            connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
 
             if (i == 0) {
                 // Report scope redraw time to Select Radio window (only scope 0)
@@ -1181,15 +1485,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         // Not sure if we want to do anything with this? M0VSE
         break;
     case funcVFODualWatch:
-        /*
-        if (receivers.size()>1) // How can it not be?
-        {
-            ui->dualWatchBtn->blockSignals(true);
-            ui->dualWatchBtn->setChecked(val.value.value<bool>());
-            ui->dualWatchBtn->blockSignals(false);
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_dualWatch != enabled) {
+            m_dualWatch = enabled;
+            emit dualWatchChanged();
         }
-        */
         break;
+    }
 #if defined __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -1197,7 +1500,6 @@ void MainController::receiveValueFromQueue(cacheItem val)
     {
         // This indicates whether main or sub is currently "active"
         // Swap recievers if necessary.
-        /*
         uchar r = val.value.value<uchar>();
         if (currentReceiver != r)
         {
@@ -1208,13 +1510,10 @@ void MainController::receiveValueFromQueue(cacheItem val)
 
             for (const auto& rx: receivers)
             {
-                rx->selected(rx->getReceiver() == r);
-                rx->setVisible(rx->isSelected() || ui->scopeDualBtn->isChecked());
-                rx->updateInfo();
+                rx->setActive(rx->getReceiver() == r);
             }
             currentReceiver = r;
         }
-        */
         break;
     }
     case funcSatelliteMode:
@@ -1251,10 +1550,16 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcReadFreqOffset:
         break;
     case funcSplitStatus:
-        //ui->splitBtn->setChecked(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
+    {
+        const bool enabled = val.value.value<duplexMode_t>() != dmSplitOff;
+        if (m_splitEnabled != enabled) {
+            m_splitEnabled = enabled;
+            emit splitEnabledChanged();
+        }
         //rpt->receiveDuplexMode(val.value.value<duplexMode_t>());
         //receivers[val.receiver]->setSplit(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
         break;
+    }
     case funcQuickSplit:
         //rpt->receiveQuickSplit(val.value.value<bool>());
         break;
@@ -1304,7 +1609,13 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
 
     case funcMicGain:
-        //rocessModLevel(inputMic,val.value.value<uchar>());
+        if (val.receiver == currentReceiver) {
+            const int value = val.value.value<ushort>();
+            if (m_micGain != value) {
+                m_micGain = value;
+                emit micGainChanged();
+            }
+        }
         break;
     case funcKeySpeed:
         // Only used by CW window
@@ -1316,7 +1627,13 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setAfGain(val.value.value<ushort>(),false);
         break;
     case funcMonitorGain:
-        //changeSliderQuietly(ui->monitorSlider, val.value.value<uchar>());
+        if (val.receiver == currentReceiver) {
+            const int value = val.value.value<ushort>();
+            if (m_monitorGain != value) {
+                m_monitorGain = value;
+                emit monitorGainChanged();
+            }
+        }
         break;
     case funcRfGain:
         receivers[val.receiver]->setRfGain(val.value.value<ushort>(),false);
@@ -1325,8 +1642,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setSquelch(val.value.value<ushort>(),false);
         break;
     case funcRFPower:
-        //changeSliderQuietly(ui->txPowerSlider, val.value.value<uchar>());
+    {
+        const int value = val.value.value<ushort>();
+        if (m_txPower != value) {
+            m_txPower = value;
+            emit txPowerChanged();
+        }
         break;
+    }
     case funcNBLevel:
         receivers[val.receiver]->setNbLevel(val.value.value<ushort>(),false);
         break;
@@ -1460,16 +1783,26 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcRepeaterCSQL:
         break;
     case funcCompressor:
-        //if (val.receiver == currentReceiver) {
-        //    ui->compEnableChk->setChecked(val.value.value<bool>());
-        //}
+        if (val.receiver == currentReceiver) {
+            const bool enabled = val.value.value<bool>();
+            if (m_compressorEnabled != enabled) {
+                m_compressorEnabled = enabled;
+                emit compressorEnabledChanged();
+            }
+        }
         break;
     case funcMonitor:
         //receiveMonitor(val.value.value<bool>());
         break;
     case funcVox:
-        //ui->voxEnableChk->setChecked(val.value.value<bool>());
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_voxEnabled != enabled) {
+            m_voxEnabled = enabled;
+            emit voxEnabledChanged();
+        }
         break;
+    }
     case funcManualNotch:
         receivers[val.receiver]->setMn(val.value.value<bool>(),false);
         break;
@@ -1598,20 +1931,42 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     // 0x1c register
     case funcRitStatus:
-        //receiveRITStatus(val.value.value<bool>());
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_ritEnabled != enabled) {
+            m_ritEnabled = enabled;
+            emit ritEnabledChanged();
+        }
         break;
+    }
     case funcTransceiverStatus:
-        //receivePTTstatus(val.value.value<bool>());
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_transmitting != enabled) {
+            m_transmitting = enabled;
+            emit transmittingChanged();
+        }
         break;
+    }
     case funcTunerStatus:
-        ///receiveATUStatus(val.value.value<uchar>());
+    {
+        const bool enabled = val.value.value<uchar>() != 0;
+        if (m_tunerEnabled != enabled) {
+            m_tunerEnabled = enabled;
+            emit tunerEnabledChanged();
+        }
         break;
+    }
     // 0x21 RIT:
     case funcRitFreq:
-        //ui->ritTuneDial->blockSignals(true);
-        //ui->ritTuneDial->setValue(val.value.value<short>());
-        //ui->ritTuneDial->blockSignals(false);
+    {
+        const int value = val.value.value<short>();
+        if (m_ritFrequency != value) {
+            m_ritFrequency = value;
+            emit ritFrequencyChanged();
+        }
         break;
+    }
     case funcRitTXStatus:
         // Not sure what this is used for?
         break;
@@ -1635,25 +1990,11 @@ void MainController::receiveValueFromQueue(cacheItem val)
     }
     case funcScopeSingleDual:
     {
-        /*
-        if (receivers.size()>1)
-        {
-            if (QThread::currentThread() != QCoreApplication::instance()->thread())
-            {
-                qCritical(logSystem()) << "Thread is NOT the main UI thread, cannot hide/unhide VFO";
-            } else {
-                // This tells us whether we are receiving single or dual scopes
-                ui->scopeDualBtn->blockSignals(true);
-                ui->scopeDualBtn->setChecked(val.value.value<bool>());
-                ui->scopeDualBtn->blockSignals(false);
-                for (const auto& rx: std::as_const(receivers)) {
-                    if (!rx->isSelected()) {
-                        rx->setVisible(val.value.value<bool>());
-                    }
-                }
-            }
+        const bool enabled = val.value.value<bool>();
+        if (m_dualScope != enabled) {
+            m_dualScope = enabled;
+            emit dualScopeChanged();
         }
-        */
         break;
     }
     case funcScopeMode:

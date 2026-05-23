@@ -12,6 +12,8 @@ ApplicationWindow {
 
     property int connStatus: Number(MainController.connStatus)
     property var audioProcessingWindow: null
+    readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
+    readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
     visible: true
@@ -43,22 +45,12 @@ ApplicationWindow {
         }
 
         onShowSettings: function(isNetwork) {
-            // Mark first run as complete
-            MainController.setFirstRun(false)
-
-            // Show settings with appropriate mode
-            MainController.showSettings(isNetwork)
-
-            // Show main window
-            mainWindow.visible = true
+            settings.show()
+            win.visible = true
         }
 
         onSkipSetup: {
-            // Mark first run as complete
-            MainController.setFirstRun(false)
-
-            // Show main window
-            mainWindow.visible = true
+            win.visible = true
         }
     }
 
@@ -168,8 +160,10 @@ ApplicationWindow {
         return -1
     }
 
-
-
+    function controlSpec(name, fallbackMin, fallbackMax) {
+        var spec = mainControlSpecs[name]
+        return spec ? spec : { "available": false, "min": fallbackMin, "max": fallbackMax }
+    }
 
     Component {
             id: rigCreatorComponent
@@ -212,15 +206,30 @@ ApplicationWindow {
 
                         Item { id: attachedHost; anchors.fill: parent }
 
+                        Rectangle {
+                            anchors.fill: attachedHost
+                            anchors.margins: 1
+                            color: "transparent"
+                            border.width: 1
+                            border.color: "red"
+                            enabled: false
+                            visible: row.receiverController && row.receiverController.active && !row.detached
+                            z: 10
+                        }
+
                         property int pendingX: 0
                         property int pendingY: 0
                         property bool havePendingPos: false
                         property bool detached: false
+                        readonly property var receiverController: MainController.receiver(index)
+                        readonly property bool receiverVisible: receiverController
+                                                               && (receiverController.active
+                                                                   || MainController.dualScope)
 
-                        visible: !detached
-                        Layout.fillHeight: !detached
-                        Layout.preferredHeight: detached ? 0 : -1
-                        Layout.minimumHeight: detached ? 0 : 240
+                        visible: !detached && receiverVisible
+                        Layout.fillHeight: !detached && receiverVisible
+                        Layout.preferredHeight: (detached || !receiverVisible) ? 0 : -1
+                        Layout.minimumHeight: (detached || !receiverVisible) ? 0 : 240
 
                         clip: true
 
@@ -233,11 +242,12 @@ ApplicationWindow {
                             active: true
                             sourceComponent: Receiver {
                                 receiverIndex: index
-                                controller: MainController.receiver(index)
+                                controller: row.receiverController
                             }
                             onLoaded: {
                                 rxLoader.item.parent = attachedHost
                                 rxLoader.item.anchors.fill = attachedHost
+                                rxLoader.item.anchors.margins = 1
                             }
                         }
 
@@ -278,12 +288,24 @@ ApplicationWindow {
 
                             Item { id: detachedHost; anchors.fill: parent }
 
+                            Rectangle {
+                                anchors.fill: detachedHost
+                                anchors.margins: 1
+                                color: "transparent"
+                                border.width: 1
+                                border.color: "red"
+                                enabled: false
+                                visible: row.receiverController && row.receiverController.active
+                                z: 10
+                            }
+
                             onVisibleChanged: function() {
                                 if (!rxLoader.item) return
 
                                 rxLoader.item.anchors.fill = undefined
                                 rxLoader.item.parent = visible ? detachedHost : attachedHost
                                 rxLoader.item.anchors.fill = visible ? detachedHost : attachedHost
+                                rxLoader.item.anchors.margins = 1
                                 Qt.callLater(MainController.updateApplicationPalette)
 
                                 if (visible && row.havePendingPos) {
@@ -353,8 +375,8 @@ ApplicationWindow {
                     Item { Layout.fillHeight: true }
 
                     RowLayout {
-                        Button { text: "Power On"; onClicked: rig.powerOn() }
-                        Button { text: "Power Off"; onClicked: rig.powerOff() }
+                        Button { text: "Power On"; onClicked: MainController.powerOn() }
+                        Button { text: "Power Off"; onClicked: MainController.powerOff() }
                     }
                 }
 
@@ -386,19 +408,33 @@ ApplicationWindow {
                         onActivated: MainController.stepSize = currentValue
                     }
 
-                    CheckBox { id: tuneLockChk; text: "F Lock" }
+                    CheckBox {
+                        id: tuneLockChk
+                        text: "F Lock"
+                        onToggled: MainController.setFrequencyLock(checked)
+                    }
 
                     RowLayout {
                         Dial {
                             id: ritTuneDial
                             Layout.preferredWidth: 30
                             Layout.preferredHeight: 30
-                            from: -500
-                            to: 500
+                            readonly property var spec: controlSpec("ritFrequency", -500, 500)
+                            from: spec.min
+                            to: spec.max
+                            value: MainController.ritFrequency
+                            enabled: mainControlSpecs.canRit ?? false
                             stepSize: 10
                             wrap: false
+                            onMoved: MainController.ritFrequency = Math.round(value)
                         }
-                        CheckBox { id: ritEnableChk; text: "RIT" }
+                        CheckBox {
+                            id: ritEnableChk
+                            text: "RIT"
+                            checked: MainController.ritEnabled
+                            enabled: mainControlSpecs.canRit ?? false
+                            onToggled: MainController.ritEnabled = checked
+                        }
                     }
                 }
 
@@ -412,19 +448,57 @@ ApplicationWindow {
 
                         ColumnLayout {
                             Slider {
-                                id: volumeSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                                id: volumeSlider
+                                from: 0
+                                to: 255
+                                value: firstReceiver ? firstReceiver.afGain : 0
+                                enabled: firstReceiver !== null
+                                orientation: Qt.Vertical
+                                Layout.preferredHeight: 120
+                                onMoved: if (firstReceiver) firstReceiver.afGain = Math.round(value)
+                            }
                             Label { text: "Vol"; horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
-                            Slider { id: txPowerSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Slider {
+                                id: txPowerSlider
+                                readonly property var spec: controlSpec("txPower", 0, 255)
+                                from: spec.min
+                                to: spec.max
+                                value: MainController.txPower
+                                enabled: spec.available ?? false
+                                orientation: Qt.Vertical
+                                Layout.preferredHeight: 120
+                                onMoved: MainController.txPower = Math.round(value)
+                            }
                             Label { text: "TX"; horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
-                            Slider { id: monitorSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Slider {
+                                id: monitorSlider
+                                readonly property var spec: controlSpec("monitorGain", 0, 255)
+                                from: spec.min
+                                to: spec.max
+                                value: MainController.monitorGain
+                                enabled: spec.available ?? false
+                                orientation: Qt.Vertical
+                                Layout.preferredHeight: 120
+                                onMoved: MainController.monitorGain = Math.round(value)
+                            }
                             Label { text: "Mon"; horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
-                            Slider { id: micGainSlider; from: 0; to: 255; orientation: Qt.Vertical; Layout.preferredHeight: 120 }
+                            Slider {
+                                id: micGainSlider
+                                readonly property var spec: controlSpec("micGain", 0, 255)
+                                from: spec.min
+                                to: spec.max
+                                value: MainController.micGain
+                                enabled: spec.available ?? false
+                                orientation: Qt.Vertical
+                                Layout.preferredHeight: 120
+                                onMoved: MainController.micGain = Math.round(value)
+                            }
                             Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
                         }
                     }
@@ -436,12 +510,24 @@ ApplicationWindow {
                     spacing: 6
 
                     Button {
-                        text: "Transmit"
+                        text: MainController.transmitting ? "Receive" : "Transmit"
                         Layout.preferredHeight: 50
-                        onClicked: rig.toggleTx()
+                        checkable: true
+                        checked: MainController.transmitting
+                        enabled: mainControlSpecs.canTransmit ?? false
+                        onClicked: MainController.toggleTransmit()
                     }
-                    CheckBox { text: "Enable ATU" }
-                    Button { text: "Tune" }
+                    CheckBox {
+                        text: "Enable ATU"
+                        checked: MainController.tunerEnabled
+                        enabled: mainControlSpecs.canTune ?? false
+                        onToggled: MainController.tunerEnabled = checked
+                    }
+                    Button {
+                        text: "Tune"
+                        enabled: mainControlSpecs.canTune ?? false
+                        onClicked: MainController.tuneNow()
+                    }
                     Button {
                         text: "CW"
                         enabled: (connStatus === 2) // Only enable button if connected
@@ -473,13 +559,43 @@ ApplicationWindow {
                             rowSpacing: 6
                             columnSpacing: 6
 
-                            Button { text: "Dual Scope"; checkable: true }
-                            Button { text: "Dual Watch"; checkable: true }
-                            Button { text: "Split"; checkable: true }
+                            Button {
+                                text: "Dual Scope"
+                                checkable: true
+                                checked: MainController.dualScope
+                                enabled: mainControlSpecs.canDualScope ?? false
+                                onToggled: MainController.dualScope = checked
+                            }
+                            Button {
+                                text: "Dual Watch"
+                                checkable: true
+                                checked: MainController.dualWatch
+                                enabled: mainControlSpecs.canDualWatch ?? false
+                                onToggled: MainController.dualWatch = checked
+                            }
+                            Button {
+                                text: "Split"
+                                checkable: true
+                                checked: MainController.splitEnabled
+                                enabled: mainControlSpecs.canSplit ?? false
+                                onToggled: MainController.splitEnabled = checked
+                            }
 
-                            Button { text: "Main/Sub" }
-                            Button { text: "Main<>Sub" }
-                            Button { text: "Main=Sub" }
+                            Button {
+                                text: "Main/Sub"
+                                enabled: mainControlSpecs.canMainSub ?? false
+                                onClicked: MainController.selectMainSub()
+                            }
+                            Button {
+                                text: "Main<>Sub"
+                                enabled: mainControlSpecs.canSwapMainSub ?? false
+                                onClicked: MainController.swapMainSub()
+                            }
+                            Button {
+                                text: "Main=Sub"
+                                enabled: mainControlSpecs.canEqualMainSub ?? false
+                                onClicked: MainController.equalizeMainSub()
+                            }
                         }
                     }
 
@@ -490,8 +606,18 @@ ApplicationWindow {
                         ColumnLayout {
                             spacing: 3
                             RowLayout {
-                                CheckBox { text: "CMP" }
-                                CheckBox { text: "VOX" }
+                                CheckBox {
+                                    text: "CMP"
+                                    checked: MainController.compressorEnabled
+                                    enabled: mainControlSpecs.canCompressor ?? false
+                                    onToggled: MainController.compressorEnabled = checked
+                                }
+                                CheckBox {
+                                    text: "VOX"
+                                    checked: MainController.voxEnabled
+                                    enabled: mainControlSpecs.canVox ?? false
+                                    onToggled: MainController.voxEnabled = checked
+                                }
                             }
                         }
                     }

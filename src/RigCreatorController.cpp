@@ -77,22 +77,3 @@ bool RigCreatorController::saveFile(QString file)
 
     return m_store->saveAs(file);
 }
-
-
-
-void RigCreatorController::closeEvent(QCloseEvent *event)
-{
-
-    Q_UNUSED(event)
-    if (settingsChanged)
-    {
-        // Settings have changed since last save
-        qInfo() << "Settings have changed since last save";
-        //int reply = QMessageBox::question(this,tr("rig creator"),tr("Changes will be lost!"),QMessageBox::Cancel |QMessageBox::Ok);
-        //if (reply == QMessageBox::Cancel)
-        //{
-        //    event->ignore();
-       // }
-    }
-}
-

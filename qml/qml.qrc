@@ -13,5 +13,6 @@
         <file>FirstTimeSetup.qml</file>
         <file>ControllerSettings.qml</file>
         <file>AudioProcessing.qml</file>
+        <file>CollapsibleSection.qml</file>
     </qresource>
 </RCC>

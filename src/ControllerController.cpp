@@ -1,7 +1,6 @@
 #include "ControllerController.h"
 #include "logcategories.h"
 #include <QSettings>
-#include <QMessageBox>
 #include <QFile>
 
 // ========== DeviceModel Implementation ==========
@@ -189,19 +188,6 @@ ControllerController::ControllerController(QObject *parent)
 
 ControllerController::~ControllerController()
 {
-    // Clean up button and knob text items
-    if (m_buttons) {
-        for (auto& b : *m_buttons) {
-            b.text = nullptr;
-            b.bgRect = nullptr;
-        }
-    }
-    
-    if (m_knobs) {
-        for (auto& k : *m_knobs) {
-            k.text = nullptr;
-        }
-    }
 }
 
 void ControllerController::init(usbDevMap* devices, 

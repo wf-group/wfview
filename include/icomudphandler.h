@@ -55,6 +55,7 @@ public slots:
 	void changeLatency(quint16 value);
 	void setVolume(quint8 value);
 	void init();
+    void shutdown();
 	void setCurrentRadio(quint8 radio);
     void getRxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
@@ -89,6 +90,7 @@ private:
 	bool sentPacketConnect2 = false;
 
 	bool radioInUse = false;
+    bool shutdownComplete = false;
 
 	quint16 controlPort;
 	quint16 civPort;

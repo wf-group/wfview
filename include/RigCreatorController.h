@@ -9,17 +9,13 @@
 #include <QVariantMap>
 #include <QQmlPropertyMap>
 #include <QAbstractTableModel>
+#include <QSortFilterProxyModel>
 #include <QClipboard>
-
-#include <QMessageBox>
-#include <QHeaderView>
 #include <QStandardPaths>
-#include <QColorDialog>
 #include "wfviewtypes.h"
 
 // Not sure if any of these are now needed?
 #include "rigidentities.h"
-#include "tablewidget.h"
 #include "cachingqueue.h"
 
 
@@ -538,8 +534,6 @@ private slots:
 
 
 private:
-    void closeEvent(QCloseEvent *event);
-
     QString currentFile;
     bool settingsChanged=false;
 

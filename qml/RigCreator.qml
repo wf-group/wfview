@@ -3,7 +3,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
-import Qt.labs.platform 1.1 as PLATFORM
+import QtQuick.Dialogs
 import WFVIEW 1.0
 
 
@@ -22,15 +22,14 @@ ApplicationWindow {
     }
 
     // File dialog to open a file
-    PLATFORM.FileDialog {
+    FileDialog {
         id: loadRigDialog
         title: "Open Rig File"
-        folder: PLATFORM.StandardPaths.writableLocation(PLATFORM.StandardPaths.AppDataLocation)+"/rigs"
+        currentFolder: rig.defaultRigsFolder()
         nameFilters: ["Rig Files (*.rig)"]
-        fileMode: PLATFORM.FileDialog.OpenFile
-        options: PLATFORM.FileDialog.DontUseNativeDialog
+        fileMode: FileDialog.OpenFile
         onAccepted: {
-            pendingFile = file
+            pendingFile = selectedFile
             rig.loading = true        // if writable, or via a method
             deferredLoad.start()
         }
@@ -40,31 +39,29 @@ ApplicationWindow {
         }
     }
 
-    PLATFORM.FileDialog {
+    FileDialog {
         id: saveRigDialog
         title: "Save Rig File"
-        folder: PLATFORM.StandardPaths.writableLocation(PLATFORM.StandardPaths.AppDataLocation)+"/rigs"
+        currentFolder: rig.defaultRigsFolder()
         nameFilters: ["Rig Files (*.rig)"]
-        fileMode: PLATFORM.FileDialog.SaveFile
-        options: PLATFORM.FileDialog.DontUseNativeDialog
+        fileMode: FileDialog.SaveFile
         onAccepted: {
-            rig.saveFile(file) // Pass selected file URL to the controller
+            rig.saveFile(selectedFile) // Pass selected file URL to the controller
         }
         onRejected: {
             console.log("Save dialog was canceled")
         }
     }
 
-    PLATFORM.FileDialog {
+    FileDialog {
         id: defaultRigDialog
-        folder: rig.defaultRigsFolder()
+        currentFolder: rig.defaultRigsFolder()
         title: "Select Rig Filename"
         nameFilters: ["Rig Files (*.rig)"]
-        fileMode: PLATFORM.FileDialog.OpenFile
-        options: PLATFORM.FileDialog.DontUseNativeDialog
+        fileMode: FileDialog.OpenFile
 
         onAccepted: {
-            pendingFile = file
+            pendingFile = selectedFile
             rig.loading = true        // if writable, or via a method
             deferredLoad.start()
         }
@@ -91,7 +88,7 @@ ApplicationWindow {
     }
 
 
-    PLATFORM.MessageDialog {
+    MessageDialog {
         id: msg;
     }
 
@@ -520,13 +517,13 @@ ApplicationWindow {
         property var _colorTargetCellData: null
         property string _colorCurrentString: "#ff000000"
 
-        PLATFORM.ColorDialog {
+        ColorDialog {
             id: colorDlg
-            color: panel.parseColor(panel._colorCurrentString)
-            options: PLATFORM.ColorDialog.ShowAlphaChannel
+            selectedColor: panel.parseColor(panel._colorCurrentString)
+            options: ColorDialog.ShowAlphaChannel
             onAccepted: {
                 if (!panel._colorTargetCellData) return
-                panel._colorTargetCellData.display = panel.toAARRGGBB(colorDlg.color)
+                panel._colorTargetCellData.display = panel.toAARRGGBB(colorDlg.selectedColor)
             }
         }
 

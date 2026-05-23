@@ -51,9 +51,40 @@ ApplicationWindow {
     }
 
     component SwitchRow: CheckBox {
+        id: switchRow
         property string key: ""
         checked: Boolean(win.opt(key, false))
         onToggled: win.setOpt(key, checked)
+
+        indicator: Rectangle {
+            implicitWidth: 16
+            implicitHeight: 16
+            x: switchRow.leftPadding
+            y: switchRow.topPadding + (switchRow.availableHeight - height) / 2
+            radius: 2
+            color: switchRow.enabled
+                   ? (switchRow.checked ? switchRow.palette.highlight : switchRow.palette.base)
+                   : switchRow.palette.mid
+            border.width: 1
+            border.color: switchRow.enabled ? switchRow.palette.text : switchRow.palette.mid
+
+            Label {
+                anchors.centerIn: parent
+                text: "X"
+                visible: switchRow.checked
+                color: switchRow.palette.highlightedText
+                font.bold: true
+                font.pixelSize: 11
+            }
+        }
+
+        contentItem: Label {
+            text: switchRow.text
+            font: switchRow.font
+            color: switchRow.enabled ? switchRow.palette.text : switchRow.palette.mid
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: switchRow.indicator.width + switchRow.spacing
+        }
     }
 
     component SliderRow: RowLayout {
@@ -149,7 +180,7 @@ ApplicationWindow {
         }
     }
 
-    component SpectrumBox: GroupBox {
+    component SpectrumBox: CollapsibleSection {
         id: box
         property var inputBins: []
         property var outputBins: []
@@ -162,7 +193,6 @@ ApplicationWindow {
         property bool processorEnabled: false
         readonly property bool spectrumEnabled: enableKey === "" || Boolean(win.opt(enableKey, false))
         Layout.fillWidth: true
-        Layout.preferredHeight: 250
 
         ColumnLayout {
             anchors.fill: parent
@@ -299,7 +329,7 @@ ApplicationWindow {
                         color: "#777"
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Noise Gate"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -315,7 +345,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Plugin Order"
                         Layout.fillWidth: true
                         ComboRow {
@@ -325,7 +355,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Gain"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -335,7 +365,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Compressor"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -348,7 +378,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Equalizer"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -385,7 +415,7 @@ ApplicationWindow {
                         outputBins: win.txOutBins
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Self-Monitor"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -398,7 +428,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Meters"
                         Layout.fillWidth: true
                         RowLayout {
@@ -431,7 +461,7 @@ ApplicationWindow {
                         color: "#777"
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Noise Reduction Algorithm"
                         Layout.fillWidth: true
                         RowLayout {
@@ -443,7 +473,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Speex DSP Noise Reduction"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -463,7 +493,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "ANR Noise Reduction"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -479,7 +509,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "RX Equalizer"
                         Layout.fillWidth: true
                         ColumnLayout {
@@ -510,7 +540,7 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Output Gain"
                         Layout.fillWidth: true
                         SliderRow { label: "Output gain"; key: "AudioProc.Rx.OutputGainDB"; from: -6; to: 20; step: 0.5; decimals: 1; suffix: " dB"; maxSliderWidth: 260 }
@@ -527,7 +557,7 @@ ApplicationWindow {
                         outputBins: win.rxOutBins
                     }
 
-                    GroupBox {
+                    CollapsibleSection {
                         title: "Meters"
                         Layout.fillWidth: true
                         RowLayout {

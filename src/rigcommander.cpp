@@ -617,7 +617,12 @@ void rigCommander::determineRigCaps()
         for (int c = 0; c < numScopeModes; c++)
         {
             settings->setArrayIndex(c);
-            rigCaps.scopeModes.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
+            const QString num = settings->value("Num", 0).toString();
+            quint8 value = static_cast<quint8>(num.toUInt());
+            if (rigCaps.manufacturer == manufYaesu && !num.isEmpty()) {
+                value = static_cast<quint8>(num.back().toLatin1());
+            }
+            rigCaps.scopeModes.push_back(genericType(value, settings->value("Name", 0).toString()));
         }
         std::sort(rigCaps.scopeModes.begin(), rigCaps.scopeModes.end(),
                   [](const genericType &a, const genericType &b) {

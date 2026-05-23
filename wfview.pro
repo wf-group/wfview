@@ -16,7 +16,7 @@ DEFINES += FLOATING_POINT
 DEFINES += USE_KISS_FFT
 DEFINES += "EXPORT="
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport websockets gui qml quick quickcontrols2 quickwidgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += websockets gui qml quick quickcontrols2
 
 contains(DEFINES,USB_CONTROLLER){
     lessThan(QT_MAJOR_VERSION, 6): QT += gamepad
@@ -177,9 +177,7 @@ CONFIG(debug, release|debug) {
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/DebugDLL/
-      LIBS += -L$$PWD/../qcustomplot/x64 -lqcustomplotd2
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/x64/qcustomplotd2.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
@@ -192,7 +190,6 @@ CONFIG(debug, release|debug) {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/win32/qcustomplotd2.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
@@ -209,7 +206,6 @@ CONFIG(debug, release|debug) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/X64/Release/ -lportaudio_x64
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/x64/qcustomplot2.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
@@ -221,7 +217,6 @@ CONFIG(debug, release|debug) {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../qcustomplot/win32/qcustomplot2.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
@@ -299,7 +294,6 @@ SOURCES += \
     src/audio/plugins/triple_para.cpp \
     src/audio/pocketfft/pocketfft.c \
     src/audio/resampler/resample.c \
-    src/audio/spectrumwidget.cpp \
     src/audio/txaudioprocessor.cpp \
     src/audio/rxaudioprocessor.cpp \
     src/audio/anr/loguru.cpp \
@@ -313,17 +307,12 @@ SOURCES += \
     src/audio/speexdspmini/src/kiss_fft.c \
     src/audio/speexdspmini/src/kiss_fftr.c \
     src/cachingqueue.cpp \
-    src/calibrationwindow.cpp \
-    src/clickablelabel.cpp \
     src/cluster.cpp \
-    src/collapsiblesection.cpp \
     src/commhandler.cpp \
-    src/controllersetup.cpp \
     src/cwsidetone.cpp \
     src/database.cpp \
     src/freqctrlquick.cpp \
     src/freqmemory.cpp \
-    src/frequencyinputwidget.cpp \
     src/ft4222handler.cpp \
     src/keyboard.cpp \
     src/logcategories.cpp \
@@ -344,20 +333,15 @@ SOURCES += \
     src/radio/yaesuudpcat.cpp \
     src/radio/yaesuudpcontrol.cpp \
     src/radio/yaesuudpscope.cpp \
-    src/repeatersetup.cpp \
     src/rigcommander.cpp \
     src/rigctld.cpp \
     src/rigidentities.cpp \
     src/rigserver.cpp \
     src/rtpaudio.cpp \
-    src/satellitesetup.cpp \
-    src/scrolltest.cpp \
     src/sidebandchooser.cpp \
     src/spectrumitem.cpp \
     src/tciserver.cpp \
     src/tcpserver.cpp \
-    src/txaudioprocessingwidget.cpp \
-    src/rxaudioprocessingwidget.cpp \
     src/usbcontroller.cpp \
     src/waterfallitem.cpp
 
@@ -395,21 +379,15 @@ HEADERS  += \
     include/audiohandlerrtoutput.h \
     include/audiohandlertciinput.h \
     include/audiohandlertcioutput.h \
-    include/audioprocessingwidget.h \
     include/audiotaper.h \
     include/bytering.h \
     include/cachingqueue.h \
-    include/calibrationwindow.h \
-    include/clickablelabel.h \
     include/cluster.h \
-    include/collapsiblesection.h \
     include/colorprefs.h \
     include/commhandler.h \
-    include/controllersetup.h \
     include/cwsidetone.h \
     include/database.h \
     include/freqmemory.h \
-    include/frequencyinputwidget.h \
     include/ft4222handler.h \
     include/icomcommander.h \
     include/icomserver.h \
@@ -426,22 +404,16 @@ HEADERS  += \
     include/printhex.h \
     include/pttyhandler.h \
     include/repeaterattributes.h \
-    include/repeatersetup.h \
     include/rigcommander.h \
     include/rigctld.h \
     include/rigidentities.h \
     include/rigserver.h \
     include/rigstate.h \
     include/rtpaudio.h \
-    include/rxaudioprocessingwidget.h \
     include/rxaudioprocessor.h \
-    include/satellitesetup.h \
-    include/scrolltest.h \
     include/sidebandchooser.h \
-    include/spectrumwidget.h \
     include/tciserver.h \
     include/tcpserver.h \
-    include/txaudioprocessingwidget.h \
     include/txaudioprocessor.h \
     include/usbcontroller.h \
     include/wfviewtypes.h \
@@ -460,13 +432,6 @@ HEADERS  += \
     src/audio/plugins/noisegate.h \
     src/audio/plugins/triple_para.h
 
-
-FORMS    += \
-    src/calibrationwindow.ui \
-    src/frequencyinputwidget.ui \
-    src/satellitesetup.ui \
-    src/repeatersetup.ui \
-    src/controllersetup.ui
 
 DISTFILES += \
     src/audio/adpcm/CMakeLists.txt \

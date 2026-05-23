@@ -1,7 +1,6 @@
 #ifndef CWSIDETONE_H
 #define CWSIDETONE_H
 
-#include <QApplication>
 #include <QAudioOutput>
 #include <QMap>
 #include <QScopedPointer>

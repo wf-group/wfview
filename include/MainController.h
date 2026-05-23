@@ -56,6 +56,18 @@ public:
     Q_PROPERTY(quint64 stepSize READ getStepSize WRITE setStepSize NOTIFY stepSizeChanged)
 
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)    
+    Q_PROPERTY(int txPower READ txPower WRITE setTxPower NOTIFY txPowerChanged)
+    Q_PROPERTY(int monitorGain READ monitorGain WRITE setMonitorGain NOTIFY monitorGainChanged)
+    Q_PROPERTY(int micGain READ micGain WRITE setMicGain NOTIFY micGainChanged)
+    Q_PROPERTY(int ritFrequency READ ritFrequency WRITE setRitFrequency NOTIFY ritFrequencyChanged)
+    Q_PROPERTY(bool transmitting READ transmitting WRITE setTransmit NOTIFY transmittingChanged)
+    Q_PROPERTY(bool tunerEnabled READ tunerEnabled WRITE setTunerEnabled NOTIFY tunerEnabledChanged)
+    Q_PROPERTY(bool ritEnabled READ ritEnabled WRITE setRitEnabled NOTIFY ritEnabledChanged)
+    Q_PROPERTY(bool dualScope READ dualScope WRITE setDualScope NOTIFY dualScopeChanged)
+    Q_PROPERTY(bool dualWatch READ dualWatch WRITE setDualWatch NOTIFY dualWatchChanged)
+    Q_PROPERTY(bool splitEnabled READ splitEnabled WRITE setSplitEnabled NOTIFY splitEnabledChanged)
+    Q_PROPERTY(bool compressorEnabled READ compressorEnabled WRITE setCompressorEnabled NOTIFY compressorEnabledChanged)
+    Q_PROPERTY(bool voxEnabled READ voxEnabled WRITE setVoxEnabled NOTIFY voxEnabledChanged)
 
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
     Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
@@ -136,6 +148,18 @@ public:
     quint64 getStepSize() { return stepSize;}
     void setStepSize(quint64 s);
     QVariantMap getUiSpecs() const { return uiSpecs; }
+    int txPower() const { return m_txPower; }
+    int monitorGain() const { return m_monitorGain; }
+    int micGain() const { return m_micGain; }
+    int ritFrequency() const { return m_ritFrequency; }
+    bool transmitting() const { return m_transmitting; }
+    bool tunerEnabled() const { return m_tunerEnabled; }
+    bool ritEnabled() const { return m_ritEnabled; }
+    bool dualScope() const { return m_dualScope; }
+    bool dualWatch() const { return m_dualWatch; }
+    bool splitEnabled() const { return m_splitEnabled; }
+    bool compressorEnabled() const { return m_compressorEnabled; }
+    bool voxEnabled() const { return m_voxEnabled; }
 
     MemoriesModel* memoriesModel() const { return m_memoriesModel; }
     bool slowLoad() const { return m_slowLoad; }
@@ -161,6 +185,28 @@ public:
     Q_INVOKABLE void ensureAudioProcessors();
     Q_INVOKABLE void startAnrNoiseProfile();
     Q_INVOKABLE void stopAnrNoiseProfile();
+    Q_INVOKABLE void powerOn();
+    Q_INVOKABLE void powerOff();
+    Q_INVOKABLE void toggleTransmit();
+    Q_INVOKABLE void tuneNow();
+    Q_INVOKABLE void setFrequencyLock(bool locked);
+    Q_INVOKABLE void selectMainSub();
+    Q_INVOKABLE void swapMainSub();
+    Q_INVOKABLE void equalizeMainSub();
+
+public slots:
+    void setTxPower(int value);
+    void setMonitorGain(int value);
+    void setMicGain(int value);
+    void setRitFrequency(int value);
+    void setTransmit(bool enabled);
+    void setTunerEnabled(bool enabled);
+    void setRitEnabled(bool enabled);
+    void setDualScope(bool enabled);
+    void setDualWatch(bool enabled);
+    void setSplitEnabled(bool enabled);
+    void setCompressorEnabled(bool enabled);
+    void setVoxEnabled(bool enabled);
 
 signals:
     void windowTitleChanged();
@@ -196,6 +242,18 @@ signals:
     void rxAudioMetersChanged(double input, double output);
     void audioProcessingBlocksChanged(quint64 txBlocks, quint64 rxBlocks);
     void audioProcessingSpectrumStateChanged(bool txEnabled, bool rxEnabled);
+    void txPowerChanged();
+    void monitorGainChanged();
+    void micGainChanged();
+    void ritFrequencyChanged();
+    void transmittingChanged();
+    void tunerEnabledChanged();
+    void ritEnabledChanged();
+    void dualScopeChanged();
+    void dualWatchChanged();
+    void splitEnabledChanged();
+    void compressorEnabledChanged();
+    void voxEnabledChanged();
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -268,6 +326,20 @@ private:
     bool m_txSpectrumEnabled = false;
     bool m_rxSpectrumEnabled = false;
     bool m_audioProcessorSignalsConnected = false;
+    int m_txPower = 0;
+    int m_monitorGain = 0;
+    int m_micGain = 0;
+    int m_ritFrequency = 0;
+    bool m_transmitting = false;
+    bool m_tunerEnabled = false;
+    bool m_ritEnabled = false;
+    bool m_dualScope = false;
+    bool m_dualWatch = false;
+    bool m_splitEnabled = false;
+    bool m_compressorEnabled = false;
+    bool m_voxEnabled = false;
+    uchar currentReceiver = 0;
+    bool freqLock = false;
 
 
     connectionStatus_t connStatus = connDisconnected;
