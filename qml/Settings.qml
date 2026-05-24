@@ -1421,7 +1421,6 @@ ApplicationWindow {
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 10
-                        enabled: window.connStatus === 2
 
                         RowLayout {
                             spacing: 8
@@ -1499,9 +1498,10 @@ ApplicationWindow {
                             Button {
                                 id: setClockBtn
                                 text: qsTr("Set Clock")
-                                enabled: false
+                                enabled: window.connStatus === 2
                                 ToolTip.visible: hovered
-                                ToolTip.text: qsTr("Manual radio clock sync has not been ported to QML yet.")
+                                ToolTip.text: qsTr("Set the radio clock at the next minute boundary.")
+                                onClicked: MainController.syncRadioClock()
                             }
                             CheckBox {
                                 id: useUTCChk
@@ -1509,7 +1509,12 @@ ApplicationWindow {
                                 checked: controller ? Boolean(controller.options["Radio.UseUTC"]) : false
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Set radio clock to UTC; otherwise uses local timezone.")
-                                onClicked: if (controller) controller.setOption("Radio.UseUTC", checked)
+                                onClicked: {
+                                    if (controller)
+                                        controller.setOption("Radio.UseUTC", checked)
+                                    if (window.connStatus === 2)
+                                        MainController.syncRadioClock()
+                                }
                             }
                             CheckBox {
                                 id: setRadioTimeChk
@@ -1536,9 +1541,9 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            Label { text: qsTr("Manual PTT Toggle") }
-                            Button { id: pttOnBtn; text: qsTr("PTT On"); onClicked: MainController.setTransmit(true) }
-                            Button { id: pttOffBtn; text: qsTr("PTT Off"); onClicked: MainController.setTransmit(false) }
+                            Label { text: qsTr("Manual PTT Toggle"); enabled: window.connStatus === 2 }
+                            Button { id: pttOnBtn; text: qsTr("PTT On"); enabled: window.connStatus === 2; onClicked: MainController.setTransmit(true) }
+                            Button { id: pttOffBtn; text: qsTr("PTT Off"); enabled: window.connStatus === 2; onClicked: MainController.setTransmit(false) }
                             Item { Layout.fillWidth: true }
                         }
 

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QThread>
+#include <QTimer>
 
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
@@ -219,6 +220,7 @@ public:
     Q_INVOKABLE int modSourceReg(int dataMode) const;
     Q_INVOKABLE bool modSourceSupported(int dataMode) const;
     Q_INVOKABLE void setModSource(int dataMode, int reg);
+    Q_INVOKABLE void syncRadioClock();
 
 public slots:
     void setTxPower(int value);
@@ -342,6 +344,8 @@ private:
     void setInitialTiming();
     void applyTxAudioProcPrefs(const txAudioProcessingPrefs& p);
     void applyRxAudioProcPrefs(const rxAudioProcessingPrefs& p);
+    void prepareRadioClockSync();
+    void sendRadioClockSync();
 
 
     QString windowTitle = "wfview";
@@ -400,6 +404,11 @@ private:
     bool m_voxEnabled = false;
     double m_optionalMeter2Level = 0.0;
     double m_optionalMeter3Level = 0.0;
+    QTimer radioClockSyncTimer;
+    timekind radioClockTime;
+    datekind radioClockDate;
+    timekind radioClockUtcOffset;
+    bool waitingToSetRadioClock = false;
     uchar currentReceiver = 0;
     bool freqLock = false;
 

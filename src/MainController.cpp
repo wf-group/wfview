@@ -1,6 +1,7 @@
 #include "MainController.h"
 
 #include "logcategories.h"
+#include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
 #include <QTimer>
@@ -55,6 +56,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(queue, &cachingQueue::finished, queue, &cachingQueue::deleteLater);
     // Make sure we know about any changes to rigCaps
     connect(queue, &cachingQueue::rigCapsUpdated, this, &MainController::receiveRigCaps);
+    radioClockSyncTimer.setSingleShot(true);
+    connect(&radioClockSyncTimer, &QTimer::timeout, this, &MainController::sendRadioClockSync);
 
     connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
@@ -1645,9 +1648,8 @@ void MainController::getInitialRigState()
         //ui->ritTuneDial->setRange(func.minVal,func.maxVal);
     }
 
-    if (rigCaps->commands.contains(funcTime) && prefs->setRadioTime) {
-        //setRadioTimeDatePrep();
-    }
+    if (rigCaps->commands.contains(funcTime) && prefs->setRadioTime)
+        prepareRadioClockSync();
 
     /*
     if (cw != nullptr)
@@ -3602,6 +3604,62 @@ void MainController::setRigModelName(const QString& modelName)
 
     m_rigModelName = modelName;
     emit rigModelNameChanged();
+}
+
+void MainController::syncRadioClock()
+{
+    prepareRadioClockSync();
+}
+
+void MainController::prepareRadioClockSync()
+{
+    if (!queue || !rigCaps || !rigCaps->commands.contains(funcTime)) {
+        setRadioStatusText(tr("Radio clock sync is not available for this connection."));
+        return;
+    }
+
+    if (waitingToSetRadioClock)
+        return;
+
+    const QDateTime now = prefs->useUTC ? QDateTime::currentDateTimeUtc() : QDateTime::currentDateTime();
+    const int msNow = now.time().second() * 1000 + now.time().msec();
+    const int delayMs = 60000 - msNow;
+    const QDateTime setpoint = now.addMSecs(delayMs);
+
+    radioClockTime.hours = static_cast<quint8>(setpoint.time().hour());
+    radioClockTime.minutes = static_cast<quint8>(setpoint.time().minute());
+
+    radioClockDate.day = static_cast<quint8>(setpoint.date().day());
+    radioClockDate.month = static_cast<quint8>(setpoint.date().month());
+    radioClockDate.year = static_cast<uint16_t>(setpoint.date().year());
+
+    const int utcOffsetSeconds = qAbs(setpoint.offsetFromUtc());
+    radioClockUtcOffset.hours = static_cast<quint8>(utcOffsetSeconds / 3600);
+    radioClockUtcOffset.minutes = static_cast<quint8>((utcOffsetSeconds % 3600) / 60);
+    radioClockUtcOffset.isMinus = setpoint.offsetFromUtc() < 0;
+
+    radioClockSyncTimer.start(delayMs);
+    waitingToSetRadioClock = true;
+    setRadioStatusText(tr("Setting radio clock at the next minute boundary."));
+}
+
+void MainController::sendRadioClockSync()
+{
+    if (!queue || !rigCaps) {
+        waitingToSetRadioClock = false;
+        return;
+    }
+
+    setRadioStatusText(tr("Setting radio clock now."));
+
+    if (rigCaps->commands.contains(funcUTCOffset))
+        queue->add(priorityImmediate, queueItem(funcUTCOffset, QVariant::fromValue<timekind>(radioClockUtcOffset)));
+    if (rigCaps->commands.contains(funcTime))
+        queue->add(priorityHighest, queueItem(funcTime, QVariant::fromValue<timekind>(radioClockTime)));
+    if (rigCaps->commands.contains(funcDate))
+        queue->add(priorityHighest, queueItem(funcDate, QVariant::fromValue<datekind>(radioClockDate)));
+
+    waitingToSetRadioClock = false;
 }
 
 void MainController::setStepSize(quint64 st)
