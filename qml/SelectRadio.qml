@@ -7,7 +7,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: selectRadioWindow
-    title: "Select Radio"
+    title: qsTr("Select Radio")
     width: 400
     height: 300
 
@@ -235,7 +235,7 @@ ApplicationWindow {
                 z: 2
 
                 Repeater {
-                    model: ["Name", "CIV", "Baudrate", "User", "IP"]
+                    model: [qsTr("Name"), qsTr("CIV"), qsTr("Baudrate"), qsTr("User"), qsTr("IP")]
                     Rectangle {
                         width: radioTable.width / 5
                         height: 25
@@ -302,7 +302,7 @@ ApplicationWindow {
             spacing: 20
 
             Label {
-                text: "AF Level:"
+                text: qsTr("AF Level:")
                 //color: "white"
             }
 
@@ -315,7 +315,7 @@ ApplicationWindow {
             }
 
             Label {
-                text: "Mod Level:"
+                text: qsTr("Mod Level:")
                 //color: "white"
             }
 
@@ -339,7 +339,7 @@ ApplicationWindow {
                 id: timeDifferenceChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: "UDP time difference"
+                title: qsTr("UDP time difference")
                 xAxis: timeXAxis
                 yAxis: timeYAxis
                 series: timeDifferenceSeries
@@ -354,7 +354,7 @@ ApplicationWindow {
                     id: timeYAxis
                     min: -10
                     max: 10
-                    titleText: "ms"
+                    titleText: qsTr("ms")
                 }
 
                 PlotSeries {
@@ -368,7 +368,7 @@ ApplicationWindow {
                 id: waterfallChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: "Waterfall plot time"
+                title: qsTr("Waterfall plot time")
                 xAxis: waterfallXAxis
                 yAxis: waterfallYAxis
                 series: waterfallSeries
@@ -383,7 +383,7 @@ ApplicationWindow {
                     id: waterfallYAxis
                     min: -10
                     max: 10
-                    titleText: "ms"
+                    titleText: qsTr("ms")
                 }
 
                 PlotSeries {
@@ -397,7 +397,7 @@ ApplicationWindow {
                 id: spectrumChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: "Spectrum plot time"
+                title: qsTr("Spectrum plot time")
                 xAxis: spectrumXAxis
                 yAxis: spectrumYAxis
                 series: spectrumSeries
@@ -412,7 +412,7 @@ ApplicationWindow {
                     id: spectrumYAxis
                     min: 0
                     max: 50
-                    titleText: "ms"
+                    titleText: qsTr("ms")
                 }
 
                 PlotSeries {
@@ -425,7 +425,7 @@ ApplicationWindow {
         // Cancel button
         Button {
             id: cancelButton
-            text: "Cancel"
+            text: qsTr("Cancel")
             Layout.alignment: Qt.AlignRight
             onClicked: {
                 if (selectRadioController) {

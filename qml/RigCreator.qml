@@ -9,7 +9,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: rigCreator
-    title: "Rig Creator"
+    title: qsTr("Rig Creator")
     RigCreatorController { id: rig }
 
     width: 1200
@@ -24,9 +24,9 @@ ApplicationWindow {
     // File dialog to open a file
     FileDialog {
         id: loadRigDialog
-        title: "Open Rig File"
+        title: qsTr("Open Rig File")
         currentFolder: rig.defaultRigsFolder()
-        nameFilters: ["Rig Files (*.rig)"]
+        nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.OpenFile
         onAccepted: {
             pendingFile = selectedFile
@@ -41,9 +41,9 @@ ApplicationWindow {
 
     FileDialog {
         id: saveRigDialog
-        title: "Save Rig File"
+        title: qsTr("Save Rig File")
         currentFolder: rig.defaultRigsFolder()
-        nameFilters: ["Rig Files (*.rig)"]
+        nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.SaveFile
         onAccepted: {
             rig.saveFile(selectedFile) // Pass selected file URL to the controller
@@ -56,8 +56,8 @@ ApplicationWindow {
     FileDialog {
         id: defaultRigDialog
         currentFolder: rig.defaultRigsFolder()
-        title: "Select Rig Filename"
-        nameFilters: ["Rig Files (*.rig)"]
+        title: qsTr("Select Rig Filename")
+        nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.OpenFile
 
         onAccepted: {
@@ -444,24 +444,24 @@ ApplicationWindow {
         Menu {
             id: ctxMenu
             MenuItem {
-                text: "Copy"
+                text: qsTr("Copy")
                 enabled: panel.ctxCellText.length > 0
                 onTriggered: Clipboard.text = panel.ctxCellText
             }
             MenuItem {
-                text: "Paste"
+                text: qsTr("Paste")
                 enabled: Clipboard.text.length > 0
                 onTriggered: panel.ctxCellData.display = Clipboard.text
             }
             MenuSeparator {}
 
             MenuItem {
-                text: "Add row"
+                text: qsTr("Add row")
                 onTriggered: panel.sourceModel.appendRow()
             }
 
             MenuItem {
-                text: "Delete row"
+                text: qsTr("Delete row")
                 enabled: panel.ctxRow >= 0
                 onTriggered: {
                     var srcRow = panel.model.mapRowToSource(panel.ctxRow)
@@ -853,22 +853,22 @@ ApplicationWindow {
             Layout.preferredHeight: 44
             spacing: 8
 
-            Button { text: "Load File"; onClicked: loadRigDialog.open() }
-            Button { text: "Save File"; onClicked: saveRigDialog.open() }
+            Button { text: qsTr("Load File"); onClicked: loadRigDialog.open() }
+            Button { text: qsTr("Save File"); onClicked: saveRigDialog.open() }
 
             Item { Layout.fillWidth: true } // spacer (like your horizontalSpacer_2)
 
-            Button { text: "Default Rigs"; onClicked: defaultRigDialog.open() }
+            Button { text: qsTr("Default Rigs"); onClicked: defaultRigDialog.open() }
 
-            Label { text: "Manufacturer" }
+            Label { text: qsTr("Manufacturer") }
             ComboBox {
                 id: manufacturer
                 Layout.preferredWidth: 180
 
                 model: [
-                    { text: "Icom",    value: 0 },
-                    { text: "Kenwood", value: 1 },
-                    { text: "Yaesu",   value: 2 }
+                    { text: qsTr("Icom"),    value: 0 },
+                    { text: qsTr("Kenwood"), value: 1 },
+                    { text: qsTr("Yaesu"),   value: 2 }
                 ]
                 textRole: "text"
                 valueRole: "value"
@@ -900,7 +900,7 @@ ApplicationWindow {
             }
 
 
-            Label { text: "Model" }
+            Label { text: qsTr("Model") }
             TextField {
                 id: modelField
                 Layout.preferredWidth: 220
@@ -908,7 +908,7 @@ ApplicationWindow {
                 onEditingFinished: rig.settings["Rig/Model"] = text
             }
 
-            Label { text: "C-IV Address" }
+            Label { text: qsTr("C-IV Address") }
             TextField {
                 id: civAddress
                 Layout.preferredWidth: 120
@@ -917,7 +917,7 @@ ApplicationWindow {
                 onEditingFinished: rig.settings["Rig/CIVAddress"] = text
             }
 
-            Label { text: "RigCtlD Model" }
+            Label { text: qsTr("RigCtlD Model") }
             TextField {
                 id: rigctldModel
                 Layout.preferredWidth: 90
@@ -963,13 +963,13 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Inputs"
+                                title: qsTr("Inputs")
                                 model: inputsProxy
                                 sourceModel: inputsModel
                                 columns: [
-                                  { title: "Num",  name: "Num",  width: 40 },
-                                  { title: "Reg",  name: "Reg",  width: 40 },
-                                  { title: "Name", name: "Name", width: 70 }
+                                  { title: qsTr("Num"),  name: "Num",  width: 40 },
+                                  { title: qsTr("Reg"),  name: "Reg",  width: 40 },
+                                  { title: qsTr("Name"), name: "Name", width: 70 }
                                 ]
                             }
                         }
@@ -981,12 +981,12 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Scope Modes"
+                                title: qsTr("Scope Modes")
                                 model: scopeModesProxy
                                 sourceModel: scopeModesModel
                                 columns: [
-                                  { title: "Num",  name: "Num",  width: 40 },
-                                  { title: "Name", name: "Name", width: 120 }
+                                  { title: qsTr("Num"),  name: "Num",  width: 40 },
+                                  { title: qsTr("Name"), name: "Name", width: 120 }
                                 ]
                             }
                         }
@@ -998,13 +998,13 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Widths"
+                                title: qsTr("Widths")
                                 model: widthsProxy
                                 sourceModel: widthsModel
                                 columns: [
-                                  { title: "Bands", name: "Bands", width: 40 },
-                                  { title: "Num",   name: "Num",   width: 40 },
-                                  { title: "Hz",    name: "Hz",    width: 80 }
+                                  { title: qsTr("Bands"), name: "Bands", width: 40 },
+                                  { title: qsTr("Num"),   name: "Num",   width: 40 },
+                                  { title: qsTr("Hz"),    name: "Hz",    width: 80 }
                                 ]
                             }
                         }
@@ -1016,15 +1016,15 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Modes"
+                                title: qsTr("Modes")
                                 model: modesProxy
                                 sourceModel: modesModel
                                 columns: [
-                                  { title: "Num",  name: "Num",  width: 40 },
-                                  { title: "Reg",  name: "Reg",  width: 40 },
-                                  { title: "Min",  name: "Min",  width: 50 },
-                                  { title: "Max",  name: "Max",  width: 50 },
-                                  { title: "Name", name: "Name", width: 80 }
+                                  { title: qsTr("Num"),  name: "Num",  width: 40 },
+                                  { title: qsTr("Reg"),  name: "Reg",  width: 40 },
+                                  { title: qsTr("Min"),  name: "Min",  width: 50 },
+                                  { title: qsTr("Max"),  name: "Max",  width: 50 },
+                                  { title: qsTr("Name"), name: "Name", width: 80 }
                                 ]
                             }
                         }
@@ -1038,20 +1038,20 @@ ApplicationWindow {
                             anchors.fill: parent
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
-                                title: "Commands"
+                                title: qsTr("Commands")
                                 model: commandsProxy
                                 sourceModel: commandsModel
                                 columns: [
-                                    { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
-                                    { title: "Command", name: "String",     width: 140 },
-                                    { title: "Min",     name: "Min",        width: 60  },
-                                    { title: "Max",     name: "Max",        width: 60  },
-                                    { title: "Bytes",   name: "Bytes",      width: 50  },
-                                    { title: "PadR",    name: "PadRight",   width: 50, editor: "bool" },
-                                    { title: "Cmd29",   name: "Command29",  width: 60, editor: "bool" },
-                                    { title: "Get",     name: "GetCommand", width: 40, editor: "bool" },
-                                    { title: "Set",     name: "SetCommand", width: 40, editor: "bool" },
-                                    { title: "Admin",   name: "Admin",      width: 60, editor: "bool" }
+                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: qsTr("Command"), name: "String",     width: 140 },
+                                    { title: qsTr("Min"),     name: "Min",        width: 60  },
+                                    { title: qsTr("Max"),     name: "Max",        width: 60  },
+                                    { title: qsTr("Bytes"),   name: "Bytes",      width: 50  },
+                                    { title: qsTr("PadR"),    name: "PadRight",   width: 50, editor: "bool" },
+                                    { title: qsTr("Cmd29"),   name: "Command29",  width: 60, editor: "bool" },
+                                    { title: qsTr("Get"),     name: "GetCommand", width: 40, editor: "bool" },
+                                    { title: qsTr("Set"),     name: "SetCommand", width: 40, editor: "bool" },
+                                    { title: qsTr("Admin"),   name: "Admin",      width: 60, editor: "bool" }
                                 ]
                             }
                         }
@@ -1063,23 +1063,23 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Bands"
+                                title: qsTr("Bands")
                                 model: bandsProxy
                                 sourceModel: bandsModel
                                 columns: [
-                                  { title: "Region", name: "Region",      width: 60 },
-                                  { title: "Num",    name: "Num",         width: 40 },
-                                  { title: "BSR",    name: "BSR",         width: 40 },
-                                  { title: "Start",  name: "Start",       width: 100 },
-                                  { title: "End",    name: "End",         width: 100 },
-                                  { title: "Range",  name: "Range",       width: 60 },
-                                  { title: "MemGrp", name: "MemoryGroup", width: 80 },
-                                  { title: "Name",   name: "Name",        width: 80 },
-                                  { title: "Bytes",  name: "Bytes",       width: 60 },
-                                  { title: "Power",  name: "Power",       width: 60 },
-                                  { title: "Ant",    name: "Antennas",    width: 40, editor: "bool" },
-                                  { title: "Offset", name: "Offset",      width: 80 },
-                                  { title: "Color",  name: "Color",       width: 100, editor: "color" }
+                                  { title: qsTr("Region"), name: "Region",      width: 60 },
+                                  { title: qsTr("Num"),    name: "Num",         width: 40 },
+                                  { title: qsTr("BSR"),    name: "BSR",         width: 40 },
+                                  { title: qsTr("Start"),  name: "Start",       width: 100 },
+                                  { title: qsTr("End"),    name: "End",         width: 100 },
+                                  { title: qsTr("Range"),  name: "Range",       width: 60 },
+                                  { title: qsTr("MemGrp"), name: "MemoryGroup", width: 80 },
+                                  { title: qsTr("Name"),   name: "Name",        width: 80 },
+                                  { title: qsTr("Bytes"),  name: "Bytes",       width: 60 },
+                                  { title: qsTr("Power"),  name: "Power",       width: 60 },
+                                  { title: qsTr("Ant"),    name: "Antennas",    width: 40, editor: "bool" },
+                                  { title: qsTr("Offset"), name: "Offset",      width: 80 },
+                                  { title: qsTr("Color"),  name: "Color",       width: 100, editor: "color" }
                                 ]
                             }
                         }
@@ -1091,13 +1091,13 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Tuning Steps"
+                                title: qsTr("Tuning Steps")
                                 model: tuningStepsProxy
                                 sourceModel: tuningStepsModel
                                 columns: [
-                                     { title: "Num",  name: "Num",  width: 40 },
-                                     { title: "Name", name: "Name", width: 100 },
-                                     { title: "Hz",   name: "Hz",   width: 80 }
+                                     { title: qsTr("Num"),  name: "Num",  width: 40 },
+                                     { title: qsTr("Name"), name: "Name", width: 100 },
+                                     { title: qsTr("Hz"),   name: "Hz",   width: 80 }
                                 ]
                             }
                         }
@@ -1109,20 +1109,20 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Periodic Commands"
+                                title: qsTr("Periodic Commands")
                                 model: periodicProxy
                                 sourceModel: periodicModel
                                 columns: [
-                                    { title: "Priority", name: "Priority", width: 140, editor: "combo", choices: [
-                                        { text: "Highest", value: "Highest" },
-                                        { text: "High", value: "High" },
-                                        { text: "Medium High", value: "Medium High" },
-                                        { text: "Medium", value: "Medium" },
-                                        { text: "Medium Low", value: "Medium Low" },
-                                        { text: "Low", value: "Low" }
+                                    { title: qsTr("Priority"), name: "Priority", width: 140, editor: "combo", choices: [
+                                        { text: qsTr("Highest"), value: "Highest" },
+                                        { text: qsTr("High"), value: "High" },
+                                        { text: qsTr("Medium High"), value: "Medium High" },
+                                        { text: qsTr("Medium"), value: "Medium" },
+                                        { text: qsTr("Medium Low"), value: "Medium Low" },
+                                        { text: qsTr("Low"), value: "Low" }
                                     ]},
-                                    { title: "Type",    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
-                                    { title: "VFO",     name: "VFO",     width: 40 }
+                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: qsTr("VFO"),     name: "VFO",     width: 40 }
                                 ]
                             }
                         }
@@ -1134,10 +1134,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Antennas";
+                                title: qsTr("Antennas");
                                 model: antennasProxy;
                                 sourceModel: antennasModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Name"), name: "Name", width: 80 }]
                             }
                         }
                     }
@@ -1148,10 +1148,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Attenuators";
+                                title: qsTr("Attenuators");
                                 model: attenuatorsProxy;
                                 sourceModel: attenuatorsModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Name"), name: "Name", width: 80 }]
                             }
                         }
                     }
@@ -1162,10 +1162,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Filters";
+                                title: qsTr("Filters");
                                 model: filtersProxy
                                 sourceModel: filtersModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Modes", name: "Modes", width: 50 }, { title: "Name", name: "Name", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Modes"), name: "Modes", width: 50 }, { title: qsTr("Name"), name: "Name", width: 80 }]
                             }
                         }
                     }
@@ -1176,10 +1176,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Spans"
+                                title: qsTr("Spans")
                                 model: spansProxy
                                 sourceModel: spansModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }, { title: "Freq", name: "Freq", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Name"), name: "Name", width: 80 }, { title: qsTr("Freq"), name: "Freq", width: 80 }]
                             }
                         }
                     }
@@ -1190,10 +1190,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Preamps"
+                                title: qsTr("Preamps")
                                 model: preampsProxy
                                 sourceModel: preampsModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Name"), name: "Name", width: 80 }]
                             }
                         }
                     }
@@ -1204,11 +1204,11 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "CTCSS";
+                                title: qsTr("CTCSS");
                                 model: ctcssProxy
                                 sourceModel: ctcssModel
                                 columns: [
-                                { title: "Reg", name: "Reg", width: 40 }, { title: "Tone", name: "Tone", width: 70, format: "fixed1" }]
+                                { title: qsTr("Reg"), name: "Reg", width: 40 }, { title: qsTr("Tone"), name: "Tone", width: 70, format: "fixed1" }]
                             }
                         }
                     }
@@ -1219,10 +1219,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "DTCS";
+                                title: qsTr("DTCS");
                                 model: dtcsProxy
                                 sourceModel: dtcsModel
-                                columns: [{ title: "Reg", name: "Reg", width: 80 }]
+                                columns: [{ title: qsTr("Reg"), name: "Reg", width: 80 }]
                             }
                         }
                     }
@@ -1233,14 +1233,14 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Meters";
+                                title: qsTr("Meters");
                                 model: metersProxy
                                 sourceModel: metersModel
                                 columns: [
-                                    { title: "Meter", name: "Meter", width: 80 },
-                                    { title: "Rig", name: "RigVal", width: 60 },
-                                    { title: "Act", name: "ActualVal", width: 60 },
-                                    { title: "Red", name: "RedLine", width: 40, editor: "bool" }
+                                    { title: qsTr("Meter"), name: "Meter", width: 80 },
+                                    { title: qsTr("Rig"), name: "RigVal", width: 60 },
+                                    { title: qsTr("Act"), name: "ActualVal", width: 60 },
+                                    { title: qsTr("Red"), name: "RedLine", width: 40, editor: "bool" }
                                 ]
                             }
                         }
@@ -1252,10 +1252,10 @@ ApplicationWindow {
                             active: rigCreator.visible && !rig.loading
                             sourceComponent: TablePanel {
                                 anchors.fill: parent
-                                title: "Roofing";
+                                title: qsTr("Roofing");
                                 model: roofingProxy
                                 sourceModel: roofingModel
-                                columns: [{ title: "Num", name: "Num", width: 40 }, { title: "Name", name: "Name", width: 80 }]
+                                columns: [{ title: qsTr("Num"), name: "Num", width: 40 }, { title: qsTr("Name"), name: "Name", width: 80 }]
                             }
                         }
                     }
@@ -1276,17 +1276,17 @@ ApplicationWindow {
                     SettingsPanel {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 220
-                        title: "Features"
+                        title: qsTr("Features")
                         ColumnLayout {
                             anchors.fill: parent
                             spacing: 4
-                            CheckBox { text: "Has Spectrum"; checked: (rig.settings["Rig/HasSpectrum"] ?? false); onToggled: rig.settings["Rig/HasSpectrum"] = checked }
-                            CheckBox { text: "Has LAN";      checked: (rig.settings["Rig/HasLAN"] ?? false);      onToggled: rig.settings["Rig/HasLAN"] = checked }
-                            CheckBox { text: "Has Ethernet"; checked: (rig.settings["Rig/HasEthernet"] ?? false); onToggled: rig.settings["Rig/HasEthernet"] = checked }
-                            CheckBox { text: "Has WiFi";     checked: (rig.settings["Rig/HasWiFi"] ?? false);     onToggled: rig.settings["Rig/HasWiFi"] = checked }
-                            CheckBox { text: "Has Transmit"; checked: (rig.settings["Rig/HasTransmit"] ?? false); onToggled: rig.settings["Rig/HasTransmit"] = checked }
-                            CheckBox { text: "Has FD Comms"; checked: (rig.settings["Rig/HasFDComms"] ?? false);  onToggled: rig.settings["Rig/HasFDComms"] = checked }
-                            CheckBox { text: "Has Cmd 29";   checked: (rig.settings["Rig/HasCommand29"] ?? false);onToggled: rig.settings["Rig/HasCommand29"] = checked }
+                            CheckBox { text: qsTr("Has Spectrum"); checked: (rig.settings["Rig/HasSpectrum"] ?? false); onToggled: rig.settings["Rig/HasSpectrum"] = checked }
+                            CheckBox { text: qsTr("Has LAN");      checked: (rig.settings["Rig/HasLAN"] ?? false);      onToggled: rig.settings["Rig/HasLAN"] = checked }
+                            CheckBox { text: qsTr("Has Ethernet"); checked: (rig.settings["Rig/HasEthernet"] ?? false); onToggled: rig.settings["Rig/HasEthernet"] = checked }
+                            CheckBox { text: qsTr("Has WiFi");     checked: (rig.settings["Rig/HasWiFi"] ?? false);     onToggled: rig.settings["Rig/HasWiFi"] = checked }
+                            CheckBox { text: qsTr("Has Transmit"); checked: (rig.settings["Rig/HasTransmit"] ?? false); onToggled: rig.settings["Rig/HasTransmit"] = checked }
+                            CheckBox { text: qsTr("Has FD Comms"); checked: (rig.settings["Rig/HasFDComms"] ?? false);  onToggled: rig.settings["Rig/HasFDComms"] = checked }
+                            CheckBox { text: qsTr("Has Cmd 29");   checked: (rig.settings["Rig/HasCommand29"] ?? false);onToggled: rig.settings["Rig/HasCommand29"] = checked }
                             Item { Layout.fillHeight: true }
                         }
                     }
@@ -1294,33 +1294,33 @@ ApplicationWindow {
                     SettingsPanel {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 190
-                        title: "Spectrum"
+                        title: qsTr("Spectrum")
                         GridLayout {
                             anchors.fill: parent
                             columns: 2
                             columnSpacing: 8
                             rowSpacing: 6
-                            Label { text: "Num RX" }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/NumberOfReceivers"] ?? "0"; onEditingFinished: rig.settings["Rig/NumberOfReceivers"] = text }
-                            Label { text: "VFO/RX" }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/NumberOfVFOs"] ?? "0";      onEditingFinished: rig.settings["Rig/NumberOfVFOs"] = text }
-                            Label { text: "Seq Max" }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumSeqMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumSeqMax"] = text }
-                            Label { text: "Amp Max" }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumAmpMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumAmpMax"] = text }
-                            Label { text: "Len Max" }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumLenMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumLenMax"] = text }
+                            Label { text: qsTr("Num RX") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/NumberOfReceivers"] ?? "0"; onEditingFinished: rig.settings["Rig/NumberOfReceivers"] = text }
+                            Label { text: qsTr("VFO/RX") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/NumberOfVFOs"] ?? "0";      onEditingFinished: rig.settings["Rig/NumberOfVFOs"] = text }
+                            Label { text: qsTr("Seq Max") }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumSeqMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumSeqMax"] = text }
+                            Label { text: qsTr("Amp Max") }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumAmpMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumAmpMax"] = text }
+                            Label { text: qsTr("Len Max") }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumLenMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumLenMax"] = text }
                         }
                     }
 
                     SettingsPanel {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 170
-                        title: "Memories"
+                        title: qsTr("Memories")
                         GridLayout {
                             anchors.fill: parent
                             columns: 2
                             columnSpacing: 8
                             rowSpacing: 6
-                            Label { text: "Grp" }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/MemGroups"] ?? "0";   onEditingFinished: rig.settings["Rig/MemGroups"] = text }
-                            Label { text: "Mem" }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/Memories"] ?? "0";    onEditingFinished: rig.settings["Rig/Memories"] = text }
-                            Label { text: "Sat" }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SatMemories"] ?? "0"; onEditingFinished: rig.settings["Rig/SatMemories"] = text }
-                            Label { text: "Start" } TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/MemStart"] ?? "0";    onEditingFinished: rig.settings["Rig/MemStart"] = text }
+                            Label { text: qsTr("Grp") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/MemGroups"] ?? "0";   onEditingFinished: rig.settings["Rig/MemGroups"] = text }
+                            Label { text: qsTr("Mem") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/Memories"] ?? "0";    onEditingFinished: rig.settings["Rig/Memories"] = text }
+                            Label { text: qsTr("Sat") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SatMemories"] ?? "0"; onEditingFinished: rig.settings["Rig/SatMemories"] = text }
+                            Label { text: qsTr("Start") } TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/MemStart"] ?? "0";    onEditingFinished: rig.settings["Rig/MemStart"] = text }
                         }
                     }
 
@@ -1338,19 +1338,19 @@ ApplicationWindow {
 
             RowLayout {
                 Layout.fillWidth: true
-                Label { text: "Main Memory Format" }
+                Label { text: qsTr("Main Memory Format") }
                 TextField {
                     Layout.fillWidth: true
                     text: rig.settings["Rig/MemFormat"] ?? "0"
                     onEditingFinished: rig.settings["Rig/MemFormat"] = text
                     ToolTip.visible: hovered
-                    ToolTip.text: "See your QWidget tooltip text (keep it in docs/help)."
+                    ToolTip.text: qsTr("See your QWidget tooltip text (keep it in docs/help).")
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                Label { text: "Satellite Memory Format" }
+                Label { text: qsTr("Satellite Memory Format") }
                 TextField {
                     Layout.fillWidth: true
                     text: rig.settings["Rig/SatFormat"] ?? "0"
@@ -1365,7 +1365,7 @@ ApplicationWindow {
             Layout.preferredHeight: 44
             spacing: 8
             Item { Layout.fillWidth: true }
-            Button { text: "Close"; onClicked: rigCreator.close() }
+            Button { text: qsTr("Close"); onClicked: rigCreator.close() }
         }
     }
 }

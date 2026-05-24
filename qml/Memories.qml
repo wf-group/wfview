@@ -379,7 +379,7 @@ ApplicationWindow {
                                 }
 
                                 Label {
-                                    text: "Saving..."
+                                    text: qsTr("Saving...")
                                     font.italic: true
                                     font.bold: true
                                     color: palette.highlightedText
@@ -562,7 +562,7 @@ ApplicationWindow {
     PLATFORM.FileDialog {
         id: csvImportDialog
         title: qsTr("Select CSV file to import")
-        nameFilters: ["CSV files (*.csv)"]
+        nameFilters: [qsTr("CSV files (*.csv)")]
         fileMode: PLATFORM.FileDialog.OpenFile
         onAccepted: {
             memoriesModel.importCSV(selectedFile.toString().replace("file:///", ""),
@@ -573,7 +573,7 @@ ApplicationWindow {
     PLATFORM.FileDialog {
         id: csvExportDialog
         title: qsTr("Select CSV file to export")
-        nameFilters: ["CSV files (*.csv)"]
+        nameFilters: [qsTr("CSV files (*.csv)")]
         fileMode: PLATFORM.FileDialog.SaveFile
         onAccepted: {
             memoriesModel.exportCSV(selectedFile.toString().replace("file:///", ""),

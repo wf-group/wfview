@@ -17,6 +17,7 @@
 #include <QTranslator>
 #include <QDir>
 #include <QFile>
+#include <QLocale>
 #endif
 
 #ifdef Q_OS_WIN
@@ -276,26 +277,17 @@ int main(int argc, char *argv[])
         .arg(GITSHORT).arg(__DATE__).arg(__TIME__).arg(UNAME).arg(HOST)
         .arg(QSysInfo::prettyProductName()).arg(QSysInfo::buildCpuArchitecture())
         .arg(QT_VERSION_STR).arg(qVersion());
+#endif
 
-    // Translator doesn't really make sense for wfserver right now.
-    QTranslator myappTranslator;
-    qDebug() << "Current translation language: " << myappTranslator.language();
-
-    bool trResult = myappTranslator.load(QLocale(), QLatin1String("wfview"), QLatin1String("_"), QLatin1String(":/translations"));
-    if(trResult) {
-        qDebug() << "Recognized requested language and loaded the translations (or at least found the /translations resource folder). Installing translator.";
-        a.installTranslator(&myappTranslator);
-    } else {
-        qDebug() << "Could not load translation.";
-    }
-
-    qDebug() << "Changed to translation language: " << myappTranslator.language();
+    bool showVersion = false;
+#ifndef BUILD_WFSERVER
+    QString languageOverride = qEnvironmentVariable("WFVIEW_LANGUAGE");
 #endif
 
     for(int c=1; c<argc; c++)
     {
         //qInfo() << "Argc: " << c << " argument: " << argv[c];
-        currentArg = QString(argv[c]);
+        currentArg = QString::fromLocal8Bit(argv[c]);
 
         if ((currentArg == "-d") || (currentArg == "--debug"))
         {
@@ -317,6 +309,24 @@ int main(int argc, char *argv[])
                 c += 1;
             }
         }
+#ifndef BUILD_WFSERVER
+        else if ((currentArg == "--language") || (currentArg == "--locale"))
+        {
+            if (c + 1 < argc)
+            {
+                languageOverride = QString::fromLocal8Bit(argv[c + 1]);
+                c += 1;
+            }
+        }
+        else if (currentArg.startsWith(QLatin1String("--language=")))
+        {
+            languageOverride = currentArg.mid(QStringLiteral("--language=").size());
+        }
+        else if (currentArg.startsWith(QLatin1String("--locale=")))
+        {
+            languageOverride = currentArg.mid(QStringLiteral("--locale=").size());
+        }
+#endif
         else if ((currentArg == "-c") || (currentArg == "--clearconfig"))
         {
             if (argc > c)
@@ -373,8 +383,7 @@ int main(int argc, char *argv[])
         }
         else if ((currentArg == "-v") || (currentArg == "--version"))
         {
-            std::cout << version.toStdString();
-            return 0;
+            showVersion = true;
 	}
         else {
             std::cout << "Unrecognized option: " << currentArg.toStdString();
@@ -382,6 +391,30 @@ int main(int argc, char *argv[])
             return -1;
         }
 
+    }
+
+#ifndef BUILD_WFSERVER
+    // Translator doesn't really make sense for wfserver right now.
+    QTranslator myappTranslator;
+    qDebug() << "Current translation language: " << myappTranslator.language();
+
+    const QLocale requestedLocale = languageOverride.isEmpty() ? QLocale() : QLocale(languageOverride);
+    qDebug() << "Requested translation locale:" << requestedLocale.name();
+
+    bool trResult = myappTranslator.load(requestedLocale, QLatin1String("wfview"), QLatin1String("_"), QLatin1String(":/translations"));
+    if(trResult) {
+        qDebug() << "Recognized requested language and loaded the translations (or at least found the /translations resource folder). Installing translator.";
+        a.installTranslator(&myappTranslator);
+    } else {
+        qDebug() << "Could not load translation.";
+    }
+
+    qDebug() << "Changed to translation language: " << myappTranslator.language();
+#endif
+
+    if (showVersion) {
+        std::cout << version.toStdString();
+        return 0;
     }
 
 #ifdef BUILD_WFSERVER

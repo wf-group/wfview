@@ -6,7 +6,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: firstTimeSetupWindow
-    title: "First Time Setup"
+    title: qsTr("First Time Setup")
     width: 518
     height: 443
 

@@ -67,7 +67,7 @@ ApplicationWindow {
 
             Label {
                 anchors.centerIn: parent
-                text: "Double-click to add meter"
+                text: qsTr("Double-click to add meter")
                 color: win.palette.windowText
             }
         }
@@ -91,7 +91,7 @@ ApplicationWindow {
                     model: MainController.optionalMeterOptions()
                     Button {
                         Layout.fillWidth: true
-                        text: modelData.text === "" ? "None" : modelData.text
+                        text: modelData.text === "" ? qsTr("None") : modelData.text
                         enabled: modelData.available
                         checkable: true
                         checked: optionalMeterSlot.meterChoice === modelData.value
@@ -421,7 +421,7 @@ ApplicationWindow {
                         ApplicationWindow {
                             id: detachedWin
                             visible: false
-                            title: "Receiver " + (index + 1)
+                            title: qsTr("Receiver %1").arg(index + 1)
                             width: 900
                             height: 500
                             color: palette.window
@@ -517,8 +517,8 @@ ApplicationWindow {
                     Item { Layout.fillHeight: true }
 
                     RowLayout {
-                        Button { text: "Power On"; onClicked: MainController.powerOn() }
-                        Button { text: "Power Off"; onClicked: MainController.powerOff() }
+                        Button { text: qsTr("Power On"); onClicked: MainController.powerOn() }
+                        Button { text: qsTr("Power Off"); onClicked: MainController.powerOff() }
                     }
                 }
 
@@ -596,7 +596,7 @@ ApplicationWindow {
 
                     CheckBox {
                         id: tuneLockChk
-                        text: "F Lock"
+                        text: qsTr("F Lock")
                         onToggled: MainController.setFrequencyLock(checked)
                     }
 
@@ -616,7 +616,7 @@ ApplicationWindow {
                         }
                         CheckBox {
                             id: ritEnableChk
-                            text: "RIT"
+                            text: qsTr("RIT")
                             checked: MainController.ritEnabled
                             enabled: mainControlSpecs.canRit ?? false
                             onToggled: MainController.ritEnabled = checked
@@ -648,7 +648,7 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: "Vol"; horizontalAlignment: Text.AlignHCenter }
+                            Label { text: qsTr("Vol"); horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
                             Slider {
@@ -667,7 +667,7 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: "TX"; horizontalAlignment: Text.AlignHCenter }
+                            Label { text: qsTr("TX"); horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
                             Slider {
@@ -686,7 +686,7 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: "Mon"; horizontalAlignment: Text.AlignHCenter }
+                            Label { text: qsTr("Mon"); horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
                             Slider {
@@ -705,7 +705,7 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: "Mic"; horizontalAlignment: Text.AlignHCenter }
+                            Label { text: qsTr("Mic"); horizontalAlignment: Text.AlignHCenter }
                         }
                     }
                 }
@@ -716,7 +716,7 @@ ApplicationWindow {
                     spacing: 6
 
                     Button {
-                        text: MainController.transmitting ? "Receive" : "Transmit"
+                        text: MainController.transmitting ? qsTr("Receive") : qsTr("Transmit")
                         Layout.preferredHeight: 50
                         checkable: true
                         checked: MainController.transmitting
@@ -724,30 +724,30 @@ ApplicationWindow {
                         onClicked: MainController.toggleTransmit()
                     }
                     CheckBox {
-                        text: "Enable ATU"
+                        text: qsTr("Enable ATU")
                         checked: MainController.tunerEnabled
                         enabled: mainControlSpecs.canTune ?? false
                         onToggled: MainController.tunerEnabled = checked
                     }
                     Button {
-                        text: "Tune"
+                        text: qsTr("Tune")
                         enabled: mainControlSpecs.canTune ?? false
                         onClicked: MainController.tuneNow()
                     }
                     Button {
-                        text: "CW"
+                        text: qsTr("CW")
                         enabled: (connStatus === 2) // Only enable button if connected
                         onClicked: MainController.cwSender.visible = true
                     }
 
                     Button {
-                        text: "Rpt/Split"
+                        text: qsTr("Rpt/Split")
                         enabled: false
                         ToolTip.visible: hovered
-                        ToolTip.text: "Repeater setup has not been ported to QML yet."
+                        ToolTip.text: qsTr("Repeater setup has not been ported to QML yet.")
                     }
                     Button {
-                        text: "Memories"
+                        text: qsTr("Memories")
                         enabled: (connStatus === 2) // Only enable button if connected
                         onClicked: {
                             MainController.openMemories()
@@ -762,7 +762,7 @@ ApplicationWindow {
                     spacing: 6
 
                     GroupBox {
-                        title: "Scope Settings"
+                        title: qsTr("Scope Settings")
                         Layout.fillWidth: true
 
                         GridLayout {
@@ -771,21 +771,21 @@ ApplicationWindow {
                             columnSpacing: 6
 
                             Button {
-                                text: "Dual Scope"
+                                text: qsTr("Dual Scope")
                                 checkable: true
                                 checked: MainController.dualScope
                                 enabled: mainControlSpecs.canDualScope ?? false
                                 onToggled: MainController.dualScope = checked
                             }
                             Button {
-                                text: "Dual Watch"
+                                text: qsTr("Dual Watch")
                                 checkable: true
                                 checked: MainController.dualWatch
                                 enabled: mainControlSpecs.canDualWatch ?? false
                                 onToggled: MainController.dualWatch = checked
                             }
                             Button {
-                                text: "Split"
+                                text: qsTr("Split")
                                 checkable: true
                                 checked: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
@@ -793,17 +793,17 @@ ApplicationWindow {
                             }
 
                             Button {
-                                text: "Main/Sub"
+                                text: qsTr("Main/Sub")
                                 enabled: mainControlSpecs.canMainSub ?? false
                                 onClicked: MainController.selectMainSub()
                             }
                             Button {
-                                text: "Main<>Sub"
+                                text: qsTr("Main<>Sub")
                                 enabled: mainControlSpecs.canSwapMainSub ?? false
                                 onClicked: MainController.swapMainSub()
                             }
                             Button {
-                                text: "Main=Sub"
+                                text: qsTr("Main=Sub")
                                 enabled: mainControlSpecs.canEqualMainSub ?? false
                                 onClicked: MainController.equalizeMainSub()
                             }
@@ -811,20 +811,20 @@ ApplicationWindow {
                     }
 
                     GroupBox {
-                        title: "Other Controls"
+                        title: qsTr("Other Controls")
                         Layout.fillWidth: true
 
                         ColumnLayout {
                             spacing: 3
                             RowLayout {
                                 CheckBox {
-                                    text: "CMP"
+                                    text: qsTr("CMP")
                                     checked: MainController.compressorEnabled
                                     enabled: mainControlSpecs.canCompressor ?? false
                                     onToggled: MainController.compressorEnabled = checked
                                 }
                                 CheckBox {
-                                    text: "VOX"
+                                    text: qsTr("VOX")
                                     checked: MainController.voxEnabled
                                     enabled: mainControlSpecs.canVox ?? false
                                     onToggled: MainController.voxEnabled = checked
@@ -852,32 +852,32 @@ ApplicationWindow {
                 spacing: 6
 
                 Button {
-                    text: "About"
+                    text: qsTr("About")
                     onClicked: aboutDialog.open()
                 }
                 Button {
-                    text: "Settings"
+                    text: qsTr("Settings")
                     onClicked: settings.show()
                 }
                 Button {
-                    text: "TX Audio Proc"
+                    text: qsTr("TX Audio Proc")
                     onClicked: showTxAudioProcessing()
                 }
                 Button {
-                    text: "RX Audio Proc"
+                    text: qsTr("RX Audio Proc")
                     onClicked: showRxAudioProcessing()
                 }
                 Button {
-                    text: "Save Settings"
+                    text: qsTr("Save Settings")
                     onClicked: MainController.settings.save()
                 }
 
                 Button {
-                    text: "Radio Status"
+                    text: qsTr("Radio Status")
                     onClicked: MainController.selectRadio.visible = true
                 }
                 Button {
-                    text: "Log"
+                    text: qsTr("Log")
                     onClicked: {
                         loggingWindow.show()
                         loggingWindow.raise()
@@ -885,17 +885,17 @@ ApplicationWindow {
                     }
                 }
                 Button {
-                    text: "Bands"
+                    text: qsTr("Bands")
                     onClicked: openActiveReceiverBands()
                 }
                 Button {
-                    text: "Frequency"
+                    text: qsTr("Frequency")
                     enabled: false
                     ToolTip.visible: hovered
-                    ToolTip.text: "Frequency input has not been ported to QML yet."
+                    ToolTip.text: qsTr("Frequency input has not been ported to QML yet.")
                 }
                 Button {
-                    text: "Rig Creator"
+                    text: qsTr("Rig Creator")
                     onClicked: {
                         const w = rigCreatorComponent.createObject(null)
                         if (w) w.show()
@@ -906,17 +906,17 @@ ApplicationWindow {
 
                 Button {
                     text: (connStatus === 0) ?
-                              "Connect to Radio" :
+                              qsTr("Connect to Radio") :
                               (connStatus === 1) ?
-                              "Cancel Connection" :
+                              qsTr("Cancel Connection") :
                               (connStatus === 2) ?
-                              "Disconnect from Radio" : "Unknown status!"
+                              qsTr("Disconnect from Radio") : qsTr("Unknown status!")
                     onClicked: MainController.connectionHandler()
                 }
 
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_9)
 
-                Button { text: "Exit Program"; onClicked: Qt.quit() }
+                Button { text: qsTr("Exit Program"); onClicked: Qt.quit() }
             }
         }
     }
@@ -925,7 +925,7 @@ ApplicationWindow {
     footer: ToolBar {
         RowLayout {
             anchors.fill: parent
-            Label { text: "memoriesActive: " + (MainController && MainController.memoriesModel ? MainController.memoriesModel.memoryModeActive : false) }
+            Label { text: qsTr("memoriesActive: ") + (MainController && MainController.memoriesModel ? MainController.memoriesModel.memoryModeActive : false) }
             //Label { text: rig.statusText ?? "" }
             Item { Layout.fillWidth: true }
             //Label { text: audio.statusText ?? "" }
@@ -937,7 +937,7 @@ ApplicationWindow {
         id: aboutDialog
         width: 700
         height: 621
-        title: "About wfview"
+        title: qsTr("About wfview")
         modal: true
         anchors.centerIn: parent
 

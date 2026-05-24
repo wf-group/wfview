@@ -67,7 +67,7 @@ Item {
     Label {
         id: noControllersLabel
         anchors.centerIn: parent
-        text: "No USB controller found"
+        text: qsTr("No USB controller found")
         color: palette.mid
         font.pixelSize: 16
         visible: controllerTabBar.count === 0
@@ -102,12 +102,12 @@ Item {
         visible: controllerTabBar.count > 0
 
         Button {
-            text: "Backup"
+            text: qsTr("Backup")
             onClicked: backupDialog.open()
         }
 
         Button {
-            text: "Restore"
+            text: qsTr("Restore")
             onClicked: restoreDialog.open()
         }
 
@@ -162,7 +162,7 @@ Item {
                     spacing: 10
 
                     Label {
-                        text: deviceTab.connected ? "Connected" : "Not Connected"
+                        text: deviceTab.connected ? qsTr("Connected") : qsTr("Not Connected")
                         color: deviceTab.connected ? "green" : "red"
                         font.bold: true
                     }
@@ -172,7 +172,7 @@ Item {
                     }
 
                     CheckBox {
-                        text: "Disable"
+                        text: qsTr("Disable")
                         checked: deviceTab.disabled
                         onCheckedChanged: {
                             if (root.controllerController)
@@ -189,7 +189,7 @@ Item {
                     spacing: 4
 
                     Label {
-                        text: "Page"
+                        text: qsTr("Page")
                         visible: deviceTab.totalPages > 1
                     }
 
@@ -206,7 +206,7 @@ Item {
                     }
 
                     Label {
-                        text: "Pages"
+                        text: qsTr("Pages")
                     }
 
                     SpinBox {
@@ -221,7 +221,7 @@ Item {
                     }
 
                     Label {
-                        text: "Sensitivity"
+                        text: qsTr("Sensitivity")
                         visible: deviceTab.showSensitivity
                     }
 
@@ -239,14 +239,14 @@ Item {
                     }
 
                     Label {
-                        text: "Brightness"
+                        text: qsTr("Brightness")
                         visible: deviceTab.showBrightness
                     }
 
                     ComboBox {
                         Layout.preferredWidth: 90
                         visible: deviceTab.showBrightness
-                        model: ["Off", "Low", "Medium", "High"]
+                        model: [qsTr("Off"), qsTr("Low"), qsTr("Medium"), qsTr("High")]
                         currentIndex: Math.max(0, Math.min(count - 1, deviceTab.brightness))
                         onActivated: {
                             if (root.controllerController)
@@ -255,14 +255,14 @@ Item {
                     }
 
                     Label {
-                        text: "Speed"
+                        text: qsTr("Speed")
                         visible: deviceTab.showSpeed
                     }
 
                     ComboBox {
                         Layout.preferredWidth: 104
                         visible: deviceTab.showSpeed
-                        model: ["Fastest", "Faster", "Normal", "Slower", "Slowest"]
+                        model: [qsTr("Fastest"), qsTr("Faster"), qsTr("Normal"), qsTr("Slower"), qsTr("Slowest")]
                         currentIndex: Math.max(0, Math.min(count - 1, deviceTab.speed))
                         onActivated: {
                             if (root.controllerController)
@@ -271,14 +271,14 @@ Item {
                     }
 
                     Label {
-                        text: "Orientation"
+                        text: qsTr("Orientation")
                         visible: deviceTab.showOrientation
                     }
 
                     ComboBox {
                         Layout.preferredWidth: 108
                         visible: deviceTab.showOrientation
-                        model: ["Rotate 0", "Rotate 90", "Rotate 180", "Rotate 270"]
+                        model: [qsTr("Rotate 0"), qsTr("Rotate 90"), qsTr("Rotate 180"), qsTr("Rotate 270")]
                         currentIndex: Math.max(0, Math.min(count - 1, deviceTab.orientation))
                         onActivated: {
                             if (root.controllerController)
@@ -302,7 +302,7 @@ Item {
 
                         ColorDialog {
                             id: colorDialog
-                            title: "Select Color"
+                            title: qsTr("Select Color")
                             onAccepted: {
                                 if (root.controllerController)
                                     root.controllerController.setColor(deviceTab.devicePath, selectedColor)
@@ -311,7 +311,7 @@ Item {
                     }
 
                     Label {
-                        text: "Timeout"
+                        text: qsTr("Timeout")
                         visible: deviceTab.showTimeout
                     }
 
@@ -572,9 +572,9 @@ Item {
 
     FileDialog {
         id: backupDialog
-        title: "Select Backup Filename"
+        title: qsTr("Select Backup Filename")
         fileMode: FileDialog.SaveFile
-        nameFilters: ["Backup Files (*.ini)"]
+        nameFilters: [qsTr("Backup Files (*.ini)")]
         onAccepted: {
             if (!root.controllerController)
                 return
@@ -586,9 +586,9 @@ Item {
 
     FileDialog {
         id: restoreDialog
-        title: "Select Backup Filename"
+        title: qsTr("Select Backup Filename")
         fileMode: FileDialog.OpenFile
-        nameFilters: ["Backup Files (*.ini)"]
+        nameFilters: [qsTr("Backup Files (*.ini)")]
         onAccepted: {
             if (!root.controllerController)
                 return
@@ -618,7 +618,7 @@ Item {
 
             Label {
                 id: popupTitle
-                text: "Configure Button"
+                text: qsTr("Configure Button")
                 font.bold: true
                 font.pixelSize: 14
             }
@@ -629,7 +629,7 @@ Item {
                 visible: true
 
                 Label {
-                    text: "On:"
+                    text: qsTr("On:")
                     Layout.preferredWidth: 80
                 }
 
@@ -648,7 +648,7 @@ Item {
                 visible: true
 
                 Label {
-                    text: "Off:"
+                    text: qsTr("Off:")
                     Layout.preferredWidth: 80
                 }
 
@@ -667,7 +667,7 @@ Item {
                 visible: false
 
                 Label {
-                    text: "Knob:"
+                    text: qsTr("Knob:")
                     Layout.preferredWidth: 80
                 }
 
@@ -686,7 +686,7 @@ Item {
                 visible: false
 
                 Label {
-                    text: "LED:"
+                    text: qsTr("LED:")
                     Layout.preferredWidth: 80
                 }
 
@@ -699,7 +699,7 @@ Item {
 
             CheckBox {
                 id: toggleCheckbox
-                text: "Toggle"
+                text: qsTr("Toggle")
                 visible: true
             }
 
@@ -711,7 +711,7 @@ Item {
 
                 Button {
                     id: onColorButton
-                    text: "Color"
+                    text: qsTr("Color")
                     Layout.fillWidth: true
 
                     Rectangle {
@@ -730,7 +730,7 @@ Item {
 
                 Button {
                     id: offColorButton
-                    text: "Pressed"
+                    text: qsTr("Pressed")
                     Layout.fillWidth: true
 
                     Rectangle {
@@ -756,19 +756,19 @@ Item {
 
                 Button {
                     id: iconButton
-                    text: "Icon"
+                    text: qsTr("Icon")
                     onClicked: iconDialog.open()
                 }
 
                 Label {
                     id: iconLabel
-                    text: "<None>"
+                    text: qsTr("<None>")
                     Layout.fillWidth: true
                 }
             }
 
             Button {
-                text: "Apply"
+                text: qsTr("Apply")
                 Layout.alignment: Qt.AlignRight
                 onClicked: {
                     if (!root.controllerController)
@@ -786,7 +786,7 @@ Item {
 
         ColorDialog {
             id: onColorDialog
-            title: "Select On Color"
+            title: qsTr("Select On Color")
             options: ColorDialog.ShowAlphaChannel
             onAccepted: {
                 root.applyCurrentButtonColor(false, onColorDialog.selectedColor)
@@ -795,7 +795,7 @@ Item {
 
         ColorDialog {
             id: offColorDialog
-            title: "Select Off Color"
+            title: qsTr("Select Off Color")
             options: ColorDialog.ShowAlphaChannel
             onAccepted: {
                 root.applyCurrentButtonColor(true, offColorDialog.selectedColor)
@@ -819,7 +819,7 @@ Item {
                 spacing: 10
 
                 Label {
-                    text: root.editingPressedButtonColor ? "Pressed Color" : "Button Color"
+                    text: root.editingPressedButtonColor ? qsTr("Pressed Color") : qsTr("Button Color")
                     font.bold: true
                 }
 
@@ -852,7 +852,7 @@ Item {
                 }
 
                 Button {
-                    text: "More..."
+                    text: qsTr("More...")
                     Layout.alignment: Qt.AlignRight
                     onClicked: {
                         buttonColorPopup.close()
@@ -870,9 +870,9 @@ Item {
 
         FileDialog {
             id: iconDialog
-            title: "Select Icon"
+            title: qsTr("Select Icon")
             fileMode: FileDialog.OpenFile
-            nameFilters: ["Image Files (*.png *.jpg *.jpeg *.bmp)"]
+            nameFilters: [qsTr("Image Files (*.png *.jpg *.jpeg *.bmp)")]
         }
     }
 }

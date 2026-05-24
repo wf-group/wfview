@@ -21,7 +21,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: window
-    title: "Settings"
+    title: qsTr("Settings")
 
     width: 1193
     height: 625
@@ -64,7 +64,7 @@ ApplicationWindow {
         Layout.fillWidth: true
 
         property string key: "Color.SpectrumLine"
-        property string label: "Spectrum line"
+        property string label: qsTr("Spectrum line")
         property string tooltip: ""  // NEW: tooltip property
 
         // Can be QColor-ish OR a string in some cases; we handle both.
@@ -143,7 +143,7 @@ ApplicationWindow {
         TextField {
             id: hexField
             Layout.preferredWidth: 110
-            placeholderText: "#AARRGGBB"
+            placeholderText: qsTr("#AARRGGBB")
 
             // Don't bind text permanently. We update it when cur changes.
             onEditingFinished: {
@@ -179,7 +179,7 @@ ApplicationWindow {
 
         ColorDialog {
             id: dlg
-            title: "Select " + label
+            title: qsTr("Select ") + label
             options: ColorDialog.ShowAlphaChannel
 
             onAccepted: {
@@ -310,14 +310,14 @@ ApplicationWindow {
                 Accessible.description: "Select the settings category you wish to edit. Selection may also be performed with keyboard shortcuts: Shift F1 is Radio Access, Shift F2 is User Interface, Shift F3 is Radio Settings, Shift F4 is Radio Server, Shift F5 is External Control, Shift F6 is DX Cluster,  Shift F7 is Experimental"
 
                 model: [
-                    { title: "Radio Access" },
-                    { title: "User Interface" },
-                    { title: "Radio Settings" },
-                    { title: "Radio Server" },
-                    { title: "External Control" },
-                    { title: "Controllers" },
-                    { title: "DX Cluster" },
-                    { title: "Experimental" }
+                    { title: qsTr("Radio Access") },
+                    { title: qsTr("User Interface") },
+                    { title: qsTr("Radio Settings") },
+                    { title: qsTr("Radio Server") },
+                    { title: qsTr("External Control") },
+                    { title: qsTr("Controllers") },
+                    { title: qsTr("DX Cluster") },
+                    { title: qsTr("Experimental") }
                 ]
 
                 currentIndex: settingsStack.currentIndex
@@ -356,7 +356,7 @@ ApplicationWindow {
 
                             GroupBox {
                                 id: groupConnection
-                                title: "Radio Connection"
+                                title: qsTr("Radio Connection")
                                 Layout.preferredWidth: 140
 
                                 ColumnLayout {
@@ -374,9 +374,9 @@ ApplicationWindow {
 
                                         onActivated: if (controller) controller.setOption("Radio.Manufacturer", currentValue)
                                         model: [
-                                            { text: "Icom", value: 0 },
-                                            { text: "Kenwood", value: 1 },
-                                            { text: "Yaesu", value: 2 }
+                                            { text: qsTr("Icom"), value: 0 },
+                                            { text: qsTr("Kenwood"), value: 1 },
+                                            { text: qsTr("Yaesu"), value: 2 }
                                         ]
                                     }
 
@@ -384,7 +384,7 @@ ApplicationWindow {
 
                                     RadioButton {
                                         id: serialEnableBtn
-                                        text: "Serial (USB)"
+                                        text: qsTr("Serial (USB)")
                                         ButtonGroup.group: connGroup
                                         checked: controller ? !Boolean(controller.options["LAN.EnableLAN"]) : true
                                         onClicked: if (controller) controller.setOption("LAN.EnableLAN", false)
@@ -392,7 +392,7 @@ ApplicationWindow {
 
                                     RadioButton {
                                         id: lanEnableBtn
-                                        text: "Network"
+                                        text: qsTr("Network")
                                         ButtonGroup.group: connGroup
                                         checked: controller ? Boolean(controller.options["LAN.EnableLAN"]) : false
                                         onClicked: if (controller) controller.setOption("LAN.EnableLAN", true)
@@ -402,7 +402,7 @@ ApplicationWindow {
                             }
 
                             GroupBox {
-                                title: "CI-V and Model"
+                                title: qsTr("CI-V and Model")
                                 enabled: !connStatus
                                 Layout.preferredWidth: 300
                                 Layout.maximumWidth: 300
@@ -414,11 +414,11 @@ ApplicationWindow {
 
                                     CheckBox {
                                         id: rigCIVManualAddrChk
-                                        text: "Manual Radio CI-V Address:"
+                                        text: qsTr("Manual Radio CI-V Address:")
                                         Accessible.name: "Manual CI-V address Checkbox"
                                         ToolTip.visible: hovered
                                         checked: false
-                                        ToolTip.text: "If you are using an older (year 2010) radio, you may need to enable this option to manually specify the CI-V address. This option is also useful for radios that do not have CI-V Transceive enabled and thus will not answer our broadcast query for connected rigs on the CI-V bus.\n\nIf you have a modern radio with CI-V Transceive enabled, you should not need to check this box.\n\nYou will need to Save Settings and re-launch wfview for this to take effect."
+                                        ToolTip.text: qsTr("If you are using an older (year 2010) radio, you may need to enable this option to manually specify the CI-V address. This option is also useful for radios that do not have CI-V Transceive enabled and thus will not answer our broadcast query for connected rigs on the CI-V bus.\n\nIf you have a modern radio with CI-V Transceive enabled, you should not need to check this box.\n\nYou will need to Save Settings and re-launch wfview for this to take effect.")
                                     }
 
                                     TextField {
@@ -428,7 +428,7 @@ ApplicationWindow {
                                         Layout.maximumWidth: 50
                                         Accessible.name: "Manual CI-V Textbox"
                                         ToolTip.visible: hovered
-                                        ToolTip.text: "Enter the address in hexadecimal, no prefix. Examples: IC-706:58, IC-756:50, IC-7300:94, IC-7100:88, etc. After changing, press Save Settings and re-launch wfview."
+                                        ToolTip.text: qsTr("Enter the address in hexadecimal, no prefix. Examples: IC-706:58, IC-756:50, IC-7300:94, IC-7100:88, etc. After changing, press Save Settings and re-launch wfview.")
                                         text: (controller && controller.options && controller.options["Radio.CIVAddr"] !== undefined)
                                               ? controller.options["Radio.CIVAddr"].toString(16).toUpperCase()
                                               : ""
@@ -445,10 +445,10 @@ ApplicationWindow {
                                         id: useCIVasRigIDChk
                                         enabled: rigCIVManualAddrChk.checked
                                         Layout.columnSpan: 2
-                                        text: "Use CI-V address as Model ID too"
+                                        text: qsTr("Use CI-V address as Model ID too")
                                         Accessible.name: "Use CI-V address as Model ID checkbox"
                                         ToolTip.visible: hovered
-                                        ToolTip.text: "Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio."
+                                        ToolTip.text: qsTr("Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio.")
 
                                         checked: controller ? Boolean(controller.options["Radio.CIVisRadioModel"]) : false
                                         onClicked: if (controller) controller.setOption("Radio.CIVisRadioModel", checked)
@@ -457,17 +457,17 @@ ApplicationWindow {
                             }
 
                             GroupBox {
-                                title: "Information"
+                                title: qsTr("Information")
                                 Layout.fillWidth: true
 
                                 Label {
                                     Layout.fillWidth: true
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: "Audio controls on this page are ONLY for network radios\n" +
-                                          "Please use the \"Radio Server\" page to select server audio.\n" +
-                                          "ONLY use Manual CI-V when Transceive mode is not supported\n\n"+
-                                          "You MUST disconnect from the radio before making any changes.\n\n"+
-                                          "Please use the Connect/Disconnect button below"
+                                    text: qsTr("Audio controls on this page are ONLY for network radios\n") +
+                                          qsTr("Please use the \"Radio Server\" page to select server audio.\n") +
+                                          qsTr("ONLY use Manual CI-V when Transceive mode is not supported\n\n")+
+                                          qsTr("You MUST disconnect from the radio before making any changes.\n\n")+
+                                          qsTr("Please use the Connect/Disconnect button below")
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -476,7 +476,7 @@ ApplicationWindow {
                         // Serial Connected Radios
                         GroupBox {
                             id: groupSerial
-                            title: "Serial Connected Radios"
+                            title: qsTr("Serial Connected Radios")
                             Layout.fillWidth: true
                             enabled: controller
                                      && connStatus === 0
@@ -484,7 +484,7 @@ ApplicationWindow {
                             RowLayout {
                                 spacing: 8
 
-                                Label { text: "Serial Device:" }
+                                Label { text: qsTr("Serial Device:") }
                                 ComboBox {
                                     id: serialDeviceListCombo
                                     Layout.preferredWidth: 180
@@ -501,7 +501,7 @@ ApplicationWindow {
                                     onActivated: controller.setOption("Radio.SerialPortRadio", currentValue)
                                 }
 
-                                Label { text: "Baud Rate" }
+                                Label { text: qsTr("Baud Rate") }
                                 ComboBox {
                                     id: baudRateCombo
                                     Layout.preferredWidth: 120
@@ -527,14 +527,14 @@ ApplicationWindow {
                                     onActivated: if (controller) controller.setOption("Radio.SerialPortBaud", currentValue)
                                 }
 
-                                Label { id: pttTypeLabel; text: "PTT Type" }
+                                Label { id: pttTypeLabel; text: qsTr("PTT Type") }
                                 ComboBox {
                                     id: pttTypeCombo
                                     Accessible.name: "PTT Type Combo"
                                     model: [
-                                        { text: "CI-V", value: 0 },
-                                        { text: "RTS", value: 1 },
-                                        { text: "DTR", value: 2 }
+                                        { text: qsTr("CI-V"), value: 0 },
+                                        { text: qsTr("RTS"), value: 1 },
+                                        { text: qsTr("DTR"), value: 2 }
                                     ]
                                     textRole: "text"
                                     valueRole: "value"
@@ -557,7 +557,7 @@ ApplicationWindow {
                                      && connStatus === 0
                                      && Boolean(controller.options["LAN.EnableLAN"])
 
-                            title: "Network Connected Radios"
+                            title: qsTr("Network Connected Radios")
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
@@ -568,7 +568,7 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: "Hostname" }
+                                    Label { text: qsTr("Hostname") }
                                     TextField {
                                         id: ipAddressTxt
                                         Layout.preferredWidth: 150
@@ -584,7 +584,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { id: controlPortLabel; text: "Control Port" }
+                                    Label { id: controlPortLabel; text: qsTr("Control Port") }
                                     TextField {
                                         id: controlPortTxt
                                         Layout.preferredWidth: 60
@@ -602,7 +602,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { id: catPortLabel; text: "CAT"; visible: manufacturerCombo.currentValue === 2 }
+                                    Label { id: catPortLabel; text: qsTr("CAT"); visible: manufacturerCombo.currentValue === 2 }
                                     TextField {
                                         id: catPortTxt
                                         visible: manufacturerCombo.currentValue === 2
@@ -620,7 +620,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { id: audioPortLabel; text: "Audio";  visible: manufacturerCombo.currentValue === 2 }
+                                    Label { id: audioPortLabel; text: qsTr("Audio");  visible: manufacturerCombo.currentValue === 2 }
                                     TextField {
                                         visible: manufacturerCombo.currentValue === 2
                                         id: audioPortTxt
@@ -638,7 +638,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { id: scopePortLabel; text: "Scope"; visible: manufacturerCombo.currentValue === 2}
+                                    Label { id: scopePortLabel; text: qsTr("Scope"); visible: manufacturerCombo.currentValue === 2}
                                     TextField {
                                         id: scopePortTxt
                                         visible: manufacturerCombo.currentValue === 2
@@ -656,7 +656,7 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { text: "Connection Type"; visible: manufacturerCombo.currentValue === 1 }
+                                    Label { text: qsTr("Connection Type"); visible: manufacturerCombo.currentValue === 1 }
                                     ComboBox {
                                         id: networkConnectionTypeCombo
                                         visible: manufacturerCombo.currentValue === 1
@@ -664,9 +664,9 @@ ApplicationWindow {
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
-                                            { text: "LAN", value: 1 },
-                                            { text: "WiFi", value: 2 },
-                                            { text: "WAN", value: 3 }
+                                            { text: qsTr("LAN"), value: 1 },
+                                            { text: qsTr("WiFi"), value: 2 },
+                                            { text: qsTr("WAN"), value: 3 }
                                         ]
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
@@ -682,7 +682,7 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: "Username" }
+                                    Label { text: qsTr("Username") }
                                     TextField {
                                         id: usernameTxt
                                         Layout.preferredWidth: 150
@@ -699,7 +699,7 @@ ApplicationWindow {
 
                                     }
 
-                                    Label { text: "Password" }
+                                    Label { text: qsTr("Password") }
                                     TextField {
                                         id: passwordTxt
                                         echoMode: TextInput.Password
@@ -720,7 +720,7 @@ ApplicationWindow {
                                     CheckBox {
                                         id: adminLoginChk
                                         visible: manufacturerCombo.currentValue === 1;
-                                        text: "Admin Login"
+                                        text: qsTr("Admin Login")
                                         Accessible.name: "Admin Login Checkbox"
                                         checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
                                         onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
@@ -735,21 +735,21 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: "RX Codec" }
+                                    Label { text: qsTr("RX Codec") }
                                     ComboBox {
                                         id: audioRXCodecCombo
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
-                                            { text: "LPCM 1ch 16bit", value: 4 },
-                                            { text: "PCM 1ch 8bit", value: 2 },
-                                            { text: "uLaw 1ch 8bit", value: 1 },
-                                            { text: "LPCM 2ch 16bit", value: 16 },
-                                            { text: "uLaw 2ch 8bit", value: 32 },
-                                            { text: "PCM 2ch 8bit", value: 8 },
-                                            { text: "Opus 1ch", value: 64 },
-                                            { text: "Opus 2ch", value: 65 },
-                                            { text: "ADPCM 1ch", value: 128 }
+                                            { text: qsTr("LPCM 1ch 16bit"), value: 4 },
+                                            { text: qsTr("PCM 1ch 8bit"), value: 2 },
+                                            { text: qsTr("uLaw 1ch 8bit"), value: 1 },
+                                            { text: qsTr("LPCM 2ch 16bit"), value: 16 },
+                                            { text: qsTr("uLaw 2ch 8bit"), value: 32 },
+                                            { text: qsTr("PCM 2ch 8bit"), value: 8 },
+                                            { text: qsTr("Opus 1ch"), value: 64 },
+                                            { text: qsTr("Opus 2ch"), value: 65 },
+                                            { text: qsTr("ADPCM 1ch"), value: 128 }
                                         ]
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(audioRXCodecCombo,controller.options["UDP.RxCodec"])
@@ -758,17 +758,17 @@ ApplicationWindow {
                                         Accessible.name: "Receive Audio Codec Selector"
                                     }
 
-                                    Label { text: "TX Codec" }
+                                    Label { text: qsTr("TX Codec") }
                                     ComboBox {
                                         id: audioTXCodecCombo
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
-                                            { text: "LPCM 1ch 16bit", value: 4 },
-                                            { text: "PCM 1ch 8bit", value: 2 },
-                                            { text: "uLaw 1ch 8bit", value: 1 },
-                                            { text: "Opus 1ch", value: 64 },
-                                            { text: "ADPCM 1ch", value: 128 }
+                                            { text: qsTr("LPCM 1ch 16bit"), value: 4 },
+                                            { text: qsTr("PCM 1ch 8bit"), value: 2 },
+                                            { text: qsTr("uLaw 1ch 8bit"), value: 1 },
+                                            { text: qsTr("Opus 1ch"), value: 64 },
+                                            { text: qsTr("ADPCM 1ch"), value: 128 }
                                         ]
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(audioTXCodecCombo,controller.options["UDP.TxCodec"])
@@ -784,7 +784,7 @@ ApplicationWindow {
                                 // Row: samplerate / duplex / audio system
                                 RowLayout {
                                     spacing: 8
-                                    Label { text: "Sample Rate" }
+                                    Label { text: qsTr("Sample Rate") }
                                     ComboBox {
                                         id: audioSampleRateCombo
                                         Accessible.name: "Audio Sample Rate Selector"
@@ -796,19 +796,19 @@ ApplicationWindow {
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
-                                            { text: "48 kHz", value: 48000 },
-                                            { text: "24 kHz", value: 24000 },
-                                            { text: "16 kHz", value: 16000 },
-                                            { text: "8 kHz", value: 8000 }
+                                            { text: qsTr("48 kHz"), value: 48000 },
+                                            { text: qsTr("24 kHz"), value: 24000 },
+                                            { text: qsTr("16 kHz"), value: 16000 },
+                                            { text: qsTr("8 kHz"), value: 8000 }
                                         ]
                                     }
 
-                                    Label { text: "Duplex" }
+                                    Label { text: qsTr("Duplex") }
                                     ComboBox {
                                         id: audioDuplexCombo
                                         model: [
-                                            { text: "Full Duplex", value: 0 },
-                                            { text: "Half Duplex", value: 1 }
+                                            { text: qsTr("Full Duplex"), value: 0 },
+                                            { text: qsTr("Half Duplex"), value: 1 }
                                         ]
                                         Accessible.name: "Full or Half Duplex Combo"
                                         currentIndex: (controller && controller.options)
@@ -817,17 +817,17 @@ ApplicationWindow {
                                         onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
                                     }
 
-                                    Label { text: "Audio System" }
+                                    Label { text: qsTr("Audio System") }
                                     ComboBox {
                                         id: audioSystemCombo
                                         Accessible.name: "Audio System Selection Combo"
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
-                                            { text: "Qt Audio", value: 0 },
-                                            { text: "PortAudio", value: 1 },
-                                            { text: "RT Audio", value: 2 },
-                                            { text: "TCI Audio", value: 3 }
+                                            { text: qsTr("Qt Audio"), value: 0 },
+                                            { text: qsTr("PortAudio"), value: 1 },
+                                            { text: qsTr("RT Audio"), value: 2 },
+                                            { text: qsTr("TCI Audio"), value: 3 }
                                         ]
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(audioSystemCombo,controller.options["Radio.AudioSystem"])
@@ -841,7 +841,7 @@ ApplicationWindow {
                                 // Row: audio output/input
                                 RowLayout {
                                     spacing: 8
-                                    Label { text: "Audio Output" }
+                                    Label { text: qsTr("Audio Output") }
                                     ComboBox {
                                         id: audioOutputCombo
                                         readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
@@ -874,7 +874,7 @@ ApplicationWindow {
                                     }
 
 
-                                    Label { text: "Audio Input" }
+                                    Label { text: qsTr("Audio Input") }
                                     ComboBox {
                                         id: audioInputCombo
                                         readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
@@ -916,7 +916,7 @@ ApplicationWindow {
                             enabled: controller
                                      && Boolean(controller.options["LAN.EnableLAN"])
 
-                            title: "Network latency settings"
+                            title: qsTr("Network latency settings")
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
@@ -926,7 +926,7 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: "RX Latency (ms)" }
+                                    Label { text: qsTr("RX Latency (ms)") }
                                     Slider {
                                         id: rxLatencySlider
                                         from: 30
@@ -939,7 +939,7 @@ ApplicationWindow {
                                     }
                                     Label { id: rxLatencyValue; text: rxLatencySlider.value }
 
-                                    Label { text: "TX Latency (ms)" }
+                                    Label { text: qsTr("TX Latency (ms)") }
                                     Slider {
                                         id: txLatencySlider
                                         from: 30
@@ -980,29 +980,29 @@ ApplicationWindow {
                                 checked: controller ? Boolean(controller.options["Controls.NiceTS"]) : false
                                 onClicked: if (controller) controller.setOption("Controls.NiceTS", checked)
 
-                                text: "When tuning, set lower digits to zero"
+                                text: qsTr("When tuning, set lower digits to zero")
                             }
                             CheckBox {
                                 id: autoSSBchk
-                                text: "Auto SSB"
+                                text: qsTr("Auto SSB")
                                 checked: controller ? Boolean(controller.options["Controls.AutomaticSidebandSwitching"]) : false
                                 onClicked: if (controller) controller.setOption("Controls.AutomaticSidebandSwitching", checked)
                                 Accessible.name: "Auto SSB Switching"
                                 Accessible.description: "When using SSB, automatically switch to the standard sideband for a given band."
                                 ToolTip.visible: hovered
-                                ToolTip.text: "When using SSB, automatically switch to the standard sideband for a given band."
+                                ToolTip.text: qsTr("When using SSB, automatically switch to the standard sideband for a given band.")
                             }
                             CheckBox {
                                 id: pttEnableChk;
-                                text: "Enable PTT Controls"
+                                text: qsTr("Enable PTT Controls")
                                 checked: controller ? Boolean(controller.options["Controls.EnablePTT"]) : false
                                 onClicked: if (controller) controller.setOption("Controls.EnablePTT", checked)
                             }
                             CheckBox {
                                 id: rigCreatorChk
-                                text: "Enable Rig Creator Feature (use with care)"
+                                text: qsTr("Enable Rig Creator Feature (use with care)")
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Rig creator allows changing of all rig features and adding new rig profiles"
+                                ToolTip.text: qsTr("Rig creator allows changing of all rig features and adding new rig profiles")
                                 checked: controller ? Boolean(controller.options["Interface.RigCreatorEnable"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.RigCreatorEnable", checked)
                             }
@@ -1010,7 +1010,7 @@ ApplicationWindow {
                             Item { Layout.fillWidth: true }
 
                             Label {
-                                text: "Region:"
+                                text: qsTr("Region:")
                             }
                             TextField {
                                 id: regionTxt
@@ -1019,7 +1019,7 @@ ApplicationWindow {
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 placeholderText: "1"
                                 ToolTip.visible: hovered
-                                ToolTip.text: "ITU Region. Used to display band limits. (See the QWidget tooltip text in your .ui.)"
+                                ToolTip.text: qsTr("ITU Region. Used to display band limits. (See the QWidget tooltip text in your .ui.)")
                                 text: (controller && controller.options && controller.options["Interface.Region"] !== undefined)
                                       ? controller.options["Interface.Region"]
                                       : ""
@@ -1035,35 +1035,35 @@ ApplicationWindow {
                             spacing: 12
                             CheckBox {
                                 id: wfInterpolateChk
-                                text: "Interpolate Waterfall"
+                                text: qsTr("Interpolate Waterfall")
                                 checked: controller ? Boolean(controller.options["Interface.WFInterpolate"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.WFInterpolate", checked)
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Enables interpolation between pixels. Note that this will increase CPU usage."
+                                ToolTip.text: qsTr("Enables interpolation between pixels. Note that this will increase CPU usage.")
                             }
                             CheckBox {
                                 id: wfAntiAliasChk;
                                 checked: controller ? Boolean(controller.options["Interface.WFAntiAlias"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.WFAntiAlias", checked)
-                                text: "Anti-Alias Waterfall"
+                                text: qsTr("Anti-Alias Waterfall")
                             }
                             CheckBox {
                                 id: clickDragTuningEnableChk;
                                 checked: controller ? Boolean(controller.options["Interface.ClickDragTuningEnable"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.ClickDragTuningEnable", checked)
-                                text: "Allow tuning via click and drag (experimental)"
+                                text: qsTr("Allow tuning via click and drag (experimental)")
                             }
                             CheckBox {
                                 id: useSystemThemeChk;
                                 checked: controller ? Boolean(controller.options["Interface.UseSystemTheme"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.UseSystemTheme", checked)
-                                text: "Use System Theme"
+                                text: qsTr("Use System Theme")
                             }
                             CheckBox {
                                 id: fullScreenChk;
                                 checked: controller ? Boolean(controller.options["Interface.UseFullScreen"]) : false
                                 onClicked: if (controller) controller.setOption("Interface.UseFullScreen", checked)
-                                text: "Show full screen (F11)"
+                                text: qsTr("Show full screen (F11)")
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -1071,26 +1071,26 @@ ApplicationWindow {
                         // Frequency display separators
                         RowLayout {
                             spacing: 8
-                            Label { text: "Frequency Display:" }
-                            Label { text: "Units" }
+                            Label { text: qsTr("Frequency Display:") }
+                            Label { text: qsTr("Units") }
                             ComboBox {
                                 id: frequencyUnitsCombo
                                 textRole: "text"
                                 valueRole: "value"
                                 model: [
-                                    { text: "None", value: 0 },
-                                    { text: "Hz", value: 1 },
-                                    { text: "kHz", value: 2 },
-                                    { text: "MHz", value: 3 },
-                                    { text: "GHz", value: 4 }
+                                    { text: qsTr("None"), value: 0 },
+                                    { text: qsTr("Hz"), value: 1 },
+                                    { text: qsTr("kHz"), value: 2 },
+                                    { text: qsTr("MHz"), value: 3 },
+                                    { text: qsTr("GHz"), value: 4 }
                                 ]
                                 currentIndex: (controller && controller.options)
                                               ? indexFromValue(frequencyUnitsCombo,controller.options["Interface.FrequencyUnits"])
                                               : -1
                                 onActivated: controller.setOption("Interface.FrequencyUnits",currentValue)
                             }
-                            Label { text: "Separators:" }
-                            Label { text: "Decimal" }
+                            Label { text: qsTr("Separators:") }
+                            Label { text: qsTr("Decimal") }
                             ComboBox {
                                 id: decimalSeparatorsCombo;
                                 textRole: "text"
@@ -1107,7 +1107,7 @@ ApplicationWindow {
 
                                 onActivated: controller.setOption("Interface.DecimalSeparator",currentValue)
                             }
-                            Label { text: "Groups" }
+                            Label { text: qsTr("Groups") }
                             ComboBox {
                                 id: groupSeparatorsCombo;
                                 textRole: "text"
@@ -1126,13 +1126,13 @@ ApplicationWindow {
                             }
                             CheckBox {
                                 id: forceVfoModeChk;
-                                text: "Force VFO Mode";
+                                text: qsTr("Force VFO Mode");
                                 checked: controller ? Boolean(controller.options["Interface.ForceVfoMode"]) : true
                                 onClicked: if (controller) controller.setOption("Interface.ForceVfoMode", checked)
                             }
                             CheckBox {
                                 id: autoPowerOnChk;
-                                text: "Auto Power-on radio";
+                                text: qsTr("Auto Power-on radio");
                                 checked: controller ? Boolean(controller.options["Interface.AutoPowerOn"]) : true
                                 onClicked: if (controller) controller.setOption("Interface.AutoPowerOn", checked)
                             }
@@ -1142,15 +1142,15 @@ ApplicationWindow {
                         // Underlay controls
                         RowLayout {
                             spacing: 8
-                            Label { id: underlayLabel; text: "Underlay Mode" }
+                            Label { id: underlayLabel; text: qsTr("Underlay Mode") }
                             ButtonGroup { id: underlayGroup }
 
-                            RadioButton { id: underlayNone; text: "None"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 0 : true; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "No underlay graphics"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 0) }
-                            RadioButton { id: underlayPeakHold; text: "Peak Hold"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 1 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Indefinite peak hold"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 1) }
-                            RadioButton { id: underlayPeakBuffer; text: "Peak"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 2 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Peak value within the buffer"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 2) }
-                            RadioButton { id: underlayAverageBuffer; text: "Average"; checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 3 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: "Average value within the buffer"; onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 3) }
+                            RadioButton { id: underlayNone; text: qsTr("None"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 0 : true; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("No underlay graphics"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 0) }
+                            RadioButton { id: underlayPeakHold; text: qsTr("Peak Hold"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 1 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Indefinite peak hold"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 1) }
+                            RadioButton { id: underlayPeakBuffer; text: qsTr("Peak"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 2 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Peak value within the buffer"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 2) }
+                            RadioButton { id: underlayAverageBuffer; text: qsTr("Average"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 3 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Average value within the buffer"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 3) }
 
-                            Label { text: "Underlay Buffer Size:" }
+                            Label { text: qsTr("Underlay Buffer Size:") }
                             Slider {
                                 id: underlayBufferSlider
                                 from: 8
@@ -1159,13 +1159,13 @@ ApplicationWindow {
                                 stepSize: 1
                                 Layout.preferredWidth: 100
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Size of buffer for spectrum data. Shorter values are more responsive."
+                                ToolTip.text: qsTr("Size of buffer for spectrum data. Shorter values are more responsive.")
                                 onMoved: if (controller) controller.setOption("Interface.UnderlayBufferSize", Math.round(value))
                             }
 
                             CheckBox {
                                 id: showBandsChk
-                                text: "Show Bands"
+                                text: qsTr("Show Bands")
                                 checked: controller ? Boolean(controller.options["Interface.ShowBands"]) : true
                                 onClicked: if (controller) controller.setOption("Interface.ShowBands", checked)
                             }
@@ -1177,22 +1177,22 @@ ApplicationWindow {
                             spacing: 8
 
                             Item { width: 20 } // fixed spacer
-                            Label { id: secondaryMeterSelectionLabel; text: "Additional Meter Selection:" }
+                            Label { id: secondaryMeterSelectionLabel; text: qsTr("Additional Meter Selection:") }
                             ComboBox {
                                 id: meter2selectionCombo;
                                 textRole: "text"
                                 valueRole: "value"
                                 model: [
-                                    { text: "None", value: 0 },
-                                    { text: "SWR", value: 3 },
-                                    { text: "ALC", value: 5 },
-                                    { text: "Compression", value: 6 },
-                                    { text: "Voltage", value: 7 },
-                                    { text: "Current", value: 8 },
-                                    { text: "Center", value: 2 },
-                                    { text: "Tx/Rx Audio", value: 12 },
-                                    { text: "Tx Audio", value: 10 },
-                                    { text: "Rx Audio", value: 11 }
+                                    { text: qsTr("None"), value: 0 },
+                                    { text: qsTr("SWR"), value: 3 },
+                                    { text: qsTr("ALC"), value: 5 },
+                                    { text: qsTr("Compression"), value: 6 },
+                                    { text: qsTr("Voltage"), value: 7 },
+                                    { text: qsTr("Current"), value: 8 },
+                                    { text: qsTr("Center"), value: 2 },
+                                    { text: qsTr("Tx/Rx Audio"), value: 12 },
+                                    { text: qsTr("Tx Audio"), value: 10 },
+                                    { text: qsTr("Rx Audio"), value: 11 }
                                 ]
                                 currentIndex: controller ? indexFromValue(meter2selectionCombo, controller.options["Interface.Meter2Type"]) : -1
                                 onActivated: if (controller) controller.setOption("Interface.Meter2Type", currentValue)
@@ -1203,46 +1203,46 @@ ApplicationWindow {
                                 textRole: "text"
                                 valueRole: "value"
                                 model: [
-                                    { text: "None", value: 0 },
-                                    { text: "SWR", value: 3 },
-                                    { text: "ALC", value: 5 },
-                                    { text: "Compression", value: 6 },
-                                    { text: "Voltage", value: 7 },
-                                    { text: "Current", value: 8 },
-                                    { text: "Center", value: 2 },
-                                    { text: "Tx/Rx Audio", value: 12 },
-                                    { text: "Tx Audio", value: 10 },
-                                    { text: "Rx Audio", value: 11 }
+                                    { text: qsTr("None"), value: 0 },
+                                    { text: qsTr("SWR"), value: 3 },
+                                    { text: qsTr("ALC"), value: 5 },
+                                    { text: qsTr("Compression"), value: 6 },
+                                    { text: qsTr("Voltage"), value: 7 },
+                                    { text: qsTr("Current"), value: 8 },
+                                    { text: qsTr("Center"), value: 2 },
+                                    { text: qsTr("Tx/Rx Audio"), value: 12 },
+                                    { text: qsTr("Tx Audio"), value: 10 },
+                                    { text: qsTr("Rx Audio"), value: 11 }
                                 ]
                                 currentIndex: controller ? indexFromValue(meter3selectionCombo, controller.options["Interface.Meter3Type"]) : -1
                                 onActivated: if (controller) controller.setOption("Interface.Meter3Type", currentValue)
                             }
                             CheckBox {
                                 id: revCompMeterBtn
-                                text: "Reverse Comp Meter"
+                                text: qsTr("Reverse Comp Meter")
                                 checked: controller ? Boolean(controller.options["Interface.CompMeterReverse"]) : false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Broadcast-style reduction meter"
+                                ToolTip.text: qsTr("Broadcast-style reduction meter")
                                 onClicked: if (controller) controller.setOption("Interface.CompMeterReverse", checked)
                             }
 
                             ButtonGroup { id: pollingButtonGroup }
                             RadioButton {
                                 id: autoPollBtn
-                                text: "AutoPolling"
+                                text: qsTr("AutoPolling")
                                 checked: controller ? Number(controller.options["Radio.PollingMS"]) === 0 : true
                                 ButtonGroup.group: pollingButtonGroup
                                 ToolTip.visible: hovered
-                                ToolTip.text: "wfview will automatically calculate command polling. Recommended."
+                                ToolTip.text: qsTr("wfview will automatically calculate command polling. Recommended.")
                                 onClicked: if (controller) controller.setOption("Radio.PollingMS", 0)
                             }
                             RadioButton {
                                 id: manualPollBtn
-                                text: "Manual Polling Interval:"
+                                text: qsTr("Manual Polling Interval:")
                                 checked: controller ? Number(controller.options["Radio.PollingMS"]) !== 0 : false
                                 ButtonGroup.group: pollingButtonGroup
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Manual (user-defined) command polling"
+                                ToolTip.text: qsTr("Manual (user-defined) command polling")
                                 onClicked: if (controller && Number(controller.options["Radio.PollingMS"]) === 0) controller.setOption("Radio.PollingMS", pollTimeMsSpin.value)
                             }
                             SpinBox {
@@ -1252,11 +1252,11 @@ ApplicationWindow {
                                 value: controller ? Math.max(1, Number(controller.options["Radio.PollingMS"]) || 25) : 25
                                 editable: true
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Sets the polling interval, in ms. Automatic polling is recommended. Serial/USB radios should not poll quicker than about 75ms."
+                                ToolTip.text: qsTr("Sets the polling interval, in ms. Automatic polling is recommended. Serial/USB radios should not poll quicker than about 75ms.")
                                 enabled: manualPollBtn.checked
                                 onValueModified: if (controller && manualPollBtn.checked) controller.setOption("Radio.PollingMS", value)
                             }
-                            Label { text: "ms" }
+                            Label { text: qsTr("ms") }
 
                             Item { Layout.fillWidth: true }
                         }
@@ -1264,8 +1264,8 @@ ApplicationWindow {
                         // Color scheme / preset controls
                         RowLayout {
                             spacing: 8
-                            Label { text: "Color scheme" }
-                            Label { id: colorPresetLabel; text: "Preset:" }
+                            Label { text: qsTr("Color scheme") }
+                            Label { id: colorPresetLabel; text: qsTr("Preset:") }
                             ComboBox {
                                 id: colorPresetCombo
                                 Layout.preferredWidth: 90
@@ -1291,11 +1291,11 @@ ApplicationWindow {
                                 onActivated: if (controller) controller.setOption("Interface.CurrentColorPresetNumber", model[currentIndex].value)
 
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Select a color preset here."
+                                ToolTip.text: qsTr("Select a color preset here.")
                             }
 
-                            Button { id: colorRevertPresetBtn; text: "Revert"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Color preset reset has not been ported to QML yet." }
-                            Button { id: colorRenamePresetBtn; text: "Rename Preset"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Color preset rename has not been ported to QML yet." }
+                            Button { id: colorRevertPresetBtn; text: qsTr("Revert"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Color preset reset has not been ported to QML yet.") }
+                            Button { id: colorRenamePresetBtn; text: qsTr("Rename Preset"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Color preset rename has not been ported to QML yet.") }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1303,7 +1303,7 @@ ApplicationWindow {
 
                         GroupBox {
                             id: colorEditorGroupBox
-                            title: "User-defined Color Editor"
+                            title: qsTr("User-defined Color Editor")
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.minimumHeight: 250
@@ -1351,56 +1351,56 @@ ApplicationWindow {
                                     Item {}
                                     Item {}
 
-                                    ColorRow { key: "Color.Grid"; label: "Grid" }
-                                    ColorRow { key: "Color.TuningLine"; label: "Tuning Line" }
-                                    ColorRow { key: "Color.MeterScale"; label: "Meter Scale" }
+                                    ColorRow { key: "Color.Grid"; label: qsTr("Grid") }
+                                    ColorRow { key: "Color.TuningLine"; label: qsTr("Tuning Line") }
+                                    ColorRow { key: "Color.MeterScale"; label: qsTr("Meter Scale") }
 
-                                    ColorRow { key: "Color.Axis"; label: "Axis" }
-                                    ColorRow { key: "Color.Passband"; label: "Passband" }
-                                    ColorRow { key: "Color.MeterText"; label: "Meter Text" }
+                                    ColorRow { key: "Color.Axis"; label: qsTr("Axis") }
+                                    ColorRow { key: "Color.Passband"; label: qsTr("Passband") }
+                                    ColorRow { key: "Color.MeterText"; label: qsTr("Meter Text") }
 
-                                    ColorRow { key: "Color.Text"; label: "Text" }
-                                    ColorRow { key: "Color.PbtIndicator"; label: "PBT Indicator" }
-                                    ColorRow { key: "Color.WaterfallBack"; label: "Waterfall Back" }
+                                    ColorRow { key: "Color.Text"; label: qsTr("Text") }
+                                    ColorRow { key: "Color.PbtIndicator"; label: qsTr("PBT Indicator") }
+                                    ColorRow { key: "Color.WaterfallBack"; label: qsTr("Waterfall Back") }
 
-                                    ColorRow { key: "Color.PlotBackground"; label: "Plot Background" }
-                                    ColorRow { key: "Color.MeterLevel"; label: "Meter Level" }
-                                    ColorRow { key: "Color.WaterfallGrid"; label: "Waterfall Grid" }
+                                    ColorRow { key: "Color.PlotBackground"; label: qsTr("Plot Background") }
+                                    ColorRow { key: "Color.MeterLevel"; label: qsTr("Meter Level") }
+                                    ColorRow { key: "Color.WaterfallGrid"; label: qsTr("Waterfall Grid") }
 
-                                    ColorRow { key: "Color.SpectrumLine"; label: "Spectrum Line" }
-                                    ColorRow { key: "Color.MeterAverage"; label: "Meter Average" }
-                                    ColorRow { key: "Color.WaterfallAxis"; label: "Waterfall Axis" }
+                                    ColorRow { key: "Color.SpectrumLine"; label: qsTr("Spectrum Line") }
+                                    ColorRow { key: "Color.MeterAverage"; label: qsTr("Meter Average") }
+                                    ColorRow { key: "Color.WaterfallAxis"; label: qsTr("Waterfall Axis") }
 
-                                    ColorRow { key: "Color.SpectrumFill"; label: "Spectrum Fill" }
-                                    ColorRow { key: "Color.MeterPeakLevel"; label: "Meter Peak Level" }
-                                    ColorRow { key: "Color.WaterfallText"; label: "Waterfall Text" }
+                                    ColorRow { key: "Color.SpectrumFill"; label: qsTr("Spectrum Fill") }
+                                    ColorRow { key: "Color.MeterPeakLevel"; label: qsTr("Meter Peak Level") }
+                                    ColorRow { key: "Color.WaterfallText"; label: qsTr("Waterfall Text") }
 
                                     CheckBox {
                                         id: useSpectrumFillGradientChk;
-                                        text: "Spectrum Gradient"
+                                        text: qsTr("Spectrum Gradient")
                                         checked: controller ? Boolean(controller.options["Color.UseSpectrumFillGradient"]) : false
                                         onClicked: if (controller) controller.setOption("Color.UseSpectrumFillGradient", checked)
 
                                     }
-                                    ColorRow { key: "Color.MeterHighScale"; label: "Meter High Scale" }
+                                    ColorRow { key: "Color.MeterHighScale"; label: qsTr("Meter High Scale") }
                                     CheckBox {
                                         id: useUnderlayFillGradientChk;
-                                        text: "Underlay Gradient"
+                                        text: qsTr("Underlay Gradient")
                                         checked: controller ? Boolean(controller.options["Color.UseUnderlayFillGradient"]) : false
                                         onClicked: if (controller) controller.setOption("Color.UseUnderlayFillGradient", checked)
                                     }
 
-                                    ColorRow { key: "Color.SpectrumFillTop"; label: "Spectrum Fill Top" }
-                                    ColorRow { key: "Color.UnderlayLine"; label: "Underlay Line" }
-                                    ColorRow { key: "Color.UnderlayFillTop"; label: "Underlay Fill Top" }
+                                    ColorRow { key: "Color.SpectrumFillTop"; label: qsTr("Spectrum Fill Top") }
+                                    ColorRow { key: "Color.UnderlayLine"; label: qsTr("Underlay Line") }
+                                    ColorRow { key: "Color.UnderlayFillTop"; label: qsTr("Underlay Fill Top") }
 
-                                    ColorRow { key: "Color.SpectrumFillBot"; label: "Spectrum Fill Bot" }
-                                    ColorRow { key: "Color.UnderlayFill"; label: "Underlay Fill" }
-                                    ColorRow { key: "Color.UnderlayFillBot"; label: "Underlay Fill Bot" }
+                                    ColorRow { key: "Color.SpectrumFillBot"; label: qsTr("Spectrum Fill Bot") }
+                                    ColorRow { key: "Color.UnderlayFill"; label: qsTr("Underlay Fill") }
+                                    ColorRow { key: "Color.UnderlayFillBot"; label: qsTr("Underlay Fill Bot") }
 
-                                    ColorRow { key: "Color.ClusterSpots"; label: "Cluster Spots" }
-                                    ColorRow { key: "Color.ButtonOff"; label: "Button Off" }
-                                    ColorRow { key: "Color.ButtonOn"; label: "Button On" }
+                                    ColorRow { key: "Color.ClusterSpots"; label: qsTr("Cluster Spots") }
+                                    ColorRow { key: "Color.ButtonOff"; label: qsTr("Button Off") }
+                                    ColorRow { key: "Color.ButtonOn"; label: qsTr("Button On") }
                                 }
                             }
                         }
@@ -1421,22 +1421,22 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            Label { id: modInputDataOffComboText; text: "Data Off Modulation Input:" }
+                            Label { id: modInputDataOffComboText; text: qsTr("Data Off Modulation Input:") }
                             ComboBox {
                                 id: modInputCombo
                                 Accessible.name: "Modulation Input"
                                 Accessible.description: "Transmit modulation source"
                                 enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Modulation input selection needs a QML model and controller binding."
+                                ToolTip.text: qsTr("Modulation input selection needs a QML model and controller binding.")
                                 model: [] // TODO
                             }
-                            Label { id: modInputData1ComboText; text: "(Data Mod Inputs) DATA1:" }
-                            ComboBox { id: modInputData1Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA1 modulation input selection needs a QML model and controller binding." }
-                            Label { id: modInputData2ComboText; text: "DATA2:" }
-                            ComboBox { id: modInputData2Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA2 modulation input selection needs a QML model and controller binding." }
-                            Label { id: modInputData3ComboText; text: "DATA3:" }
-                            ComboBox { id: modInputData3Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: "DATA3 modulation input selection needs a QML model and controller binding." }
+                            Label { id: modInputData1ComboText; text: qsTr("(Data Mod Inputs) DATA1:") }
+                            ComboBox { id: modInputData1Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA1 modulation input selection needs a QML model and controller binding.") }
+                            Label { id: modInputData2ComboText; text: qsTr("DATA2:") }
+                            ComboBox { id: modInputData2Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA2 modulation input selection needs a QML model and controller binding.") }
+                            Label { id: modInputData3ComboText; text: qsTr("DATA3:") }
+                            ComboBox { id: modInputData3Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA3 modulation input selection needs a QML model and controller binding.") }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1444,47 +1444,47 @@ ApplicationWindow {
                             spacing: 8
                             Button {
                                 id: setClockBtn
-                                text: "Set Clock"
+                                text: qsTr("Set Clock")
                                 enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Manual radio clock sync has not been ported to QML yet."
+                                ToolTip.text: qsTr("Manual radio clock sync has not been ported to QML yet.")
                             }
                             CheckBox {
                                 id: useUTCChk
-                                text: "Use UTC"
+                                text: qsTr("Use UTC")
                                 checked: controller ? Boolean(controller.options["Radio.UseUTC"]) : false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Set radio clock to UTC; otherwise uses local timezone."
+                                ToolTip.text: qsTr("Set radio clock to UTC; otherwise uses local timezone.")
                                 onClicked: if (controller) controller.setOption("Radio.UseUTC", checked)
                             }
                             CheckBox {
                                 id: setRadioTimeChk
-                                text: "Set radio time on connect (takes up to a minute)"
+                                text: qsTr("Set radio time on connect (takes up to a minute)")
                                 checked: controller ? Boolean(controller.options["Radio.SetRadioTime"]) : false
                                 onClicked: if (controller) controller.setOption("Radio.SetRadioTime", checked)
                             }
                             Item { Layout.fillWidth: true }
                             Button {
                                 id: satOpsBtn
-                                text: "Satellite Ops"
+                                text: qsTr("Satellite Ops")
                                 enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Satellite setup has not been ported to QML yet."
+                                ToolTip.text: qsTr("Satellite setup has not been ported to QML yet.")
                             }
                             Button {
                                 id: adjRefBtn
-                                text: "Adjust Reference"
+                                text: qsTr("Adjust Reference")
                                 enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Reference adjustment has not been ported to QML yet."
+                                ToolTip.text: qsTr("Reference adjustment has not been ported to QML yet.")
                             }
                         }
 
                         RowLayout {
                             spacing: 8
-                            Label { text: "Manual PTT Toggle" }
-                            Button { id: pttOnBtn; text: "PTT On"; onClicked: MainController.setTransmit(true) }
-                            Button { id: pttOffBtn; text: "PTT Off"; onClicked: MainController.setTransmit(false) }
+                            Label { text: qsTr("Manual PTT Toggle") }
+                            Button { id: pttOnBtn; text: qsTr("PTT On"); onClicked: MainController.setTransmit(true) }
+                            Button { id: pttOffBtn; text: qsTr("PTT Off"); onClicked: MainController.setTransmit(false) }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1508,14 +1508,14 @@ ApplicationWindow {
                             spacing: 12
                             CheckBox {
                                 id: serverEnableCheckbox
-                                text: "Enable"
+                                text: qsTr("Enable")
                                 checked: controller ? Boolean(controller.options["Server.Enabled"]) : false
                                 onClicked: if (controller) controller.setOption("Server.Enabled", checked)
                             }
                             Item { width: 20 }
                             CheckBox {
                                 id: serverDisableUIChk
-                                text: "Disable local user controls when in use (restart required)"
+                                text: qsTr("Disable local user controls when in use (restart required)")
                                 checked: controller ? Boolean(controller.options["Server.DisableUI"]) : false
                                 onClicked: if (controller) controller.setOption("Server.DisableUI", checked)
                             }
@@ -1524,7 +1524,7 @@ ApplicationWindow {
 
                         GroupBox {
                             id: serverSetupGroup
-                            title: "Server Setup"
+                            title: qsTr("Server Setup")
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
@@ -1535,17 +1535,17 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { id: serverControlPortLabel; text: "Control Port" }
+                                    Label { id: serverControlPortLabel; text: qsTr("Control Port") }
                                     TextField { id: serverControlPortText; text: controller ? String(controller.options["Server.ControlPort"]) : "50001"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.ControlPort", Number(text)) }
 
-                                    Label { id: serverCATPortLabel; text: "CAT Port" }
+                                    Label { id: serverCATPortLabel; text: qsTr("CAT Port") }
                                     TextField { id: serverCivPortText; text: controller ? String(controller.options["Server.CivPort"]) : "50002"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.CivPort", Number(text)) }
 
-                                    Label { id: serverAudioPortLabel; text: "Audio Port" }
+                                    Label { id: serverAudioPortLabel; text: qsTr("Audio Port") }
                                     TextField { id: serverAudioPortText; text: controller ? String(controller.options["Server.AudioPort"]) : "50003"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.AudioPort", Number(text)) }
 
-                                    Label { id: serverScopePortLabel; text: "Scope Port" }
-                                    TextField { id: serverScopePortText; text: "50004"; enabled: false; Layout.preferredWidth: 130; inputMask: "99999"; ToolTip.visible: hovered; ToolTip.text: "The server scope port is not exposed by the current server config." }
+                                    Label { id: serverScopePortLabel; text: qsTr("Scope Port") }
+                                    TextField { id: serverScopePortText; text: "50004"; enabled: false; Layout.preferredWidth: 130; inputMask: "99999"; ToolTip.visible: hovered; ToolTip.text: qsTr("The server scope port is not exposed by the current server config.") }
 
                                     Item { Layout.fillWidth: true }
                                 }
@@ -1553,19 +1553,19 @@ ApplicationWindow {
                                 // server audio routing row
                                 RowLayout {
                                     spacing: 8
-                                    Label { text: "RX Audio Input" }
-                                    ComboBox { id: serverRXAudioInputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: "Server audio input selection needs a QML model." }
-                                    Label { text: "TX Audio Output" }
-                                    ComboBox { id: serverTXAudioOutputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: "Server audio output selection needs a QML model." }
+                                    Label { text: qsTr("RX Audio Input") }
+                                    ComboBox { id: serverRXAudioInputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio input selection needs a QML model.") }
+                                    Label { text: qsTr("TX Audio Output") }
+                                    ComboBox { id: serverTXAudioOutputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio output selection needs a QML model.") }
                                     Item { width: 20 }
-                                    Label { text: "Audio System" }
-                                    ComboBox { id: audioSystemServerCombo; model: ["Qt Audio", "PortAudio", "RT Audio"]; enabled: false; ToolTip.visible: hovered; ToolTip.text: "Server audio system selection is not wired yet." }
+                                    Label { text: qsTr("Audio System") }
+                                    ComboBox { id: audioSystemServerCombo; model: [qsTr("Qt Audio"), qsTr("PortAudio"), qsTr("RT Audio")]; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio system selection is not wired yet.") }
                                     Item { Layout.fillWidth: true }
                                 }
 
                                 // users table
                                 GroupBox {
-                                    title: "Users"
+                                    title: qsTr("Users")
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 220
 
@@ -1598,7 +1598,7 @@ ApplicationWindow {
 
                                 Label {
                                     id: serverDisconnectLabel
-                                    text: "Please disconnect from radio to make changes to the server settings"
+                                    text: qsTr("Please disconnect from radio to make changes to the server settings")
                                     wrapMode: Text.WordWrap
                                 }
 
@@ -1624,13 +1624,13 @@ ApplicationWindow {
                             spacing: 8
                             CheckBox {
                                 id: enableRigctldChk
-                                text: "Enable RigCtld"
+                                text: qsTr("Enable RigCtld")
                                 checked: controller ? Boolean(controller.options["LAN.EnableRigCtlD"]) : false
                                 onClicked: if (controller) controller.setOption("LAN.EnableRigCtlD", checked)
                                 Accessible.name: "Enable RIGCTLD checkbox"
                             }
                             Item { width: 20 }
-                            Label { text: "Port" }
+                            Label { text: qsTr("Port") }
                             TextField {
                                 id: rigctldPortTxt
                                 text: controller ? String(controller.options["LAN.RigCtlPort"]) : ""
@@ -1644,14 +1644,14 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            Label { id: vspLabel; text: "Virtual Serial Port" }
+                            Label { id: vspLabel; text: qsTr("Virtual Serial Port") }
                             ComboBox {
                                 id: vspCombo
                                 Layout.preferredWidth: 250
                                 Layout.maximumWidth: 250
                                 Accessible.name: "Virtual Serial Port Selector"
                                 ToolTip.visible: hovered
-                                ToolTip.text: "Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal."
+                                ToolTip.text: qsTr("Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal.")
                                 model: [] // TODO
                                 enabled: false
                             }
@@ -1661,36 +1661,36 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            Label { text: "TCP Server Port" }
+                            Label { text: qsTr("TCP Server Port") }
                             TextField { id: tcpServerPortTxt; text: controller ? String(controller.options["LAN.TCPPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCPPort", Number(text)) }
-                            Label { text: "Enter port for TCP server, 0 = disabled (restart required if changed)" }
+                            Label { text: qsTr("Enter port for TCP server, 0 = disabled (restart required if changed)") }
                             Item { Layout.fillWidth: true }
                         }
 
                         RowLayout {
                             spacing: 8
-                            Label { text: "TCI Server Port" }
+                            Label { text: qsTr("TCI Server Port") }
                             TextField { id: tciServerPortTxt; text: controller ? String(controller.options["LAN.TCIPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCIPort", Number(text)) }
-                            Label { text: "Enter port for TCI server 0 = disabled (restart required if changed)" }
+                            Label { text: qsTr("Enter port for TCI server 0 = disabled (restart required if changed)") }
                             Item { Layout.fillWidth: true }
                         }
 
                         RowLayout {
                             spacing: 8
-                            Label { text: "Waterfall Format" }
+                            Label { text: qsTr("Waterfall Format") }
                             ComboBox {
                                 id: waterfallFormatCombo
                                 model: [
-                                    { text: "Default", value: 0 },
-                                    { text: "Single (network)", value: 1 },
-                                    { text: "Multi (serial)", value: 2 }
+                                    { text: qsTr("Default"), value: 0 },
+                                    { text: qsTr("Single (network)"), value: 1 },
+                                    { text: qsTr("Multi (serial)"), value: 2 }
                                 ]
                                 textRole: "text"
                                 valueRole: "value"
                                 currentIndex: controller ? indexFromValue(waterfallFormatCombo, controller.options["LAN.WaterfallFormat"]) : -1
                                 onActivated: if (controller) controller.setOption("LAN.WaterfallFormat", currentValue)
                             }
-                            Label { text: "Only change this if you are absolutely sure you need it (connecting to N1MM+ or similar)" }
+                            Label { text: qsTr("Only change this if you are absolutely sure you need it (connecting to N1MM+ or similar)") }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1713,14 +1713,14 @@ ApplicationWindow {
                             spacing: 8
                             CheckBox {
                                 id: enableUsbChk
-                                text: "Enable USB Controllers"
+                                text: qsTr("Enable USB Controllers")
                                 checked: controller ? Boolean(controller.options["Controls.EnableUSBControllers"]) : false
                                 onClicked: if (controller) controller.setOption("Controls.EnableUSBControllers", checked)
                                 Accessible.name: "Enable USB Controllers Checkbox"
                             }
                             Item { width: 20 }
-                            Button { id: usbControllersReset; text: "Reset Buttons"; enabled: false; ToolTip.visible: hovered; ToolTip.text: "USB controller reset has not been ported to QML yet."; Accessible.name: "Reset USB Controllers Button" }
-                            Label { id: usbResetLbl; text: "Only reset buttons/commands if you have issues." }
+                            Button { id: usbControllersReset; text: qsTr("Reset Buttons"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("USB controller reset has not been ported to QML yet."); Accessible.name: "Reset USB Controllers Button" }
+                            Label { id: usbResetLbl; text: qsTr("Only reset buttons/commands if you have issues.") }
                             Item { Layout.fillWidth: true }
                         }
                         // Add the controller settings
@@ -1746,19 +1746,19 @@ ApplicationWindow {
                         spacing: 10
 
                         Label {
-                            text: "This page contains configuration for DX Cluster, either UDP style broadcast (from N1MM+/DXlog) or TCP connection to your favourite cluster"
+                            text: qsTr("This page contains configuration for DX Cluster, either UDP style broadcast (from N1MM+/DXlog) or TCP connection to your favourite cluster")
                             wrapMode: Text.WordWrap
                         }
 
                         GroupBox {
                             id: clusterTcpGroup
-                            title: "TCP Cluster Connection"
+                            title: qsTr("TCP Cluster Connection")
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
                             label: CheckBox {
                                 id: clusterTcpEnable
-                                text: "TCP Cluster Connection"
+                                text: qsTr("TCP Cluster Connection")
                                 checked: true
                             }
 
@@ -1794,12 +1794,12 @@ ApplicationWindow {
                                             Layout.fillWidth: true
 
                                             Button {
-                                                text: "Add"
+                                                text: qsTr("Add")
                                                 enabled: root.clusterModel !== null
                                                 onClicked: root.clusterModel.addEntry("localhost", 7300, "", "", 30, false)
                                             }
                                             Button {
-                                                text: "Remove"
+                                                text: qsTr("Remove")
                                                 enabled: root.clusterModel !== null && root.currentRow >= 0
                                                 onClicked: {
                                                     root.clusterModel.removeEntry(root.currentRow)
@@ -1822,12 +1822,12 @@ ApplicationWindow {
                                                 anchors.rightMargin: root.pad
                                                 spacing: root.pad
 
-                                                Label { width: root.wServer;  height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Server";  font.bold: true; color: "white" }
-                                                Label { width: root.wPort;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Port";    font.bold: true; color: "white" }
-                                                Label { width: root.wUser;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "User";    font.bold: true; color: "white" }
-                                                Label { width: root.wPass;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Password";font.bold: true; color: "white" }
-                                                Label { width: root.wTimeout; height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Timeout"; font.bold: true; color: "white" }
-                                                Label { width: root.wDef;     height: parent.height; verticalAlignment: Text.AlignVCenter; text: "Default"; font.bold: true; color: "white" }
+                                                Label { width: root.wServer;  height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Server");  font.bold: true; color: "white" }
+                                                Label { width: root.wPort;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Port");    font.bold: true; color: "white" }
+                                                Label { width: root.wUser;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("User");    font.bold: true; color: "white" }
+                                                Label { width: root.wPass;    height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Password");font.bold: true; color: "white" }
+                                                Label { width: root.wTimeout; height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Timeout"); font.bold: true; color: "white" }
+                                                Label { width: root.wDef;     height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Default"); font.bold: true; color: "white" }
                                             }
                                         }
 
@@ -1945,19 +1945,19 @@ ApplicationWindow {
 
                         GroupBox {
                             id: clusterUdpGroup
-                            title: "UDP Broadcast Connection"
+                            title: qsTr("UDP Broadcast Connection")
                             Layout.fillWidth: true
 
                             label: CheckBox {
                                     id: clusterUdpEnable
-                                    text: "UDP Broadcast Connection"
+                                    text: qsTr("UDP Broadcast Connection")
                                     checked: true
                                 }
 
 
                             RowLayout {
                                 spacing: 8
-                                Label { text: "UDP Port" }
+                                Label { text: qsTr("UDP Port") }
                                 TextField { id: clusterUdpPortLineEdit; inputMask: "00000"; Layout.preferredWidth: 120 }
                                 Item { Layout.fillWidth: true }
                             }
@@ -1974,7 +1974,7 @@ ApplicationWindow {
                             spacing: 8
                             CheckBox {
                                 id: clusterSkimmerSpotsEnable
-                                text: "Show Skimmer Spots"
+                                text: qsTr("Show Skimmer Spots")
                                 checked: controller ? Boolean(controller.options["Cluster.SkimmerSpotsEnable"]) : false
                                 onClicked: if (controller) controller.setOption("Cluster.SkimmerSpotsEnable", checked)
                             }
@@ -1996,7 +1996,7 @@ ApplicationWindow {
                         spacing: 10
 
                         Label {
-                            text: "This page contains experimental features. Use at your own risk."
+                            text: qsTr("This page contains experimental features. Use at your own risk.")
                             wrapMode: Text.WordWrap
                         }
 
@@ -2004,10 +2004,10 @@ ApplicationWindow {
                             spacing: 8
                             Button {
                                 id: debugBtn
-                                text: "Debug"
+                                text: qsTr("Debug")
                                 enabled: false
                                 ToolTip.visible: hovered
-                                ToolTip.text: "The old debug action has not been ported to QML yet."
+                                ToolTip.text: qsTr("The old debug action has not been ported to QML yet.")
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -2033,62 +2033,62 @@ ApplicationWindow {
                             Layout.alignment: Qt.AlignTop
 
                             GroupBox {
-                                title: "Transmit"
+                                title: qsTr("Transmit")
                                 Layout.fillWidth: true
                                 GridLayout {
                                     columns: 2
                                     anchors.fill: parent
-                                    ProcSwitch { text: "Bypass"; key: "AudioProc.Tx.Bypass" }
-                                    ProcSwitch { text: "EQ before compressor"; key: "AudioProc.Tx.EqFirst" }
-                                    ProcSwitch { text: "Compressor"; key: "AudioProc.Tx.CompEnabled" }
-                                    ProcSwitch { text: "Equalizer"; key: "AudioProc.Tx.EqEnabled" }
-                                    ProcSwitch { text: "Noise gate"; key: "AudioProc.Tx.GateEnabled" }
-                                    ProcSwitch { text: "Sidetone"; key: "AudioProc.Tx.SidetoneEnabled" }
-                                    ProcSwitch { text: "Mute RX on sidetone"; key: "AudioProc.Tx.MuteRx" }
-                                    ProcSwitch { text: "Spectrum"; key: "AudioProc.Tx.SpectrumEnabled" }
+                                    ProcSwitch { text: qsTr("Bypass"); key: "AudioProc.Tx.Bypass" }
+                                    ProcSwitch { text: qsTr("EQ before compressor"); key: "AudioProc.Tx.EqFirst" }
+                                    ProcSwitch { text: qsTr("Compressor"); key: "AudioProc.Tx.CompEnabled" }
+                                    ProcSwitch { text: qsTr("Equalizer"); key: "AudioProc.Tx.EqEnabled" }
+                                    ProcSwitch { text: qsTr("Noise gate"); key: "AudioProc.Tx.GateEnabled" }
+                                    ProcSwitch { text: qsTr("Sidetone"); key: "AudioProc.Tx.SidetoneEnabled" }
+                                    ProcSwitch { text: qsTr("Mute RX on sidetone"); key: "AudioProc.Tx.MuteRx" }
+                                    ProcSwitch { text: qsTr("Spectrum"); key: "AudioProc.Tx.SpectrumEnabled" }
                                 }
                             }
 
                             GroupBox {
-                                title: "Transmit Levels"
+                                title: qsTr("Transmit Levels")
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     anchors.fill: parent
-                                    ProcSlider { label: "Input gain dB"; key: "AudioProc.Tx.InputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
-                                    ProcSlider { label: "Output gain dB"; key: "AudioProc.Tx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
-                                    ProcSlider { label: "Comp peak dB"; key: "AudioProc.Tx.CompPeakLimit"; from: -30; to: 0; step: 0.5; decimals: 1 }
-                                    ProcSlider { label: "Comp release s"; key: "AudioProc.Tx.CompRelease"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "Fast ratio"; key: "AudioProc.Tx.CompFastRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "Slow ratio"; key: "AudioProc.Tx.CompSlowRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "Sidetone level"; key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Input gain dB"); key: "AudioProc.Tx.InputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: qsTr("Output gain dB"); key: "AudioProc.Tx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: qsTr("Comp peak dB"); key: "AudioProc.Tx.CompPeakLimit"; from: -30; to: 0; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: qsTr("Comp release s"); key: "AudioProc.Tx.CompRelease"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Fast ratio"); key: "AudioProc.Tx.CompFastRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Slow ratio"); key: "AudioProc.Tx.CompSlowRatio"; from: 0; to: 1; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Sidetone level"); key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 2 }
                                 }
                             }
 
                             GroupBox {
-                                title: "Transmit Gate"
+                                title: qsTr("Transmit Gate")
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     anchors.fill: parent
-                                    ProcSlider { label: "Threshold dB"; key: "AudioProc.Tx.GateThreshold"; from: -90; to: 0; step: 1; decimals: 0 }
-                                    ProcSlider { label: "Attack ms"; key: "AudioProc.Tx.GateAttack"; from: 0; to: 1000; step: 1; decimals: 0 }
-                                    ProcSlider { label: "Hold ms"; key: "AudioProc.Tx.GateHold"; from: 0; to: 2000; step: 5; decimals: 0 }
-                                    ProcSlider { label: "Decay ms"; key: "AudioProc.Tx.GateDecay"; from: 0; to: 4000; step: 5; decimals: 0 }
-                                    ProcSlider { label: "Range dB"; key: "AudioProc.Tx.GateRange"; from: -90; to: 0; step: 1; decimals: 0 }
-                                    ProcSlider { label: "LF cutoff Hz"; key: "AudioProc.Tx.GateLfCutoff"; from: 20; to: 4000; step: 10; decimals: 0 }
-                                    ProcSlider { label: "HF cutoff Hz"; key: "AudioProc.Tx.GateHfCutoff"; from: 200; to: 20000; step: 10; decimals: 0 }
-                                    ProcSlider { label: "Spectrum FPS"; key: "AudioProc.Tx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Threshold dB"); key: "AudioProc.Tx.GateThreshold"; from: -90; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Attack ms"); key: "AudioProc.Tx.GateAttack"; from: 0; to: 1000; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Hold ms"); key: "AudioProc.Tx.GateHold"; from: 0; to: 2000; step: 5; decimals: 0 }
+                                    ProcSlider { label: qsTr("Decay ms"); key: "AudioProc.Tx.GateDecay"; from: 0; to: 4000; step: 5; decimals: 0 }
+                                    ProcSlider { label: qsTr("Range dB"); key: "AudioProc.Tx.GateRange"; from: -90; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("LF cutoff Hz"); key: "AudioProc.Tx.GateLfCutoff"; from: 20; to: 4000; step: 10; decimals: 0 }
+                                    ProcSlider { label: qsTr("HF cutoff Hz"); key: "AudioProc.Tx.GateHfCutoff"; from: 200; to: 20000; step: 10; decimals: 0 }
+                                    ProcSlider { label: qsTr("Spectrum FPS"); key: "AudioProc.Tx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
                                 }
                             }
 
                             GroupBox {
-                                title: "Transmit EQ"
+                                title: qsTr("Transmit EQ")
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     anchors.fill: parent
                                     Repeater {
                                         model: 15
                                         ProcSlider {
-                                            label: "Band " + (index + 1) + " dB"
+                                            label: qsTr("Band ") + (index + 1) + " dB"
                                             key: "AudioProc.Tx.EqBand" + index
                                             from: -70
                                             to: 30
@@ -2105,79 +2105,79 @@ ApplicationWindow {
                             Layout.alignment: Qt.AlignTop
 
                             GroupBox {
-                                title: "Receive"
+                                title: qsTr("Receive")
                                 Layout.fillWidth: true
                                 GridLayout {
                                     columns: 2
                                     anchors.fill: parent
-                                    ProcSwitch { text: "Bypass"; key: "AudioProc.Rx.Bypass" }
-                                    ProcSwitch { text: "Noise reduction"; key: "AudioProc.Rx.NrEnabled" }
-                                    ProcSwitch { text: "Equalizer"; key: "AudioProc.Rx.EqEnabled" }
-                                    ProcSwitch { text: "Spectrum"; key: "AudioProc.Rx.SpectrumEnabled" }
-                                    ProcSwitch { text: "Speex AGC"; key: "AudioProc.Rx.SpeexAgc" }
-                                    ProcSwitch { text: "Speex VAD"; key: "AudioProc.Rx.SpeexVad" }
+                                    ProcSwitch { text: qsTr("Bypass"); key: "AudioProc.Rx.Bypass" }
+                                    ProcSwitch { text: qsTr("Noise reduction"); key: "AudioProc.Rx.NrEnabled" }
+                                    ProcSwitch { text: qsTr("Equalizer"); key: "AudioProc.Rx.EqEnabled" }
+                                    ProcSwitch { text: qsTr("Spectrum"); key: "AudioProc.Rx.SpectrumEnabled" }
+                                    ProcSwitch { text: qsTr("Speex AGC"); key: "AudioProc.Rx.SpeexAgc" }
+                                    ProcSwitch { text: qsTr("Speex VAD"); key: "AudioProc.Rx.SpeexVad" }
                                 }
                             }
 
                             GroupBox {
-                                title: "Receive Noise Reduction"
+                                title: qsTr("Receive Noise Reduction")
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     anchors.fill: parent
                                     ProcCombo {
-                                        label: "NR mode"
+                                        label: qsTr("NR mode")
                                         key: "AudioProc.Rx.NrMode"
                                         values: [
-                                            { text: "None", value: 0 },
-                                            { text: "Speex", value: 1 },
-                                            { text: "ANR", value: 2 }
+                                            { text: qsTr("None"), value: 0 },
+                                            { text: qsTr("Speex"), value: 1 },
+                                            { text: qsTr("ANR"), value: 2 }
                                         ]
                                     }
                                     ProcCombo {
-                                        label: "Channel"
+                                        label: qsTr("Channel")
                                         key: "AudioProc.Rx.ChannelSelect"
                                         values: [
-                                            { text: "Auto", value: 0 },
-                                            { text: "Left", value: 1 },
-                                            { text: "Right", value: 2 },
-                                            { text: "Mono sum", value: 3 }
+                                            { text: qsTr("Auto"), value: 0 },
+                                            { text: qsTr("Left"), value: 1 },
+                                            { text: qsTr("Right"), value: 2 },
+                                            { text: qsTr("Mono sum"), value: 3 }
                                         ]
                                     }
                                     RowLayout {
-                                        Button { text: "Collect ANR"; onClicked: MainController.startAnrNoiseProfile() }
-                                        Button { text: "Stop Collect"; onClicked: MainController.stopAnrNoiseProfile() }
+                                        Button { text: qsTr("Collect ANR"); onClicked: MainController.startAnrNoiseProfile() }
+                                        Button { text: qsTr("Stop Collect"); onClicked: MainController.stopAnrNoiseProfile() }
                                     }
-                                    ProcSlider { label: "Speex suppression"; key: "AudioProc.Rx.SpeexSuppression"; from: -60; to: 0; step: 1; decimals: 0 }
-                                    ProcSlider { label: "Speex bands"; key: "AudioProc.Rx.SpeexBandsPreset"; from: 0; to: 8; step: 1; decimals: 0 }
-                                    ProcSlider { label: "Frame ms"; key: "AudioProc.Rx.SpeexFrameMs"; from: 10; to: 60; step: 10; decimals: 0 }
-                                    ProcSlider { label: "AGC level"; key: "AudioProc.Rx.SpeexAgcLevel"; from: 1000; to: 30000; step: 100; decimals: 0 }
-                                    ProcSlider { label: "AGC max dB"; key: "AudioProc.Rx.SpeexAgcMaxGain"; from: 0; to: 60; step: 1; decimals: 0 }
-                                    ProcSlider { label: "VAD start %"; key: "AudioProc.Rx.SpeexVadProbStart"; from: 0; to: 100; step: 1; decimals: 0 }
-                                    ProcSlider { label: "VAD continue %"; key: "AudioProc.Rx.SpeexVadProbCont"; from: 0; to: 100; step: 1; decimals: 0 }
-                                    ProcSlider { label: "SNR decay"; key: "AudioProc.Rx.SpeexSnrDecay"; from: 0; to: 0.95; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "Noise update"; key: "AudioProc.Rx.SpeexNoiseUpdateRate"; from: 0.01; to: 0.5; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "Prior base"; key: "AudioProc.Rx.SpeexPriorBase"; from: 0.05; to: 0.5; step: 0.01; decimals: 2 }
-                                    ProcSlider { label: "ANR reduction dB"; key: "AudioProc.Rx.AnrNoiseReductionDb"; from: 0; to: 40; step: 0.5; decimals: 1 }
-                                    ProcSlider { label: "ANR sensitivity"; key: "AudioProc.Rx.AnrSensitivity"; from: 0; to: 12; step: 0.1; decimals: 1 }
-                                    ProcSlider { label: "ANR smoothing"; key: "AudioProc.Rx.AnrFreqSmoothing"; from: 0; to: 12; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Speex suppression"); key: "AudioProc.Rx.SpeexSuppression"; from: -60; to: 0; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Speex bands"); key: "AudioProc.Rx.SpeexBandsPreset"; from: 0; to: 8; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Frame ms"); key: "AudioProc.Rx.SpeexFrameMs"; from: 10; to: 60; step: 10; decimals: 0 }
+                                    ProcSlider { label: qsTr("AGC level"); key: "AudioProc.Rx.SpeexAgcLevel"; from: 1000; to: 30000; step: 100; decimals: 0 }
+                                    ProcSlider { label: qsTr("AGC max dB"); key: "AudioProc.Rx.SpeexAgcMaxGain"; from: 0; to: 60; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("VAD start %"); key: "AudioProc.Rx.SpeexVadProbStart"; from: 0; to: 100; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("VAD continue %"); key: "AudioProc.Rx.SpeexVadProbCont"; from: 0; to: 100; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("SNR decay"); key: "AudioProc.Rx.SpeexSnrDecay"; from: 0; to: 0.95; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Noise update"); key: "AudioProc.Rx.SpeexNoiseUpdateRate"; from: 0.01; to: 0.5; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("Prior base"); key: "AudioProc.Rx.SpeexPriorBase"; from: 0.05; to: 0.5; step: 0.01; decimals: 2 }
+                                    ProcSlider { label: qsTr("ANR reduction dB"); key: "AudioProc.Rx.AnrNoiseReductionDb"; from: 0; to: 40; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: qsTr("ANR sensitivity"); key: "AudioProc.Rx.AnrSensitivity"; from: 0; to: 12; step: 0.1; decimals: 1 }
+                                    ProcSlider { label: qsTr("ANR smoothing"); key: "AudioProc.Rx.AnrFreqSmoothing"; from: 0; to: 12; step: 1; decimals: 0 }
                                 }
                             }
 
                             GroupBox {
-                                title: "Receive Output and EQ"
+                                title: qsTr("Receive Output and EQ")
                                 Layout.fillWidth: true
                                 ColumnLayout {
                                     anchors.fill: parent
-                                    ProcSlider { label: "Output gain dB"; key: "AudioProc.Rx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
-                                    ProcSlider { label: "Spectrum FPS"; key: "AudioProc.Rx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
+                                    ProcSlider { label: qsTr("Output gain dB"); key: "AudioProc.Rx.OutputGainDB"; from: -30; to: 30; step: 0.5; decimals: 1 }
+                                    ProcSlider { label: qsTr("Spectrum FPS"); key: "AudioProc.Rx.SpectrumFPS"; from: 1; to: 60; step: 1; decimals: 0 }
                                     Repeater {
                                         model: 4
                                         ColumnLayout {
                                             Layout.fillWidth: true
-                                            Label { text: "EQ band " + (index + 1) }
-                                            ProcSlider { label: "Gain dB"; key: "AudioProc.Rx.EqGain" + index; from: -24; to: 24; step: 0.5; decimals: 1 }
-                                            ProcSlider { label: "Freq Hz"; key: "AudioProc.Rx.EqFreq" + index; from: 20; to: 8000; step: 10; decimals: 0 }
-                                            ProcSlider { label: "Q"; key: "AudioProc.Rx.EqQ" + index; from: 0.1; to: 10; step: 0.1; decimals: 1 }
+                                            Label { text: qsTr("EQ band ") + (index + 1) }
+                                            ProcSlider { label: qsTr("Gain dB"); key: "AudioProc.Rx.EqGain" + index; from: -24; to: 24; step: 0.5; decimals: 1 }
+                                            ProcSlider { label: qsTr("Freq Hz"); key: "AudioProc.Rx.EqFreq" + index; from: 20; to: 8000; step: 10; decimals: 0 }
+                                            ProcSlider { label: qsTr("Q"); key: "AudioProc.Rx.EqQ" + index; from: 0.1; to: 10; step: 0.1; decimals: 1 }
                                         }
                                     }
                                 }
@@ -2196,17 +2196,17 @@ ApplicationWindow {
 
             Button {
                 id: saveSettingsBtn
-                text: "Save Settings"
+                text: qsTr("Save Settings")
                 Accessible.name: "Save Settings"
                 onClicked: controller && controller.save()
             }
 
             Button {
                 id: revertSettingsBtn
-                text: "Revert to Default"
+                text: qsTr("Revert to Default")
                 enabled: false
                 ToolTip.visible: hovered
-                ToolTip.text: "Full preference reset has not been ported to QML yet."
+                ToolTip.text: qsTr("Full preference reset has not been ported to QML yet.")
                 Accessible.name: "Revert to Default"
             }
 
@@ -2215,11 +2215,11 @@ ApplicationWindow {
             Button {
                 id: connectBtn
                 text: (connStatus === 0) ?
-                          "Connect to Radio" :
+                          qsTr("Connect to Radio") :
                           (connStatus === 1) ?
-                          "Cancel Connection" :
+                          qsTr("Cancel Connection") :
                           (connStatus === 2) ?
-                          "Disconnect from Radio" : "Unknown status!"
+                          qsTr("Disconnect from Radio") : qsTr("Unknown status!")
                 onClicked: MainController.connectionHandler()
 
                 Accessible.name: "Connect to Radio"

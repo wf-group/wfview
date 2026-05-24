@@ -10,7 +10,7 @@ ApplicationWindow {
     width: 896
     height: 575
 
-    title: "Debug Window"
+    title: qsTr("Debug Window")
     visible: false
 
     DebugController { id: debugController }
@@ -61,13 +61,13 @@ ApplicationWindow {
                         spacing: 6
                         Repeater {
                             model: [
-                                { t:"ID",   w:50 },
-                                { t:"Function", w:160 },
-                                { t:"Value", w:260 },
-                                { t:"RX", w:50 },
-                                { t:"Retries", w:50 },
-                                { t:"Request", w:120 },
-                                { t:"Reply", w:120 }
+                                { t: qsTr("ID"),   w:50 },
+                                { t: qsTr("Function"), w:160 },
+                                { t: qsTr("Value"), w:260 },
+                                { t: qsTr("RX"), w:50 },
+                                { t: qsTr("Retries"), w:50 },
+                                { t: qsTr("Request"), w:120 },
+                                { t: qsTr("Reply"), w:120 }
                             ]
                             delegate: Label {
                                 text: modelData.t
@@ -132,13 +132,13 @@ ApplicationWindow {
                         spacing: 6
                         Repeater {
                             model: [
-                                { t:"ID", w:50 },
-                                { t:"Function", w:160 },
-                                { t:"Priority", w:70 },
-                                { t:"Get/Set", w:70 },
-                                { t:"RX", w:50 },
-                                { t:"Value", w:220 },
-                                { t:"Recurring", w:80 }
+                                { t: qsTr("ID"), w:50 },
+                                { t: qsTr("Function"), w:160 },
+                                { t: qsTr("Priority"), w:70 },
+                                { t: qsTr("Get/Set"), w:70 },
+                                { t: qsTr("RX"), w:50 },
+                                { t: qsTr("Value"), w:220 },
+                                { t: qsTr("Recurring"), w:80 }
                             ]
                             delegate: Label {
                                 text: modelData.t
@@ -194,14 +194,14 @@ ApplicationWindow {
             spacing: 12
 
             CheckBox {
-                text: "Pause refresh"
+                text: qsTr("Pause refresh")
                 checked: controller ? controller.cachePaused : false
                 onToggled: if (controller) controller.cachePaused = checked
             }
 
             Item { Layout.fillWidth: true }
 
-            Label { text: "Refresh Interval (ms)" }
+            Label { text: qsTr("Refresh Interval (ms)") }
             TextField {
                 width: 90
                 inputMethodHints: Qt.ImhDigitsOnly
@@ -211,14 +211,14 @@ ApplicationWindow {
             }
 
             CheckBox {
-                text: "Pause refresh"
+                text: qsTr("Pause refresh")
                 checked: controller ? controller.queuePaused : false
                 onToggled: if (controller) controller.queuePaused = checked
             }
 
             Item { Layout.fillWidth: true }
 
-            Label { text: "Refresh Interval (ms)" }
+            Label { text: qsTr("Refresh Interval (ms)") }
             TextField {
                 width: 90
                 inputMethodHints: Qt.ImhDigitsOnly

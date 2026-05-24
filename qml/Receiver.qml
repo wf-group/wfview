@@ -112,18 +112,18 @@ Control {
                     contentItem: ComboBox {
                         id: combo
                         model: [
-                            { text:"None", value: 0 },          // meterNone
-                            { text:"S-Meter", value: 1 },   // adjust enum values to match meter_t
-                            { text:"Sub S-Meter", value: 2 },   // adjust enum values to match meter_t
-                            { text:"SWR", value: 5 },
-                            { text:"ALC", value: 4 },
-                            { text:"Compression", value: 8 },
-                            { text:"Voltage", value: 6 },
-                            { text:"Current", value: 7 },
-                            { text:"Center", value: 9 },
-                            { text:"TxRxAudio", value: 10 },
-                            { text:"RxAudio", value: 11 },
-                            { text:"TxAudio", value: 12 }
+                            { text:qsTr("None"), value: 0 },          // meterNone
+                            { text:qsTr("S-Meter"), value: 1 },   // adjust enum values to match meter_t
+                            { text:qsTr("Sub S-Meter"), value: 2 },   // adjust enum values to match meter_t
+                            { text:qsTr("SWR"), value: 5 },
+                            { text:qsTr("ALC"), value: 4 },
+                            { text:qsTr("Compression"), value: 8 },
+                            { text:qsTr("Voltage"), value: 6 },
+                            { text:qsTr("Current"), value: 7 },
+                            { text:qsTr("Center"), value: 9 },
+                            { text:qsTr("TxRxAudio"), value: 10 },
+                            { text:qsTr("RxAudio"), value: 11 },
+                            { text:qsTr("TxAudio"), value: 12 }
                         ]
                         textRole: "text"
                         valueRole: "value"
@@ -195,7 +195,7 @@ Control {
 
                 ToolButton {
                     id: bandDrawerButton
-                    text: "\u2630"
+                    text: qsTr("\u2630")
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.margins: 3
@@ -347,7 +347,7 @@ Control {
 
                                     Button {
                                         id: swapABButton;
-                                        text: "A↔B";
+                                        text: qsTr("A↔B");
                                         enabled: true
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSwapABButton) !== 0
                                         onClicked: if (controller) controller.swapVfoAB()
@@ -355,7 +355,7 @@ Control {
 
                                     Button {
                                         id: equalsABButton;
-                                        text: "A=B";
+                                        text: qsTr("A=B");
                                         enabled: true
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowEqualsABButton) !== 0
                                         onClicked: if (controller) controller.equalizeVfoAB()
@@ -363,7 +363,7 @@ Control {
 
                                     Button {
                                         id: vmButton;
-                                        text: "V/M";
+                                        text: qsTr("V/M");
                                         checkable: true
                                         checked: controller ? controller.memoryMode : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowVMButton) !== 0
@@ -372,7 +372,7 @@ Control {
 
                                     Button {
                                         id: satButton;
-                                        text: "SAT";
+                                        text: qsTr("SAT");
                                         checkable: true
                                         checked: controller ? controller.satelliteMode : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSatButton) !== 0
@@ -381,7 +381,7 @@ Control {
 
                                     Button {
                                         id: splitButton;
-                                        text: "SPLIT";
+                                        text: qsTr("SPLIT");
                                         checkable: true
                                         checked: controller ? controller.splitEnabled : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSplitButton) !== 0
@@ -475,7 +475,7 @@ Control {
                                 id: customEdgeButton
                                 objectName: "customEdge"
                                 visible: !root.isCenterScopeMode(scopeModeCombo.currentValue)
-                                text: "Custom Edge"
+                                text: qsTr("Custom Edge")
                                 onClicked: customEdgeDialog.open()
                                 Layout.preferredWidth: 90
                             }
@@ -483,7 +483,7 @@ Control {
                             Button {
                                 id: toFixedButton
                                 objectName: "toFixed"
-                                text: "To Fixed"
+                                text: qsTr("To Fixed")
                                 visible: root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 onClicked: edgeDialog.open()
                                 Layout.preferredWidth: 70
@@ -492,7 +492,7 @@ Control {
                             Button {
                                 id: holdButton
                                 objectName: "hold"
-                                text: "Hold"
+                                text: qsTr("Hold")
                                 checkable: true
                                 checked: controller && controller.hold
                                 onClicked: controller.hold = checked
@@ -571,7 +571,7 @@ Control {
                             Button {
                                 id: clearPeaksButton
                                 objectName: "clearPeaks"
-                                text: "Clear Peaks"
+                                text: qsTr("Clear Peaks")
                                 onClicked: spectrum.clearPeaks()
                                 Layout.preferredWidth: 80
 
@@ -671,7 +671,7 @@ Control {
                     anchors.verticalCenter: parent.verticalCenter
                     onToggled: bandPanel.locked = checked
                     ToolTip.visible: hovered
-                    ToolTip.text: checked ? "Unlock drawer" : "Lock drawer"
+                    ToolTip.text: checked ? qsTr("Unlock drawer") : qsTr("Lock drawer")
                 }
 
                 Label {
@@ -680,7 +680,7 @@ Control {
                     anchors.leftMargin: 8
                     anchors.rightMargin: 72
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Bands"
+                    text: qsTr("Bands")
                     font.bold: true
                     elide: Text.ElideRight
                 }
@@ -713,9 +713,9 @@ Control {
                         enabled: true
                         // Example model (use your uiSpecs like everything else)
                         model: [
-                            { text:"BSR 1", value: 1 },
-                            { text:"BSR 2", value: 2 },
-                            { text:"BSR 3", value: 3 }
+                            { text:qsTr("BSR 1"), value: 1 },
+                            { text:qsTr("BSR 2"), value: 2 },
+                            { text:qsTr("BSR 3"), value: 3 }
                         ]
                         textRole: "text"
                         valueRole: "value"
@@ -725,7 +725,7 @@ Control {
                     }
 
                     Button {
-                        text: "Store"
+                        text: qsTr("Store")
                         Layout.preferredWidth: 50
                         onClicked: {
                             // do whatever you need
@@ -919,7 +919,7 @@ Control {
                     anchors.verticalCenter: parent.verticalCenter
                     onToggled: sidePanel.locked = checked
                     ToolTip.visible: hovered
-                    ToolTip.text: checked ? "Unlock drawer" : "Lock drawer"
+                    ToolTip.text: checked ? qsTr("Unlock drawer") : qsTr("Lock drawer")
                 }
 
                 Label {
@@ -970,7 +970,7 @@ Control {
 
                     // === Ref slider ===
                     Label {
-                        text: "Ref"
+                        text: qsTr("Ref")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: refSlider.spec ? refSlider.spec.visible : false
@@ -999,7 +999,7 @@ Control {
 
                     // === Length slider ===
                     Label {
-                        text: "Length"
+                        text: qsTr("Length")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1025,7 +1025,7 @@ Control {
 
                     // === Ceiling slider ===
                     Label {
-                        text: "Ceiling"
+                        text: qsTr("Ceiling")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1052,7 +1052,7 @@ Control {
 
                     // === Floor slider ===
                     Label {
-                        text: "Floor"
+                        text: qsTr("Floor")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1079,7 +1079,7 @@ Control {
 
                     // === Speed combobox ===
                     Label {
-                        text: "Speed"
+                        text: qsTr("Speed")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1098,7 +1098,7 @@ Control {
 
                     // === Theme combobox ===
                     Label {
-                        text: "Theme"
+                        text: qsTr("Theme")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1117,7 +1117,7 @@ Control {
 
                     // === PBT Inner slider ===
                     Label {
-                        text: "PBT Inner"
+                        text: qsTr("PBT Inner")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: pbtInnerSlider.visible
@@ -1145,7 +1145,7 @@ Control {
 
                     // === PBT Outer slider ===
                     Label {
-                        text: "PBT Outer"
+                        text: qsTr("PBT Outer")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: pbtOuterSlider.visible
@@ -1173,7 +1173,7 @@ Control {
 
                     // === IF Shift slider + reset button ===
                     Label {
-                        text: "IF Shift"
+                        text: qsTr("IF Shift")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1192,7 +1192,7 @@ Control {
                         }
 
                         Button {
-                            text: "R"
+                            text: qsTr("R")
                             Layout.preferredWidth: 20
                             onClicked: ifShiftSlider.value = 0
                         }
@@ -1201,7 +1201,7 @@ Control {
 
                     // === Filter width slider ===
                     Label {
-                        text: "Filter width"
+                        text: qsTr("Filter width")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -1222,7 +1222,7 @@ Control {
                         spacing: 0
 
                         Label {
-                            text: "NB"
+                            text: qsTr("NB")
                         }
 
                         CheckBox {
@@ -1263,7 +1263,7 @@ Control {
                         spacing: 0
 
                         Label {
-                            text: "NR"
+                            text: qsTr("NR")
                         }
 
                         CheckBox {
@@ -1310,7 +1310,7 @@ Control {
                             CheckBox {
                                 // IP Plus
                                 id: ipPlusCheckBox
-                                text: "IP+"
+                                text: qsTr("IP+")
                                 checked: controller ? controller.ipPlus : false
                                 onCheckedChanged: {
                                     if (controller)
@@ -1322,7 +1322,7 @@ Control {
                             CheckBox {
                                 // Manual Notch
                                 id: mnCheckBox
-                                text: "MN"
+                                text: qsTr("MN")
                                 checked: controller ? controller.mn : false
                                 onCheckedChanged: {
                                     if (controller)
@@ -1334,7 +1334,7 @@ Control {
                             CheckBox {
                                 // Digi-Sel
                                 id: dsCheckBox
-                                text: "DS"
+                                text: qsTr("DS")
                                 checked: controller ? controller.ds : false
                                 onCheckedChanged: {
                                     if (controller)
@@ -1346,7 +1346,7 @@ Control {
                     }
 
                     Label {
-                        text: "RF Gain"
+                        text: qsTr("RF Gain")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: rfGainSlider.visible
@@ -1372,7 +1372,7 @@ Control {
                     }
 
                     Label {
-                        text: "AF Gain"
+                        text: qsTr("AF Gain")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: afGainSlider.visible
@@ -1398,7 +1398,7 @@ Control {
                     }
 
                     Label {
-                        text: "Squelch"
+                        text: qsTr("Squelch")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: squelchSlider.visible
@@ -1425,7 +1425,7 @@ Control {
 
 
                     Label {
-                        text: "Attenuator"
+                        text: qsTr("Attenuator")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: attCtl.visible
@@ -1583,7 +1583,7 @@ Control {
 
 
                     Label {
-                        text: "Preamp"
+                        text: qsTr("Preamp")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         visible: preCtl.visible
@@ -1774,7 +1774,7 @@ Control {
                             Item { Layout.fillWidth: true } // pushes RX to the right
 
                             CheckBox {
-                                text: "RX"
+                                text: qsTr("RX")
                                 checked: controller ? controller.rxAntenna : false
                                 onToggled: if (controller) controller.rxAntenna = checked
                                 Layout.alignment: Qt.AlignVCenter
@@ -1794,7 +1794,7 @@ Control {
                             spacing: 8
 
                             Label {
-                                text: "Scope enabled"
+                                text: qsTr("Scope enabled")
                                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                 Layout.preferredWidth: 110   // match your label column width
                             }
@@ -1857,7 +1857,7 @@ Control {
 
         ToolButton {
             id: drawerButton
-            text: "\u2630"
+            text: qsTr("\u2630")
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 6
@@ -1885,7 +1885,7 @@ Control {
             spacing: 8
 
             Label {
-                text: "Edge to replace:"
+                text: qsTr("Edge to replace:")
             }
 
             ComboBox {
@@ -1952,7 +1952,7 @@ Control {
             spacing: 8
 
             Label {
-                text: "Start frequency (kHz):"
+                text: qsTr("Start frequency (kHz):")
             }
 
             SpinBox {
@@ -1962,7 +1962,7 @@ Control {
             }
 
             Label {
-                text: "End frequency (kHz):"
+                text: qsTr("End frequency (kHz):")
             }
 
             SpinBox {
@@ -1972,7 +1972,7 @@ Control {
             }
 
             Label {
-                text: "Invalid span size"
+                text: qsTr("Invalid span size")
                 color: "red"
                 visible: !customEdgeDialog.isValid()
             }

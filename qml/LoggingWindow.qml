@@ -12,7 +12,7 @@ ApplicationWindow {
 
 
     visible: false
-    title: "Logging"
+    title: qsTr("Logging")
 
     Shortcut {
         sequence: "Ctrl+C"
@@ -108,13 +108,13 @@ ApplicationWindow {
                 id: logCtxMenu
 
                 MenuItem {
-                    text: "Copy selection"
+                    text: qsTr("Copy selection")
                     enabled: logView.hasSelection()
                     onTriggered: Clipboard.text = Logging.model.rangeText(logView.selStart, logView.selEnd)
                 }
 
                 MenuItem {
-                    text: "Copy line"
+                    text: qsTr("Copy line")
                     enabled: logView.ctxRow >= 0
                     onTriggered: Clipboard.text = Logging.model.lineAt(logView.ctxRow)
                 }
@@ -122,7 +122,7 @@ ApplicationWindow {
                 MenuSeparator {}
 
                 MenuItem {
-                    text: "Copy all (visible)"
+                    text: qsTr("Copy all (visible)")
                     enabled: logView.count > 0
                     onTriggered: Clipboard.text = Logging.model.allVisibleText()
                 }
@@ -130,7 +130,7 @@ ApplicationWindow {
                 MenuSeparator {}
 
                 MenuItem {
-                    text: "Clear selection"
+                    text: qsTr("Clear selection")
                     enabled: logView.hasSelection()
                     onTriggered: logView.clearSelection()
                 }
@@ -216,7 +216,7 @@ ApplicationWindow {
             spacing: 6
 
             Label {
-                text: "Annotation:"
+                text: qsTr("Annotation:")
                 Layout.minimumWidth: 75
                 Layout.maximumWidth: 75
             }
@@ -232,7 +232,7 @@ ApplicationWindow {
                         id: annotationMenu
 
                         MenuItem {
-                            text: "Cut"
+                            text: qsTr("Cut")
                             enabled: annotationField.selectedText.length > 0
                             onTriggered: {
                                 Clipboard.text = annotationField.selectedText
@@ -241,13 +241,13 @@ ApplicationWindow {
                         }
 
                         MenuItem {
-                            text: "Copy"
+                            text: qsTr("Copy")
                             enabled: annotationField.selectedText.length > 0
                             onTriggered: Clipboard.text = annotationField.selectedText
                         }
 
                         MenuItem {
-                            text: "Paste"
+                            text: qsTr("Paste")
                             enabled: Clipboard.text.length > 0
                             onTriggered: annotationField.insert(annotationField.cursorPosition, Clipboard.text)
                         }
@@ -255,7 +255,7 @@ ApplicationWindow {
                         MenuSeparator {}
 
                         MenuItem {
-                            text: "Select All"
+                            text: qsTr("Select All")
                             onTriggered: annotationField.selectAll()
                         }
                     }
@@ -291,7 +291,7 @@ ApplicationWindow {
             }
 
             Button {
-                text: "Annotate"
+                text: qsTr("Annotate")
                 Layout.minimumWidth: 85
                 Layout.maximumWidth: 85
                 onClicked: Logging.annotateRequested(annotationField.text)
@@ -317,19 +317,19 @@ ApplicationWindow {
 
                 // Filters
                 CheckBox {
-                    text: "Debug"
+                    text: qsTr("Debug")
                     checked: Logging.debugEnabled
                     onToggled: Logging.debugEnabled = checked
                 }
 
                 CheckBox {
-                    text: "CommDebug"
+                    text: qsTr("CommDebug")
                     checked: Logging.commDebugEnabled
                     onToggled: Logging.commDebugEnabled = checked
                 }
 
                 CheckBox {
-                    text: "RigCtl Debug"
+                    text: qsTr("RigCtl Debug")
                     checked: Logging.rigctlDebugEnabled
                     onToggled: Logging.rigctlDebugEnabled = checked
                 }
@@ -343,7 +343,7 @@ ApplicationWindow {
                         id: filterField
                         anchors.fill: parent
                         rightPadding: 26
-                        placeholderText: "Filter…"
+                        placeholderText: qsTr("Filter…")
                         onTextChanged: Logging.model.filter = text
                     }
 
@@ -362,13 +362,13 @@ ApplicationWindow {
                 }
 
                 CheckBox {
-                    text: "Pause"
+                    text: qsTr("Pause")
                     checked: Logging.model.paused
                     onToggled: Logging.model.paused = checked
                 }
 
                 CheckBox {
-                    text: "Follow"
+                    text: qsTr("Follow")
                     checked: logView.autoFollow
                     onToggled: {
                         logView.autoFollow = checked
@@ -378,18 +378,18 @@ ApplicationWindow {
                 }
 
                 Button {
-                    text: "Scroll Down"
+                    text: qsTr("Scroll Down")
                     onClicked: {
                         logView.autoFollow = true
                         Qt.callLater(scrollToBottomNow)
                     }
                 }
 
-                Button { text: "Clear"; onClicked: Logging.model.clear() }
-                Button { text: "Open Log Directory"; onClicked: Logging.openLogDirectoryRequested() }
-                Button { text: "Open Log"; onClicked: Logging.openLogFileRequested() }
-                Button { text: "Copy Path"; onClicked: Logging.copyPathRequested() }
-                Button { text: "Send to termbin.com"; onClicked: Logging.sendToTermbinRequested() }
+                Button { text: qsTr("Clear"); onClicked: Logging.model.clear() }
+                Button { text: qsTr("Open Log Directory"); onClicked: Logging.openLogDirectoryRequested() }
+                Button { text: qsTr("Open Log"); onClicked: Logging.openLogFileRequested() }
+                Button { text: qsTr("Copy Path"); onClicked: Logging.copyPathRequested() }
+                Button { text: qsTr("Send to termbin.com"); onClicked: Logging.sendToTermbinRequested() }
             }
         }
     }

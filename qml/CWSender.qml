@@ -6,7 +6,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: cwSenderWindow
-    title: "CW Sender"
+    title: qsTr("CW Sender")
     width: 835
     height: 451
 
@@ -94,7 +94,7 @@ ApplicationWindow {
                     wrapMode: TextArea.Wrap
                     font.family: "Courier"
                     font.pixelSize: 12
-                    placeholderText: "CW Transmission Transcript"
+                    placeholderText: qsTr("CW Transmission Transcript")
                     color: "white"
                     background: Rectangle { color: "#2b2b2b" }
                 }
@@ -111,7 +111,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 font.family: "Courier"
                 font.pixelSize: 12
-                placeholderText: "Text to send..."
+                placeholderText: qsTr("Text to send...")
                 color: "white"
                 background: Rectangle {
                     color: "#2b2b2b"
@@ -132,7 +132,7 @@ ApplicationWindow {
             }
             
             Button {
-                text: "Send"
+                text: qsTr("Send")
                 font.bold: true
                 implicitWidth: 80
                 onClicked: {
@@ -143,7 +143,7 @@ ApplicationWindow {
             }
             
             Button {
-                text: "Stop"
+                text: qsTr("Stop")
                 font.bold: true
                 implicitWidth: 80
                 onClicked: {
@@ -208,7 +208,7 @@ ApplicationWindow {
             spacing: 10
             
             CheckBox {
-                text: "Cut Numbers"
+                text: qsTr("Cut Numbers")
                 checked: cwSenderController ? cwSenderController.cutNumbers : false
                 onCheckedChanged: {
                     if (cwSenderController) {
@@ -218,7 +218,7 @@ ApplicationWindow {
             }
             
             CheckBox {
-                text: "Send Immediate"
+                text: qsTr("Send Immediate")
                 checked: cwSenderController ? cwSenderController.sendImmediate : false
                 onCheckedChanged: {
                     if (cwSenderController) {
@@ -228,7 +228,7 @@ ApplicationWindow {
             }
             
             CheckBox {
-                text: "Edit Macros"
+                text: qsTr("Edit Macros")
                 checked: cwSenderController ? cwSenderController.macroEditMode : false
                 onCheckedChanged: {
                     if (cwSenderController) {
@@ -238,7 +238,7 @@ ApplicationWindow {
             }
             
             Label {
-                text: "Sequence:"
+                text: qsTr("Sequence:")
             }
             
             SpinBox {
@@ -260,7 +260,7 @@ ApplicationWindow {
             columnSpacing: 10
             rowSpacing: 5
             
-            Label { text: "WPM:" }
+            Label { text: qsTr("WPM:") }
             SpinBox {
                 from: 6
                 to: 48
@@ -272,7 +272,7 @@ ApplicationWindow {
                 }
             }
             
-            Label { text: "Dash Ratio:" }
+            Label { text: qsTr("Dash Ratio:") }
             SpinBox {
                 from: 25
                 to: 45
@@ -284,7 +284,7 @@ ApplicationWindow {
                 }
             }
             
-            Label { text: "Pitch:" }
+            Label { text: qsTr("Pitch:") }
             SpinBox {
                 from: 300
                 to: 900
@@ -297,9 +297,9 @@ ApplicationWindow {
                 }
             }
             
-            Label { text: "Break-in:" }
+            Label { text: qsTr("Break-in:") }
             ComboBox {
-                model: ["Off", "Semi", "Full"]
+                model: [qsTr("Off"), qsTr("Semi"), qsTr("Full")]
                 currentIndex: cwSenderController ? cwSenderController.breakInMode : 0
                 onCurrentIndexChanged: {
                     if (cwSenderController) {
@@ -309,7 +309,7 @@ ApplicationWindow {
             }
             
             CheckBox {
-                text: "Sidetone"
+                text: qsTr("Sidetone")
                 checked: cwSenderController ? cwSenderController.sidetoneEnable : false
                 onCheckedChanged: {
                     if (cwSenderController) {
@@ -348,7 +348,7 @@ ApplicationWindow {
     // Macro Edit Dialog
     Dialog {
         id: macroEditDialog
-        title: "Edit Macro " + macroNumber
+        title: qsTr("Edit Macro ") + macroNumber
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
         
@@ -362,7 +362,7 @@ ApplicationWindow {
             spacing: 10
             
             Label {
-                text: "Enter macro text (max 60 characters).\nUse %1 for sequence number."
+                text: qsTr("Enter macro text (max 60 characters).\nUse %1 for sequence number.")
                 wrapMode: Text.WordWrap
             }
             
@@ -371,7 +371,7 @@ ApplicationWindow {
                 Layout.preferredWidth: 400
                 text: macroEditDialog.currentText
                 maximumLength: 60
-                placeholderText: "Macro text..."
+                placeholderText: qsTr("Macro text...")
             }
         }
         
