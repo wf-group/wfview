@@ -14,6 +14,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 */
 
 
+#if defined(_MSC_VER)
+/* Vendored Kiss FFT code uses compact int/float arithmetic internally.
+   Suppress expected MSVC conversion warnings without changing the algorithm. */
+#pragma warning(disable: 4244 4267)
+#endif
+
 #include "_kiss_fft_guts.h"
 #include "arch.h"
 #include "os_support.h"
@@ -516,4 +522,3 @@ void kiss_fft(kiss_fft_cfg cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout)
 {
     kiss_fft_stride(cfg,fin,fout,1);
 }
-

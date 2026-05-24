@@ -456,7 +456,6 @@ bool audioConverter::convert(audioPacket audio)
                 if (outCodec == ADPCM)
                 {
                     // Clamp float to [-1,1] and convert to S16
-                    const int ch = outFormat.channelCount();
                     const Eigen::VectorXf f = samplesF.array().max(-1.0f).min(1.0f);
                     VectorXint16 s16 = (f * float(std::numeric_limits<qint16>::max()))
                                            .array().round().cast<qint16>();
@@ -481,4 +480,3 @@ bool audioConverter::convert(audioPacket audio)
     emit converted(audio);
     return true;
 }
-

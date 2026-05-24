@@ -20,6 +20,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     , m_selRad(std::make_unique<SelectRadioController>())
     , m_cwSender(std::make_unique<CWSenderController>())
 {
+    Q_UNUSED(logFileName)
+    Q_UNUSED(debugMode)
 
     systemPalette = QGuiApplication::palette();
 
@@ -368,9 +370,7 @@ void MainController::ifChanged(prefIfItems items)
             {
             case if_frequencyUnits:
                 qInfo() << "Got new frequencyUnit";
-                for (auto *r : std::as_const(receivers)) {
-                    //if (r) r->setFreqDisplay(prefs->frequencyUnits);
-                }
+                // Receiver frequency unit handling has not been ported to QML yet.
                 break;
             case if_useSystemTheme:
                 updateApplicationPalette();
@@ -1058,13 +1058,14 @@ void MainController::buttonControl(const COMMAND* cmd)
     case funcTuningStep:
         if (!rigCaps->steps.empty()) {
             int idx = 0;
-            for (int i = 0; i < rigCaps->steps.size(); ++i) {
+            const int stepCount = static_cast<int>(rigCaps->steps.size());
+            for (int i = 0; i < stepCount; ++i) {
                 if (rigCaps->steps[i].hz == stepSize) {
                     idx = i;
                     break;
                 }
             }
-            idx = (idx + cmd->value + rigCaps->steps.size()) % rigCaps->steps.size();
+            idx = (idx + cmd->value + stepCount) % stepCount;
             setStepSize(rigCaps->steps[idx].hz);
         }
         return;
@@ -1074,13 +1075,14 @@ void MainController::buttonControl(const COMMAND* cmd)
         if (receiver < receivers.size()) {
             if (cmd->value == 1 || cmd->value == -1) {
                 int idx = 0;
-                for (int i = 0; i < rigCaps->modes.size(); ++i) {
+                const int modeCount = static_cast<int>(rigCaps->modes.size());
+                for (int i = 0; i < modeCount; ++i) {
                     if (rigCaps->modes[i].mk == receivers[receiver]->getMode()) {
                         idx = i;
                         break;
                     }
                 }
-                idx = (idx + cmd->value + rigCaps->modes.size()) % rigCaps->modes.size();
+                idx = (idx + cmd->value + modeCount) % modeCount;
                 receivers[receiver]->setMode(rigCaps->modes[idx].mk, true);
             } else {
                 receivers[receiver]->setMode(cmd->mode, true);
@@ -1995,9 +1997,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcCwPitch:
 
         // There is only a single CW Pitch setting, so send to all scopes
-        for (const auto& receiver: receivers) {
-            //receiver->receiveCwPitch(val.value.value<quint16>());
-        }
+        // Receiver-side CW pitch display has not been ported to QML yet.
         // Also send to CW window
         m_cwSender->setPitch(val.value.value<quint16>());
         break;
@@ -3345,6 +3345,7 @@ void MainController::setManufacturer(manufacturersType_t man)
 
 void MainController::onRadioPacket(const QByteArray &packet)
 {
+    Q_UNUSED(packet)
     //const int rx = /* extract rx index from packet */;
     //if (rx < 0 || rx >= rxCtrls.size()) return;
 

@@ -5,11 +5,27 @@
 #include <QFile>
 #include <QTextStream>
 #include <QStandardItemModel>
+#include <algorithm>
+#include <cstring>
 
 #define MEMORY_TIMEOUT 1000
 #define MEMORY_SLOWLOAD 500
 #define MEMORY_SATGROUP 200
 #define MEMORY_SHORTGROUP 100
+
+namespace {
+
+template<size_t Size>
+void copyToFixedBuffer(char (&dest)[Size], const QString &value)
+{
+    static_assert(Size > 0, "destination buffer must include room for a terminator");
+    const QByteArray bytes = value.toUtf8();
+    const size_t copyLength = std::min(Size - 1, static_cast<size_t>(bytes.size()));
+    std::memset(dest, 0, Size);
+    std::memcpy(dest, bytes.constData(), copyLength);
+}
+
+}
 
 MemoriesModel::MemoriesModel(QObject *parent)
     : QAbstractTableModel(parent)
@@ -454,8 +470,7 @@ bool MemoriesModel::setData(const QModelIndex &index, const QVariant &value, int
     // Update the memory data based on column
     switch (index.column()) {
     case ColName:
-        strncpy(mem.data.name, strValue.toStdString().c_str(), sizeof(mem.data.name) - 1);
-        mem.data.name[sizeof(mem.data.name) - 1] = '\0';
+        copyToFixedBuffer(mem.data.name, strValue);
         break;
     case ColFrequency:
         mem.data.frequency.Hz = quint64(strValue.toDouble() * 1000000.0);
@@ -588,22 +603,22 @@ bool MemoriesModel::setData(const QModelIndex &index, const QVariant &value, int
         mem.data.clarTX = (strValue == "ON");
         break;
     case ColUR:
-        strncpy(mem.data.UR, strValue.toStdString().c_str(), sizeof(mem.data.UR) - 1);
+        copyToFixedBuffer(mem.data.UR, strValue);
         break;
     case ColURB:
-        strncpy(mem.data.URB, strValue.toStdString().c_str(), sizeof(mem.data.URB) - 1);
+        copyToFixedBuffer(mem.data.URB, strValue);
         break;
     case ColR1:
-        strncpy(mem.data.R1, strValue.toStdString().c_str(), sizeof(mem.data.R1) - 1);
+        copyToFixedBuffer(mem.data.R1, strValue);
         break;
     case ColR1B:
-        strncpy(mem.data.R1B, strValue.toStdString().c_str(), sizeof(mem.data.R1B) - 1);
+        copyToFixedBuffer(mem.data.R1B, strValue);
         break;
     case ColR2:
-        strncpy(mem.data.R2, strValue.toStdString().c_str(), sizeof(mem.data.R2) - 1);
+        copyToFixedBuffer(mem.data.R2, strValue);
         break;
     case ColR2B:
-        strncpy(mem.data.R2B, strValue.toStdString().c_str(), sizeof(mem.data.R2B) - 1);
+        copyToFixedBuffer(mem.data.R2B, strValue);
         break;
     default:
         // Column not editable
@@ -829,6 +844,8 @@ void MemoriesModel::deleteMemory(int row)
 
 void MemoriesModel::addCurrentToMemory(int row)
 {
+    Q_UNUSED(row)
+
     qInfo() << "Add Current to memory";
 
     // Get current VFO settings and create new memory
@@ -1683,7 +1700,7 @@ void MemoriesModel::receiveMemory(memoryType mem)
     setProgress(mem.channel & 0xffff);
 
     // Request next memory if needed
-    if ((m_lastMemoryRequested & 0xffff) < m_groupMemories && m_startup) {
+    if (static_cast<int>(m_lastMemoryRequested & 0xffff) < m_groupMemories && m_startup) {
         m_lastMemoryRequested++;
         loadNextMemory();
         m_timeoutTimer.start(MEMORY_TIMEOUT);
@@ -1730,7 +1747,7 @@ void MemoriesModel::receiveMemoryName(memoryTagType tag)
 
     int row = findRowByMemoryNumber(tag.num);
     if (row != -1 && checkASCII(tag.name)) {
-        strncpy(m_memories[row].data.name, tag.name.toStdString().c_str(), 16);
+        copyToFixedBuffer(m_memories[row].data.name, tag.name);
         emit dataChanged(index(row, ColName), index(row, ColName));
     }
 }
@@ -1769,6 +1786,9 @@ void MemoriesModel::onTimeout()
 
 void MemoriesModel::configureColumnsForMode(int row, modeInfo mode, quint8 split)
 {
+    Q_UNUSED(mode)
+    Q_UNUSED(split)
+
     // Enable/disable columns based on mode
     // This would set item flags per cell if needed
     // For now, just emit data changed
@@ -1777,6 +1797,8 @@ void MemoriesModel::configureColumnsForMode(int row, modeInfo mode, quint8 split
 
 void MemoriesModel::configureColumnsBForMode(int row, modeInfo mode)
 {
+    Q_UNUSED(mode)
+
     emit dataChanged(index(row, 0), index(row, TotalColumns - 1));
 }
 

@@ -31,6 +31,12 @@
    POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(_MSC_VER)
+/* Vendored Speex resampler keeps fixed-point coefficients in Speex word types.
+   Silence expected MSVC narrowing warnings without changing DSP behavior. */
+#pragma warning(disable: 4244)
+#endif
+
 /*
    The design goals of this code are:
       - Very fast algorithm

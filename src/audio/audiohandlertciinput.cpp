@@ -97,5 +97,6 @@ QAudioFormat audioHandlerTciInput::getNativeFormat()
 
 bool audioHandlerTciInput::isFormatSupported(QAudioFormat f)
 {
+    Q_UNUSED(f)
     return true;
 }

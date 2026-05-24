@@ -400,6 +400,9 @@ void SettingsController::load()
         }
         prefs.txSetup.name = audioDev->getInputName(input);
     } else {
+        prefs.txSetup.port = {};
+        prefs.txSetup.portInt = -1;
+        prefs.txSetup.name.clear();
         qWarning(logAudio) << "No valid audio input device found, please configure one in settings";
     }
 
@@ -414,6 +417,9 @@ void SettingsController::load()
         }
         prefs.rxSetup.name = audioDev->getOutputName(output);
     } else {
+        prefs.rxSetup.port = {};
+        prefs.rxSetup.portInt = -1;
+        prefs.rxSetup.name.clear();
         qWarning(logAudio) << "No valid audio output device found, please configure one in settings";
     }
 
@@ -1349,6 +1355,8 @@ void SettingsController::setDefPrefs()
     // Audio
     defPrefs.rxSetup.latency = 150;
     defPrefs.txSetup.latency = 150;
+    defPrefs.rxSetup.portInt = -1;
+    defPrefs.txSetup.portInt = -1;
     defPrefs.rxSetup.isinput = false;
     defPrefs.txSetup.isinput = true;
     defPrefs.rxSetup.sampleRate = 48000;
@@ -2315,6 +2323,8 @@ void SettingsController::buildBindings()
 
 void SettingsController::refreshCurrentColorPresetOptions(bool loading)
 {
+    Q_UNUSED(loading)
+
     // Update ONLY Color.* keys (fast enough, and avoids having to rebuild bindings)
     auto push = [this](const char* key) {
         const auto it = m_bindings.constFind(QString::fromLatin1(key));

@@ -124,6 +124,7 @@ public:
     ThemeBridge* theme() { return &m_theme; }
 
     Q_INVOKABLE void syncTheme(QObject* obj) {
+        Q_UNUSED(obj)
         m_theme.syncFromAppPalette();
     }
 

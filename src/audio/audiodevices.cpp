@@ -46,6 +46,18 @@ void audioDevices::enumerate()
             for (const QAudioDevice& deviceInfo : audioInputs)
 #endif
             {
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+                const QAudioFormat preferred = deviceInfo.preferredFormat();
+                qInfo(logAudio()) << "Qt audio input candidate:" << deviceInfo.description()
+                                  << "preferred channels:" << preferred.channelCount()
+                                  << "min/max channels:" << deviceInfo.minimumChannelCount() << "/" << deviceInfo.maximumChannelCount()
+                                  << "preferred rate:" << preferred.sampleRate()
+                                  << "min/max rate:" << deviceInfo.minimumSampleRate() << "/" << deviceInfo.maximumSampleRate();
+                if (deviceInfo.maximumChannelCount() < 1) {
+                    qWarning(logAudio()) << "Skipping Qt audio input with no reported channels:" << deviceInfo.description();
+                    continue;
+                }
+#endif
                 bool isDefault = false;
                 if (numInputDevices == 0) {
 
@@ -105,6 +117,18 @@ void audioDevices::enumerate()
             for (const QAudioDevice& deviceInfo : audioOutputs)
 #endif
             {
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+                const QAudioFormat preferred = deviceInfo.preferredFormat();
+                qInfo(logAudio()) << "Qt audio output candidate:" << deviceInfo.description()
+                                  << "preferred channels:" << preferred.channelCount()
+                                  << "min/max channels:" << deviceInfo.minimumChannelCount() << "/" << deviceInfo.maximumChannelCount()
+                                  << "preferred rate:" << preferred.sampleRate()
+                                  << "min/max rate:" << deviceInfo.minimumSampleRate() << "/" << deviceInfo.maximumSampleRate();
+                if (deviceInfo.maximumChannelCount() < 1) {
+                    qWarning(logAudio()) << "Skipping Qt audio output with no reported channels:" << deviceInfo.description();
+                    continue;
+                }
+#endif
                 bool isDefault = false;
                 if (numOutputDevices == 0)
                 {

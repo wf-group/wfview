@@ -276,8 +276,15 @@ void LoggingController::flushPendingToModel()
     }
 
     // GUI thread: safe to touch QAbstractListModel
-    for (const auto& e : batch)
+    ensureLogFileOpen_locked();
+    for (const auto& e : batch) {
         m_model.append(e);
+        if (m_logFile.isOpen())
+            m_logStream << e.text << '\n';
+    }
+
+    if (m_logFile.isOpen())
+        m_logStream.flush();
 }
 
 void LoggingController::qtMessageHandler(QtMsgType type,
@@ -355,4 +362,3 @@ void LoggingController::setConsoleLoggingEnabled(bool v)
     m_consoleLoggingEnabled = v;
     emit consoleLoggingEnabledChanged();
 }
-

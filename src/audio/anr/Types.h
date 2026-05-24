@@ -80,14 +80,14 @@ public:
     // Beware implicit conversions from floating point values!
     // Otherwise the meaning of binary operators with sampleCount change
     // their meaning when sampleCount is not an alias!
-    explicit sampleCount ( float f ) : value ( f ) {}
-    explicit sampleCount ( double d ) : value ( d ) {}
+    explicit sampleCount ( float f ) : value ( static_cast<type>(f) ) {}
+    explicit sampleCount ( double d ) : value ( static_cast<type>(d) ) {}
     
     sampleCount ( const sampleCount& ) = default;
     sampleCount &operator= ( const sampleCount& ) = default;
     
-    float as_float() const { return value; }
-    double as_double() const { return value; }
+    float as_float() const { return static_cast<float>(value); }
+    double as_double() const { return static_cast<double>(value); }
     
     long long as_long_long() const { return value; }
     

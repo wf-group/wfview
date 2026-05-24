@@ -425,7 +425,9 @@ int main(int argc, char *argv[])
     // Set the logging file before doing anything else.
     m_logFile.reset(new QFile(logFilename));
     // Open the file logging
-    m_logFile.data()->open(QFile::WriteOnly | QFile::Truncate | QFile::Text);
+    if (!m_logFile.data()->open(QFile::WriteOnly | QFile::Truncate | QFile::Text)) {
+        std::cerr << "Unable to open log file: " << logFilename.toStdString() << std::endl;
+    }
     // Set handler
     qInstallMessageHandler(messageHandler);
 

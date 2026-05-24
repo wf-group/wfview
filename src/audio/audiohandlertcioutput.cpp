@@ -70,6 +70,6 @@ QAudioFormat audioHandlerTciOutput::getNativeFormat()
 
 bool audioHandlerTciOutput::isFormatSupported(QAudioFormat f)
 {
+    Q_UNUSED(f)
     return true;
 }
-

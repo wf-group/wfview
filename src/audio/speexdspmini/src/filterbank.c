@@ -31,6 +31,12 @@
    POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(_MSC_VER)
+/* Vendored Speex DSP source intentionally narrows constants to fixed-point
+   coefficient types. Keep the original code and suppress MSVC conversion noise. */
+#pragma warning(disable: 4244)
+#endif
+
 #include "filterbank.h"
 #include "arch.h"
 #include <math.h>

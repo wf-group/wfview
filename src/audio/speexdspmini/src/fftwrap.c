@@ -32,6 +32,12 @@
 
 */
 
+#if defined(_MSC_VER)
+/* Vendored Speex DSP source intentionally narrows constants to float-sized
+   coefficient types. Keep the original code and suppress MSVC conversion noise. */
+#pragma warning(disable: 4244)
+#endif
+
 #include "arch.h"
 #include "os_support.h"
 
