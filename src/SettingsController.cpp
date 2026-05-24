@@ -1283,6 +1283,11 @@ void SettingsController::save()
 #endif
 
     settings->sync(); // Automatic, not needed (supposedly)
+    prefs.settingsChanged = false;
+    if (m_dirty) {
+        m_dirty = false;
+        emit dirtyChanged();
+    }
 }
 
 void SettingsController::setDefPrefs()
@@ -1573,6 +1578,7 @@ void SettingsController::setDefPrefs()
 
 void SettingsController::markDirty()
 {
+    prefs.settingsChanged = true;
     if (!m_dirty) {
         m_dirty = true;
         emit dirtyChanged();
@@ -1936,6 +1942,12 @@ void SettingsController::buildBindings()
 
     WF_BOOL("Interface.AutoPowerOn", prefs.autoPowerOn,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_autoPowerOn)); });
+
+    WF_BOOL("Interface.ConfirmSettingsChanged", prefs.confirmSettingsChanged,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_confirmExit)); });
+
+    WF_BOOL("Interface.ConfirmExit", prefs.confirmExit,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_confirmExit)); });
 
     // -------------------------
     // Controls group (CT)

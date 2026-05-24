@@ -26,6 +26,8 @@ ApplicationWindow {
     width: 1193
     height: 625
 
+    readonly property int contentMargin: 8
+
     property var controller  // 'required' keyword is Qt 6 only
 
 
@@ -290,6 +292,7 @@ ApplicationWindow {
     // ---- Main Layout ----
     ColumnLayout {
         anchors.fill: parent
+        anchors.margins: window.contentMargin
         spacing: 8
 
         RowLayout {

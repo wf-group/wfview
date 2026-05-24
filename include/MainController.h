@@ -49,6 +49,8 @@ public:
     Q_ENUM (connectionType_t)
 
     Q_PROPERTY(QString windowTitle READ getWindowTitle WRITE setWindowTitle NOTIFY windowTitleChanged)
+    Q_PROPERTY(QString radioStatusText READ radioStatusText NOTIFY radioStatusTextChanged)
+    Q_PROPERTY(QString rigModelName READ rigModelName NOTIFY rigModelNameChanged)
     Q_PROPERTY(int receiverCount READ receiverCount NOTIFY receiverCountChanged)
     Q_PROPERTY(SettingsController* settings READ getSettings CONSTANT)
     Q_PROPERTY(connectionStatus_t connStatus READ getConnStatus WRITE setConnStatus NOTIFY connStatusChanged)
@@ -94,6 +96,8 @@ public:
     ~MainController() override { shutdown(); } // still fine as a backup
 
     QString getWindowTitle() const { return windowTitle; }
+    QString radioStatusText() const { return m_radioStatusText; }
+    QString rigModelName() const { return m_rigModelName; }
 
     int receiverCount() const { return receivers.size(); }
 
@@ -220,6 +224,8 @@ public slots:
 
 signals:
     void windowTitleChanged();
+    void radioStatusTextChanged();
+    void rigModelNameChanged();
     void receiverCountChanged();
     void receiverDetachedChanged(int index, bool detached);
     void detachedChanged();
@@ -296,6 +302,8 @@ private slots:
 
 private:
     void buildUiSpecs();
+    void setRadioStatusText(const QString& text);
+    void setRigModelName(const QString& modelName);
 #if defined(USB_CONTROLLER)
     void setupUsbControllerDevice();
     void stopUsbControllerDevice();
@@ -317,6 +325,8 @@ private:
 
 
     QString windowTitle = "wfview";
+    QString m_radioStatusText;
+    QString m_rigModelName;
     QVector<ReceiverController*> receivers;
     QVector<bool> detached;
 

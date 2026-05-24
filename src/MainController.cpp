@@ -1171,6 +1171,8 @@ void MainController::connectionHandler()
         }
 
         queue->interval(-1); // Disable queue
+        setRadioStatusText(QString());
+        setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
     }
 
@@ -1280,6 +1282,14 @@ void MainController::receiveStatusUpdate(networkStatus status)
     m_selRad->audioOutputLevel(status.rxAudioLevel);
     m_selRad->audioInputLevel(status.txAudioLevel);
     m_selRad->addTimeDifference(status.timeDifference);
+
+    const QString txPrefix = status.message.contains(QStringLiteral("(no tx)")) ? QStringLiteral("(no tx) ") : QString();
+    setRadioStatusText(QStringLiteral("%1rx latency: %2 ms / rtt: %3 ms / loss: %4/%5")
+                           .arg(txPrefix)
+                           .arg(status.rxCurrentLatency, 3)
+                           .arg(status.networkLatency, 3)
+                           .arg(status.packetsLost, 3)
+                           .arg(status.packetsSent, 3));
 }
 
 
@@ -1540,12 +1550,16 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         }
         detached.fill(false,rigCaps->numReceiver);
         connStatus = connectionStatus_t::connConnected;
+        setRigModelName(rigCaps->modelName);
+        setWindowTitle(rigCaps->modelName);
 
         getInitialRigState();
         buildUiSpecs();
     }
     else
     {
+        setRadioStatusText(QString());
+        setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
     }
 
@@ -1585,6 +1599,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         configureVFOs(); // Now we have a rig connection, need to configure the VFOs
 
         rigName->setText(rigCaps->modelName);
+        setRigModelName(rigCaps->modelName);
         if (serverConfig.enabled) {
             serverConfig.rigs.first()->modelName = rigCaps->modelName;
             serverConfig.rigs.first()->rigName = rigCaps->modelName;
@@ -3357,6 +3372,24 @@ void MainController::setWindowTitle(const QString &t) {
     if (windowTitle == t) return;
     windowTitle = t;
     emit windowTitleChanged();
+}
+
+void MainController::setRadioStatusText(const QString& text)
+{
+    if (m_radioStatusText == text)
+        return;
+
+    m_radioStatusText = text;
+    emit radioStatusTextChanged();
+}
+
+void MainController::setRigModelName(const QString& modelName)
+{
+    if (m_rigModelName == modelName)
+        return;
+
+    m_rigModelName = modelName;
+    emit rigModelNameChanged();
 }
 
 void MainController::setStepSize(quint64 st)

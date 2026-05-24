@@ -13,13 +13,16 @@ ApplicationWindow {
     property int connStatus: Number(MainController.connStatus)
     property var txAudioProcessingWindow: null
     property var rxAudioProcessingWindow: null
+    property bool quitConfirmed: false
+    readonly property int contentHorizontalPadding: 8
+    readonly property int contentTopPadding: 4
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
     visible: true
 
-    minimumWidth:  mainLayout.implicitWidth
+    minimumWidth:  mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
     minimumHeight: mainLayout.implicitHeight + 8
                    + mainGroup.padding * 2
@@ -116,8 +119,55 @@ ApplicationWindow {
         id: loggingWindow
     }
 
+    Dialog {
+        id: unsavedSettingsDialog
+        title: qsTr("Unsaved settings")
+        modal: true
+        focus: true
+        anchors.centerIn: parent
+        closePolicy: Popup.NoAutoClose
+        standardButtons: Dialog.NoButton
+
+        contentItem: Label {
+            text: qsTr("Settings have changed since the last save.")
+            color: win.palette.windowText
+            wrapMode: Text.WordWrap
+            width: 360
+        }
+
+        footer: DialogButtonBox {
+            Button {
+                text: qsTr("Save")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: {
+                    unsavedSettingsDialog.close()
+                    win.finishQuit(true)
+                }
+            }
+            Button {
+                text: qsTr("Discard")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: {
+                    unsavedSettingsDialog.close()
+                    win.finishQuit(false)
+                }
+            }
+            Button {
+                text: qsTr("Cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                onClicked: unsavedSettingsDialog.close()
+            }
+        }
+    }
+
 
     onClosing: function(close) {
+        if (!win.quitConfirmed && shouldConfirmUnsavedSettings()) {
+            close.accepted = false
+            unsavedSettingsDialog.open()
+            return
+        }
+
         MainController.shutdown()
         close.accepted = true
     }
@@ -261,10 +311,30 @@ ApplicationWindow {
         return firstRow ? firstRow.receiverItem : null
     }
 
-    function openActiveReceiverBands() {
-        var receiver = activeReceiverItem()
-        if (receiver)
-            receiver.bandPanelOpen = true
+    function shouldConfirmUnsavedSettings() {
+        if (!MainController || !MainController.settings)
+            return false
+
+        var confirm = MainController.settings.options["Interface.ConfirmSettingsChanged"]
+        return Boolean(MainController.settings.dirty) && (confirm === undefined || Boolean(confirm))
+    }
+
+    function requestQuit() {
+        if (shouldConfirmUnsavedSettings()) {
+            unsavedSettingsDialog.open()
+            return
+        }
+
+        win.quitConfirmed = true
+        win.close()
+    }
+
+    function finishQuit(saveFirst) {
+        if (saveFirst && MainController && MainController.settings)
+            MainController.settings.save()
+
+        win.quitConfirmed = true
+        win.close()
     }
 
     Component {
@@ -320,7 +390,13 @@ ApplicationWindow {
 
     ColumnLayout {
         id: mainLayout
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.topMargin: win.contentTopPadding
+        anchors.leftMargin: win.contentHorizontalPadding
+        anchors.rightMargin: win.contentHorizontalPadding
         spacing: 6
 
         // -------- 1) scopeVFOGroup (top) --------
@@ -875,10 +951,6 @@ ApplicationWindow {
                     text: qsTr("RX Audio Proc")
                     onClicked: showRxAudioProcessing()
                 }
-                Button {
-                    text: qsTr("Save Settings")
-                    onClicked: MainController.settings.save()
-                }
 
                 Button {
                     text: qsTr("Radio Status")
@@ -891,16 +963,6 @@ ApplicationWindow {
                         loggingWindow.raise()
                         loggingWindow.requestActivate()
                     }
-                }
-                Button {
-                    text: qsTr("Bands")
-                    onClicked: openActiveReceiverBands()
-                }
-                Button {
-                    text: qsTr("Frequency")
-                    enabled: false
-                    ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Frequency input has not been ported to QML yet.")
                 }
                 Button {
                     text: qsTr("Rig Creator")
@@ -924,7 +986,7 @@ ApplicationWindow {
 
                 Item { Layout.fillWidth: true } // spacer (horizontalSpacer_9)
 
-                Button { text: qsTr("Exit Program"); onClicked: Qt.quit() }
+                Button { text: qsTr("Exit Program"); onClicked: win.requestQuit() }
             }
         }
     }
@@ -933,10 +995,28 @@ ApplicationWindow {
     footer: ToolBar {
         RowLayout {
             anchors.fill: parent
-            Label { text: qsTr("memoriesActive: ") + (MainController && MainController.memoriesModel ? MainController.memoriesModel.memoryModeActive : false) }
-            //Label { text: rig.statusText ?? "" }
+            anchors.leftMargin: win.contentHorizontalPadding
+            anchors.rightMargin: win.contentHorizontalPadding
+            spacing: 12
+
             Item { Layout.fillWidth: true }
-            //Label { text: audio.statusText ?? "" }
+
+            Label {
+                Layout.preferredWidth: 360
+                text: MainController ? MainController.radioStatusText : ""
+                color: win.palette.windowText
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignRight
+            }
+
+            Label {
+                Layout.preferredWidth: 90
+                text: MainController && MainController.rigModelName.length > 0 ? MainController.rigModelName : qsTr("NONE")
+                color: win.palette.windowText
+                font.bold: true
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignRight
+            }
         }
     }
 
