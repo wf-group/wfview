@@ -109,6 +109,7 @@ ApplicationWindow {
             TextField {
                 id: textToSendEdit
                 Layout.fillWidth: true
+                enabled: cwSenderController ? cwSenderController.canSendCW : false
                 font.family: "Courier"
                 font.pixelSize: 12
                 placeholderText: qsTr("Text to send...")
@@ -135,6 +136,7 @@ ApplicationWindow {
                 text: qsTr("Send")
                 font.bold: true
                 implicitWidth: 80
+                enabled: cwSenderController ? cwSenderController.canSendCW : false
                 onClicked: {
                     if (cwSenderController) {
                         cwSenderController.sendText(textToSendEdit.text)
@@ -146,57 +148,10 @@ ApplicationWindow {
                 text: qsTr("Stop")
                 font.bold: true
                 implicitWidth: 80
+                enabled: cwSenderController ? cwSenderController.canSendCW : false
                 onClicked: {
                     if (cwSenderController) {
                         cwSenderController.stopSending()
-                    }
-                }
-            }
-        }
-        
-        // Macro buttons (2 rows of 5)
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-            
-            Repeater {
-                model: 2
-                
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-                    
-                    Repeater {
-                        id: macroRepeater
-                        model: 5
-                        
-                        Button {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 30
-                            property int macroIndex: (parent.parent.model * 5) + index + 1
-                            text: cwSenderController ? cwSenderController.getMacroButtonText(macroIndex) || ("M" + macroIndex) : ("M" + macroIndex)
-                            
-                            onClicked: {
-                                if (!cwSenderController) return
-                                
-                                if (cwSenderController.macroEditMode) {
-                                    // Show edit dialog
-                                    macroEditDialog.macroNumber = macroIndex
-                                    macroEditDialog.currentText = cwSenderController.getMacro(macroIndex)
-                                    macroEditDialog.open()
-                                } else {
-                                    cwSenderController.runMacro(macroIndex)
-                                }
-                            }
-                            
-                            onPressAndHold: {
-                                // Right-click or long press to edit
-                                if (!cwSenderController) return
-                                macroEditDialog.macroNumber = macroIndex
-                                macroEditDialog.currentText = cwSenderController.getMacro(macroIndex)
-                                macroEditDialog.open()
-                            }
-                        }
                     }
                 }
             }
@@ -265,7 +220,7 @@ ApplicationWindow {
                 from: 6
                 to: 48
                 value: cwSenderController ? cwSenderController.wpm : 20
-                onValueChanged: {
+                onValueModified: {
                     if (cwSenderController) {
                         cwSenderController.wpm = value
                     }
@@ -276,7 +231,14 @@ ApplicationWindow {
             SpinBox {
                 from: 25
                 to: 45
+                stepSize: 1
                 value: cwSenderController ? (cwSenderController.dashRatio * 10) : 30
+                textFromValue: function(value, locale) {
+                    return Number(value / 10).toLocaleString(locale, "f", 1)
+                }
+                valueFromText: function(text, locale) {
+                    return Math.round(Number.fromLocaleString(locale, text) * 10)
+                }
                 onValueModified: {
                     if (cwSenderController) {
                         cwSenderController.dashRatio = value / 10.0
@@ -290,7 +252,7 @@ ApplicationWindow {
                 to: 900
                 stepSize: 50
                 value: cwSenderController ? cwSenderController.pitch : 600
-                onValueChanged: {
+                onValueModified: {
                     if (cwSenderController) {
                         cwSenderController.pitch = value
                     }
@@ -331,12 +293,53 @@ ApplicationWindow {
                 }
             }
         }
+
+        // Macro buttons (2 rows of 5)
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 5
+            columnSpacing: 2
+            rowSpacing: 2
+
+            Repeater {
+                id: macroRepeater
+                model: 10
+
+                Button {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    property int macroIndex: index + 1
+                    text: cwSenderController ? (cwSenderController.getMacroButtonText(macroIndex) || ("M" + macroIndex)) : ("M" + macroIndex)
+                    enabled: cwSenderController ? cwSenderController.canSendCW : false
+
+                    onClicked: {
+                        if (!cwSenderController) return
+
+                        if (cwSenderController.macroEditMode) {
+                            macroEditDialog.macroNumber = macroIndex
+                            macroEditDialog.currentText = cwSenderController.getMacro(macroIndex)
+                            macroEditDialog.open()
+                        } else {
+                            cwSenderController.runMacro(macroIndex)
+                        }
+                    }
+
+                    onPressAndHold: {
+                        if (!cwSenderController) return
+                        macroEditDialog.macroNumber = macroIndex
+                        macroEditDialog.currentText = cwSenderController.getMacro(macroIndex)
+                        macroEditDialog.open()
+                    }
+                }
+            }
+        }
         
         // Status bar
         Label {
             id: statusBar
             Layout.fillWidth: true
             text: cwSenderController ? cwSenderController.statusMessage : ""
+            color: text.indexOf(qsTr("Note:")) === 0 ? "#ffd166" : cwSenderWindow.palette.windowText
             padding: 5
             background: Rectangle {
                 color: "#333"
@@ -355,8 +358,15 @@ ApplicationWindow {
         property int macroNumber: 1
         property string currentText: ""
         
-        x: (parent.width - width) / 2
-        y: (parent.height - height) / 2
+        x: Math.round((cwSenderWindow.width - width) / 2)
+        y: Math.round((cwSenderWindow.height - height) / 2)
+
+        background: Rectangle {
+            color: cwSenderWindow.palette.window
+            border.color: cwSenderWindow.palette.highlight
+            border.width: 1
+            radius: 4
+        }
         
         ColumnLayout {
             spacing: 10

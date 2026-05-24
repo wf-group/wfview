@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QMutexLocker>
 #include <QStandardPaths>
 #include <QTimer>
 #include <algorithm>
@@ -42,6 +43,22 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     prefs = m_settings->getPrefs();
     udpPrefs = m_settings->getUdpPrefs();
+    m_cwSender->loadSettings(prefs->cwCutNumbers,
+                             prefs->cwSendImmediate,
+                             prefs->cwSidetoneEnabled,
+                             prefs->cwSidetoneLevel,
+                             prefs->cwMacroList);
+    connect(m_cwSender.get(), &CWSenderController::keyerSettingsChanged, this, [this]() {
+        if (!prefs || !m_settings)
+            return;
+
+        prefs->cwCutNumbers = m_cwSender->cutNumbers();
+        prefs->cwSendImmediate = m_cwSender->sendImmediate();
+        prefs->cwSidetoneEnabled = m_cwSender->sidetoneEnable();
+        prefs->cwSidetoneLevel = m_cwSender->sidetoneLevel();
+        prefs->cwMacroList = m_cwSender->getMacroText();
+        m_settings->markDirty();
+    });
     setManufacturer(prefs->manufacturer);
     setAppTheme(prefs->useSystemTheme);
     qInfo() << "******** Theme colors:" << m_theme.text().name();
@@ -769,6 +786,7 @@ void MainController::buildUiSpecs()
         {"canEqualMainSub", rigCaps->commands.contains(funcVFOEqualMS)},
         {"canCompressor", rigCaps->commands.contains(funcCompressor)},
         {"canVox", rigCaps->commands.contains(funcVox)},
+        {"canSendCW", rigCaps->commands.contains(funcSendCW)},
         {"txPower", rangeSpec(funcRFPower, 0, 255)},
         {"monitorGain", rangeSpec(funcMonitorGain, 0, 255)},
         {"micGain", rangeSpec(funcMicGain, 0, 255)},
@@ -1191,6 +1209,42 @@ void MainController::clearClusterOutput()
     emit clusterOutputTextChanged();
 }
 
+void MainController::resetUsbControllers()
+{
+#if defined(USB_CONTROLLER)
+    if (!m_settings)
+        return;
+
+    const bool restart = prefs && prefs->enableUSBControllers;
+    stopUsbControllerDevice();
+
+    {
+        QMutexLocker locker(m_settings->usbMutex());
+        m_settings->usbDevices()->clear();
+        m_settings->usbButtons()->clear();
+        m_settings->usbKnobs()->clear();
+    }
+
+    if (auto *controllerUi = m_settings->controllerController())
+        controllerUi->deviceModel()->reset();
+
+    m_settings->markDirty();
+
+    if (restart)
+        setupUsbControllerDevice();
+#endif
+}
+
+void MainController::revertSettingsToDefault()
+{
+    if (!m_settings)
+        return;
+
+    m_settings->resetToDefaults();
+    qInfo(logSystem()) << "Closing wfview for full preference reset.";
+    quitApplication();
+}
+
 void MainController::appendClusterOutput(const QString& text)
 {
     if (text.isEmpty())
@@ -1502,6 +1556,7 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::setRadioUsage, m_selRad.get(), &SelectRadioController::setInUse);
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
         connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
+        connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
 
 
 
@@ -1848,6 +1903,10 @@ void MainController::setAppTheme(bool isCustom)
 void MainController::receiveRigCaps(rigCapabilities* caps)
 {
     this->rigCaps = caps;
+    if (m_cwSender) {
+        m_cwSender->receiveRigCaps(caps);
+        m_cwSender->receiveEnabled(caps && caps->commands.contains(funcCWDecode));
+    }
 
     for (auto *r : std::as_const(receivers)) {
         if (r) r->deleteLater();
@@ -2234,17 +2293,9 @@ void MainController::receiveValueFromQueue(cacheItem val)
     {
         modeInfo m = val.value.value<modeInfo>();
         receivers[val.receiver]->receiveMode(m,vfo);
-        // We are ONLY interested in VFOA
-        /*
         if (val.receiver == currentReceiver && vfo == 0) {
-            finputbtns->updateCurrentMode(m.mk);
-            finputbtns->updateFilterSelection(m.filter);
-            rpt->handleUpdateCurrentMainMode(m);
-            if (cw != nullptr) {
-                cw->handleCurrentModeUpdate(m.mk);
-            }
+            m_cwSender->handleCurrentModeUpdate(m.mk);
         }
-        */
         //qDebug() << funcString[val.command] << "receiver:" << val.receiver << "vfo:" << vfo << "mk:" << m.mk << "name:" << m.name << "data:" << m.data << "filter:" << m.filter;
 
         break;
@@ -2378,7 +2429,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         // There is only a single CW Pitch setting, so send to all scopes
         // Receiver-side CW pitch display has not been ported to QML yet.
         // Also send to CW window
-        m_cwSender->setPitch(val.value.value<quint16>());
+        m_cwSender->handlePitch(val.value.value<quint16>());
         break;
 
     case funcMicGain:
@@ -2392,7 +2443,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcKeySpeed:
         // Only used by CW window
-        m_cwSender->setWpm(val.value.value<uchar>());
+        m_cwSender->handleKeySpeed(val.value.value<uchar>());
         break;
     case funcNotchFilter:
         break;
@@ -2602,9 +2653,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setIpPlus(val.value.value<bool>(),false);
         break;
     case funcBreakIn:
-        //if (cw != nullptr) {
-        //    cw->handleBreakInMode(val.value.value<uchar>());
-        //}
+        m_cwSender->handleBreakInMode(val.value.value<uchar>());
         break;
     // 0x17 is CW send and 0x18 is power control (no reply)
     // 0x19 it automatically added.
@@ -2677,7 +2726,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receiveModInput(val.value.value<rigInput>(), 3);
         break;
     case funcDashRatio:
-        m_cwSender->setDashRatio(val.value.value<uchar>());
+        m_cwSender->handleDashRatio(val.value.value<uchar>());
         break;
     case funcTXFreqMon:
         break;

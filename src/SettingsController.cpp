@@ -698,6 +698,8 @@ void SettingsController::load()
             settings->setArrayIndex(m);
             prefs.cwMacroList << settings->value("macroText", "").toString();
         }
+    } else {
+        prefs.cwMacroList = defPrefs.cwMacroList;
     }
     settings->endArray();
     settings->endGroup();
@@ -1308,6 +1310,28 @@ void SettingsController::save()
     }
 }
 
+void SettingsController::resetToDefaults()
+{
+    qInfo(logSystem()) << "Per user request, resetting preferences.";
+
+    prefs = defPrefs;
+    udpPrefs = udpDefPrefs;
+    serverConfig.enabled = false;
+    serverConfig.users.clear();
+
+    if (m_clusterModel) {
+        m_clusterModel->setFromList(prefs.clusters);
+        prefs.clusters = m_clusterModel->toList();
+        updateDefaultClusterPrefs();
+    }
+
+    if (m_serverUsersModel)
+        m_serverUsersModel->setFromList(serverConfig.users);
+
+    seedOptionsFromBindings();
+    save();
+}
+
 void SettingsController::setDefPrefs()
 {
     defPrefs.hasRunSetup = false;
@@ -1397,6 +1421,7 @@ void SettingsController::setDefPrefs()
     defPrefs.cwSendImmediate=false;
     defPrefs.cwSidetoneEnabled=true;
     defPrefs.cwSidetoneLevel=100;
+    defPrefs.cwMacroList = QStringList({ "", "", "", "", "", "", "", "", "", "" });
 
     udpDefPrefs.ipAddress = QString("");
     udpDefPrefs.controlLANPort = 50001;

@@ -24,10 +24,11 @@ class CWSenderController : public QObject
     Q_PROPERTY(bool sidetoneEnable READ sidetoneEnable WRITE setSidetoneEnable NOTIFY sidetoneEnableChanged)
     Q_PROPERTY(int sidetoneLevel READ sidetoneLevel WRITE setSidetoneLevel NOTIFY sidetoneLevelChanged)
     Q_PROPERTY(int sequenceNumber READ sequenceNumber WRITE setSequenceNumber NOTIFY sequenceNumberChanged)
-    Q_PROPERTY(int maxChars READ maxChars CONSTANT)
+    Q_PROPERTY(int maxChars READ maxChars NOTIFY maxCharsChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
     Q_PROPERTY(bool macroEditMode READ macroEditMode WRITE setMacroEditMode NOTIFY macroEditModeChanged)
     Q_PROPERTY(bool receiveVisible READ receiveVisible WRITE setReceiveVisible NOTIFY receiveVisibleChanged)
+    Q_PROPERTY(bool canSendCW READ canSendCW NOTIFY canSendCWChanged)
 
 public:
     explicit CWSenderController(QObject* parent = nullptr);
@@ -48,6 +49,7 @@ public:
     QString statusMessage() const { return m_statusMessage; }
     bool macroEditMode() const { return m_macroEditMode; }
     bool receiveVisible() const { return m_receiveVisible; }
+    bool canSendCW() const { return m_canSendCW; }
     
     // Property setters
     void setVisible(bool visible);
@@ -62,6 +64,7 @@ public:
     void setSequenceNumber(int val);
     void setMacroEditMode(bool val);
     void setReceiveVisible(bool val);
+    void loadSettings(bool cutNumbers, bool sendImmediate, bool sidetoneEnabled, int sidetoneLevel, const QStringList& macros);
     
     // Macro management
     QStringList getMacroText() const;
@@ -84,6 +87,8 @@ public slots:
     void handlePitch(quint16 pitch);
     void handleBreakInMode(quint8 b);
     void handleCurrentModeUpdate(rigMode_t mode);
+    void handleSidetoneText(QString text);
+    void handleStopSidetone();
     void receive(QString text);
     void receiveEnabled(bool en);
     void receiveRigCaps(rigCapabilities* caps);
@@ -105,6 +110,9 @@ signals:
     void statusMessageChanged();
     void macroEditModeChanged();
     void receiveVisibleChanged();
+    void maxCharsChanged();
+    void canSendCWChanged();
+    void keyerSettingsChanged();
     
     // Text update signals for QML
     void receiveTextAppended(QString text);
@@ -146,6 +154,7 @@ private:
     QString m_statusMessage;
     bool m_macroEditMode;
     bool m_receiveVisible;
+    bool m_canSendCW;
     
     // Macro storage
     QString m_macroText[11]; // 1-10 indexed
@@ -157,6 +166,7 @@ private:
     cachingQueue* m_queue;
     rigCapabilities* m_rigCaps;
     rigCommander* m_rig;
+    bool m_queueSignalsConnected;
     
     // Sidetone
     cwSidetone* m_tone;

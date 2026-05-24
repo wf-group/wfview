@@ -854,8 +854,8 @@ ApplicationWindow {
                     }
                     Button {
                         text: qsTr("CW")
-                        enabled: (connStatus === 2) // Only enable button if connected
-                        onClicked: MainController.cwSender.visible = true
+                        enabled: mainControlSpecs.canSendCW ?? false
+                        onClicked: MainController.showCWSender()
                     }
 
                     Button {
@@ -1061,10 +1061,18 @@ ApplicationWindow {
         height: 621
         title: qsTr("About wfview")
         modal: true
-        anchors.centerIn: parent
+        x: Math.round((win.width - width) / 2)
+        y: Math.round((win.height - height) / 2)
 
         // Remove default padding to let AboutBox fill the dialog
         padding: 0
+
+        background: Rectangle {
+            color: win.palette.window
+            border.color: win.palette.highlight
+            border.width: 1
+            radius: 4
+        }
 
         contentItem: AboutBox {
             // Set your build information here

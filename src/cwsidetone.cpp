@@ -96,15 +96,55 @@ void cwSidetone::init()
     QAudioDevice device = QMediaDevices::defaultAudioOutput();
 #endif
     if (!device.isNull()) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+        if (format.channelCount() < 1 && device.maximumChannelCount() > 0)
+            format.setChannelCount(qMin(2, device.maximumChannelCount()));
+
+        if (!device.isFormatSupported(format)) {
+            qWarning(logCW()) << "Default sidetone format not supported, using preferred format for"
+                              << device.description();
+            format = device.preferredFormat();
+
+            if (format.channelCount() < 1 && device.maximumChannelCount() > 0) {
+                qWarning(logCW()) << "Sidetone preferred format has no channels; deriving fallback for"
+                                  << device.description();
+                format.setChannelCount(qMin(2, device.maximumChannelCount()));
+                format.setSampleRate(qMax(44100, device.minimumSampleRate()));
+                if (device.maximumSampleRate() > 0)
+                    format.setSampleRate(qMin(format.sampleRate(), device.maximumSampleRate()));
+
+                const auto sampleFormats = device.supportedSampleFormats();
+                if (sampleFormats.contains(QAudioFormat::Int16))
+                    format.setSampleFormat(QAudioFormat::Int16);
+                else if (sampleFormats.contains(QAudioFormat::Float))
+                    format.setSampleFormat(QAudioFormat::Float);
+                else if (!sampleFormats.isEmpty())
+                    format.setSampleFormat(sampleFormats.first());
+            }
+        }
+
+        if (format.channelCount() < 1 || !device.isFormatSupported(format)) {
+            qCritical(logCW()) << "CW Sidetone: Cannot find supported output format for"
+                               << device.description()
+                               << "channels" << format.channelCount()
+                               << "rate" << format.sampleRate()
+                               << "format" << format.sampleFormat();
+            return;
+        }
+#else
         if (!device.isFormatSupported(format)) {
             qWarning(logCW()) << "Default format not supported, using preferred";
             format = device.preferredFormat();
         }
+#endif
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
         output.reset(new QAudioOutput(device,format));
 #else
         output.reset(new QAudioSink(device,format));
+        connect(output.data(), &QAudioSink::stateChanged, this, [](QAudio::State state) {
+            qDebug(logCW()) << "Sidetone output state changed:" << state;
+        });
 #endif
 
         if (!output)
@@ -126,6 +166,8 @@ void cwSidetone::init()
 void cwSidetone::send(QString text)
 {
     text=text.simplified();
+    if (text.isEmpty())
+        return;
 
     for (int pos=0; pos < text.size(); pos++)
     {
@@ -147,6 +189,10 @@ void cwSidetone::send(QString text)
     }
 
     if (output) {
+        qDebug(logCW()) << "Sidetone send:" << text
+                        << "buffer bytes:" << buffer.size()
+                        << "state:" << output->state()
+                        << "volume:" << volume;
         if (output->state() == QAudio::StoppedState)
         {
             output->start(this);
@@ -155,6 +201,8 @@ void cwSidetone::send(QString text)
             output->suspend();
             output->resume();
         }
+        qDebug(logCW()) << "Sidetone after start/resume state:" << output->state()
+                        << "buffer bytes:" << buffer.size();
     }
     return;
 }
@@ -345,5 +393,3 @@ void cwSidetone::stopSending() {
     buffer.clear();
     emit finished();
 }
-
-

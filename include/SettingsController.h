@@ -617,6 +617,7 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
     Q_INVOKABLE void markDirty();
+    void resetToDefaults();
 
     // Flags
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)

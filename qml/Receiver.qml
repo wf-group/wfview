@@ -1880,13 +1880,19 @@ Control {
 
     // Small dialog for entering edge number (used by toFixed)
     Dialog {
-        //background: Theme.window
         id: edgeDialog
         modal: true
         standardButtons: Dialog.Ok | Dialog.Cancel
 
-        x: (parent ? parent.width  - width  : 0) / 2
-        y: (parent ? parent.height - height : 0) / 2
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+
+        background: Rectangle {
+            color: root.palette.window
+            border.color: root.palette.highlight
+            border.width: 1
+            radius: 4
+        }
 
         contentItem: ColumnLayout {
 
@@ -1953,8 +1959,15 @@ Control {
 
         standardButtons: Dialog.Ok | Dialog.Cancel
 
-        x: (parent ? parent.width  - width  : 0) / 2
-        y: (parent ? parent.height - height : 0) / 2
+        x: Math.round((root.width - width) / 2)
+        y: Math.round((root.height - height) / 2)
+
+        background: Rectangle {
+            color: root.palette.window
+            border.color: root.palette.highlight
+            border.width: 1
+            radius: 4
+        }
 
         contentItem: ColumnLayout {
             spacing: 8

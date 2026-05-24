@@ -16,26 +16,17 @@ CWSenderController::CWSenderController(QObject* parent)
     , m_maxChars(0)
     , m_macroEditMode(false)
     , m_receiveVisible(true)
+    , m_canSendCW(false)
     , m_currentMode(modeUnknown)
     , m_queue(nullptr)
     , m_rigCaps(nullptr)
+    , m_rig(nullptr)
+    , m_queueSignalsConnected(false)
     , m_tone(nullptr)
     , m_toneThread(nullptr)
 {
     m_queue = cachingQueue::getInstance();
-    m_rigCaps = m_queue->getRigCaps();
-    receiveRigCaps(m_queue->getRigCaps());
-}
-
-
-void CWSenderController::receiveRigCaps(rigCapabilities* caps)
-{
-    m_rigCaps = caps;
-    if (m_rigCaps)
-    {
-        m_maxChars = m_rigCaps->commands.find(funcSendCW).value().bytes;
-
-        // Connect to queue for CW commands
+    if (m_queue) {
         connect(this, &CWSenderController::sendCW, m_queue, [=](const QString &cwMessage) {
             m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(cwMessage)));
         });
@@ -53,7 +44,7 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
         });
 
         connect(this, &CWSenderController::setPitchSignal, m_queue, [=](const quint16& pitch) {
-            m_queue->addUnique(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<ushort>(pitch)));
+            m_queue->addUnique(priorityImmediate, queueItem(funcCwPitch, QVariant::fromValue<ushort>(pitch)));
         });
 
         connect(this, &CWSenderController::getCWSettings, m_queue, [=]() {
@@ -62,7 +53,32 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
             m_queue->add(priorityImmediate, funcCwPitch);
             m_queue->add(priorityImmediate, funcDashRatio);
         });
+        m_queueSignalsConnected = true;
     }
+
+    receiveRigCaps(m_queue ? m_queue->getRigCaps() : nullptr);
+}
+
+
+void CWSenderController::receiveRigCaps(rigCapabilities* caps)
+{
+    m_rigCaps = caps;
+    const bool supported = m_rigCaps && m_rigCaps->commands.contains(funcSendCW);
+    if (m_canSendCW != supported) {
+        m_canSendCW = supported;
+        emit canSendCWChanged();
+    }
+
+    const int chars = supported ? m_rigCaps->commands.find(funcSendCW).value().bytes : 0;
+    if (m_maxChars != chars) {
+        m_maxChars = chars;
+        emit maxCharsChanged();
+    }
+
+    if (!supported)
+        setStatusMessage("CW sending is not supported by the current radio.");
+    else if (m_statusMessage == "CW sending is not supported by the current radio.")
+        setStatusMessage(QString());
 }
 
 CWSenderController::~CWSenderController()
@@ -77,6 +93,8 @@ void CWSenderController::setVisible(bool visible)
     if (m_visible != visible) {
         m_visible = visible;
         emit visibleChanged();
+        if (m_visible)
+            emit getCWSettings();
     }
 }
 
@@ -143,6 +161,7 @@ void CWSenderController::setCutNumbers(bool val)
     if (m_cutNumbers != val) {
         m_cutNumbers = val;
         emit cutNumbersChanged();
+        emit keyerSettingsChanged();
     }
 }
 
@@ -151,6 +170,7 @@ void CWSenderController::setSendImmediate(bool val)
     if (m_sendImmediate != val) {
         m_sendImmediate = val;
         emit sendImmediateChanged();
+        emit keyerSettingsChanged();
     }
 }
 
@@ -166,6 +186,7 @@ void CWSenderController::setSidetoneEnable(bool val)
         }
         
         emit sidetoneEnableChanged();
+        emit keyerSettingsChanged();
     }
 }
 
@@ -175,6 +196,7 @@ void CWSenderController::setSidetoneLevel(int val)
         m_sidetoneLevel = val;
         emit setLevel(val);
         emit sidetoneLevelChanged();
+        emit keyerSettingsChanged();
     }
 }
 
@@ -202,6 +224,32 @@ void CWSenderController::setReceiveVisible(bool val)
     }
 }
 
+void CWSenderController::loadSettings(bool cutNumbers, bool sendImmediate, bool sidetoneEnabled, int sidetoneLevel, const QStringList& macros)
+{
+    const bool oldSidetone = m_sidetoneEnable;
+    m_cutNumbers = cutNumbers;
+    m_sendImmediate = sendImmediate;
+    m_sidetoneEnable = sidetoneEnabled;
+    m_sidetoneLevel = sidetoneLevel;
+
+    if (macros.length() == 10) {
+        for (int i = 0; i < 10; ++i)
+            m_macroText[i + 1] = macros.at(i);
+    }
+
+    if (m_sidetoneEnable && !oldSidetone)
+        setupTone();
+    else if (!m_sidetoneEnable && oldSidetone)
+        teardownTone();
+
+    emit cutNumbersChanged();
+    emit sendImmediateChanged();
+    emit sidetoneEnableChanged();
+    emit sidetoneLevelChanged();
+    for (int i = 1; i <= 10; ++i)
+        emit macroButtonTextChanged(i, getMacroButtonText(i));
+}
+
 // Macro management
 QStringList CWSenderController::getMacroText() const
 {
@@ -227,6 +275,7 @@ void CWSenderController::setMacroText(const QStringList& macros)
     for(int i = 1; i <= 10; i++) {
         emit macroButtonTextChanged(i, getMacroButtonText(i));
     }
+    emit keyerSettingsChanged();
 }
 
 QString CWSenderController::getMacro(int index) const
@@ -243,18 +292,17 @@ QString CWSenderController::getMacroButtonText(int index) const
         return QString();
     }
     
-    QString btnText = m_macroText[index];
-    if(btnText.length() <= 8) {
+    const QString btnText = m_macroText[index];
+    if(btnText.length() <= 8)
         return btnText;
-    } else {
-        return btnText.left(7) + "…";
-    }
+
+    return btnText.left(7) + "...";
 }
 
 // Invokable methods
 void CWSenderController::sendText(const QString& text)
 {
-    if(text.isEmpty() || text.length() > m_maxChars) {
+    if(text.isEmpty() || !m_canSendCW || text.length() > m_maxChars) {
         return;
     }
     
@@ -267,17 +315,19 @@ void CWSenderController::sendText(const QString& text)
     emit clearTextInput();
     setStatusMessage("Sending CW");
     emit sendCW(text);
+    handleSidetoneText(text);
 }
 
 void CWSenderController::stopSending()
 {
     emit stopCW();
+    handleStopSidetone();
     setStatusMessage("Stopping CW transmission.");
 }
 
 void CWSenderController::runMacro(int macroNumber)
 {
-    if(macroNumber < 1 || macroNumber > 10 || m_macroText[macroNumber].isEmpty()) {
+    if(macroNumber < 1 || macroNumber > 10 || m_macroText[macroNumber].isEmpty() || !m_canSendCW) {
         return;
     }
     
@@ -298,7 +348,9 @@ void CWSenderController::runMacro(int macroNumber)
     
     // Send in chunks if needed
     for (int i = 0; i < outText.size(); i += m_maxChars) {
-        emit sendCW(outText.mid(i, m_maxChars));
+        const QString chunk = outText.mid(i, m_maxChars);
+        emit sendCW(chunk);
+        handleSidetoneText(chunk);
     }
 }
 
@@ -315,6 +367,7 @@ void CWSenderController::editMacro(int macroNumber, const QString& newText)
     
     m_macroText[macroNumber] = newText.toUpper();
     emit macroButtonTextChanged(macroNumber, getMacroButtonText(macroNumber));
+    emit keyerSettingsChanged();
 }
 
 void CWSenderController::textChanged(const QString& text)
@@ -330,6 +383,7 @@ void CWSenderController::textChanged(const QString& text)
                 emit clearTextInput();
                 emit transcriptTextAppended(toSend.toUpper());
                 emit sendCW(toSend);
+                handleSidetoneText(toSend);
             }
         }
     }
@@ -403,8 +457,30 @@ void CWSenderController::handleCurrentModeUpdate(rigMode_t mode)
         m_currentMode = mode;
         if(m_currentMode != modeCW && m_currentMode != modeCW_R) {
             setStatusMessage("Note: Mode needs to be set to CW or CW-R to send CW.");
+        } else if (m_statusMessage.startsWith("Note: Mode needs")) {
+            setStatusMessage(QString());
         }
     }
+}
+
+void CWSenderController::handleSidetoneText(QString text)
+{
+    if (!m_sidetoneEnable || !m_tone || text.isEmpty())
+        return;
+
+    QMetaObject::invokeMethod(m_tone, [tone = m_tone, text]() {
+        tone->send(text);
+    }, Qt::QueuedConnection);
+}
+
+void CWSenderController::handleStopSidetone()
+{
+    if (!m_tone)
+        return;
+
+    QMetaObject::invokeMethod(m_tone, [tone = m_tone]() {
+        tone->stopSending();
+    }, Qt::QueuedConnection);
 }
 
 void CWSenderController::receive(QString text)
@@ -427,9 +503,9 @@ void CWSenderController::setStatusMessage(const QString& msg)
 void CWSenderController::updateTextColor(const QString& text)
 {
     QString color;
-    if (text.length() > m_maxChars) {
+    if (m_maxChars > 0 && text.length() > m_maxChars) {
         color = "red";
-    } else if (text.length() > m_maxChars / 1.2) {
+    } else if (m_maxChars > 0 && text.length() > m_maxChars / 1.2) {
         color = "yellow";
     } else {
         color = "";
@@ -445,14 +521,11 @@ void CWSenderController::setupTone()
     
     m_toneThread = new QThread(this);
     m_toneThread->setObjectName("sidetone()");
-    m_tone = new cwSidetone(m_sidetoneLevel, m_wpm, m_pitch, static_cast<quint8>(m_dashRatio * 10), this);
+    m_tone = new cwSidetone(m_sidetoneLevel, m_wpm, m_pitch, m_dashRatio, this);
     m_tone->moveToThread(m_toneThread);
     m_toneThread->start();
     
     connect(this, SIGNAL(initTone()), m_tone, SLOT(init()));
-    //connect(m_rig, SIGNAL(sidetone(QString)), m_tone, SLOT(send(QString)));
-    //connect(m_rig, SIGNAL(stopsidetone()), m_tone, SLOT(stopSending()));
-    
     connect(m_toneThread, &QThread::finished, m_tone,
         [=]() { m_tone->deleteLater(); });
     

@@ -226,6 +226,8 @@ public:
     Q_INVOKABLE void connectCluster();
     Q_INVOKABLE void disconnectCluster();
     Q_INVOKABLE void clearClusterOutput();
+    Q_INVOKABLE void resetUsbControllers();
+    Q_INVOKABLE void revertSettingsToDefault();
 
 public slots:
     void setTxPower(int value);

@@ -1606,7 +1606,7 @@ ApplicationWindow {
                                 checked: controller ? Boolean(controller.options["Server.Enabled"]) : false
                                 onClicked: if (controller) controller.setOption("Server.Enabled", checked)
                             }
-                            Item { width: 20 }
+                            Item { Layout.preferredWidth: 20 }
                             CheckBox {
                                 id: serverDisableUIChk
                                 text: qsTr("Disable local user controls when in use (restart required)")
@@ -1992,8 +1992,18 @@ ApplicationWindow {
                                 Accessible.name: "Enable USB Controllers Checkbox"
                             }
                             Item { width: 20 }
-                            Button { id: usbControllersReset; text: qsTr("Reset Buttons"); visible: false; Accessible.name: "Reset USB Controllers Button" }
-                            Label { id: usbResetLbl; visible: false; text: qsTr("Only reset buttons/commands if you have issues.") }
+                            Button {
+                                id: usbControllersReset
+                                text: qsTr("Reset Buttons")
+                                enabled: enableUsbChk.checked
+                                Accessible.name: "Reset USB Controllers Button"
+                                onClicked: usbResetConfirm.open()
+                            }
+                            Label {
+                                id: usbResetLbl
+                                visible: enableUsbChk.checked
+                                text: qsTr("Only reset buttons/commands if you have issues.")
+                            }
                             Item { Layout.fillWidth: true }
                         }
                         // Add the controller settings
@@ -2539,8 +2549,8 @@ ApplicationWindow {
             Button {
                 id: revertSettingsBtn
                 text: qsTr("Revert to Default")
-                visible: false
                 Accessible.name: "Revert to Default"
+                onClicked: revertSettingsConfirm.open()
             }
 
             Item { Layout.fillWidth: true }
@@ -2560,6 +2570,60 @@ ApplicationWindow {
 
             Item { width: 20 } // fixed spacer (matches the .ui)
         }
+    }
+
+    Dialog {
+        id: usbResetConfirm
+        title: qsTr("Reset USB controllers")
+        width: 420
+        height: 140
+        x: Math.round((window.width - width) / 2)
+        y: Math.round((window.height - height) / 2)
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        background: Rectangle {
+            color: window.palette.window
+            border.color: window.palette.highlight
+            border.width: 1
+            radius: 4
+        }
+
+        contentItem: Label {
+            width: usbResetConfirm.availableWidth
+            text: qsTr("Are you sure you wish to reset the USB controllers?")
+            color: window.palette.text
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: MainController.resetUsbControllers()
+    }
+
+    Dialog {
+        id: revertSettingsConfirm
+        title: qsTr("Revert settings")
+        width: 460
+        height: 170
+        x: Math.round((window.width - width) / 2)
+        y: Math.round((window.height - height) / 2)
+        modal: true
+        standardButtons: Dialog.Ok | Dialog.Cancel
+
+        background: Rectangle {
+            color: window.palette.window
+            border.color: window.palette.highlight
+            border.width: 1
+            radius: 4
+        }
+
+        contentItem: Label {
+            width: revertSettingsConfirm.availableWidth
+            text: qsTr("Are you sure you wish to reset all wfview settings?\nIf so, wfview will exit and you will need to start the program again.")
+            color: window.palette.text
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: MainController.revertSettingsToDefault()
     }
 
     // ---- Keyboard shortcuts from the .ui accessibleDescription ----
