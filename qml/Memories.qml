@@ -3,7 +3,7 @@ import QtQuick 2.15
 import QtQuick.Window 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import Qt.labs.platform 1.1 as PLATFORM
+import QtQuick.Dialogs
 import WFVIEW 1.0
 
 ApplicationWindow {
@@ -559,22 +559,22 @@ ApplicationWindow {
         }
     }
 
-    PLATFORM.FileDialog {
+    FileDialog {
         id: csvImportDialog
         title: qsTr("Select CSV file to import")
         nameFilters: [qsTr("CSV files (*.csv)")]
-        fileMode: PLATFORM.FileDialog.OpenFile
+        fileMode: FileDialog.OpenFile
         onAccepted: {
             memoriesModel.importCSV(selectedFile.toString().replace("file:///", ""),
                                    allFieldsCheck.checked)
         }
     }
 
-    PLATFORM.FileDialog {
+    FileDialog {
         id: csvExportDialog
         title: qsTr("Select CSV file to export")
         nameFilters: [qsTr("CSV files (*.csv)")]
-        fileMode: PLATFORM.FileDialog.SaveFile
+        fileMode: FileDialog.SaveFile
         onAccepted: {
             memoriesModel.exportCSV(selectedFile.toString().replace("file:///", ""),
                                    allFieldsCheck.checked)
