@@ -1150,6 +1150,27 @@ void MainController::ctChanged(SettingsController::prefCtItems items)
 
 void MainController::lanChanged(SettingsController::prefLanItems items)
 {
+    if (items.testFlag(prefLanItem::l_enableLAN)) {
+        if (connStatus == connectionStatus_t::connDisconnected) {
+            if (rig) {
+                QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
+                                          rig->thread() == QThread::currentThread()
+                                              ? Qt::DirectConnection
+                                              : Qt::BlockingQueuedConnection);
+            }
+            if (rigThread) {
+                rigThread->quit();
+                rigThread->wait();
+            }
+            rig = nullptr;
+            rigThread = nullptr;
+        } else {
+            qInfo(logRig()) << "Radio connection type changed; reconnect to apply"
+                            << (prefs && prefs->enableLAN ? "network" : "serial")
+                            << "setup";
+        }
+    }
+
     if (items.testFlag(prefLanItem::l_tciPort)) {
         stopTciServer();
         setupTciServer();
@@ -3411,7 +3432,7 @@ void MainController::loadSettings(QString settingsFile)
 
     // Radio and Comms: C-IV addr, port to use
     settings->beginGroup("Radio");
-    prefs->manufacturer = (manufacturersType_t)settings->value("Manufacturer", defprefs->manufacturer).value<manufacturersType_t>();
+    prefs->manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", defprefs->manufacturer).toInt());
     prefs->radioCIVAddr = (quint16)settings->value("RigCIVuInt", defprefs->radioCIVAddr).toInt();
     prefs->CIVisRadioModel = (bool)settings->value("CIVisRadioModel", defprefs->CIVisRadioModel).toBool();
     prefs->pttType = (pttType_t)settings->value("PTTType", defprefs->pttType).toInt();
@@ -3873,7 +3894,7 @@ void MainController::setManufacturer(manufacturersType_t man)
             float ver = rigSettings->value("Version","0.0").toString().toFloat();
 
             rigSettings->beginGroup("Rig");
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
                 quint16 civ = rigSettings->value("CIVAddress",0).toInt();
                 QString model = rigSettings->value("Model","").toString();
@@ -3910,7 +3931,7 @@ void MainController::setManufacturer(manufacturersType_t man)
 
             rigSettings->beginGroup("Rig");
 
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
                 quint16 civ = rigSettings->value("CIVAddress",0).toInt();
                 QString model = rigSettings->value("Model","").toString();

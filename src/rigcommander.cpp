@@ -9,6 +9,41 @@
 
 // This is the master class for rigCommander, subclassed by each manufacturer
 
+static QByteArray rigCommandString(const QVariant &value)
+{
+    const QString text = value.toString();
+    QByteArray command;
+    command.reserve(text.size());
+
+    for (int i = 0; i < text.size(); ++i) {
+        if (text.at(i) == QLatin1Char('\\') &&
+            i + 3 < text.size() &&
+            text.at(i + 1).toLower() == QLatin1Char('x')) {
+            bool ok = false;
+            const uchar byte = static_cast<uchar>(text.mid(i + 2, 2).toUInt(&ok, 16));
+            if (ok) {
+                command.append(char(byte));
+                i += 3;
+                continue;
+            }
+        }
+
+        command.append(text.at(i).toLatin1());
+    }
+
+    return command;
+}
+
+static quint8 rigModeRegister(const QVariant &value, manufacturersType_t manufacturer)
+{
+    const QString text = value.toString();
+    if (manufacturer == manufYaesu && !text.isEmpty()) {
+        return static_cast<quint8>(text.back().toLatin1());
+    }
+
+    return static_cast<quint8>(text.toUInt());
+}
+
 rigCommander::rigCommander(QObject* parent) : QObject(parent)
 {
     qInfo(logRig()) << "creating instance of rigCommander()";
@@ -204,6 +239,7 @@ void rigCommander::determineRigCaps()
     rigCaps.periodic.clear();
     rigCaps.roofing.clear();
     rigCaps.scopeModes.clear();
+    rigCaps.widths.clear();
 
     for (int i = meterNone; i < meterUnknown; i++)
     {
@@ -242,7 +278,7 @@ void rigCommander::determineRigCaps()
 
     rigCaps.modelName = settings->value("Model", "").toString();
     rigCaps.rigctlModel = settings->value("RigCtlDModel", 0).toInt();
-    rigCaps.manufacturer = settings->value("Manufacturer", manufIcom).value<manufacturersType_t>();
+    rigCaps.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", manufIcom).toInt());
 
     qInfo(logRig()) << QString("Loading Rig: %0 from %1").arg(rigCaps.modelName,rigCaps.filename);
 
@@ -294,8 +330,9 @@ void rigCommander::determineRigCaps()
             if (funcsLookup.contains(settings->value("Type", "****").toString().toUpper()))
             {
                 funcs func = funcsLookup.find(settings->value("Type", "").toString().toUpper()).value();
+                const QByteArray commandString = rigCommandString(settings->value("String", ""));
                 rigCaps.commands.insert(func, funcType(func, funcString[int(func)],
-                                                       QByteArray::fromHex(settings->value("String", "").toString().toUtf8()),
+                                                       commandString,
                                                        settings->value("Min", 0).toInt(NULL), settings->value("Max", 0).toInt(NULL),
                                                        settings->value("PadRight",false).toBool(),
                                                        settings->value("Command29",false).toBool(),
@@ -305,7 +342,7 @@ void rigCommander::determineRigCaps()
                                                        settings->value("Admin",false).toBool())
                                         );
 
-                rigCaps.commandsReverse.insert(QByteArray::fromHex(settings->value("String", "").toString().toUtf8()),func);
+                rigCaps.commandsReverse.insert(commandString,func);
             } else {
                 qWarning(logRig()) << "**** Function" << settings->value("Type", "").toString() << "Not Found, rig file may be out of date?";
             }
@@ -350,7 +387,7 @@ void rigCommander::determineRigCaps()
         {
             settings->setArrayIndex(c);
             rigCaps.modes.push_back(modeInfo(rigMode_t(settings->value("Num", 0).toUInt()),
-                                             settings->value("Reg", 0).toString().toUInt(), settings->value("Name", "").toString(), settings->value("Min", 0).toInt(), settings->value("Max", 0).toInt()));
+                                             rigModeRegister(settings->value("Reg", 0), rigCaps.manufacturer), settings->value("Name", "").toString(), settings->value("Min", 0).toInt(), settings->value("Max", 0).toInt()));
         }
         // Sort into a meaningful order
         std::sort(rigCaps.modes.begin(), rigCaps.modes.end(),
@@ -425,7 +462,7 @@ void rigCommander::determineRigCaps()
         {
             settings->setArrayIndex(c);
             rigCaps.inputs.append(rigInput(inputTypes(settings->value("Num", 0).toUInt()),
-                                           settings->value("Reg", 0).toString().toUInt(),settings->value("Name", "").toString()));
+                                           settings->value("Reg", 0).toString().toInt(),settings->value("Name", "").toString()));
         }
         std::sort(rigCaps.inputs.begin(), rigCaps.inputs.end(),
                   [](const rigInput &a, const rigInput &b) {
@@ -627,6 +664,27 @@ void rigCommander::determineRigCaps()
         std::sort(rigCaps.scopeModes.begin(), rigCaps.scopeModes.end(),
                   [](const genericType &a, const genericType &b) {
                       return a.num < b.num;
+                  });
+        settings->endArray();
+    }
+
+    int numWidths = settings->beginReadArray("Widths");
+    if (numWidths == 0) {
+        settings->endArray();
+    }
+    else {
+        for (int c = 0; c < numWidths; c++)
+        {
+            settings->setArrayIndex(c);
+            rigCaps.widths.push_back(widthsType(settings->value("Bands", 0).toString().toUShort(nullptr,16),
+                                                static_cast<uchar>(settings->value("Num", 0).toString().toUShort()),
+                                                settings->value("Hz", 0).toString().toUShort()));
+        }
+        std::sort(rigCaps.widths.begin(), rigCaps.widths.end(),
+                  [](const widthsType &a, const widthsType &b) {
+                      if (a.bands == b.bands)
+                          return a.num < b.num;
+                      return a.bands < b.bands;
                   });
         settings->endArray();
     }

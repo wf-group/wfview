@@ -477,7 +477,7 @@ void SettingsController::load()
 
     // Radio and Comms: C-IV addr, port to use
     settings->beginGroup("Radio");
-    prefs.manufacturer = (manufacturersType_t)settings->value("Manufacturer", defPrefs.manufacturer).value<manufacturersType_t>();
+    prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer", defPrefs.manufacturer).toInt());
     prefs.radioCIVAddr = (quint16)settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toInt();
     prefs.CIVisRadioModel = (bool)settings->value("CIVisRadioModel", defPrefs.CIVisRadioModel).toBool();
     prefs.pttType = (pttType_t)settings->value("PTTType", defPrefs.pttType).toInt();

@@ -402,7 +402,10 @@ ApplicationWindow {
                                         text: qsTr("Serial (USB)")
                                         ButtonGroup.group: connGroup
                                         checked: controller ? !Boolean(controller.options["LAN.EnableLAN"]) : true
-                                        onClicked: if (controller) controller.setOption("LAN.EnableLAN", false)
+                                        onToggled: {
+                                            if (checked && controller && Boolean(controller.options["LAN.EnableLAN"]))
+                                                controller.setOption("LAN.EnableLAN", false)
+                                        }
                                     }
 
                                     RadioButton {
@@ -410,7 +413,10 @@ ApplicationWindow {
                                         text: qsTr("Network")
                                         ButtonGroup.group: connGroup
                                         checked: controller ? Boolean(controller.options["LAN.EnableLAN"]) : false
-                                        onClicked: if (controller) controller.setOption("LAN.EnableLAN", true)
+                                        onToggled: {
+                                            if (checked && controller && !Boolean(controller.options["LAN.EnableLAN"]))
+                                                controller.setOption("LAN.EnableLAN", true)
+                                        }
                                     }
 
                                 }

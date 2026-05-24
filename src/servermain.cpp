@@ -745,7 +745,7 @@ void servermain::setManufacturer(manufacturersType_t man)
             float ver = rigSettings->value("Version","0.0").toString().toFloat();
 
             rigSettings->beginGroup("Rig");
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
                 uchar civ = rigSettings->value("CIVAddress",0).toInt();
                 QString model = rigSettings->value("Model","").toString();
@@ -782,7 +782,7 @@ void servermain::setManufacturer(manufacturersType_t man)
 
             rigSettings->beginGroup("Rig");
 
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
                 uchar civ = rigSettings->value("CIVAddress",0).toInt();
                 QString model = rigSettings->value("Model","").toString();
