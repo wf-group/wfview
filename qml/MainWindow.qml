@@ -565,6 +565,13 @@ ApplicationWindow {
                                     MainController.setReceiverDetached(index, true)
                                 }
                             }
+                            function onFullScreenRequested(enabled) {
+                                detachedWin.fullScreen = enabled
+                                MainController.settings.saveReceiverSetting(index, "DetachedFullScreen", enabled)
+                                if (enabled && !MainController.isReceiverDetached(index))
+                                    MainController.setReceiverDetached(index, true)
+                                detachedWin.applyWindowMode()
+                            }
                             function onSpectrumProcessingTime(ms) {
                                 if (index === 0)
                                     MainController.selectRadio.spectrumTime(ms)
@@ -592,14 +599,21 @@ ApplicationWindow {
                             height: Number(MainController.settings.receiverSetting(index, "DetachedHeight", 500))
                             color: palette.window
                             property bool restoringGeometry: true
+                            property bool fullScreen: Boolean(MainController.settings.receiverSetting(index, "DetachedFullScreen", false))
 
                             function saveDetachedGeometry() {
-                                if (restoringGeometry || !visible)
+                                if (restoringGeometry || !visible || fullScreen)
                                     return
                                 MainController.settings.saveReceiverSetting(index, "DetachedX", Math.round(x))
                                 MainController.settings.saveReceiverSetting(index, "DetachedY", Math.round(y))
                                 MainController.settings.saveReceiverSetting(index, "DetachedWidth", Math.round(width))
                                 MainController.settings.saveReceiverSetting(index, "DetachedHeight", Math.round(height))
+                            }
+
+                            function applyWindowMode() {
+                                if (!visible)
+                                    return
+                                visibility = fullScreen ? Window.FullScreen : Window.Windowed
                             }
 
                             palette {
@@ -639,6 +653,7 @@ ApplicationWindow {
                                 rxLoader.item.anchors.fill = visible ? detachedHost : attachedHost
                                 rxLoader.item.anchors.margins = 1
                                 Qt.callLater(MainController.updateApplicationPalette)
+                                Qt.callLater(detachedWin.applyWindowMode)
 
                                 if (visible && row.havePendingPos) {
                                     Qt.callLater(function() {
@@ -653,6 +668,7 @@ ApplicationWindow {
                                 x = Number(MainController.settings.receiverSetting(index, "DetachedX", x))
                                 y = Number(MainController.settings.receiverSetting(index, "DetachedY", y))
                                 restoringGeometry = false
+                                Qt.callLater(detachedWin.applyWindowMode)
                             }
 
                             onXChanged: saveDetachedGeometry()

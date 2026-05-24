@@ -16,8 +16,10 @@ Control {
     property alias bandPanelOpen: bandPanel.open
     property alias sidePanelOpen: sidePanel.open
     property bool restoringReceiverUiState: true
+    property bool receiverFullScreen: false
 
     signal requestDetach(var globalPos)
+    signal fullScreenRequested(bool enabled)
     signal spectrumProcessingTime(real ms)
     signal waterfallProcessingTime(real ms)
     padding: 1
@@ -1003,6 +1005,26 @@ Control {
 
                     // Put this on EVERY control in column 1:
                     // Layout.fillWidth: true
+
+                    Label {
+                        text: qsTr("Full screen")
+                        Layout.preferredWidth: sideFlick.labelColW
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    }
+                    CheckBox {
+                        id: receiverFullScreenCheck
+                        Layout.fillWidth: true
+                        checked: root.receiverFullScreen
+                        onToggled: {
+                            if (root.receiverFullScreen === checked)
+                                return
+                            root.receiverFullScreen = checked
+                            root.saveReceiverSetting("DetachedFullScreen", checked)
+                            root.fullScreenRequested(checked)
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Use a borderless full-screen detached receiver")
+                    }
 
                     // === Ref slider ===
                     Label {
@@ -2062,6 +2084,7 @@ Control {
         sidePanel.locked = Boolean(receiverSetting("ControlDrawerLocked", false))
         sidePanel.open = sidePanel.locked
         sidePanel.slide = sidePanel.open ? sidePanel.width : 0
+        root.receiverFullScreen = Boolean(receiverSetting("DetachedFullScreen", false))
 
         root.restoringReceiverUiState = false
     }

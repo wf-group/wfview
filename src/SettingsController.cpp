@@ -196,6 +196,7 @@ QVariantMap SettingsController::defaultReceiverSettings(int index) const
     result["Detached"] = false;
     result["BandDrawerLocked"] = false;
     result["ControlDrawerLocked"] = false;
+    result["DetachedFullScreen"] = false;
     result["DetachedX"] = 0;
     result["DetachedY"] = 0;
     result["DetachedWidth"] = 900;
