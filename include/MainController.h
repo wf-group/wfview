@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QSettings>
+#include <QThread>
 
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
@@ -274,6 +275,12 @@ private slots:
     void receiveValueFromQueue(cacheItem c);
     void receiveRigCaps(rigCapabilities* caps);
     void receiveCommReady();
+    void ctChanged(SettingsController::prefCtItems items);
+#if defined(USB_CONTROLLER)
+    void changeFrequency(int value);
+    void doShuttle(bool up, quint8 level);
+    void buttonControl(const COMMAND* cmd);
+#endif
 
     void ifChanged(prefIfItems items);
     void colChanged(prefColItems items);
@@ -287,6 +294,10 @@ private slots:
 
 private:
     void buildUiSpecs();
+#if defined(USB_CONTROLLER)
+    void setupUsbControllerDevice();
+    void stopUsbControllerDevice();
+#endif
     funcs meterCommandForType(meter_t meterType) const;
     void configureOptionalMeter(int slot, meter_t meterType);
     void receiveOptionalMeter(meter_t meterType, double level);
@@ -355,6 +366,10 @@ private:
     uchar currentReceiver = 0;
     bool freqLock = false;
 
+#if defined(USB_CONTROLLER)
+    usbController *usbControllerDev = nullptr;
+    QThread *usbControllerThread = nullptr;
+#endif
 
     connectionStatus_t connStatus = connDisconnected;
 

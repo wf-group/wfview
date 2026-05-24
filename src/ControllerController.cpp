@@ -3,6 +3,104 @@
 #include <QSettings>
 #include <QFile>
 
+namespace {
+QString commandText(const COMMAND *command, const QString &fallback = QStringLiteral("None"))
+{
+    if (command && !command->text.isEmpty())
+        return command->text;
+    return fallback;
+}
+
+const COMMAND *commandOrDefault(const COMMAND *command, QVector<COMMAND> *commands)
+{
+    if (command)
+        return command;
+    if (commands && !commands->isEmpty())
+        return &commands->first();
+    return nullptr;
+}
+
+bool showSensitivityControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+
+    switch (dev->type.model) {
+    case StreamDeckPedal:
+    case StreamDeckOriginal:
+    case StreamDeckOriginalV2:
+    case StreamDeckOriginalMK2:
+    case StreamDeckMini:
+    case StreamDeckMiniV2:
+    case StreamDeckXL:
+    case StreamDeckXLV2:
+    case XKeysXK3:
+        return false;
+    default:
+        return dev->type.knobs > 0;
+    }
+}
+
+bool showBrightnessControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+
+    switch (dev->type.model) {
+    case shuttleXpress:
+    case shuttlePro2:
+    case RC28:
+    case xBoxGamepad:
+    case eCoderPlus:
+    case StreamDeckPedal:
+    case XKeysXK3:
+        return false;
+    default:
+        return true;
+    }
+}
+
+bool showSpeedControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+    return dev->type.model == QuickKeys;
+}
+
+bool showOrientationControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+    return dev->type.model == QuickKeys;
+}
+
+bool showColorControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+
+    switch (dev->type.model) {
+    case shuttleXpress:
+    case shuttlePro2:
+    case RC28:
+    case xBoxGamepad:
+    case eCoderPlus:
+    case StreamDeckPedal:
+    case XKeysXK3:
+        return false;
+    default:
+        return true;
+    }
+}
+
+bool showTimeoutControl(const USBDEVICE *dev)
+{
+    if (!dev)
+        return false;
+    return dev->type.model == QuickKeys;
+}
+}
+
 // ========== DeviceModel Implementation ==========
 
 DeviceModel::DeviceModel(QObject *parent)
@@ -37,6 +135,28 @@ QVariant DeviceModel::data(const QModelIndex &index, int role) const
         return dev->pages;
     case DisabledRole:
         return dev->disabled;
+    case SensitivityRole:
+        return dev->sensitivity;
+    case BrightnessRole:
+        return dev->brightness;
+    case SpeedRole:
+        return dev->speed;
+    case OrientationRole:
+        return dev->orientation;
+    case TimeoutRole:
+        return dev->timeout;
+    case ShowSensitivityRole:
+        return showSensitivityControl(dev);
+    case ShowBrightnessRole:
+        return showBrightnessControl(dev);
+    case ShowSpeedRole:
+        return showSpeedControl(dev);
+    case ShowOrientationRole:
+        return showOrientationControl(dev);
+    case ShowColorRole:
+        return showColorControl(dev);
+    case ShowTimeoutRole:
+        return showTimeoutControl(dev);
     default:
         return QVariant();
     }
@@ -51,7 +171,32 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
     roles[CurrentPageRole] = "currentPage";
     roles[TotalPagesRole] = "totalPages";
     roles[DisabledRole] = "disabled";
+    roles[SensitivityRole] = "sensitivity";
+    roles[BrightnessRole] = "brightness";
+    roles[SpeedRole] = "speed";
+    roles[OrientationRole] = "orientation";
+    roles[TimeoutRole] = "timeout";
+    roles[ShowSensitivityRole] = "showSensitivity";
+    roles[ShowBrightnessRole] = "showBrightness";
+    roles[ShowSpeedRole] = "showSpeed";
+    roles[ShowOrientationRole] = "showOrientation";
+    roles[ShowColorRole] = "showColor";
+    roles[ShowTimeoutRole] = "showTimeout";
     return roles;
+}
+
+QVariantMap DeviceModel::get(int row) const
+{
+    QVariantMap item;
+    if (row < 0 || row >= m_devices.count())
+        return item;
+
+    const QModelIndex idx = index(row, 0);
+    const auto roles = roleNames();
+    for (auto it = roles.constBegin(); it != roles.constEnd(); ++it)
+        item[QString::fromUtf8(it.value())] = data(idx, it.key());
+
+    return item;
 }
 
 void DeviceModel::addDevice(USBDEVICE* dev)
@@ -81,6 +226,14 @@ void DeviceModel::removeDevice(const QString& path)
         m_pathToIndex[m_devices[i]->path] = i;
     }
     endRemoveRows();
+}
+
+void DeviceModel::reset()
+{
+    beginResetModel();
+    m_devices.clear();
+    m_pathToIndex.clear();
+    endResetModel();
 }
 
 void DeviceModel::updateDevice(const QString& path)
@@ -202,21 +355,47 @@ void ControllerController::init(usbDevMap* devices,
     m_commands = commands;
     m_mutex = mutex;
 
+    m_deviceModel->reset();
+
     // Populate command models
     m_commandModel->setCommands(commands, true);  // Button commands
     m_knobCommandModel->setCommands(commands, false); // Knob commands
 
-    // Add existing devices to model
+    // Do not show saved/stale controllers until the USB worker has opened them.
+    // initDevice() emits newDevice() after paths, commands, buttons, and knobs
+    // are refreshed for the current HID device.
     for (auto it = devices->begin(); it != devices->end(); ++it) {
-        m_deviceModel->addDevice(&it.value());
+        if (it->detected && it->connected)
+            m_deviceModel->addDevice(&it.value());
     }
 }
 
 void ControllerController::newDevice(USBDEVICE* dev)
 {
+    if (!dev)
+        return;
+
     qInfo(logUsbControl()) << "Adding new device to controller:" << dev->product;
+    if (m_deviceModel->getDevice(dev->path)) {
+        m_deviceModel->updateDevice(dev->path);
+        emit deviceUpdated(dev->path);
+        updatePage(dev, dev->currentPage);
+        emit sendRequest(dev, usbFeatureType::featureSensitivity, dev->sensitivity);
+        emit sendRequest(dev, usbFeatureType::featureBrightness, dev->brightness);
+        emit sendRequest(dev, usbFeatureType::featureSpeed, dev->speed);
+        emit sendRequest(dev, usbFeatureType::featureOrientation, dev->orientation);
+        emit sendRequest(dev, usbFeatureType::featureTimeout, dev->timeout);
+        return;
+    }
+
     m_deviceModel->addDevice(dev);
     emit deviceAdded(m_deviceModel->rowCount() - 1);
+    updatePage(dev, dev->currentPage);
+    emit sendRequest(dev, usbFeatureType::featureSensitivity, dev->sensitivity);
+    emit sendRequest(dev, usbFeatureType::featureBrightness, dev->brightness);
+    emit sendRequest(dev, usbFeatureType::featureSpeed, dev->speed);
+    emit sendRequest(dev, usbFeatureType::featureOrientation, dev->orientation);
+    emit sendRequest(dev, usbFeatureType::featureTimeout, dev->timeout);
 }
 
 void ControllerController::removeDevice(USBDEVICE* dev)
@@ -288,15 +467,22 @@ QVariantList ControllerController::getButtonsForPage(const QString& devicePath, 
 
     for (const BUTTON& b : *m_buttons) {
         if (b.parent == dev && b.page == page) {
+            const COMMAND *onCommand = commandOrDefault(b.onCommand, m_commands);
+            const COMMAND *offCommand = commandOrDefault(b.offCommand, m_commands);
             QVariantMap buttonData;
             buttonData["buttonX"] = b.pos.x();
             buttonData["buttonY"] = b.pos.y();
             buttonData["buttonWidth"] = b.pos.width();
             buttonData["buttonHeight"] = b.pos.height();
-            buttonData["buttonText"] = (b.isOn && b.toggle) ? b.offCommand->text : b.onCommand->text;
+            buttonData["buttonText"] = (b.isOn && b.toggle) ? commandText(offCommand) : commandText(onCommand);
+            buttonData["buttonOnText"] = commandText(onCommand);
+            buttonData["buttonOffText"] = commandText(offCommand);
             buttonData["buttonNum"] = b.num;
             buttonData["buttonIsOn"] = b.isOn;
             buttonData["textColor"] = b.textColour;
+            buttonData["buttonOnColor"] = b.backgroundOn;
+            buttonData["buttonOffColor"] = b.backgroundOff;
+            buttonData["buttonGraphics"] = b.graphics;
             result.append(buttonData);
         }
     }
@@ -315,12 +501,13 @@ QVariantList ControllerController::getKnobsForPage(const QString& devicePath, in
 
     for (const KNOB& k : *m_knobs) {
         if (k.parent == dev && k.page == page) {
+            const COMMAND *command = commandOrDefault(k.command, m_commands);
             QVariantMap knobData;
             knobData["knobX"] = k.pos.x();
             knobData["knobY"] = k.pos.y();
             knobData["knobWidth"] = k.pos.width();
             knobData["knobHeight"] = k.pos.height();
-            knobData["knobText"] = k.command->text;
+            knobData["knobText"] = commandText(command);
             knobData["knobNum"] = k.num;
             knobData["textColor"] = k.textColour;
             result.append(knobData);
@@ -364,6 +551,9 @@ void ControllerController::showContextMenu(const QString& devicePath, const QPoi
     if (!dev)
         return;
 
+    if (!m_mutex)
+        return;
+
     QMutexLocker locker(m_mutex);
 
     // Try to find a button first
@@ -371,7 +561,20 @@ void ControllerController::showContextMenu(const QString& devicePath, const QPoi
     if (button) {
         m_currentButton = button;
         m_currentKnob = nullptr;
-        emit showConfigDialog(QString("Configure Button %1").arg(button->num), true, false);
+        const COMMAND *onCommand = commandOrDefault(button->onCommand, m_commands);
+        const COMMAND *offCommand = commandOrDefault(button->offCommand, m_commands);
+        emit showConfigDialog(QString("Configure Button %1").arg(button->num),
+                              true, false,
+                              onCommand ? onCommand->index : 0,
+                              offCommand ? offCommand->index : 0,
+                              0,
+                              button->toggle,
+                              button->led,
+                              dev->type.leds > 0 && !button->graphics,
+                              button->graphics,
+                              button->graphics,
+                              button->backgroundOn,
+                              button->backgroundOff);
         return;
     }
 
@@ -380,7 +583,19 @@ void ControllerController::showContextMenu(const QString& devicePath, const QPoi
     if (knob) {
         m_currentKnob = knob;
         m_currentButton = nullptr;
-        emit showConfigDialog(QString("Configure Knob %1").arg(knob->num), false, true);
+        const COMMAND *command = commandOrDefault(knob->command, m_commands);
+        emit showConfigDialog(QString("Configure Knob %1").arg(knob->num),
+                              false, true,
+                              0,
+                              0,
+                              command ? command->index : 0,
+                              false,
+                              0,
+                              false,
+                              false,
+                              false,
+                              QColor(),
+                              QColor());
         return;
     }
 }
@@ -393,14 +608,40 @@ void ControllerController::buttonPressed(const QString& devicePath,
     if (!dev)
         return;
 
-    QMutexLocker locker(m_mutex);
+    const COMMAND *triggerCommand = nullptr;
 
-    BUTTON* button = findButton(devicePath, pos, dev->currentPage);
-    if (button) {
-        // Simulate button press/release
-        emit sendRequest(dev, usbFeatureType::featureButton, 
-                        button->num, 
-                        pressed ? button->onCommand->text : button->offCommand->text);
+    {
+        QMutexLocker locker(m_mutex);
+
+        BUTTON* button = findButton(devicePath, pos, dev->currentPage);
+        if (button) {
+            const COMMAND *command = pressed ? commandOrDefault(button->onCommand, m_commands)
+                                             : commandOrDefault(button->offCommand, m_commands);
+            // Simulate button press/release on the physical controller display.
+            emit sendRequest(dev, usbFeatureType::featureButton,
+                            button->num,
+                            commandText(command),
+                            button->icon,
+                            pressed ? &button->backgroundOff : &button->backgroundOn);
+
+            if (command && command->index > 0 && command->command != funcNone)
+                triggerCommand = command;
+        }
+    }
+
+    if (triggerCommand) {
+        if (triggerCommand->command == funcPageUp)
+            setPage(devicePath, dev->currentPage + 1);
+        else if (triggerCommand->command == funcPageDown)
+            setPage(devicePath, dev->currentPage - 1);
+        else if (triggerCommand->command == funcLCDSpectrum)
+            dev->lcd = funcLCDSpectrum;
+        else if (triggerCommand->command == funcLCDWaterfall)
+            dev->lcd = funcLCDWaterfall;
+        else if (triggerCommand->command == funcLCDNothing)
+            dev->lcd = funcLCDNothing;
+        else
+            emit commandTriggered(triggerCommand);
     }
 }
 
@@ -416,33 +657,42 @@ void ControllerController::setPage(const QString& devicePath, int page)
 
 void ControllerController::updatePage(USBDEVICE* dev, int page)
 {
-    QMutexLocker locker(m_mutex);
+    if (!dev || !m_mutex || !m_buttons || !m_knobs)
+        return;
 
-    if (page > dev->pages)
-        page = 1;
-    if (page < 1)
-        page = dev->pages;
+    {
+        QMutexLocker locker(m_mutex);
 
-    dev->currentPage = page;
+        if (page > dev->pages)
+            page = 1;
+        if (page < 1)
+            page = dev->pages;
 
-    // Update buttons for this page
-    for (BUTTON& b : *m_buttons) {
-        if (b.parent == dev) {
-            if (b.page == dev->currentPage) {
-                emit sendRequest(dev, usbFeatureType::featureButton, 
-                               b.num, 
-                               b.isOn && b.toggle ? b.offCommand->text : b.onCommand->text,
-                               b.icon,
-                               b.isOn && b.toggle ? &b.backgroundOff : &b.backgroundOn);
+        dev->currentPage = page;
+
+        // Update buttons for this page
+        for (BUTTON& b : *m_buttons) {
+            if (b.parent == dev) {
+                if (b.page == dev->currentPage) {
+                    const bool useOffState = b.isOn && b.toggle;
+                    const COMMAND *command = commandOrDefault(useOffState ? b.offCommand : b.onCommand, m_commands);
+                    emit sendRequest(dev, usbFeatureType::featureButton,
+                                   b.num,
+                                   commandText(command),
+                                   b.icon,
+                                   useOffState ? &b.backgroundOff : &b.backgroundOn);
+                }
             }
         }
-    }
 
-    // Update knobs for this page
-    for (KNOB& k : *m_knobs) {
-        if (k.parent == dev && k.page == dev->currentPage) {
-            dev->knobValues[k.num].value = k.value;
-            dev->knobValues[k.num].previous = k.value;
+        // Update knobs for this page
+        for (KNOB& k : *m_knobs) {
+            if (k.parent == dev && k.page == dev->currentPage) {
+                if (k.num >= 0 && k.num < dev->knobValues.size()) {
+                    dev->knobValues[k.num].value = k.value;
+                    dev->knobValues[k.num].previous = k.value;
+                }
+            }
         }
     }
 
@@ -466,7 +716,10 @@ void ControllerController::setSensitivity(const QString& devicePath, int value)
         return;
 
     qInfo(logUsbControl()) << "Setting sensitivity" << value << "for device" << dev->product;
+    dev->sensitivity = value;
     emit sendRequest(dev, usbFeatureType::featureSensitivity, value);
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setBrightness(const QString& devicePath, int index)
@@ -475,7 +728,10 @@ void ControllerController::setBrightness(const QString& devicePath, int index)
     if (!dev)
         return;
 
+    dev->brightness = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureBrightness, index);
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setSpeed(const QString& devicePath, int index)
@@ -484,7 +740,10 @@ void ControllerController::setSpeed(const QString& devicePath, int index)
     if (!dev)
         return;
 
+    dev->speed = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureSpeed, index);
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setOrientation(const QString& devicePath, int index)
@@ -493,7 +752,10 @@ void ControllerController::setOrientation(const QString& devicePath, int index)
     if (!dev)
         return;
 
+    dev->orientation = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureOrientation, index);
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setColor(const QString& devicePath, const QColor& color)
@@ -502,8 +764,11 @@ void ControllerController::setColor(const QString& devicePath, const QColor& col
     if (!dev)
         return;
 
+    dev->color = color;
     QColor* colorPtr = new QColor(color);
     emit sendRequest(dev, usbFeatureType::featureColor, 0, "", nullptr, colorPtr);
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setTimeout(const QString& devicePath, int minutes)
@@ -512,9 +777,12 @@ void ControllerController::setTimeout(const QString& devicePath, int minutes)
     if (!dev)
         return;
 
+    dev->timeout = quint8(minutes);
     emit sendRequest(dev, usbFeatureType::featureTimeout, minutes);
-    emit sendRequest(dev, usbFeatureType::featureOverlay, minutes, 
+    emit sendRequest(dev, usbFeatureType::featureOverlay, minutes,
                      QString("Sleep timeout set to %1 minutes").arg(minutes));
+    m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::setDeviceDisabled(const QString& devicePath, bool disabled)
@@ -523,8 +791,10 @@ void ControllerController::setDeviceDisabled(const QString& devicePath, bool dis
     if (!dev)
         return;
 
+    dev->disabled = disabled;
     emit programDisable(dev, disabled);
     m_deviceModel->updateDevice(devicePath);
+    emit deviceUpdated(devicePath);
 }
 
 void ControllerController::applyButtonConfig(int onCommand, 
@@ -533,48 +803,100 @@ void ControllerController::applyButtonConfig(int onCommand,
                                             bool toggle, 
                                             int ledNumber)
 {
-    QMutexLocker locker(m_mutex);
+    if (!m_mutex || !m_commands)
+        return;
 
-    if (m_currentButton) {
-        // Update button configuration
-        auto onCmd = std::find_if(m_commands->begin(), m_commands->end(),
-            [onCommand](const COMMAND& c) { return c.index == onCommand; });
-        
-        auto offCmd = std::find_if(m_commands->begin(), m_commands->end(),
-            [offCommand](const COMMAND& c) { return c.index == offCommand; });
+    QString updatedPath;
 
-        if (onCmd != m_commands->end()) {
-            m_currentButton->onCommand = &(*onCmd);
+    {
+        QMutexLocker locker(m_mutex);
+
+        if (m_currentButton) {
+            // Update button configuration
+            auto onCmd = std::find_if(m_commands->begin(), m_commands->end(),
+                [onCommand](const COMMAND& c) { return c.index == onCommand; });
+
+            auto offCmd = std::find_if(m_commands->begin(), m_commands->end(),
+                [offCommand](const COMMAND& c) { return c.index == offCommand; });
+
+            if (onCmd != m_commands->end()) {
+                m_currentButton->onCommand = &(*onCmd);
+                m_currentButton->on = onCmd->text;
+            }
+
+            if (offCmd != m_commands->end()) {
+                m_currentButton->offCommand = &(*offCmd);
+                m_currentButton->off = offCmd->text;
+            }
+
+            m_currentButton->toggle = toggle;
+            m_currentButton->led = ledNumber;
+
+            // Update the display
+            const COMMAND *command = commandOrDefault(m_currentButton->onCommand, m_commands);
+            emit sendRequest(m_currentButton->parent, usbFeatureType::featureButton,
+                            m_currentButton->num,
+                            commandText(command),
+                            m_currentButton->icon,
+                            &m_currentButton->backgroundOn);
+
+            updatedPath = m_currentButton->parent ? m_currentButton->parent->path : QString();
         }
-        
-        if (offCmd != m_commands->end()) {
-            m_currentButton->offCommand = &(*offCmd);
+
+        if (m_currentKnob) {
+            // Update knob configuration
+            auto cmd = std::find_if(m_commands->begin(), m_commands->end(),
+                [knobCommand](const COMMAND& c) { return c.index == knobCommand; });
+
+            if (cmd != m_commands->end()) {
+                m_currentKnob->command = &(*cmd);
+                m_currentKnob->cmd = cmd->text;
+            }
+
+            updatedPath = m_currentKnob->parent ? m_currentKnob->parent->path : QString();
         }
-
-        m_currentButton->toggle = toggle;
-        m_currentButton->led = ledNumber;
-
-        // Update the display
-        emit sendRequest(m_currentButton->parent, usbFeatureType::featureButton,
-                        m_currentButton->num,
-                        m_currentButton->onCommand->text,
-                        m_currentButton->icon,
-                        &m_currentButton->backgroundOn);
-
-        emit deviceUpdated(m_currentButton->parent->path);
     }
 
-    if (m_currentKnob) {
-        // Update knob configuration
-        auto cmd = std::find_if(m_commands->begin(), m_commands->end(),
-            [knobCommand](const COMMAND& c) { return c.index == knobCommand; });
+    if (!updatedPath.isEmpty())
+        emit deviceUpdated(updatedPath);
+}
 
-        if (cmd != m_commands->end()) {
-            m_currentKnob->command = &(*cmd);
-        }
+void ControllerController::setCurrentButtonColor(bool pressedColor, const QColor& color)
+{
+    if (!m_mutex || !m_currentButton || !color.isValid())
+        return;
 
-        emit deviceUpdated(m_currentKnob->parent->path);
+    USBDEVICE *dev = nullptr;
+    int buttonNum = 0;
+    QString text;
+    QImage *icon = nullptr;
+    QColor *displayColor = nullptr;
+    QString updatedPath;
+
+    {
+        QMutexLocker locker(m_mutex);
+        if (!m_currentButton)
+            return;
+
+        if (pressedColor)
+            m_currentButton->backgroundOff = color;
+        else
+            m_currentButton->backgroundOn = color;
+
+        dev = m_currentButton->parent;
+        buttonNum = m_currentButton->num;
+        icon = m_currentButton->icon;
+        const bool useOffState = m_currentButton->isOn && m_currentButton->toggle;
+        const COMMAND *command = commandOrDefault(useOffState ? m_currentButton->offCommand : m_currentButton->onCommand, m_commands);
+        text = commandText(command);
+        displayColor = useOffState ? &m_currentButton->backgroundOff : &m_currentButton->backgroundOn;
+        updatedPath = dev ? dev->path : QString();
     }
+
+    if (dev)
+        emit sendRequest(dev, usbFeatureType::featureButton, buttonNum, text, icon, displayColor);
+    if (!updatedPath.isEmpty())
+        emit deviceUpdated(updatedPath);
 }
 
 void ControllerController::backupSettings(const QString& devicePath, const QUrl& fileUrl)

@@ -684,15 +684,14 @@ void SettingsController::load()
     settings->beginGroup("USB");
     prefs.enableUSBControllers = settings->value("EnableUSBControllers", defPrefs.enableUSBControllers).toBool();
 
-    /*
-    QMutexLocker locker(&usbMutex);
+    QMutexLocker locker(&m_usbMutex);
 
     int numControllers = settings->beginReadArray("Controllers");
     if (numControllers == 0) {
         settings->endArray();
     }
     else {
-        usbDevices.clear();
+        m_usbDevices.clear();
         for (int nc = 0; nc < numControllers; nc++)
         {
             settings->setArrayIndex(nc);
@@ -709,7 +708,7 @@ void SettingsController::load()
             tempPrefs.lcd = (funcs)settings->value("LCD",0).toInt();
 
             if (!tempPrefs.path.isEmpty()) {
-                usbDevices.insert(tempPrefs.path,tempPrefs);
+                m_usbDevices.insert(tempPrefs.path,tempPrefs);
             }
         }
         settings->endArray();
@@ -720,15 +719,15 @@ void SettingsController::load()
         settings->endArray();
     }
     else {
-        usbButtons.clear();
+        m_usbButtons.clear();
         for (int nb = 0; nb < numButtons; nb++)
         {
             settings->setArrayIndex(nb);
             BUTTON butt;
             butt.path = settings->value("Path", "").toString();
             butt.page = settings->value("Page", 1).toInt();
-            auto it = usbDevices.find(butt.path);
-            if (it==usbDevices.end())
+            auto it = m_usbDevices.find(butt.path);
+            if (it==m_usbDevices.end())
             {
                 qWarning(logUsbControl) << "Cannot find existing device while creating button, aborting!";
                 continue;
@@ -757,7 +756,7 @@ void SettingsController::load()
             butt.graphics = settings->value("Graphics", false).toBool();
             butt.led = settings->value("Led", 0).toInt();
             if (!butt.path.isEmpty())
-                usbButtons.append(butt);
+                m_usbButtons.append(butt);
         }
         settings->endArray();
     }
@@ -767,14 +766,14 @@ void SettingsController::load()
         settings->endArray();
     }
     else {
-        usbKnobs.clear();
+        m_usbKnobs.clear();
         for (int nk = 0; nk < numKnobs; nk++)
         {
             settings->setArrayIndex(nk);
             KNOB kb;
             kb.path = settings->value("Path", "").toString();
-            auto it = usbDevices.find(kb.path);
-            if (it==usbDevices.end())
+            auto it = m_usbDevices.find(kb.path);
+            if (it==m_usbDevices.end())
             {
                 qWarning(logUsbControl) << "Cannot find existing device while creating knob, aborting!";
                 continue;
@@ -792,20 +791,11 @@ void SettingsController::load()
 
             kb.cmd = settings->value("Command", "None").toString();
             if (!kb.path.isEmpty())
-                usbKnobs.append(kb);
+                m_usbKnobs.append(kb);
         }
         settings->endArray();
     }
-    */
     settings->endGroup();
-
-    if (prefs.enableUSBControllers) {
-        // Setup USB Controller
-        //setupUsbControllerDevice();
-        //emit initUsbController(&usbMutex,&usbDevices,&usbButtons,&usbKnobs);
-    }
-
-
 #endif
     /*
     setupui->acceptPreferencesPtr(&prefs);
@@ -1194,12 +1184,11 @@ void SettingsController::save()
     settings->endGroup();
 
 #if defined(USB_CONTROLLER)
-    /*
     settings->beginGroup("USB");
 
     settings->setValue("EnableUSBControllers", prefs.enableUSBControllers);
 
-    QMutexLocker locker(&usbMutex);
+    QMutexLocker locker(&m_usbMutex);
 
     // Store USB Controller
 
@@ -1207,7 +1196,7 @@ void SettingsController::save()
     settings->beginWriteArray("Controllers");
     int nc=0;
 
-    for (auto it = usbDevices.begin(); it != usbDevices.end(); it++)
+    for (auto it = m_usbDevices.begin(); it != m_usbDevices.end(); it++)
     {
         auto dev = &it.value();
         settings->setArrayIndex(nc);
@@ -1231,34 +1220,34 @@ void SettingsController::save()
 
     settings->remove("Buttons");
     settings->beginWriteArray("Buttons");
-    for (int nb = 0; nb < usbButtons.count(); nb++)
+    for (int nb = 0; nb < m_usbButtons.count(); nb++)
     {
         settings->setArrayIndex(nb);
-        settings->setValue("Page", usbButtons[nb].page);
-        settings->setValue("Dev", usbButtons[nb].dev);
-        settings->setValue("Num", usbButtons[nb].num);
-        settings->setValue("Path", usbButtons[nb].path);
-        settings->setValue("Name", usbButtons[nb].name);
-        settings->setValue("Left", usbButtons[nb].pos.left());
-        settings->setValue("Top", usbButtons[nb].pos.top());
-        settings->setValue("Width", usbButtons[nb].pos.width());
-        settings->setValue("Height", usbButtons[nb].pos.height());
-        settings->setValue("Colour", usbButtons[nb].textColour.name(QColor::HexArgb));
-        settings->setValue("BackgroundOn", usbButtons[nb].backgroundOn.name(QColor::HexArgb));
-        settings->setValue("BackgroundOff", usbButtons[nb].backgroundOff.name(QColor::HexArgb));
-        if (usbButtons[nb].icon != nullptr) {
-            settings->setValue("Icon", *usbButtons[nb].icon);
-            settings->setValue("IconName", usbButtons[nb].iconName);
+        settings->setValue("Page", m_usbButtons[nb].page);
+        settings->setValue("Dev", m_usbButtons[nb].dev);
+        settings->setValue("Num", m_usbButtons[nb].num);
+        settings->setValue("Path", m_usbButtons[nb].path);
+        settings->setValue("Name", m_usbButtons[nb].name);
+        settings->setValue("Left", m_usbButtons[nb].pos.left());
+        settings->setValue("Top", m_usbButtons[nb].pos.top());
+        settings->setValue("Width", m_usbButtons[nb].pos.width());
+        settings->setValue("Height", m_usbButtons[nb].pos.height());
+        settings->setValue("Colour", m_usbButtons[nb].textColour.name(QColor::HexArgb));
+        settings->setValue("BackgroundOn", m_usbButtons[nb].backgroundOn.name(QColor::HexArgb));
+        settings->setValue("BackgroundOff", m_usbButtons[nb].backgroundOff.name(QColor::HexArgb));
+        if (m_usbButtons[nb].icon != nullptr) {
+            settings->setValue("Icon", *m_usbButtons[nb].icon);
+            settings->setValue("IconName", m_usbButtons[nb].iconName);
         }
-        settings->setValue("Toggle", usbButtons[nb].toggle);
+        settings->setValue("Toggle", m_usbButtons[nb].toggle);
 
-        if (usbButtons[nb].onCommand != nullptr)
-            settings->setValue("OnCommand", usbButtons[nb].onCommand->text);
-        if (usbButtons[nb].offCommand != nullptr)
-            settings->setValue("OffCommand", usbButtons[nb].offCommand->text);
-        settings->setValue("Graphics",usbButtons[nb].graphics);
-        if (usbButtons[nb].led) {
-            settings->setValue("Led", usbButtons[nb].led);
+        if (m_usbButtons[nb].onCommand != nullptr)
+            settings->setValue("OnCommand", m_usbButtons[nb].onCommand->text);
+        if (m_usbButtons[nb].offCommand != nullptr)
+            settings->setValue("OffCommand", m_usbButtons[nb].offCommand->text);
+        settings->setValue("Graphics",m_usbButtons[nb].graphics);
+        if (m_usbButtons[nb].led) {
+            settings->setValue("Led", m_usbButtons[nb].led);
         }
     }
 
@@ -1266,26 +1255,25 @@ void SettingsController::save()
 
     settings->remove("Knobs");
     settings->beginWriteArray("Knobs");
-    for (int nk = 0; nk < usbKnobs.count(); nk++)
+    for (int nk = 0; nk < m_usbKnobs.count(); nk++)
     {
         settings->setArrayIndex(nk);
-        settings->setValue("Page", usbKnobs[nk].page);
-        settings->setValue("Dev", usbKnobs[nk].dev);
-        settings->setValue("Num", usbKnobs[nk].num);
-        settings->setValue("Path", usbKnobs[nk].path);
-        settings->setValue("Left", usbKnobs[nk].pos.left());
-        settings->setValue("Top", usbKnobs[nk].pos.top());
-        settings->setValue("Width", usbKnobs[nk].pos.width());
-        settings->setValue("Height", usbKnobs[nk].pos.height());
-        settings->setValue("Colour", usbKnobs[nk].textColour.name());
-        if (usbKnobs[nk].command != nullptr)
-            settings->setValue("Command", usbKnobs[nk].command->text);
+        settings->setValue("Page", m_usbKnobs[nk].page);
+        settings->setValue("Dev", m_usbKnobs[nk].dev);
+        settings->setValue("Num", m_usbKnobs[nk].num);
+        settings->setValue("Path", m_usbKnobs[nk].path);
+        settings->setValue("Left", m_usbKnobs[nk].pos.left());
+        settings->setValue("Top", m_usbKnobs[nk].pos.top());
+        settings->setValue("Width", m_usbKnobs[nk].pos.width());
+        settings->setValue("Height", m_usbKnobs[nk].pos.height());
+        settings->setValue("Colour", m_usbKnobs[nk].textColour.name());
+        if (m_usbKnobs[nk].command != nullptr)
+            settings->setValue("Command", m_usbKnobs[nk].command->text);
     }
 
     settings->endArray();
 
     settings->endGroup();
-*/
 #endif
 
     settings->sync(); // Automatic, not needed (supposedly)

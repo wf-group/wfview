@@ -3,6 +3,7 @@
 #include "logcategories.h"
 #include <QDir>
 #include <QStandardPaths>
+#include <QTimer>
 
 static QVariantList spectrumToVariantList(const QVector<double>& bins)
 {
@@ -54,8 +55,14 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
+    connect(m_settings.get(), &SettingsController::ctChanged, this, &MainController::ctChanged);
     connect(m_settings.get(), &SettingsController::audioProcChanged, this, &MainController::applyAudioProcessingSettings);
     queue->interval(cmdStartupInterval_ms);
+
+#if defined(USB_CONTROLLER)
+    if (prefs->enableUSBControllers)
+        QTimer::singleShot(0, this, &MainController::setupUsbControllerDevice);
+#endif
 
     ensureAudioProcessors();
     startRigConnection();
@@ -891,6 +898,10 @@ void MainController::shutdown()
     if (shuttingDown) return;
     shuttingDown = true;
 
+#if defined(USB_CONTROLLER)
+    stopUsbControllerDevice();
+#endif
+
     if (connStatus != connectionStatus_t::connDisconnected)
     {
         connectionHandler(); // This will disconnect/delete if the radio is connected/connecting
@@ -920,6 +931,203 @@ void MainController::shutdown()
     }
 
 }
+
+void MainController::ctChanged(SettingsController::prefCtItems items)
+{
+#if defined(USB_CONTROLLER)
+    if (items.testFlag(prefCtItem::ct_enableUSBControllers)) {
+        if (!prefs->enableUSBControllers)
+            stopUsbControllerDevice();
+        else
+            setupUsbControllerDevice();
+    }
+#else
+    Q_UNUSED(items)
+#endif
+}
+
+#if defined(USB_CONTROLLER)
+void MainController::setupUsbControllerDevice()
+{
+    if (usbControllerDev || usbControllerThread || !m_settings)
+        return;
+
+    usbControllerDev = new usbController();
+
+    ControllerController *controllerUi = m_settings->controllerController();
+    connect(usbControllerDev, &usbController::sendJog, this, &MainController::changeFrequency);
+    connect(usbControllerDev, &usbController::doShuttle, this, &MainController::doShuttle);
+    connect(usbControllerDev, &usbController::button, this, &MainController::buttonControl);
+    connect(usbControllerDev, &usbController::initUI, controllerUi, &ControllerController::init);
+    connect(usbControllerDev, &usbController::removeDevice, controllerUi, &ControllerController::removeDevice);
+    connect(usbControllerDev, &usbController::changePage, controllerUi,
+            [controllerUi](USBDEVICE *dev, int page) {
+                if (dev)
+                    controllerUi->setPage(dev->path, page);
+            });
+    connect(usbControllerDev, &usbController::setConnected, controllerUi, &ControllerController::setConnected);
+    connect(usbControllerDev, &usbController::newDevice, controllerUi, &ControllerController::newDevice);
+    connect(controllerUi, &ControllerController::sendRequest, usbControllerDev, &usbController::sendRequest);
+    connect(controllerUi, &ControllerController::programPages, usbControllerDev, &usbController::programPages);
+    connect(controllerUi, &ControllerController::programDisable, usbControllerDev, &usbController::programDisable);
+    connect(controllerUi, &ControllerController::backup, usbControllerDev, &usbController::backupController);
+    connect(controllerUi, &ControllerController::restore, usbControllerDev, &usbController::restoreController);
+    connect(controllerUi, &ControllerController::commandTriggered, this, &MainController::buttonControl);
+
+    QMutex *usbMutex = m_settings->usbMutex();
+    usbDevMap *usbDevices = m_settings->usbDevices();
+    QVector<BUTTON> *usbButtons = m_settings->usbButtons();
+    QVector<KNOB> *usbKnobs = m_settings->usbKnobs();
+
+    usbControllerThread = new QThread(this);
+    usbControllerThread->setObjectName("usb()");
+    usbControllerDev->moveToThread(usbControllerThread);
+    connect(usbControllerThread, &QThread::started, usbControllerDev,
+            [this, usbMutex, usbDevices, usbButtons, usbKnobs]() {
+                usbControllerDev->init(usbMutex, usbDevices, usbButtons, usbKnobs);
+                usbControllerDev->run();
+            });
+    connect(usbControllerThread, &QThread::finished, usbControllerDev, &usbController::deleteLater);
+    usbControllerThread->start(QThread::LowestPriority);
+}
+
+void MainController::stopUsbControllerDevice()
+{
+    if (!usbControllerThread)
+        return;
+
+    usbControllerThread->quit();
+    usbControllerThread->wait();
+    usbControllerThread = nullptr;
+    usbControllerDev = nullptr;
+}
+
+void MainController::changeFrequency(int value)
+{
+    if (freqLock || receivers.isEmpty())
+        return;
+
+    const int rx = qBound(0, int(currentReceiver), receivers.size() - 1);
+    receivers[rx]->tuneSteps(value, 0, true);
+}
+
+void MainController::doShuttle(bool up, quint8 level)
+{
+    int steps = 1;
+    int modifiers = 0;
+    if (level == 1) {
+        modifiers = Qt::ShiftModifier;
+    } else if (level > 4) {
+        modifiers = Qt::ControlModifier;
+        steps = qMax(1, int(level) - 3);
+    } else if (level > 1) {
+        steps = qMax(1, int(level) - 1);
+    }
+    changeFrequency(up ? steps : -steps);
+}
+
+void MainController::buttonControl(const COMMAND* cmd)
+{
+    if (!cmd || !rigCaps)
+        return;
+
+    qDebug(logUsbControl()) << QString("executing command: %0 (%1) suffix:%2 value:%3")
+                                   .arg(cmd->text)
+                                   .arg(funcString[cmd->command])
+                                   .arg(cmd->suffix)
+                                   .arg(cmd->value);
+
+    uchar receiver = cmd->suffix < receivers.size() ? cmd->suffix : currentReceiver;
+    switch (cmd->command) {
+    case funcNone:
+        return;
+    case funcTransceiverStatus:
+        if (cmd->value == -1)
+            toggleTransmit();
+        else if (cmd->suffix != 0xff)
+            setTransmit(cmd->suffix != 0);
+        else
+            setTransmit(cmd->value != 0);
+        return;
+    case funcTunerStatus:
+        if (cmd->value == 2)
+            tuneNow();
+        else
+            setTunerEnabled(cmd->value != 0);
+        return;
+    case funcTuningStep:
+        if (!rigCaps->steps.empty()) {
+            int idx = 0;
+            for (int i = 0; i < rigCaps->steps.size(); ++i) {
+                if (rigCaps->steps[i].hz == stepSize) {
+                    idx = i;
+                    break;
+                }
+            }
+            idx = (idx + cmd->value + rigCaps->steps.size()) % rigCaps->steps.size();
+            setStepSize(rigCaps->steps[idx].hz);
+        }
+        return;
+    case funcMode:
+    case funcModeSet:
+    case funcUnselectedMode:
+        if (receiver < receivers.size()) {
+            if (cmd->value == 1 || cmd->value == -1) {
+                int idx = 0;
+                for (int i = 0; i < rigCaps->modes.size(); ++i) {
+                    if (rigCaps->modes[i].mk == receivers[receiver]->getMode()) {
+                        idx = i;
+                        break;
+                    }
+                }
+                idx = (idx + cmd->value + rigCaps->modes.size()) % rigCaps->modes.size();
+                receivers[receiver]->setMode(rigCaps->modes[idx].mk, true);
+            } else {
+                receivers[receiver]->setMode(cmd->mode, true);
+            }
+        }
+        return;
+    case funcFreq:
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+        if (receiver < receivers.size())
+            receivers[receiver]->tuneSteps(cmd->value, 0, true);
+        return;
+    case funcCwPitch:
+    case funcKeySpeed:
+    case funcAfGain:
+    case funcRfGain:
+    case funcSquelch:
+    case funcAPFLevel:
+    case funcNRLevel:
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcIFShift:
+    case funcRFPower:
+    case funcMicGain:
+    case funcLANModLevel:
+    case funcUSBModLevel:
+    case funcACCAModLevel:
+    case funcNotchFilter:
+    case funcCompressorLevel:
+    case funcBreakInDelay:
+    case funcNBLevel:
+    case funcDigiSelShift:
+    case funcDriveGain:
+    case funcMonitorGain:
+    case funcVoxGain:
+    case funcAntiVoxGain:
+        queue->addUnique(priorityImmediate, queueItem(funcs(cmd->command), QVariant::fromValue<ushort>(ushort(cmd->value)), false, receiver));
+        return;
+    default:
+        if (cmd->suffix == 0xff)
+            queue->add(priorityImmediate, queueItem(funcs(cmd->command), QVariant::fromValue<uchar>(uchar(cmd->value)), false, cmd->suffix));
+        else
+            queue->add(priorityImmediate, queueItem(funcs(cmd->command), QVariant::fromValue<uchar>(uchar(cmd->suffix)), false, 0));
+        return;
+    }
+}
+#endif
 
 void MainController::connectionHandler()
 {

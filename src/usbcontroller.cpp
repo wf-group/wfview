@@ -9,6 +9,11 @@
 
 #include "logcategories.h"
 
+static QString hidString(const wchar_t *value)
+{
+    return value ? QString::fromWCharArray(value) : QString();
+}
+
 usbController::usbController()
 {
     // As this is run in it's own thread, don't do anything important in the constructor.
@@ -105,16 +110,18 @@ void usbController::init(QMutex* mut,usbDevMap* devs ,QVector<BUTTON>* buts,QVec
 #endif
         
         qDebug(logUsbControl()) << "Found available HID devices (not all will be suitable for use):";
-        struct hid_device_info* devs;
-        devs = hid_enumerate(0x0, 0x0);
-        while (devs) {
+        struct hid_device_info *devs = hid_enumerate(0x0, 0x0);
+        struct hid_device_info *dev = devs;
+        while (dev) {
             qInfo(logUsbControl()) << QString("Device found: (%0:%1) %2 manufacturer: (%3)%4 usage: 0x%5 usage_page 0x%6")
-                                      .arg(devs->vendor_id, 4, 16, QChar('0'))
-                                      .arg(devs->product_id, 4, 16, QChar('0'))
-                                      .arg(QString::fromWCharArray(devs->product_string),QString::fromWCharArray(devs->product_string),QString::fromWCharArray(devs->manufacturer_string))
-                                      .arg(devs->usage, 4, 16, QChar('0'))
-                                      .arg(devs->usage_page, 4, 16, QChar('0'));
-            devs = devs->next;
+                                      .arg(dev->vendor_id, 4, 16, QChar('0'))
+                                      .arg(dev->product_id, 4, 16, QChar('0'))
+                                      .arg(hidString(dev->product_string))
+                                      .arg(hidString(dev->manufacturer_string))
+                                      .arg(QString())
+                                      .arg(dev->usage, 4, 16, QChar('0'))
+                                      .arg(dev->usage_page, 4, 16, QChar('0'));
+            dev = dev->next;
         }
         hid_free_enumeration(devs);
         
@@ -152,7 +159,7 @@ void usbController::run()
                 {
                     // This should only get displayed once if we fail to connect to a device
                     qInfo(logUsbControl()) << QString("Error connecting to  %0: %1")
-                                              .arg(dev->product,QString::fromWCharArray(hid_error(dev->handle)));
+                                              .arg(dev->product, hidString(hid_error(dev->handle)));
                     continue;
                 }
             }
@@ -169,6 +176,7 @@ void usbController::run()
         dataTimer = new QTimer(this);
         connect(dataTimer, &QTimer::timeout, this, &usbController::runTimer);
         dataTimer->start(25);
+        qInfo(logUsbControl()) << "Started USB controller polling timer";
     }
     
 #ifndef USB_HOTPLUG
@@ -2239,9 +2247,9 @@ void usbController::checkForGamePad()
             });
 
             newDev.connected=true;
-            devices->insert(newDev.path,newDev);
+            auto inserted = devices->insert(newDev.path, newDev);
 
-            emit newDevice(&newDev); // Let the UI know we have a new controller
+            emit newDevice(&inserted.value()); // Let the UI know we have a new controller
         }
     }
     else if (!gamepad->isConnected()) {
@@ -2261,52 +2269,53 @@ void usbController::checkForControllers()
         return;
     }
 
-    struct hid_device_info* devs;
-    devs = hid_enumerate(0x0, 0x0);
+    struct hid_device_info *devs = hid_enumerate(0x0, 0x0);
+    struct hid_device_info *info = devs;
     // Step through all currently connected devices and add any newly discovered ones to usbDevices.
-    while (devs) {
-        auto i = std::find_if(knownDevices.begin(), knownDevices.end(), [devs](const USBTYPE& d)
-                              { return ((devs->vendor_id == d.manufacturerId) && (devs->product_id == d.productId)
-                                        && (d.usage == 0x00 || devs->usage == d.usage)
-                                        && (d.usagePage == 0x00 || devs->usage_page == d.usagePage));});
+    while (info) {
+        auto i = std::find_if(knownDevices.begin(), knownDevices.end(), [info](const USBTYPE& d)
+                              { return ((info->vendor_id == d.manufacturerId) && (info->product_id == d.productId)
+                                        && (d.usage == 0x00 || info->usage == d.usage)
+                                        && (d.usagePage == 0x00 || info->usage_page == d.usagePage));});
 
         if (i != knownDevices.end())
         {
-            auto it = devices->find(QString::fromLocal8Bit(devs->path));
+            auto it = devices->find(QString::fromLocal8Bit(info->path));
             if (it == devices->end())
             {
                 USBDEVICE newDev(*i);
-                newDev.manufacturer = QString::fromWCharArray(devs->manufacturer_string);
-                newDev.product = QString::fromWCharArray(devs->product_string);
+                newDev.manufacturer = hidString(info->manufacturer_string);
+                newDev.product = hidString(info->product_string);
                 if (newDev.product.isEmpty())
                 {
                     newDev.product = "<Not Detected>";
                 }
-                newDev.serial = QString::fromWCharArray(devs->serial_number);
-                newDev.path = QString::fromLocal8Bit(devs->path);
+                newDev.serial = hidString(info->serial_number);
+                newDev.path = QString::fromLocal8Bit(info->path);
                 newDev.deviceId = QString("0x%1").arg(newDev.type.productId, 4, 16, QChar('0'));
                 newDev.detected = true;
                 qDebug(logUsbControl()) << "New device detected" << newDev.product;
-                devices->insert(newDev.path,newDev);
+                auto inserted = devices->insert(newDev.path, newDev);
+                Q_UNUSED(inserted)
             }
             else if (!it->detected)
             {
                 // This is a known device
-                auto dev = &it.value();
-                dev->type = *i;
-                dev->manufacturer = QString::fromWCharArray(devs->manufacturer_string);
-                dev->product = QString::fromWCharArray(devs->product_string);
-                if (dev->product.isEmpty())
+                auto usbDev = &it.value();
+                usbDev->type = *i;
+                usbDev->manufacturer = hidString(info->manufacturer_string);
+                usbDev->product = hidString(info->product_string);
+                if (usbDev->product.isEmpty())
                 {
-                    dev->product = "<Not Detected>";
+                    usbDev->product = "<Not Detected>";
                 }
-                dev->serial = QString::fromWCharArray(devs->serial_number);
-                dev->deviceId = QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'));
-                dev->detected = true;
-                qDebug(logUsbControl()) << "Known device detected" << dev->product;
+                usbDev->serial = hidString(info->serial_number);
+                usbDev->deviceId = QString("0x%1").arg(usbDev->type.productId, 4, 16, QChar('0'));
+                usbDev->detected = true;
+                qDebug(logUsbControl()) << "Known device detected" << usbDev->product;
             }
         }
-        devs = devs->next;
+        info = info->next;
     }
     hid_free_enumeration(devs);
 
@@ -2328,11 +2337,14 @@ bool usbController::initDevice(USBDEVICE *dev)
         return ret;
     }
 
-    dev->handle = hid_open_path(dev->path.toLocal8Bit());
+    QByteArray path = dev->path.toLocal8Bit();
+    dev->handle = hid_open_path(path.constData());
 
     if (dev->handle) {
         hid_set_nonblocking(dev->handle, 1);
         devicesConnected++;
+        if (dev->currentPage < 1)
+            dev->currentPage = 1;
         qInfo(logUsbControl()) << QString("Connected to USB device: %0 from %1 S/N %2 (connected: %3)").arg(dev->product,dev->manufacturer,dev->serial).arg(devicesConnected);
         dev->connected=true;
 
@@ -2463,6 +2475,10 @@ bool usbController::initDevice(USBDEVICE *dev)
     }
     else
     {
+        qWarning(logUsbControl()) << "Unable to open USB controller" << dev->product
+                                  << "path" << dev->path
+                                  << "vendor" << QString("0x%1").arg(dev->type.manufacturerId, 4, 16, QChar('0'))
+                                  << "product" << QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'));
         mutex->unlock();
     }
 

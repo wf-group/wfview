@@ -12,6 +12,7 @@
 #include <QAbstractTableModel>
 #include <QString>
 #include <QVector>
+#include <QMutex>
 #include <vector>
 
 #include "audioconverter.h"
@@ -367,6 +368,7 @@ class SettingsController : public QObject {
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
 
     Q_PROPERTY(ClusterSettingsModel* clusterModel READ clusterModel CONSTANT)
+    Q_PROPERTY(ControllerController* controllerController READ controllerController CONSTANT)
 
 public:
     explicit SettingsController(QString file, QObject *p=nullptr);
@@ -388,6 +390,12 @@ public:
     audioDevices* getAudioDevices() {return audioDev.get();}
 
     ClusterSettingsModel* clusterModel() const { return m_clusterModel.get(); }
+    ControllerController* controllerController() const { return m_controllerController; }
+
+    usbDevMap* usbDevices() { return &m_usbDevices; }
+    QVector<BUTTON>* usbButtons() { return &m_usbButtons; }
+    QVector<KNOB>* usbKnobs() { return &m_usbKnobs; }
+    QMutex* usbMutex() { return &m_usbMutex; }
 
 
     Q_INVOKABLE void load();
@@ -474,12 +482,10 @@ private:
 
     ControllerController* m_controllerController;
 
-    // Your existing USB controller data
-    usbDevMap* m_devices;
-    QVector<BUTTON>* m_buttons;
-    QVector<KNOB>* m_knobs;
-    QVector<COMMAND>* m_commands;
-    QMutex* m_mutex;
+    usbDevMap m_usbDevices;
+    QVector<BUTTON> m_usbButtons;
+    QVector<KNOB> m_usbKnobs;
+    QMutex m_usbMutex;
 
 };
 

@@ -5,402 +5,562 @@ import QtQuick.Dialogs
 
 Item {
     id: root
-    
-    // Main content
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
-        
-        // No controllers message (shown when empty)
-        Label {
-            id: noControllersLabel
-            text: "No USB controller found"
-            color: "gray"
-            font.pixelSize: 16
-            Layout.alignment: Qt.AlignHCenter
-            visible: controllerTabBar.count === 0
+    property var controllerController: null
+    property int controllerRevision: 0
+    property color currentButtonOnColor: "lightgray"
+    property color currentButtonOffColor: "blue"
+    property bool editingPressedButtonColor: false
+    property var controllerButtonPalette: [
+        "#f8f9fa", "#ced4da", "#495057", "#111111", "#d90429", "#f77f00",
+        "#fcbf49", "#2b9348", "#00b4d8", "#0077b6", "#5a189a", "#ff5d8f",
+        "#80ed99", "#90e0ef", "#ffd166", "#b5179e", "#4361ee", "#6c757d"
+    ]
+
+    function applyCurrentButtonColor(pressedColor, color) {
+        if (pressedColor)
+            root.currentButtonOffColor = color
+        else
+            root.currentButtonOnColor = color
+        if (root.controllerController)
+            root.controllerController.setCurrentButtonColor(pressedColor, color)
+    }
+
+    function setComboByValue(combo, value) {
+        if (!combo)
+            return
+        var idx = combo.indexOfValue(value)
+        combo.currentIndex = idx >= 0 ? idx : 0
+    }
+
+    Connections {
+        target: root.controllerController
+        ignoreUnknownSignals: true
+        function onDeviceAdded(index) {
+            root.controllerRevision += 1
         }
-        
-        // Tab bar for multiple controllers
-        TabBar {
-            id: controllerTabBar
-            Layout.fillWidth: true
-            visible: count > 0
-            
-            Repeater {
-                model: controllerController.deviceModel
-                
-                TabButton {
-                    text: model.deviceName
-                    width: implicitWidth
-                }
+        function onDeviceRemoved(index) {
+            root.controllerRevision += 1
+        }
+        function onDeviceUpdated(path) {
+            root.controllerRevision += 1
+        }
+        function onShowConfigDialog(title, isButton, isKnob, onCommand, offCommand, knobCommand, toggle, ledNumber, showLed, showColor, showIcon, onColor, offColor) {
+            popupTitle.text = title
+            onEventRow.visible = isButton
+            offEventRow.visible = isButton
+            toggleCheckbox.visible = isButton
+            knobEventRow.visible = isKnob
+            ledRow.visible = isButton && showLed
+            colorButtonRow.visible = isButton && showColor
+            iconRow.visible = isButton && showIcon
+            root.setComboByValue(onEventCombo, onCommand)
+            root.setComboByValue(offEventCombo, offCommand)
+            root.setComboByValue(knobEventCombo, knobCommand)
+            toggleCheckbox.checked = toggle
+            ledSpinner.value = Math.max(ledSpinner.from, Math.min(ledSpinner.to, ledNumber))
+            root.currentButtonOnColor = onColor
+            root.currentButtonOffColor = offColor
+            configPopup.open()
+        }
+    }
+
+    Label {
+        id: noControllersLabel
+        anchors.centerIn: parent
+        text: "No USB controller found"
+        color: palette.mid
+        font.pixelSize: 16
+        visible: controllerTabBar.count === 0
+    }
+
+    TabBar {
+        id: controllerTabBar
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: 10
+        visible: count > 0
+
+        Repeater {
+            model: root.controllerController ? root.controllerController.deviceModel : null
+
+            TabButton {
+                required property string deviceName
+                text: deviceName
+                width: implicitWidth
             }
         }
-        
-        // Stack layout for tab content
-        StackLayout {
-            id: stackLayout
+    }
+
+    RowLayout {
+        id: bottomButtons
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 10
+        spacing: 10
+        visible: controllerTabBar.count > 0
+
+        Button {
+            text: "Backup"
+            onClicked: backupDialog.open()
+        }
+
+        Button {
+            text: "Restore"
+            onClicked: restoreDialog.open()
+        }
+
+        Item {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            currentIndex: controllerTabBar.currentIndex
-            visible: controllerTabBar.count > 0
-            
-            Repeater {
-                model: controllerController.deviceModel
-                
-                // Individual controller tab content
-                Item {
-                    id: deviceTab
-                    
-                    required property int index
-                    required property string deviceName
-                    required property string devicePath
-                    required property bool connected
-                    required property int currentPage
-                    required property int totalPages
-                    required property bool disabled
-                    
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 10
-                        
-                        // Top bar with connection status and disable checkbox
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 10
-                            
-                            Label {
-                                id: connectionStatus
-                                text: deviceTab.connected ? "Connected" : "Not Connected"
-                                color: deviceTab.connected ? "green" : "red"
-                                font.bold: true
-                            }
-                            
-                            Item { Layout.fillWidth: true }
-                            
-                            CheckBox {
-                                id: disableCheckbox
-                                text: "Disable"
-                                checked: deviceTab.disabled
-                                onCheckedChanged: {
-                                    controllerController.setDeviceDisabled(deviceTab.devicePath, checked)
-                                }
+        }
+    }
+
+    StackLayout {
+        id: stackLayout
+        anchors.top: controllerTabBar.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: bottomButtons.top
+        anchors.topMargin: 8
+        anchors.leftMargin: 10
+        anchors.rightMargin: 10
+        anchors.bottomMargin: 8
+        currentIndex: controllerTabBar.currentIndex
+        visible: controllerTabBar.count > 0
+
+        Repeater {
+            model: root.controllerController ? root.controllerController.deviceModel : null
+
+            Item {
+                id: deviceTab
+
+                required property int index
+                required property string deviceName
+                required property string devicePath
+                required property bool connected
+                required property int currentPage
+                required property int totalPages
+                required property bool disabled
+                required property int sensitivity
+                required property int brightness
+                required property int speed
+                required property int orientation
+                required property int timeout
+                required property bool showSensitivity
+                required property bool showBrightness
+                required property bool showSpeed
+                required property bool showOrientation
+                required property bool showColor
+                required property bool showTimeout
+
+                RowLayout {
+                    id: topStatus
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    spacing: 10
+
+                    Label {
+                        text: deviceTab.connected ? "Connected" : "Not Connected"
+                        color: deviceTab.connected ? "green" : "red"
+                        font.bold: true
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    CheckBox {
+                        text: "Disable"
+                        checked: deviceTab.disabled
+                        onCheckedChanged: {
+                            if (root.controllerController)
+                                root.controllerController.setDeviceDisabled(deviceTab.devicePath, checked)
+                        }
+                    }
+                }
+
+                RowLayout {
+                    id: controllerSettingsPanel
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    width: Math.min(implicitWidth, parent.width, controllerFrame.width)
+                    spacing: 4
+
+                    Label {
+                        text: "Page"
+                        visible: deviceTab.totalPages > 1
+                    }
+
+                    SpinBox {
+                        Layout.preferredWidth: 68
+                        visible: deviceTab.totalPages > 1
+                        from: 1
+                        to: deviceTab.totalPages
+                        value: deviceTab.currentPage
+                        onValueChanged: {
+                            if (value !== deviceTab.currentPage && root.controllerController)
+                                root.controllerController.setPage(deviceTab.devicePath, value)
+                        }
+                    }
+
+                    Label {
+                        text: "Pages"
+                    }
+
+                    SpinBox {
+                        Layout.preferredWidth: 68
+                        from: 1
+                        to: 10
+                        value: deviceTab.totalPages
+                        onValueChanged: {
+                            if (value !== deviceTab.totalPages && root.controllerController)
+                                root.controllerController.setTotalPages(deviceTab.devicePath, value)
+                        }
+                    }
+
+                    Label {
+                        text: "Sensitivity"
+                        visible: deviceTab.showSensitivity
+                    }
+
+                    Slider {
+                        Layout.preferredWidth: 110
+                        visible: deviceTab.showSensitivity
+                        from: 0
+                        to: 100
+                        stepSize: 1
+                        value: deviceTab.sensitivity
+                        onMoved: {
+                            if (root.controllerController)
+                                root.controllerController.setSensitivity(deviceTab.devicePath, value)
+                        }
+                    }
+
+                    Label {
+                        text: "Brightness"
+                        visible: deviceTab.showBrightness
+                    }
+
+                    ComboBox {
+                        Layout.preferredWidth: 90
+                        visible: deviceTab.showBrightness
+                        model: ["Off", "Low", "Medium", "High"]
+                        currentIndex: Math.max(0, Math.min(count - 1, deviceTab.brightness))
+                        onActivated: {
+                            if (root.controllerController)
+                                root.controllerController.setBrightness(deviceTab.devicePath, currentIndex)
+                        }
+                    }
+
+                    Label {
+                        text: "Speed"
+                        visible: deviceTab.showSpeed
+                    }
+
+                    ComboBox {
+                        Layout.preferredWidth: 104
+                        visible: deviceTab.showSpeed
+                        model: ["Fastest", "Faster", "Normal", "Slower", "Slowest"]
+                        currentIndex: Math.max(0, Math.min(count - 1, deviceTab.speed))
+                        onActivated: {
+                            if (root.controllerController)
+                                root.controllerController.setSpeed(deviceTab.devicePath, currentIndex)
+                        }
+                    }
+
+                    Label {
+                        text: "Orientation"
+                        visible: deviceTab.showOrientation
+                    }
+
+                    ComboBox {
+                        Layout.preferredWidth: 108
+                        visible: deviceTab.showOrientation
+                        model: ["Rotate 0", "Rotate 90", "Rotate 180", "Rotate 270"]
+                        currentIndex: Math.max(0, Math.min(count - 1, deviceTab.orientation))
+                        onActivated: {
+                            if (root.controllerController)
+                                root.controllerController.setOrientation(deviceTab.devicePath, currentIndex)
+                        }
+                    }
+
+                    Button {
+                        Layout.preferredWidth: 42
+                        Layout.preferredHeight: 28
+                        visible: deviceTab.showColor
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "white"
+                            border.color: "#999"
+                            border.width: 1
+                        }
+
+                        onClicked: colorDialog.open()
+
+                        ColorDialog {
+                            id: colorDialog
+                            title: "Select Color"
+                            onAccepted: {
+                                if (root.controllerController)
+                                    root.controllerController.setColor(deviceTab.devicePath, selectedColor)
                             }
                         }
-                        
-                        // Main widget container
-                        ScrollView {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-                            enabled: !deviceTab.disabled
-                            
-                            ColumnLayout {
-                                width: parent.width
-                                spacing: 15
-                                
-                                // Controller image view with clickable overlays
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 400
-                                    color: "#f0f0f0"
-                                    border.color: "#ccc"
-                                    border.width: 1
-                                    
-                                    // Background image showing the controller
-                                    Image {
-                                        id: controllerImage
+                    }
+
+                    Label {
+                        text: "Timeout"
+                        visible: deviceTab.showTimeout
+                    }
+
+                    SpinBox {
+                        Layout.preferredWidth: 84
+                        visible: deviceTab.showTimeout
+                        from: 0
+                        to: 60
+                        value: deviceTab.timeout
+                        onValueChanged: {
+                            if (value !== deviceTab.timeout && root.controllerController)
+                                root.controllerController.setTimeout(deviceTab.devicePath, value)
+                        }
+                    }
+                }
+
+                Item {
+                    id: controllerPreview
+                    anchors.top: topStatus.bottom
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: controllerSettingsPanel.top
+                    anchors.topMargin: 8
+                    anchors.bottomMargin: 8
+                    clip: true
+                    enabled: !deviceTab.disabled
+
+                    Rectangle {
+                        id: controllerFrame
+                        property real nativeWidth: controllerImage.status === Image.Ready ? controllerImage.sourceSize.width : 600
+                        property real nativeHeight: controllerImage.status === Image.Ready ? controllerImage.sourceSize.height : 400
+                        property real fitScale: nativeWidth > 0 && nativeHeight > 0
+                                                ? Math.max(0.1, Math.min((controllerPreview.width - 2) / nativeWidth,
+                                                                         (controllerPreview.height - 2) / nativeHeight))
+                                                : 1
+                        anchors.centerIn: parent
+                        width: nativeWidth * fitScale + 2
+                        height: nativeHeight * fitScale + 2
+                        color: palette.base
+                        border.color: palette.mid
+                        border.width: 1
+
+                        Item {
+                            id: controllerLayer
+                            x: 1
+                            y: 1
+                            width: controllerFrame.nativeWidth
+                            height: controllerFrame.nativeHeight
+                            scale: controllerFrame.fitScale
+                            transformOrigin: Item.TopLeft
+
+                            Image {
+                                id: controllerImage
+                                anchors.fill: parent
+                                fillMode: Image.Stretch
+                                cache: true
+                                source: root.controllerController ? root.controllerController.getControllerImagePath(deviceTab.devicePath) : ""
+                            }
+
+                            Repeater {
+                                model: {
+                                    root.controllerRevision
+                                    return root.controllerController ? root.controllerController.getButtonsForPage(deviceTab.devicePath, deviceTab.currentPage) : []
+                                }
+
+                                delegate: Item {
+                                    id: buttonOverlay
+                                    required property int buttonX
+                                    required property int buttonY
+                                    required property int buttonWidth
+                                    required property int buttonHeight
+                                    required property string buttonText
+                                    required property string buttonOnText
+                                    required property string buttonOffText
+                                    required property int buttonNum
+                                    required property bool buttonIsOn
+                                    required property color textColor
+                                    required property color buttonOnColor
+                                    required property color buttonOffColor
+                                    required property bool buttonGraphics
+
+                                    x: buttonX
+                                    y: buttonY
+                                    width: buttonWidth
+                                    height: buttonHeight
+
+                                    Rectangle {
                                         anchors.fill: parent
+                                        color: buttonOverlay.buttonGraphics
+                                               ? (buttonOverlay.buttonIsOn ? buttonOverlay.buttonOffColor : buttonOverlay.buttonOnColor)
+                                               : ((buttonOverlay.buttonOnText === "None" && buttonOverlay.buttonOffText === "None") ? "#44000000" : "#66000000")
+                                        border.color: buttonOverlay.buttonIsOn ? "#ffff66" : "#ccffffff"
+                                        border.width: 1
+                                        radius: 2
+                                    }
+
+                                    Text {
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.bottom: buttonDivider.top
+                                        anchors.margins: 2
+                                        text: buttonOverlay.buttonOnText
+                                        color: buttonOverlay.buttonOnText === "None" ? "#eeeeee" : buttonOverlay.textColor
+                                        font.pixelSize: buttonOverlay.buttonOnText === "None" ? Math.max(8, Math.min(11, parent.height * 0.22))
+                                                                                            : Math.max(8, Math.min(13, parent.height * 0.28))
+                                        font.bold: buttonOverlay.buttonOnText !== "None"
+                                        renderType: Text.NativeRendering
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        wrapMode: Text.WordWrap
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Rectangle {
+                                        id: buttonDivider
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: 2
+                                        anchors.rightMargin: 2
+                                        height: 1
+                                        color: "#88ffffff"
+                                        visible: buttonOverlay.buttonOffText !== "None"
+                                    }
+
+                                    Text {
+                                        anchors.top: buttonDivider.bottom
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.bottom: parent.bottom
+                                        anchors.margins: 2
+                                        text: buttonOverlay.buttonOffText === "None" ? "" : buttonOverlay.buttonOffText
+                                        color: buttonOverlay.textColor
+                                        font.pixelSize: Math.max(8, Math.min(13, parent.height * 0.28))
+                                        font.bold: true
+                                        renderType: Text.NativeRendering
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        wrapMode: Text.WordWrap
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: buttonOverlay.buttonIsOn ? buttonDivider.bottom : parent.top
+                                        anchors.bottom: buttonOverlay.buttonIsOn ? parent.bottom : buttonDivider.top
                                         anchors.margins: 1
-                                        fillMode: Image.PreserveAspectFit
-                                        cache: true
-                                        source: controllerController.getControllerImagePath(deviceTab.devicePath)
-                                        
-                                        // Transparent overlay with text labels for buttons/knobs
-                                        Repeater {
-                                            model: controllerController.getButtonsForPage(deviceTab.devicePath, deviceTab.currentPage)
-                                            
-                                            delegate: Item {
-                                                required property int buttonX
-                                                required property int buttonY
-                                                required property int buttonWidth
-                                                required property int buttonHeight
-                                                required property string buttonText
-                                                required property int buttonNum
-                                                required property bool buttonIsOn
-                                                required property color textColor
-                                                
-                                                x: buttonX
-                                                y: buttonY
-                                                width: buttonWidth
-                                                height: buttonHeight
-                                                
-                                                // Text label overlay
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: buttonText
-                                                    color: textColor
-                                                    font.pixelSize: 10
-                                                    font.bold: true
-                                                    style: Text.Outline
-                                                    styleColor: "white"
-                                                }
-                                                
-                                                // Clickable area
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                                    
-                                                    onPressed: (mouse) => {
-                                                        if (mouse.button === Qt.RightButton) {
-                                                            controllerController.showContextMenu(
-                                                                deviceTab.devicePath,
-                                                                Qt.point(x + mouse.x, y + mouse.y)
-                                                            )
-                                                        } else if (mouse.button === Qt.LeftButton) {
-                                                            controllerController.buttonPressed(
-                                                                deviceTab.devicePath,
-                                                                Qt.point(x + mouse.x, y + mouse.y),
-                                                                true
-                                                            )
-                                                        }
-                                                    }
-                                                    
-                                                    onReleased: (mouse) => {
-                                                        if (mouse.button === Qt.LeftButton) {
-                                                            controllerController.buttonPressed(
-                                                                deviceTab.devicePath,
-                                                                Qt.point(x + mouse.x, y + mouse.y),
-                                                                false
-                                                            )
-                                                        }
-                                                    }
-                                                    
-                                                    // Visual feedback on hover
-                                                    hoverEnabled: true
-                                                    onEntered: parent.opacity = 0.8
-                                                    onExited: parent.opacity = 1.0
-                                                }
+                                        color: "#22ffff66"
+                                        visible: buttonOverlay.buttonOffText !== "None"
+                                        z: -0.5
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        hoverEnabled: true
+                                        onEntered: parent.opacity = 0.8
+                                        onExited: parent.opacity = 1.0
+
+                                        onPressed: (mouse) => {
+                                            if (!root.controllerController)
+                                                return
+                                            if (mouse.button === Qt.RightButton) {
+                                                root.controllerController.showContextMenu(
+                                                    deviceTab.devicePath,
+                                                    Qt.point(buttonOverlay.x + mouse.x, buttonOverlay.y + mouse.y))
+                                            } else if (mouse.button === Qt.LeftButton) {
+                                                root.controllerController.buttonPressed(
+                                                    deviceTab.devicePath,
+                                                    Qt.point(buttonOverlay.x + mouse.x, buttonOverlay.y + mouse.y),
+                                                    true)
                                             }
                                         }
-                                        
-                                        // Knobs overlay
-                                        Repeater {
-                                            model: controllerController.getKnobsForPage(deviceTab.devicePath, deviceTab.currentPage)
-                                            
-                                            delegate: Item {
-                                                required property int knobX
-                                                required property int knobY
-                                                required property int knobWidth
-                                                required property int knobHeight
-                                                required property string knobText
-                                                required property int knobNum
-                                                required property color textColor
-                                                
-                                                x: knobX
-                                                y: knobY
-                                                width: knobWidth
-                                                height: knobHeight
-                                                
-                                                // Text label
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: knobText
-                                                    color: textColor
-                                                    font.pixelSize: 9
-                                                    font.bold: true
-                                                    style: Text.Outline
-                                                    styleColor: "white"
-                                                }
-                                                
-                                                // Clickable area for configuration
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    acceptedButtons: Qt.RightButton
-                                                    
-                                                    onPressed: (mouse) => {
-                                                        if (mouse.button === Qt.RightButton) {
-                                                            controllerController.showContextMenu(
-                                                                deviceTab.devicePath,
-                                                                Qt.point(x + mouse.x, y + mouse.y)
-                                                            )
-                                                        }
-                                                    }
-                                                    
-                                                    hoverEnabled: true
-                                                    onEntered: parent.opacity = 0.8
-                                                    onExited: parent.opacity = 1.0
-                                                }
+
+                                        onReleased: (mouse) => {
+                                            if (mouse.button === Qt.LeftButton && root.controllerController) {
+                                                root.controllerController.buttonPressed(
+                                                    deviceTab.devicePath,
+                                                    Qt.point(buttonOverlay.x + mouse.x, buttonOverlay.y + mouse.y),
+                                                    false)
                                             }
                                         }
                                     }
                                 }
-                                
-                                // Page selector
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 10
-                                    visible: deviceTab.totalPages > 1
-                                    
-                                    Label {
-                                        text: "Page:"
-                                    }
-                                    
-                                    SpinBox {
-                                        id: pageSpinner
-                                        from: 1
-                                        to: deviceTab.totalPages
-                                        value: deviceTab.currentPage
-                                        onValueChanged: {
-                                            if (value !== deviceTab.currentPage) {
-                                                controllerController.setPage(deviceTab.devicePath, value)
-                                            }
-                                        }
-                                    }
-                                    
-                                    Item { Layout.fillWidth: true }
-                                    
-                                    Label {
-                                        text: "Total Pages:"
-                                    }
-                                    
-                                    SpinBox {
-                                        id: pagesSpinner
-                                        from: 1
-                                        to: 10
-                                        value: deviceTab.totalPages
-                                        onValueChanged: {
-                                            if (value !== deviceTab.totalPages) {
-                                                controllerController.setTotalPages(deviceTab.devicePath, value)
-                                            }
-                                        }
-                                    }
+                            }
+
+                            Repeater {
+                                model: {
+                                    root.controllerRevision
+                                    return root.controllerController ? root.controllerController.getKnobsForPage(deviceTab.devicePath, deviceTab.currentPage) : []
                                 }
-                                
-                                // Device-specific settings grid
-                                GridLayout {
-                                    Layout.fillWidth: true
-                                    columns: 2
-                                    columnSpacing: 10
-                                    rowSpacing: 10
-                                    
-                                    // Sensitivity slider
-                                    Label {
-                                        text: "Sensitivity:"
-                                        Layout.alignment: Qt.AlignRight
+
+                                delegate: Item {
+                                    id: knobOverlay
+                                    required property int knobX
+                                    required property int knobY
+                                    required property int knobWidth
+                                    required property int knobHeight
+                                    required property string knobText
+                                    required property int knobNum
+                                    required property color textColor
+
+                                    x: knobX
+                                    y: knobY
+                                    width: knobWidth
+                                    height: knobHeight
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        color: knobOverlay.knobText === "None" ? "#44000000" : "#66000000"
+                                        border.color: knobOverlay.knobText === "None" ? "#77999999" : "#ccffffff"
+                                        border.width: 1
+                                        radius: 2
+                                        visible: knobOverlay.knobText !== ""
                                     }
-                                    
-                                    Slider {
-                                        id: sensitivitySlider
-                                        Layout.fillWidth: true
-                                        from: 0
-                                        to: 100
-                                        stepSize: 1
-                                        value: 50
-                                        onMoved: {
-                                            controllerController.setSensitivity(deviceTab.devicePath, value)
-                                        }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        width: parent.width - 4
+                                        height: parent.height - 4
+                                        text: knobOverlay.knobText
+                                        color: knobOverlay.knobText === "None" ? "#eeeeee" : knobOverlay.textColor
+                                        font.pixelSize: knobOverlay.knobText === "None" ? Math.max(8, Math.min(11, parent.height * 0.28))
+                                                                                       : Math.max(9, Math.min(13, parent.height * 0.35))
+                                        font.bold: knobOverlay.knobText !== "None"
+                                        renderType: Text.NativeRendering
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                        wrapMode: Text.WordWrap
+                                        elide: Text.ElideRight
                                     }
-                                    
-                                    // Brightness
-                                    Label {
-                                        text: "Brightness:"
-                                        Layout.alignment: Qt.AlignRight
-                                    }
-                                    
-                                    ComboBox {
-                                        id: brightnessCombo
-                                        Layout.fillWidth: true
-                                        model: ["Low", "Medium", "High"]
-                                        onCurrentIndexChanged: {
-                                            controllerController.setBrightness(deviceTab.devicePath, currentIndex)
-                                        }
-                                    }
-                                    
-                                    // Speed
-                                    Label {
-                                        text: "Speed:"
-                                        Layout.alignment: Qt.AlignRight
-                                    }
-                                    
-                                    ComboBox {
-                                        id: speedCombo
-                                        Layout.fillWidth: true
-                                        model: ["Slow", "Normal", "Fast"]
-                                        onCurrentIndexChanged: {
-                                            controllerController.setSpeed(deviceTab.devicePath, currentIndex)
-                                        }
-                                    }
-                                    
-                                    // Orientation
-                                    Label {
-                                        text: "Orientation:"
-                                        Layout.alignment: Qt.AlignRight
-                                    }
-                                    
-                                    ComboBox {
-                                        id: orientationCombo
-                                        Layout.fillWidth: true
-                                        model: ["0°", "90°", "180°", "270°"]
-                                        onCurrentIndexChanged: {
-                                            controllerController.setOrientation(deviceTab.devicePath, currentIndex)
-                                        }
-                                    }
-                                    
-                                    // Color picker
-                                    Label {
-                                        text: "Color:"
-                                        Layout.alignment: Qt.AlignRight
-                                    }
-                                    
-                                    Button {
-                                        id: colorButton
-                                        Layout.preferredWidth: 100
-                                        Layout.preferredHeight: 30
-                                        
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            color: "white"
-                                            border.color: "#999"
-                                            border.width: 1
-                                        }
-                                        
-                                        onClicked: colorDialog.open()
-                                        
-                                        ColorDialog {
-                                            id: colorDialog
-                                            title: "Select Color"
-                                            onAccepted: {
-                                                controllerController.setColor(deviceTab.devicePath, selectedColor)
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.RightButton
+                                        hoverEnabled: true
+                                        onEntered: parent.opacity = 0.8
+                                        onExited: parent.opacity = 1.0
+
+                                        onPressed: (mouse) => {
+                                            if (mouse.button === Qt.RightButton && root.controllerController) {
+                                                root.controllerController.showContextMenu(
+                                                    deviceTab.devicePath,
+                                                    Qt.point(knobOverlay.x + mouse.x, knobOverlay.y + mouse.y))
                                             }
                                         }
                                     }
-                                    
-                                    // Timeout
-                                    Label {
-                                        text: "Timeout (minutes):"
-                                        Layout.alignment: Qt.AlignRight
-                                    }
-                                    
-                                    SpinBox {
-                                        id: timeoutSpinner
-                                        from: 0
-                                        to: 60
-                                        value: 5
-                                        onValueChanged: {
-                                            controllerController.setTimeout(deviceTab.devicePath, value)
-                                        }
-                                    }
-                                }
-                                
-                                // Help text
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: "Right-click buttons or knobs to configure. Left-click to simulate button press."
-                                    wrapMode: Text.WordWrap
-                                    color: "#666"
-                                    font.italic: true
                                 }
                             }
                         }
@@ -408,251 +568,306 @@ Item {
                 }
             }
         }
-        
-        // Bottom buttons
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-            
-            Button {
-                text: "Backup"
-                onClicked: {
-                    backupDialog.open()
-                }
-            }
-            
-            Button {
-                text: "Restore"
-                onClicked: {
-                    restoreDialog.open()
-                }
-            }
-            
-            Item { Layout.fillWidth: true }
-        }
     }
-    
-    // File dialogs
+
     FileDialog {
         id: backupDialog
         title: "Select Backup Filename"
         fileMode: FileDialog.SaveFile
         nameFilters: ["Backup Files (*.ini)"]
         onAccepted: {
-            var path = stackLayout.currentIndex >= 0 ? 
-                       controllerController.deviceModel.get(stackLayout.currentIndex).devicePath : ""
-            controllerController.backupSettings(path, selectedFile)
+            if (!root.controllerController)
+                return
+            var path = stackLayout.currentIndex >= 0 ?
+                       root.controllerController.deviceModel.get(stackLayout.currentIndex).devicePath : ""
+            root.controllerController.backupSettings(path, selectedFile)
         }
     }
-    
+
     FileDialog {
         id: restoreDialog
         title: "Select Backup Filename"
         fileMode: FileDialog.OpenFile
         nameFilters: ["Backup Files (*.ini)"]
         onAccepted: {
-            var path = stackLayout.currentIndex >= 0 ? 
-                       controllerController.deviceModel.get(stackLayout.currentIndex).devicePath : ""
-            controllerController.restoreSettings(path, selectedFile)
+            if (!root.controllerController)
+                return
+            var path = stackLayout.currentIndex >= 0 ?
+                       root.controllerController.deviceModel.get(stackLayout.currentIndex).devicePath : ""
+            root.controllerController.restoreSettings(path, selectedFile)
         }
     }
-    
-    // Context menu popup for button/knob configuration
+
     Popup {
         id: configPopup
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        
+
         width: 350
         height: contentColumn.implicitHeight + 40
-        
+
         x: (parent.width - width) / 2
         y: (parent.height - height) / 2
-        
+
         ColumnLayout {
             id: contentColumn
             anchors.fill: parent
             anchors.margins: 20
             spacing: 10
-            
+
             Label {
                 id: popupTitle
                 text: "Configure Button"
                 font.bold: true
                 font.pixelSize: 14
             }
-            
-            // On Event
+
             RowLayout {
                 id: onEventRow
                 Layout.fillWidth: true
                 visible: true
-                
+
                 Label {
                     text: "On:"
                     Layout.preferredWidth: 80
                 }
-                
+
                 ComboBox {
                     id: onEventCombo
                     Layout.fillWidth: true
-                    model: controllerController.commandModel
+                    model: root.controllerController ? root.controllerController.commandModel : null
                     textRole: "text"
                     valueRole: "index"
                 }
             }
-            
-            // Off Event
+
             RowLayout {
                 id: offEventRow
                 Layout.fillWidth: true
                 visible: true
-                
+
                 Label {
                     text: "Off:"
                     Layout.preferredWidth: 80
                 }
-                
+
                 ComboBox {
                     id: offEventCombo
                     Layout.fillWidth: true
-                    model: controllerController.commandModel
+                    model: root.controllerController ? root.controllerController.commandModel : null
                     textRole: "text"
                     valueRole: "index"
                 }
             }
-            
-            // Knob Event
+
             RowLayout {
                 id: knobEventRow
                 Layout.fillWidth: true
                 visible: false
-                
+
                 Label {
                     text: "Knob:"
                     Layout.preferredWidth: 80
                 }
-                
+
                 ComboBox {
                     id: knobEventCombo
                     Layout.fillWidth: true
-                    model: controllerController.knobCommandModel
+                    model: root.controllerController ? root.controllerController.knobCommandModel : null
                     textRole: "text"
                     valueRole: "index"
                 }
             }
-            
-            // LED Number
+
             RowLayout {
                 id: ledRow
                 Layout.fillWidth: true
                 visible: false
-                
+
                 Label {
                     text: "LED:"
                     Layout.preferredWidth: 80
                 }
-                
+
                 SpinBox {
                     id: ledSpinner
                     from: 0
                     to: 16
                 }
             }
-            
-            // Toggle checkbox
+
             CheckBox {
                 id: toggleCheckbox
                 text: "Toggle"
                 visible: true
             }
-            
-            // Color buttons
+
             RowLayout {
                 id: colorButtonRow
                 Layout.fillWidth: true
                 visible: false
                 spacing: 10
-                
+
                 Button {
                     id: onColorButton
                     text: "Color"
                     Layout.fillWidth: true
-                    
+
                     Rectangle {
+                        id: onColorSwatch
                         anchors.fill: parent
                         anchors.margins: 2
-                        color: "white"
+                        color: root.currentButtonOnColor
                         z: -1
                     }
-                    
-                    onClicked: onColorDialog.open()
+
+                    onClicked: {
+                        root.editingPressedButtonColor = false
+                        buttonColorPopup.open()
+                    }
                 }
-                
+
                 Button {
                     id: offColorButton
                     text: "Pressed"
                     Layout.fillWidth: true
-                    
+
                     Rectangle {
+                        id: offColorSwatch
                         anchors.fill: parent
                         anchors.margins: 2
-                        color: "gray"
+                        color: root.currentButtonOffColor
                         z: -1
                     }
-                    
-                    onClicked: offColorDialog.open()
+
+                    onClicked: {
+                        root.editingPressedButtonColor = true
+                        buttonColorPopup.open()
+                    }
                 }
             }
-            
-            // Icon button
+
             RowLayout {
                 id: iconRow
                 Layout.fillWidth: true
                 visible: false
                 spacing: 10
-                
+
                 Button {
                     id: iconButton
                     text: "Icon"
                     onClicked: iconDialog.open()
                 }
-                
+
                 Label {
                     id: iconLabel
                     text: "<None>"
                     Layout.fillWidth: true
                 }
             }
-            
-            // Apply button
+
             Button {
                 text: "Apply"
                 Layout.alignment: Qt.AlignRight
                 onClicked: {
-                    controllerController.applyButtonConfig(
+                    if (!root.controllerController)
+                        return
+                    root.controllerController.applyButtonConfig(
                         onEventCombo.currentValue,
                         offEventCombo.currentValue,
                         knobEventCombo.currentValue,
                         toggleCheckbox.checked,
-                        ledSpinner.value
-                    )
+                        ledSpinner.value)
                     configPopup.close()
                 }
             }
         }
-        
+
         ColorDialog {
             id: onColorDialog
             title: "Select On Color"
+            options: ColorDialog.ShowAlphaChannel
+            onAccepted: {
+                root.applyCurrentButtonColor(false, onColorDialog.selectedColor)
+            }
         }
-        
+
         ColorDialog {
             id: offColorDialog
             title: "Select Off Color"
+            options: ColorDialog.ShowAlphaChannel
+            onAccepted: {
+                root.applyCurrentButtonColor(true, offColorDialog.selectedColor)
+            }
         }
-        
+
+        Popup {
+            id: buttonColorPopup
+            modal: true
+            focus: true
+            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+            width: 246
+            height: colorPickerColumn.implicitHeight + 24
+            x: (configPopup.width - width) / 2
+            y: (configPopup.height - height) / 2
+
+            ColumnLayout {
+                id: colorPickerColumn
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 10
+
+                Label {
+                    text: root.editingPressedButtonColor ? "Pressed Color" : "Button Color"
+                    font.bold: true
+                }
+
+                GridLayout {
+                    columns: 6
+                    rowSpacing: 6
+                    columnSpacing: 6
+
+                    Repeater {
+                        model: root.controllerButtonPalette
+
+                        Rectangle {
+                            required property string modelData
+                            Layout.preferredWidth: 28
+                            Layout.preferredHeight: 28
+                            color: modelData
+                            border.color: palette.mid
+                            border.width: 1
+                            radius: 3
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    root.applyCurrentButtonColor(root.editingPressedButtonColor, parent.color)
+                                    buttonColorPopup.close()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    text: "More..."
+                    Layout.alignment: Qt.AlignRight
+                    onClicked: {
+                        buttonColorPopup.close()
+                        if (root.editingPressedButtonColor) {
+                            offColorDialog.selectedColor = root.currentButtonOffColor
+                            offColorDialog.open()
+                        } else {
+                            onColorDialog.selectedColor = root.currentButtonOnColor
+                            onColorDialog.open()
+                        }
+                    }
+                }
+            }
+        }
+
         FileDialog {
             id: iconDialog
             title: "Select Icon"

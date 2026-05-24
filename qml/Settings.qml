@@ -16,7 +16,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
-import Qt.labs.platform 1.1 as PLATFORM
+import QtQuick.Dialogs
 import WFVIEW 1.0
 
 ApplicationWindow {
@@ -135,7 +135,7 @@ ApplicationWindow {
 
             onClicked: {
                 if (!controller) return
-                dlg.color = qmlColor(cur)    // IMPORTANT: use dlg.color (common across dialogs)
+                dlg.selectedColor = qmlColor(cur)
                 dlg.open()
             }
         }
@@ -177,18 +177,14 @@ ApplicationWindow {
             hexField.text = colorToHexArgb(cur)
         }
 
-        // --------- ColorDialog ---------
-        // This version assumes your ColorDialog has a 'color' property.
-        // (Qt.labs.platform ColorDialog does; many others do too.)
-        PLATFORM.ColorDialog {
+        ColorDialog {
             id: dlg
             title: "Select " + label
-            options: PLATFORM.ColorDialog.ShowAlphaChannel
+            options: ColorDialog.ShowAlphaChannel
 
-            // This is the key: use dlg.color on accept.
             onAccepted: {
                 if (!controller) return
-                controller.setOption(key, dlg.color)
+                controller.setOption(key, dlg.selectedColor)
             }
         }
     }
@@ -1400,7 +1396,7 @@ ApplicationWindow {
 
                                     ColorRow { key: "Color.SpectrumFillBot"; label: "Spectrum Fill Bot" }
                                     ColorRow { key: "Color.UnderlayFill"; label: "Underlay Fill" }
-                                    ColorRow { key: "Color.WaterfallText"; label: "Underlay Fill Bot" }
+                                    ColorRow { key: "Color.UnderlayFillBot"; label: "Underlay Fill Bot" }
 
                                     ColorRow { key: "Color.ClusterSpots"; label: "Cluster Spots" }
                                     ColorRow { key: "Color.ButtonOff"; label: "Button Off" }
@@ -1733,9 +1729,8 @@ ApplicationWindow {
                             Layout.fillHeight: true
                             Layout.fillWidth: true
                             id: controllerSettings
+                            controllerController: controller ? controller.controllerController : null
                         }
-
-                        Item { Layout.fillHeight: true }
                     }
                 }
                 // =========================

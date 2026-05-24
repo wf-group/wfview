@@ -34,7 +34,18 @@ public:
         ConnectedRole,
         CurrentPageRole,
         TotalPagesRole,
-        DisabledRole
+        DisabledRole,
+        SensitivityRole,
+        BrightnessRole,
+        SpeedRole,
+        OrientationRole,
+        TimeoutRole,
+        ShowSensitivityRole,
+        ShowBrightnessRole,
+        ShowSpeedRole,
+        ShowOrientationRole,
+        ShowColorRole,
+        ShowTimeoutRole
     };
 
     explicit DeviceModel(QObject *parent = nullptr);
@@ -42,10 +53,12 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
+    Q_INVOKABLE QVariantMap get(int row) const;
 
     void addDevice(USBDEVICE* dev);
     void removeDevice(const QString& path);
     void updateDevice(const QString& path);
+    void reset();
     USBDEVICE* getDevice(const QString& path);
     USBDEVICE* getDevice(int index);
 
@@ -138,6 +151,7 @@ public:
                                        int knobCommand,
                                        bool toggle, 
                                        int ledNumber);
+    Q_INVOKABLE void setCurrentButtonColor(bool pressedColor, const QColor& color);
 
     // Backup/Restore
     Q_INVOKABLE void backupSettings(const QString& devicePath, const QUrl& fileUrl);
@@ -150,11 +164,16 @@ signals:
     void programPages(USBDEVICE* dev, int pages);
     void backup(USBDEVICE* dev, QString path);
     void restore(USBDEVICE* dev, QString path);
+    void commandTriggered(const COMMAND* command);
 
     void deviceAdded(int index);
     void deviceRemoved(int index);
     void deviceUpdated(const QString& path);
-    void showConfigDialog(const QString& title, bool isButton, bool isKnob);
+    void showConfigDialog(const QString& title, bool isButton, bool isKnob,
+                          int onCommand, int offCommand, int knobCommand,
+                          bool toggle, int ledNumber,
+                          bool showLed, bool showColor, bool showIcon,
+                          const QColor& onColor, const QColor& offColor);
 
 private:
     BUTTON* findButton(const QString& devicePath, const QPoint& pos, int page);
