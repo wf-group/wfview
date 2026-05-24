@@ -111,6 +111,31 @@ double WaterfallItem::xToFreq(qreal x) const
     return startFreq + t * (endFreq - startFreq);
 }
 
+void WaterfallItem::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+        event->accept();
+    else
+        event->ignore();
+}
+
+void WaterfallItem::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton) {
+        event->ignore();
+        return;
+    }
+
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+    const qreal x = event->pos().x();
+#else
+    const qreal x = event->position().x();
+#endif
+
+    emit tuneRequested(xToFreq(x));
+    event->accept();
+}
+
 void WaterfallItem::updateScope(const scopeData &data)
 {
     if (!data.valid || data.data.isEmpty())

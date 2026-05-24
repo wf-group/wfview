@@ -34,7 +34,11 @@ class ReceiverController : public QObject
     Q_PROPERTY(bool hold READ getHold WRITE setHold NOTIFY holdChanged)
 
     Q_PROPERTY(int ref READ getRef WRITE setRef NOTIFY refChanged)
-    // Length and ceiling/floor update the scope directly
+    Q_PROPERTY(int waterfallLength READ getWaterfallLength WRITE setWaterfallLength NOTIFY waterfallLengthChanged)
+    Q_PROPERTY(int plotFloor READ getPlotFloor WRITE setPlotFloor NOTIFY plotScaleChanged)
+    Q_PROPERTY(int plotCeiling READ getPlotCeiling WRITE setPlotCeiling NOTIFY plotScaleChanged)
+    Q_PROPERTY(bool waterfallSmooth READ getWaterfallSmooth WRITE setWaterfallSmooth NOTIFY waterfallSmoothChanged)
+    Q_PROPERTY(bool waterfallAntiAlias READ getWaterfallAntiAlias WRITE setWaterfallAntiAlias NOTIFY waterfallAntiAliasChanged)
 
     Q_PROPERTY(ushort rfGain READ getRfGain WRITE setRfGain NOTIFY rfGainChanged)
     Q_PROPERTY(ushort afGain READ getAfGain WRITE setAfGain NOTIFY afGainChanged)
@@ -79,6 +83,7 @@ class ReceiverController : public QObject
     Q_PROPERTY(bool memoryMode READ memoryMode NOTIFY memoryModeChanged)
     Q_PROPERTY(bool satelliteMode READ satelliteMode NOTIFY satelliteModeChanged)
     Q_PROPERTY(bool splitEnabled READ splitEnabled NOTIFY splitEnabledChanged)
+    Q_PROPERTY(int receiverIndex READ getReceiver CONSTANT)
 
 public:
     explicit ReceiverController(int rxIndex = 0, QString region="", QObject *parent = nullptr);
@@ -140,6 +145,11 @@ public:
     bool getHold() {return hold;}
 
     int getRef() { return ref;}
+    int getWaterfallLength() const { return waterfallLength; }
+    int getPlotFloor() const { return plotFloor; }
+    int getPlotCeiling() const { return plotCeiling; }
+    bool getWaterfallSmooth() const { return waterfallSmooth; }
+    bool getWaterfallAntiAlias() const { return waterfallAntiAlias; }
     ushort getRfGain() { return rfGain;}
     ushort getAfGain() { return afGain;}
     ushort getSquelch() { return squelch;}
@@ -222,6 +232,13 @@ public slots:
     void setTheme(WaterfallItem::Theme m, bool u=true);
     void setHold(bool v, bool u=true);
     void setRef(int v, bool u=true);
+    void setWaterfallLength(int v);
+    void setPlotFloor(int v);
+    void setPlotCeiling(int v);
+    void setWaterfallSmooth(bool v);
+    void setWaterfallAntiAlias(bool v);
+    void setScopeDisplaySettings(int floor, int ceiling, int length, WaterfallItem::Theme newTheme,
+                                 bool smooth, bool antiAlias);
 
     // Although these are 0-255 at most, we use uchar for 2 digit conversion (0-99) so use ushort instead.
     // We could use char for 2 digit and uchar for 0-255 but that would require singificant rewriting.
@@ -244,6 +261,7 @@ public slots:
     void setPbtOuter(int v, bool u=true);
     void setIfShift(int v, bool u=true);
     void setFilterWidth(int v, bool u=true);
+    void receiveCwPitch(quint16 pitch);
 
     void setScopeData(const scopeData &d);
     void setClusterSpots(const QList<spotData> &spots);
@@ -323,6 +341,10 @@ signals:
 
     void speedChanged();
     void themeChanged();
+    void waterfallLengthChanged();
+    void plotScaleChanged();
+    void waterfallSmoothChanged();
+    void waterfallAntiAliasChanged();
 
     void pbtInnerChanged();
     void pbtOuterChanged();
@@ -350,9 +372,15 @@ private:
     void buildUiSpecs();
     void updatePassband();
     void updatePbt();
+    void suppressPbtOverlay(int milliseconds = 300);
     void updatePassbandModeParameters(const modeInfo &m);
     int pbtDefaultValue(const funcType &func) const;
-    double pbtOffsetMHz(int value, int defaultValue) const;
+    bool pbtLowerSideMode() const;
+    double pbtNeutralOffsetMHz() const;
+    double pbtPitchCompensationMHz() const;
+    double pbtRegisterToOffsetMHz(int value) const;
+    int pbtOffsetToRegister(double offsetMHz, const funcType &func) const;
+    bool pbtOffsetIsNeutral(double offsetMHz) const;
     QVariantMap uiSpecs;
     quint64 roundFrequency(quint64 frequency, unsigned int tsHz);
     quint64 roundFrequency(quint64 frequency, int steps, unsigned int tsHz);
@@ -387,18 +415,28 @@ private:
 
     // Sliders
     int ref = 0;
+    int waterfallLength = 160;
+    int plotFloor = 0;
+    int plotCeiling = 160;
+    bool waterfallSmooth = true;
+    bool waterfallAntiAlias = false;
     int pbtInner = 0;
     int pbtOuter = 0;
     int ifShift = 0;
     int filterWidth = 0;
 
     // Spectrum
+    double lowerFreq = 0.0;
+    double upperFreq = 0.0;
     double passbandLow = 0;
     double passbandHigh = 0;
     double passbandWidth = 0;
     double passbandCenterFrequency = 0.0;
+    quint16 cwPitch = 600;
     double pbtLow = 0;
     double pbtHigh = 0;
+    bool pbtOverlaySuppressed = false;
+    quint64 pbtSuppressionGeneration = 0;
 
     UiFlags flags {}; // Everything off until I tell you otherwise!
     scopeData lastScope; // Contains the previous scope data.

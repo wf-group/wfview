@@ -46,6 +46,15 @@ Control {
         return v === 0 || v === 48 || v === 51 || v === 52
     }
 
+    function scopeDisplayKey(mainName, subName) {
+        return controller && controller.receiverIndex === 0 ? mainName : subName
+    }
+
+    function setInterfaceOption(key, value) {
+        if (MainController.settings)
+            MainController.settings.setOption(key, value)
+    }
+
     background: Rectangle {
         color: palette.window
         radius: 0
@@ -235,6 +244,8 @@ Control {
                     passbandHigh: controller ? controller.passbandHigh : 0
                     pbtLow: controller ? controller.pbtLow : 0
                     pbtHigh: controller ? controller.pbtHigh : 0
+                    floor: controller ? controller.plotFloor : 0
+                    ceiling: controller ? controller.plotCeiling : 160
                     colors: controller ? controller.colors : null
                     center: controller ? controller.frequencyA : null
                     bands: controller && controller.activeBands
@@ -265,8 +276,11 @@ Control {
                     controller: root.controller
                     SplitView.fillWidth: true
                     SplitView.preferredHeight: (splitView.height * 0.5) - 15
-                    theme: controller? (themeCombo.currentValue + 0) : 0 // Hack to stop linter complaining!
-                    length: lengthSlider.value
+                    theme: controller ? controller.theme : 1
+                    length: controller ? controller.waterfallLength : 160
+                    floor: controller ? controller.plotFloor : 0
+                    ceiling: controller ? controller.plotCeiling : 160
+                    smooth: controller ? (controller.waterfallSmooth || controller.waterfallAntiAlias) : true
                     onTuneRequested: function(freq) {
                         controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
                         controller.frequencyAChanged() // Signal the controller that frequency has changed
@@ -1016,10 +1030,16 @@ Control {
                         from: 10
                         to: 256
                         stepSize: 16
-                        value: waterfall.length
+                        value: controller ? controller.waterfallLength : 160
                         //Layout.preferredWidth: 120
                         Layout.fillWidth: true
-                        onValueChanged: waterfall.length = value
+                        onMoved: {
+                            if (controller) {
+                                const rounded = Math.round(value)
+                                controller.waterfallLength = rounded
+                                setInterfaceOption(scopeDisplayKey("Interface.MainWFLength", "Interface.SubWFLength"), rounded)
+                            }
+                        }
                         implicitHeight: 25
 
                         HoverHandler {
@@ -1041,12 +1061,15 @@ Control {
                         id: ceilingSlider
                         from: 0
                         to: 255
-                        value: waterfall.ceiling
+                        value: controller ? controller.plotCeiling : 160
                         //Layout.preferredWidth: 120
                         Layout.fillWidth: true
-                        onValueChanged:  {
-                            waterfall.ceiling = value;
-                            spectrum.ceiling = value;
+                        onMoved:  {
+                            if (controller) {
+                                const rounded = Math.round(value)
+                                controller.plotCeiling = rounded
+                                setInterfaceOption(scopeDisplayKey("Interface.MainPlotCeiling", "Interface.SubPlotCeiling"), rounded)
+                            }
                         }
                         HoverHandler {
                             id: hoverCeiling
@@ -1068,12 +1091,15 @@ Control {
                         id: floorSlider
                         from: 0
                         to: 255
-                        value: waterfall.floor
+                        value: controller ? controller.plotFloor : 0
                         //Layout.preferredWidth: 120
                         Layout.fillWidth: true
-                        onValueChanged:  {
-                            waterfall.floor = value;
-                            spectrum.floor = value;
+                        onMoved:  {
+                            if (controller) {
+                                const rounded = Math.round(value)
+                                controller.plotFloor = rounded
+                                setInterfaceOption(scopeDisplayKey("Interface.MainPlotFloor", "Interface.SubPlotFloor"), rounded)
+                            }
                         }
                         HoverHandler {
                             id: hoverFloor
@@ -1118,7 +1144,12 @@ Control {
                         valueRole: spec ? spec.valueRole : "value"
                         visible: spec ? (spec.visible ?? true) : false
                         currentIndex: controller ? indexFromValue(themeCombo,controller.theme) : -1
-                        onActivated: controller.theme = currentValue
+                        onActivated: {
+                            if (controller) {
+                                controller.theme = currentValue
+                                setInterfaceOption(scopeDisplayKey("Interface.MainWFTheme", "Interface.SubWFTheme"), currentValue)
+                            }
+                        }
                         Layout.fillWidth: true
                         //Layout.preferredWidth: 120
                     }

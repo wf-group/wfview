@@ -3,6 +3,9 @@
 #include "logcategories.h"
 #include <QGuiApplication>
 #include <QStyleHints>
+#include <QTimer>
+#include <cmath>
+#include <limits>
 
 
 ReceiverController::ReceiverController(int rxIndex, QString region, QObject *parent)
@@ -37,10 +40,15 @@ void ReceiverController::setScopeData(const scopeData &d)
     }
 
 
-    updatePassband();
-
     if (!d.valid || d.data.isEmpty())
         return;
+
+    if (!qFuzzyCompare(lowerFreq, d.startFreq) || !qFuzzyCompare(upperFreq, d.endFreq)) {
+        lowerFreq = d.startFreq;
+        upperFreq = d.endFreq;
+    }
+
+    updatePassband();
 
     lastScope = d;               // QByteArray is implicitly shared (cheap copy)
     emit scopeUpdated(lastScope);    // fan out to Spectrum/Waterfall
@@ -125,15 +133,66 @@ void ReceiverController::updatePassband()
 
 int ReceiverController::pbtDefaultValue(const funcType &func) const
 {
-    return qBound(int(func.minVal), 128, int(func.maxVal));
+    return pbtOffsetToRegister(pbtNeutralOffsetMHz(), func);
 }
 
-double ReceiverController::pbtOffsetMHz(int value, int defaultValue) const
+bool ReceiverController::pbtLowerSideMode() const
+{
+    return mode.mk == modeLSB || mode.mk == modeCW || mode.mk == modeRTTY;
+}
+
+double ReceiverController::pbtNeutralOffsetMHz() const
+{
+    if ((mode.mk == modeCW || mode.mk == modeCW_R) && passbandWidth > 0.0006)
+        return std::round((passbandWidth - (double(cwPitch) / 1000000.0)) * 200000.0) / 200000.0;
+
+    return 0.0;
+}
+
+double ReceiverController::pbtPitchCompensationMHz() const
+{
+    if ((mode.mk == modeCW || mode.mk == modeCW_R) && passbandWidth > 0.0006)
+        return (600.0 - double(cwPitch)) / 1000000.0;
+
+    return 0.0;
+}
+
+double ReceiverController::pbtRegisterToOffsetMHz(int value) const
 {
     if (passbandWidth <= 0.0)
         return 0.0;
 
-    return ((double(value - defaultValue)) / 127.0) * passbandWidth;
+    const double shift = double(value - 128);
+    const double roundedShift = std::ceil((shift / 127.0) * passbandWidth * 20000.0) / 20000.0;
+    return std::round((roundedShift + pbtPitchCompensationMHz()) * 200000.0) / 200000.0;
+}
+
+int ReceiverController::pbtOffsetToRegister(double offsetMHz, const funcType &func) const
+{
+    if (passbandWidth <= 0.0)
+        return qBound(int(func.minVal), 128, int(func.maxVal));
+
+    int bestValue = qBound(int(func.minVal), 128, int(func.maxVal));
+    double bestError = std::numeric_limits<double>::max();
+    for (int value = int(func.minVal); value <= int(func.maxVal); ++value) {
+        const double error = qAbs(pbtRegisterToOffsetMHz(value) - offsetMHz);
+        if (error < bestError) {
+            bestError = error;
+            bestValue = value;
+        }
+    }
+
+    return bestValue;
+}
+
+bool ReceiverController::pbtOffsetIsNeutral(double offsetMHz) const
+{
+    if (passbandWidth <= 0.0)
+        return true;
+
+    const double halfRegisterStepMHz = (passbandWidth / 127.0) / 2.0;
+    const double minimumToleranceMHz = 0.000005;
+    return qAbs(offsetMHz - pbtNeutralOffsetMHz()) <= qMax(halfRegisterStepMHz, minimumToleranceMHz);
 }
 
 void ReceiverController::updatePbt()
@@ -141,19 +200,23 @@ void ReceiverController::updatePbt()
     double newLow = 0.0;
     double newHigh = 0.0;
 
-    if (rigCaps && passbandWidth > 0.0 && passbandHigh > passbandLow &&
+    if (!pbtOverlaySuppressed &&
+        rigCaps && passbandWidth > 0.0 && passbandHigh > passbandLow &&
         mode.mk != modeFM && mode.mk != modeWFM &&
         rigCaps->commands.contains(funcPBTInner) &&
         rigCaps->commands.contains(funcPBTOuter)) {
-        const int innerDefault = pbtDefaultValue(rigCaps->commands.value(funcPBTInner));
-        const int outerDefault = pbtDefaultValue(rigCaps->commands.value(funcPBTOuter));
-        const double innerOffset = pbtOffsetMHz(pbtInner, innerDefault);
-        const double outerOffset = pbtOffsetMHz(pbtOuter, outerDefault);
-        const bool lowerSide = mode.mk == modeLSB || mode.mk == modeRTTY_R || mode.mk == modePSK_R;
-        const double innerLow = passbandLow + (lowerSide ? -innerOffset / 2.0 : innerOffset / 2.0);
-        const double outerLow = passbandLow + (lowerSide ? -outerOffset / 2.0 : outerOffset / 2.0);
+        const int innerValue = pbtInner == 0 ? pbtDefaultValue(rigCaps->commands.value(funcPBTInner)) : pbtInner;
+        const int outerValue = pbtOuter == 0 ? pbtDefaultValue(rigCaps->commands.value(funcPBTOuter)) : pbtOuter;
+        const double neutralOffset = pbtNeutralOffsetMHz();
+        const double innerOffset = pbtRegisterToOffsetMHz(innerValue);
+        const double outerOffset = pbtRegisterToOffsetMHz(outerValue);
+        const double innerDelta = innerOffset - neutralOffset;
+        const double outerDelta = outerOffset - neutralOffset;
+        const bool lowerSide = pbtLowerSideMode();
+        const double innerLow = passbandLow + (lowerSide ? -innerDelta / 2.0 : innerDelta / 2.0);
+        const double outerLow = passbandLow + (lowerSide ? -outerDelta / 2.0 : outerDelta / 2.0);
 
-        if (innerDefault != pbtInner || outerDefault != pbtOuter) {
+        if (!pbtOffsetIsNeutral(innerOffset) || !pbtOffsetIsNeutral(outerOffset)) {
             newLow = qMax(innerLow, outerLow);
             newHigh = qMin(innerLow + passbandWidth, outerLow + passbandWidth);
             if (newHigh <= newLow) {
@@ -170,11 +233,34 @@ void ReceiverController::updatePbt()
     }
 }
 
+void ReceiverController::suppressPbtOverlay(int milliseconds)
+{
+    pbtOverlaySuppressed = true;
+    ++pbtSuppressionGeneration;
+    const quint64 generation = pbtSuppressionGeneration;
+
+    if (pbtLow != 0.0 || pbtHigh != 0.0) {
+        pbtLow = 0.0;
+        pbtHigh = 0.0;
+        emit pbtChanged();
+    }
+
+    QTimer::singleShot(milliseconds, this, [this, generation]() {
+        if (generation != pbtSuppressionGeneration)
+            return;
+
+        pbtOverlaySuppressed = false;
+        updatePbt();
+    });
+}
+
 void ReceiverController::updatePassbandModeParameters(const modeInfo &m)
 {
     if (m.mk == modeUnknown)
         return;
 
+    const double previousPassbandWidth = passbandWidth;
+    const double previousPassbandCenter = passbandCenterFrequency;
     passbandCenterFrequency = 0.0;
     if (m.pass > 0)
         passbandWidth = double(m.pass / 1000000.0);
@@ -197,10 +283,18 @@ void ReceiverController::updatePassbandModeParameters(const modeInfo &m)
             passbandCenterFrequency = 0.002;
         break;
     case modeAM:
+        break;
     case modeCW:
     case modeCW_R:
+        passbandCenterFrequency = double(cwPitch) / 2000000.0;
+        break;
     default:
         break;
+    }
+
+    if (!qFuzzyCompare(previousPassbandWidth, passbandWidth) ||
+        !qFuzzyCompare(previousPassbandCenter, passbandCenterFrequency)) {
+        suppressPbtOverlay();
     }
 
     updatePassband();
@@ -285,6 +379,7 @@ void ReceiverController::resizePassband(double lowFreqMHz, double highFreqMHz)
     if (filterWidth == widthHz)
         return;
 
+    suppressPbtOverlay();
     setFilterWidth(widthHz, true);
 }
 
@@ -299,7 +394,7 @@ void ReceiverController::dragPbt(int action, double deltaMHz)
     const funcType outer = rigCaps->commands.value(funcPBTOuter);
     const int innerStart = pbtInner == 0 ? pbtDefaultValue(inner) : pbtInner;
     const int outerStart = pbtOuter == 0 ? pbtDefaultValue(outer) : pbtOuter;
-    const double direction = (mode.mk == modeLSB || mode.mk == modeRTTY_R || mode.mk == modePSK_R) ? -1.0 : 1.0;
+    const double direction = pbtLowerSideMode() ? -1.0 : 1.0;
     const int delta = qRound((direction * deltaMHz / passbandWidth) * 127.0);
 
     if (delta == 0)
@@ -447,7 +542,8 @@ void ReceiverController::setScopeEdge(uchar m, bool u)
         scopeEdge = m;
         emit scopeEdgeChanged();
         if (u) {
-            // Code to set scope edge to be added
+            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+            queue->addUnique(priorityImmediate,queueItem(funcScopeEdge,QVariant::fromValue<uchar>(scopeEdge),false,t.receiver));
         }
     }
 }
@@ -760,6 +856,66 @@ void ReceiverController::setTheme(WaterfallItem::Theme m, bool u)
     }
 }
 
+void ReceiverController::setWaterfallLength(int v)
+{
+    v = qBound(1, v, 4096);
+    if (waterfallLength == v)
+        return;
+
+    waterfallLength = v;
+    emit waterfallLengthChanged();
+}
+
+void ReceiverController::setPlotFloor(int v)
+{
+    v = qBound(0, v, 255);
+    if (plotFloor == v)
+        return;
+
+    plotFloor = v;
+    emit plotScaleChanged();
+}
+
+void ReceiverController::setPlotCeiling(int v)
+{
+    v = qBound(0, v, 255);
+    if (plotCeiling == v)
+        return;
+
+    plotCeiling = v;
+    emit plotScaleChanged();
+}
+
+void ReceiverController::setWaterfallSmooth(bool v)
+{
+    if (waterfallSmooth == v)
+        return;
+
+    waterfallSmooth = v;
+    emit waterfallSmoothChanged();
+}
+
+void ReceiverController::setWaterfallAntiAlias(bool v)
+{
+    if (waterfallAntiAlias == v)
+        return;
+
+    waterfallAntiAlias = v;
+    emit waterfallAntiAliasChanged();
+}
+
+void ReceiverController::setScopeDisplaySettings(int floor, int ceiling, int length,
+                                                 WaterfallItem::Theme newTheme,
+                                                 bool smooth, bool antiAlias)
+{
+    setPlotFloor(floor);
+    setPlotCeiling(ceiling);
+    setWaterfallLength(length);
+    setTheme(newTheme, false);
+    setWaterfallSmooth(smooth);
+    setWaterfallAntiAlias(antiAlias);
+}
+
 void ReceiverController::setHold(bool v, bool u)
 {
     if (hold != v)
@@ -1040,11 +1196,26 @@ void ReceiverController::setFilterWidth(int v, bool u)
     }
 }
 
+void ReceiverController::receiveCwPitch(quint16 pitch)
+{
+    if (pitch == cwPitch)
+        return;
+
+    cwPitch = pitch;
+    if (mode.mk == modeCW || mode.mk == modeCW_R) {
+        passbandCenterFrequency = double(cwPitch) / 2000000.0;
+        updatePassband();
+        updatePbt();
+    }
+}
+
 void ReceiverController::toFixedEdge(uchar val)
 {
     qInfo() << "Setting new fixed edge:" << val;
     vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-    //queue->addUnique(priorityImmediate,queueItem(funcScopeFixedEdgeFreq,QVariant::fromValue(spectrumBounds(lowerFreq, upperFreq, val)),false,t.receiver));
+    if (upperFreq > lowerFreq) {
+        queue->addUnique(priorityImmediate,queueItem(funcScopeFixedEdgeFreq,QVariant::fromValue(spectrumBounds(lowerFreq, upperFreq, val)),false,t.receiver));
+    }
     queue->addUnique(priorityImmediate,queueItem(funcScopeEdge,QVariant::fromValue<uchar>(val),false,t.receiver));
     queue->addUnique(priorityImmediate,queueItem(funcScopeMode,QVariant::fromValue<uchar>(1),false,t.receiver));
 }

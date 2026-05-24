@@ -38,9 +38,16 @@ public:
     QSGGeometryNode *passband = nullptr;
     QSGGeometryNode *pbt = nullptr;
     QSGSimpleTextureNode *axisNode = nullptr;
+    QSGTexture *axisTexture = nullptr;
     QSGGeometryNode *bandShapes = nullptr;
 
     QSGNode *dynamicRoot = nullptr;   // everything else (axis, bands, spots, overlays)
+
+    ~SpectrumRootNode() override
+    {
+        delete axisTexture;
+        axisTexture = nullptr;
+    }
 };
 
 

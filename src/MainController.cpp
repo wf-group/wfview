@@ -399,6 +399,22 @@ void MainController::ifChanged(prefIfItems items)
             case if_useSystemTheme:
                 updateApplicationPalette();
                 break;
+            case if_wfAntiAlias:
+            case if_wfInterpolate:
+            case if_wftheme:
+            case if_plotFloor:
+            case if_plotCeiling:
+            case if_wflength:
+                for (int i = 0; prefs && i < receivers.size(); ++i) {
+                    receivers[i]->setScopeDisplaySettings(i == 0 ? prefs->mainPlotFloor : prefs->subPlotFloor,
+                                                          i == 0 ? prefs->mainPlotCeiling : prefs->subPlotCeiling,
+                                                          i == 0 ? prefs->mainWflength : prefs->subWflength,
+                                                          static_cast<WaterfallItem::Theme>(i == 0 ? prefs->mainWfTheme
+                                                                                                   : prefs->subWfTheme),
+                                                          prefs->wfInterpolate,
+                                                          prefs->wfAntiAlias);
+                }
+                break;
             case if_meter2Type:
                 configureOptionalMeter(2, prefs ? prefs->meter2Type : meterNone);
                 emit optionalMetersChanged();
@@ -1945,6 +1961,13 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
+            rc->setScopeDisplaySettings(i == 0 ? prefs->mainPlotFloor : prefs->subPlotFloor,
+                                        i == 0 ? prefs->mainPlotCeiling : prefs->subPlotCeiling,
+                                        i == 0 ? prefs->mainWflength : prefs->subWflength,
+                                        static_cast<WaterfallItem::Theme>(i == 0 ? prefs->mainWfTheme
+                                                                                 : prefs->subWfTheme),
+                                        prefs->wfInterpolate,
+                                        prefs->wfAntiAlias);
             connect(rc, &ReceiverController::dataModeChanged, this, [this, i]() {
                 handleDataModeChanged(i);
             });
@@ -2427,9 +2450,15 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcCwPitch:
 
         // There is only a single CW Pitch setting, so send to all scopes
-        // Receiver-side CW pitch display has not been ported to QML yet.
         // Also send to CW window
-        m_cwSender->handlePitch(val.value.value<quint16>());
+        {
+            const quint16 pitch = val.value.value<quint16>();
+            for (auto *receiver : receivers) {
+                if (receiver)
+                    receiver->receiveCwPitch(pitch);
+            }
+            m_cwSender->handlePitch(pitch);
+        }
         break;
 
     case funcMicGain:

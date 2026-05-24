@@ -504,6 +504,8 @@ void SpectrumItem::updateScope(const scopeData &data)
     if (n <= 1)
         return;
 
+    setScopeOutOfRange(data.oor);
+
     if (!qFuzzyCompare(startFreq, data.startFreq) ||
         !qFuzzyCompare(endFreq,   data.endFreq)) {
         startFreq = data.startFreq;
@@ -1392,8 +1394,10 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             p.end();
 
             QSGTexture *tex = window()->createTextureFromImage(img);
+            delete root->axisTexture;
+            root->axisTexture = tex;
             root->axisNode->setTexture(tex);
-            root->axisNode->setOwnsTexture(true);
+            root->axisNode->setOwnsTexture(false);
 
             // Position axis under the plot, full width
             root->axisNode->setRect(0, plotH, w, axisH);

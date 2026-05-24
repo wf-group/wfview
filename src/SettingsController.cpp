@@ -1981,8 +1981,26 @@ void SettingsController::buildBindings()
     WF_I32("Interface.MainPlotFloor", prefs.mainPlotFloor,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotFloor)); });
 
+    WF_I32("Interface.SubPlotFloor", prefs.subPlotFloor,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotFloor)); });
+
     WF_I32("Interface.MainPlotCeiling", prefs.mainPlotCeiling,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotCeiling)); });
+
+    WF_I32("Interface.SubPlotCeiling", prefs.subPlotCeiling,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_plotCeiling)); });
+
+    WF_I32("Interface.MainWFLength", prefs.mainWflength,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wflength)); });
+
+    WF_I32("Interface.SubWFLength", prefs.subWflength,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wflength)); });
+
+    WF_I32("Interface.MainWFTheme", prefs.mainWfTheme,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wftheme)); });
+
+    WF_I32("Interface.SubWFTheme", prefs.subWfTheme,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wftheme)); });
 
     WF_STR("Interface.StylesheetPath", prefs.stylesheetPath,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_stylesheetPath)); });
