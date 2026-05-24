@@ -14,13 +14,15 @@ ApplicationWindow {
     property var txAudioProcessingWindow: null
     property var rxAudioProcessingWindow: null
     property bool quitConfirmed: false
+    property var savedStartupGeometry: null
+    property bool startupGeometryPending: false
     readonly property int contentHorizontalPadding: 8
     readonly property int contentTopPadding: 4
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
-    visible: true
+    visible: false
 
     minimumWidth:  mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
@@ -117,6 +119,25 @@ ApplicationWindow {
 
     LoggingWindow {
         id: loggingWindow
+    }
+
+    Timer {
+        id: startupGeometryTimer
+        interval: 300
+        repeat: false
+        onTriggered: {
+            if (win.startupGeometryPending && win.savedStartupGeometry && win.savedStartupGeometry.valid)
+                win.applyWindowGeometry(win.savedStartupGeometry)
+            win.startupGeometryPending = false
+        }
+    }
+
+    Connections {
+        target: MainController
+        function onReceiverCountChanged() {
+            if (win.startupGeometryPending)
+                startupGeometryTimer.restart()
+        }
     }
 
     Dialog {
@@ -341,6 +362,30 @@ ApplicationWindow {
         return Boolean(MainController.settings.dirty) && (confirm === undefined || Boolean(confirm))
     }
 
+    function applyWindowGeometry(g) {
+        if (g.valid) {
+            win.x = g.x
+            win.y = g.y
+            win.width = Math.max(g.width, win.minimumWidth)
+            win.height = Math.max(g.height, win.minimumHeight)
+            if (g.maximized)
+                win.visibility = Window.Maximized
+        }
+    }
+
+    function restoreWindowGeometry() {
+        var g = MainController.restoredMainWindowGeometry()
+        win.savedStartupGeometry = g
+        win.startupGeometryPending = Boolean(g.valid)
+        applyWindowGeometry(g)
+        win.visible = true
+    }
+
+    function saveWindowGeometry() {
+        MainController.saveMainWindowGeometry(win.x, win.y, win.width, win.height,
+                                              win.visibility === Window.Maximized)
+    }
+
     function requestQuit() {
         if (shouldConfirmUnsavedSettings()) {
             unsavedSettingsDialog.showDialog()
@@ -361,6 +406,7 @@ ApplicationWindow {
     }
 
     function shutdownAndQuit() {
+        saveWindowGeometry()
         unsavedSettingsDialog.visible = false
         if (settings)
             settings.visible = false
@@ -469,7 +515,7 @@ ApplicationWindow {
                         property int pendingX: 0
                         property int pendingY: 0
                         property bool havePendingPos: false
-                        property bool detached: false
+                        property bool detached: MainController.isReceiverDetached(index)
                         readonly property var receiverController: MainController.receiver(index)
                         readonly property var receiverItem: rxLoader.item
                         readonly property bool receiverVisible: receiverController
@@ -495,9 +541,10 @@ ApplicationWindow {
                                 controller: row.receiverController
                             }
                             onLoaded: {
-                                rxLoader.item.parent = attachedHost
-                                rxLoader.item.anchors.fill = attachedHost
+                                rxLoader.item.parent = row.detached ? detachedHost : attachedHost
+                                rxLoader.item.anchors.fill = row.detached ? detachedHost : attachedHost
                                 rxLoader.item.anchors.margins = 1
+                                detachedWin.visible = row.detached
                             }
                         }
 
@@ -539,11 +586,21 @@ ApplicationWindow {
 
                         ApplicationWindow {
                             id: detachedWin
-                            visible: false
+                            visible: row.detached
                             title: qsTr("Receiver %1").arg(index + 1)
-                            width: 900
-                            height: 500
+                            width: Number(MainController.settings.receiverSetting(index, "DetachedWidth", 900))
+                            height: Number(MainController.settings.receiverSetting(index, "DetachedHeight", 500))
                             color: palette.window
+                            property bool restoringGeometry: true
+
+                            function saveDetachedGeometry() {
+                                if (restoringGeometry || !visible)
+                                    return
+                                MainController.settings.saveReceiverSetting(index, "DetachedX", Math.round(x))
+                                MainController.settings.saveReceiverSetting(index, "DetachedY", Math.round(y))
+                                MainController.settings.saveReceiverSetting(index, "DetachedWidth", Math.round(width))
+                                MainController.settings.saveReceiverSetting(index, "DetachedHeight", Math.round(height))
+                            }
 
                             palette {
                                 window: MainController.settings.options["Color.Window"]
@@ -592,6 +649,16 @@ ApplicationWindow {
                                 }
                             }
 
+                            Component.onCompleted: {
+                                x = Number(MainController.settings.receiverSetting(index, "DetachedX", x))
+                                y = Number(MainController.settings.receiverSetting(index, "DetachedY", y))
+                                restoringGeometry = false
+                            }
+
+                            onXChanged: saveDetachedGeometry()
+                            onYChanged: saveDetachedGeometry()
+                            onWidthChanged: saveDetachedGeometry()
+                            onHeightChanged: saveDetachedGeometry()
 
                             onClosing: function(close) {
                                 MainController.setReceiverDetached(index, false)
@@ -1091,6 +1158,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         MainController.updateApplicationPalette();
+        restoreWindowGeometry()
         // Check if this is the first run
         //if (MainController.isFirstRun()) {
         //    firstTimeSetup.visible = true

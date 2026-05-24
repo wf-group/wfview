@@ -1,6 +1,8 @@
 #include "SettingsController.h"
 #include "logcategories.h"
 #include "waterfallitem.h" // To get the theme
+#include <QGuiApplication>
+#include <QScreen>
 #include <utility>
 
 
@@ -73,6 +75,145 @@ SettingsController::SettingsController(QString file, QObject *p) :
                             prefClusterItems(prefClusterItem::cl_clusterTimeout));
     });
     connect(m_serverUsersModel.get(), &ServerUsersModel::modified, this, &SettingsController::markDirty);
+}
+
+QVariantMap SettingsController::restoredMainWindowGeometry() const
+{
+    QVariantMap result;
+    result["valid"] = false;
+    result["maximized"] = false;
+
+    if (!settings)
+        return result;
+
+    settings->beginGroup("Interface");
+    const bool haveGeometry = settings->contains("MainWindowX") &&
+                              settings->contains("MainWindowY") &&
+                              settings->contains("MainWindowWidth") &&
+                              settings->contains("MainWindowHeight");
+    QRect rect(settings->value("MainWindowX").toInt(),
+               settings->value("MainWindowY").toInt(),
+               settings->value("MainWindowWidth").toInt(),
+               settings->value("MainWindowHeight").toInt());
+    const bool maximized = settings->value("MainWindowMaximized", false).toBool();
+    settings->endGroup();
+
+    if (!haveGeometry || rect.width() < 200 || rect.height() < 200)
+        return result;
+
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    if (screens.isEmpty())
+        return result;
+
+    QScreen *primary = QGuiApplication::primaryScreen();
+    QRect available = primary ? primary->availableGeometry() : screens.first()->availableGeometry();
+    bool intersectsScreen = false;
+    for (QScreen *screen : screens) {
+        if (!screen)
+            continue;
+
+        const QRect screenAvailable = screen->availableGeometry();
+        if (screenAvailable.intersects(rect)) {
+            available = screenAvailable;
+            intersectsScreen = true;
+            break;
+        }
+    }
+
+    QSize size(qMin(rect.width(), available.width()), qMin(rect.height(), available.height()));
+    size.setWidth(qMax(size.width(), 400));
+    size.setHeight(qMax(size.height(), 300));
+
+    QPoint topLeft = rect.topLeft();
+    if (!intersectsScreen) {
+        topLeft = QPoint(available.x() + (available.width() - size.width()) / 2,
+                         available.y() + (available.height() - size.height()) / 2);
+    }
+
+    topLeft.setX(qBound(available.left(), topLeft.x(), available.right() - size.width() + 1));
+    topLeft.setY(qBound(available.top(), topLeft.y(), available.bottom() - size.height() + 1));
+
+    result["valid"] = true;
+    result["x"] = topLeft.x();
+    result["y"] = topLeft.y();
+    result["width"] = size.width();
+    result["height"] = size.height();
+    result["maximized"] = maximized;
+    return result;
+}
+
+void SettingsController::saveMainWindowGeometry(int x, int y, int width, int height, bool maximized)
+{
+    if (!settings || width < 200 || height < 200)
+        return;
+
+    settings->beginGroup("Interface");
+    settings->setValue("MainWindowX", x);
+    settings->setValue("MainWindowY", y);
+    settings->setValue("MainWindowWidth", width);
+    settings->setValue("MainWindowHeight", height);
+    settings->setValue("MainWindowMaximized", maximized);
+    settings->endGroup();
+    settings->sync();
+}
+
+QVariantMap SettingsController::receiverSettings(int index) const
+{
+    if (index < 0)
+        return QVariantMap();
+
+    QVariantMap result = defaultReceiverSettings(index);
+    if (index < m_receiverSettings.size()) {
+        const QVariantMap stored = m_receiverSettings.at(index);
+        for (auto it = stored.constBegin(); it != stored.constEnd(); ++it)
+            result[it.key()] = it.value();
+    }
+    return result;
+}
+
+QVariant SettingsController::receiverSetting(int index, const QString& key, const QVariant& fallback) const
+{
+    const QVariantMap values = receiverSettings(index);
+    return values.value(key, fallback);
+}
+
+void SettingsController::saveReceiverSetting(int index, const QString& key, const QVariant& value)
+{
+    if (index < 0 || key.isEmpty())
+        return;
+
+    ensureReceiverSettings(index);
+    if (m_receiverSettings[index].value(key) == value)
+        return;
+
+    m_receiverSettings[index].insert(key, value);
+    markDirty();
+}
+
+QVariantMap SettingsController::defaultReceiverSettings(int index) const
+{
+    QVariantMap result;
+    result["Detached"] = false;
+    result["BandDrawerLocked"] = false;
+    result["ControlDrawerLocked"] = false;
+    result["DetachedX"] = 0;
+    result["DetachedY"] = 0;
+    result["DetachedWidth"] = 900;
+    result["DetachedHeight"] = 500;
+    result["PlotFloor"] = index == 0 ? prefs.mainPlotFloor : (index == 1 ? prefs.subPlotFloor : defPrefs.mainPlotFloor);
+    result["PlotCeiling"] = index == 0 ? prefs.mainPlotCeiling : (index == 1 ? prefs.subPlotCeiling : defPrefs.mainPlotCeiling);
+    result["WFLength"] = index == 0 ? int(prefs.mainWflength) : (index == 1 ? int(prefs.subWflength) : int(defPrefs.mainWflength));
+    result["WFTheme"] = index == 0 ? prefs.mainWfTheme : (index == 1 ? prefs.subWfTheme : defPrefs.mainWfTheme);
+    return result;
+}
+
+void SettingsController::ensureReceiverSettings(int index)
+{
+    if (index < 0)
+        return;
+
+    while (m_receiverSettings.size() <= index)
+        m_receiverSettings.append(defaultReceiverSettings(m_receiverSettings.size()));
 }
 
 void SettingsController::buildUiSpecs()
@@ -202,6 +343,18 @@ void SettingsController::load()
     prefs.mainWflength = (unsigned int)settings->value("MainWFLength", defPrefs.mainWflength).toInt();
     prefs.subWflength = (unsigned int)settings->value("SubWFLength", defPrefs.subWflength).toInt();
     prefs.stylesheetPath = settings->value("StylesheetPath", defPrefs.stylesheetPath).toString();
+
+    m_receiverSettings.clear();
+    const int receiverCount = settings->beginReadArray("Receiver");
+    for (int i = 0; i < receiverCount; ++i) {
+        settings->setArrayIndex(i);
+        QVariantMap values = defaultReceiverSettings(i);
+        const QStringList keys = settings->allKeys();
+        for (const QString& key : keys)
+            values.insert(key, settings->value(key, values.value(key)));
+        m_receiverSettings.append(values);
+    }
+    settings->endArray();
 
     /*
     restoreGeometry(settings->value("windowGeometry").toByteArray());
@@ -887,6 +1040,19 @@ void SettingsController::save()
     */
     settings->setValue("MainWFLength", prefs.mainWflength);
     settings->setValue("SubWFLength", prefs.subWflength);
+
+    settings->beginWriteArray("Receiver", m_receiverSettings.size());
+    for (int i = 0; i < m_receiverSettings.size(); ++i) {
+        settings->setArrayIndex(i);
+        QVariantMap values = defaultReceiverSettings(i);
+        const QVariantMap stored = m_receiverSettings.at(i);
+        for (auto it = stored.constBegin(); it != stored.constEnd(); ++it)
+            values.insert(it.key(), it.value());
+        for (auto it = values.constBegin(); it != values.constEnd(); ++it)
+            settings->setValue(it.key(), it.value());
+    }
+    settings->endArray();
+
     settings->setValue("ConfirmExit", prefs.confirmExit);
     settings->setValue("ConfirmPowerOff", prefs.confirmPowerOff);
     settings->setValue("ConfirmSettingsChanged", prefs.confirmSettingsChanged);

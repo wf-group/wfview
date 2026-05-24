@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QGuiApplication>
 #include <QMutexLocker>
 #include <QStandardPaths>
 #include <QTimer>
@@ -354,6 +355,31 @@ void MainController::stopAnrNoiseProfile()
         rxProc->stopAnrProfile();
 }
 
+void MainController::setReceiverDetached(int i, bool v)
+{
+    if (i < 0 || i >= detached.size())
+        return;
+
+    if (detached[i] != v) {
+        detached[i] = v;
+        emit receiverDetachedChanged(i, v);
+    }
+
+    if (m_settings)
+        m_settings->saveReceiverSetting(i, QStringLiteral("Detached"), v);
+}
+
+QVariantMap MainController::restoredMainWindowGeometry() const
+{
+    return m_settings ? m_settings->restoredMainWindowGeometry() : QVariantMap{{"valid", false}};
+}
+
+void MainController::saveMainWindowGeometry(int x, int y, int width, int height, bool maximized)
+{
+    if (m_settings)
+        m_settings->saveMainWindowGeometry(x, y, width, height, maximized);
+}
+
 void MainController::ifChanged(prefIfItems items)
 {
     /*
@@ -406,11 +432,11 @@ void MainController::ifChanged(prefIfItems items)
             case if_plotCeiling:
             case if_wflength:
                 for (int i = 0; prefs && i < receivers.size(); ++i) {
-                    receivers[i]->setScopeDisplaySettings(i == 0 ? prefs->mainPlotFloor : prefs->subPlotFloor,
-                                                          i == 0 ? prefs->mainPlotCeiling : prefs->subPlotCeiling,
-                                                          i == 0 ? prefs->mainWflength : prefs->subWflength,
-                                                          static_cast<WaterfallItem::Theme>(i == 0 ? prefs->mainWfTheme
-                                                                                                   : prefs->subWfTheme),
+                    const QVariantMap receiverPrefs = m_settings->receiverSettings(i);
+                    receivers[i]->setScopeDisplaySettings(receiverPrefs.value("PlotFloor").toInt(),
+                                                          receiverPrefs.value("PlotCeiling").toInt(),
+                                                          receiverPrefs.value("WFLength").toInt(),
+                                                          static_cast<WaterfallItem::Theme>(receiverPrefs.value("WFTheme").toInt()),
                                                           prefs->wfInterpolate,
                                                           prefs->wfAntiAlias);
                 }
@@ -1961,11 +1987,12 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
-            rc->setScopeDisplaySettings(i == 0 ? prefs->mainPlotFloor : prefs->subPlotFloor,
-                                        i == 0 ? prefs->mainPlotCeiling : prefs->subPlotCeiling,
-                                        i == 0 ? prefs->mainWflength : prefs->subWflength,
-                                        static_cast<WaterfallItem::Theme>(i == 0 ? prefs->mainWfTheme
-                                                                                 : prefs->subWfTheme),
+            m_settings->ensureReceiverSettings(i);
+            const QVariantMap receiverPrefs = m_settings->receiverSettings(i);
+            rc->setScopeDisplaySettings(receiverPrefs.value("PlotFloor").toInt(),
+                                        receiverPrefs.value("PlotCeiling").toInt(),
+                                        receiverPrefs.value("WFLength").toInt(),
+                                        static_cast<WaterfallItem::Theme>(receiverPrefs.value("WFTheme").toInt()),
                                         prefs->wfInterpolate,
                                         prefs->wfAntiAlias);
             connect(rc, &ReceiverController::dataModeChanged, this, [this, i]() {
@@ -1992,6 +2019,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             receivers.push_back(rc);
         }
         detached.fill(false,rigCaps->numReceiver);
+        for (int i = 0; i < detached.size(); ++i)
+            detached[i] = m_settings->receiverSetting(i, QStringLiteral("Detached"), false).toBool();
         connStatus = connectionStatus_t::connConnected;
         setRigModelName(rigCaps->modelName);
         setWindowTitle(rigCaps->modelName);

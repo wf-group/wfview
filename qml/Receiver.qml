@@ -15,6 +15,7 @@ Control {
     property var controller: null
     property alias bandPanelOpen: bandPanel.open
     property alias sidePanelOpen: sidePanel.open
+    property bool restoringReceiverUiState: true
 
     signal requestDetach(var globalPos)
     signal spectrumProcessingTime(real ms)
@@ -53,6 +54,17 @@ Control {
     function setInterfaceOption(key, value) {
         if (MainController.settings)
             MainController.settings.setOption(key, value)
+    }
+
+    function receiverSetting(key, fallback) {
+        return MainController.settings
+                ? MainController.settings.receiverSetting(root.receiverIndex, key, fallback)
+                : fallback
+    }
+
+    function saveReceiverSetting(key, value) {
+        if (!root.restoringReceiverUiState && MainController.settings)
+            MainController.settings.saveReceiverSetting(root.receiverIndex, key, value)
     }
 
     background: Rectangle {
@@ -647,6 +659,7 @@ Control {
                     slide = width
                     autoHide = false
                 }
+                root.saveReceiverSetting("BandDrawerLocked", locked)
             }
 
             Rectangle {
@@ -897,6 +910,7 @@ Control {
                     open = true
                     slide = width
                 }
+                root.saveReceiverSetting("ControlDrawerLocked", locked)
             }
 
             z: 9999
@@ -1037,7 +1051,7 @@ Control {
                             if (controller) {
                                 const rounded = Math.round(value)
                                 controller.waterfallLength = rounded
-                                setInterfaceOption(scopeDisplayKey("Interface.MainWFLength", "Interface.SubWFLength"), rounded)
+                                saveReceiverSetting("WFLength", rounded)
                             }
                         }
                         implicitHeight: 25
@@ -1068,7 +1082,7 @@ Control {
                             if (controller) {
                                 const rounded = Math.round(value)
                                 controller.plotCeiling = rounded
-                                setInterfaceOption(scopeDisplayKey("Interface.MainPlotCeiling", "Interface.SubPlotCeiling"), rounded)
+                                saveReceiverSetting("PlotCeiling", rounded)
                             }
                         }
                         HoverHandler {
@@ -1098,7 +1112,7 @@ Control {
                             if (controller) {
                                 const rounded = Math.round(value)
                                 controller.plotFloor = rounded
-                                setInterfaceOption(scopeDisplayKey("Interface.MainPlotFloor", "Interface.SubPlotFloor"), rounded)
+                                saveReceiverSetting("PlotFloor", rounded)
                             }
                         }
                         HoverHandler {
@@ -1147,7 +1161,7 @@ Control {
                         onActivated: {
                             if (controller) {
                                 controller.theme = currentValue
-                                setInterfaceOption(scopeDisplayKey("Interface.MainWFTheme", "Interface.SubWFTheme"), currentValue)
+                                saveReceiverSetting("WFTheme", currentValue)
                             }
                         }
                         Layout.fillWidth: true
@@ -2038,5 +2052,17 @@ Control {
             controller.setCustomEdgeFreqs(startEdgeFreq.value,endEdgeFreq.value)
         }
 
+    }
+
+    Component.onCompleted: {
+        bandPanel.locked = Boolean(receiverSetting("BandDrawerLocked", false))
+        bandPanel.open = bandPanel.locked
+        bandPanel.slide = bandPanel.open ? bandPanel.width : 0
+
+        sidePanel.locked = Boolean(receiverSetting("ControlDrawerLocked", false))
+        sidePanel.open = sidePanel.locked
+        sidePanel.slide = sidePanel.open ? sidePanel.width : 0
+
+        root.restoringReceiverUiState = false
     }
 }

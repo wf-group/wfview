@@ -617,6 +617,12 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
     Q_INVOKABLE void markDirty();
+    Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
+    Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
+    Q_INVOKABLE QVariantMap receiverSettings(int index) const;
+    Q_INVOKABLE QVariant receiverSetting(int index, const QString& key, const QVariant& fallback = QVariant()) const;
+    Q_INVOKABLE void saveReceiverSetting(int index, const QString& key, const QVariant& value);
+    void ensureReceiverSettings(int index);
     void resetToDefaults();
 
     // Flags
@@ -673,6 +679,7 @@ private:
 
     void emitGroupChange(const Binding& b);
     void refreshCurrentColorPresetOptions(bool loading=true);
+    QVariantMap defaultReceiverSettings(int index) const;
 
     colorPrefsType& curColor();
     const colorPrefsType& curColor() const;
@@ -694,6 +701,7 @@ private:
 
     QQmlPropertyMap* m_options = nullptr;
     bool m_dirty = false;
+    QVector<QVariantMap> m_receiverSettings;
 
     QHash<QString, Binding> m_bindings;
 

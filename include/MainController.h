@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QThread>
 #include <QTimer>
+#include <QVariantMap>
 
 #include "ReceiverController.h"
 #include "RigCreatorController.h"
@@ -121,12 +122,7 @@ public:
         return detached[i];
     }
 
-    Q_INVOKABLE void setReceiverDetached(int i, bool v) {
-        if (i < 0 || i >= detached.size()) return;
-        if (detached[i] == v) return;
-        detached[i] = v;
-        emit receiverDetachedChanged(i, v);        
-    }
+    Q_INVOKABLE void setReceiverDetached(int i, bool v);
 
     SettingsController* getSettings() const { return m_settings.get(); }
     SelectRadioController* selectRadio() const { return m_selRad.get(); }
@@ -228,6 +224,8 @@ public:
     Q_INVOKABLE void clearClusterOutput();
     Q_INVOKABLE void resetUsbControllers();
     Q_INVOKABLE void revertSettingsToDefault();
+    Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
+    Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
 
 public slots:
     void setTxPower(int value);
