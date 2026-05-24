@@ -62,6 +62,8 @@ class ReceiverController : public QObject
     // Spectrum items
     Q_PROPERTY(double passbandLow READ getPassbandLow NOTIFY passbandChanged)
     Q_PROPERTY(double passbandHigh READ getPassbandHigh NOTIFY passbandChanged)
+    Q_PROPERTY(double pbtLow READ getPbtLow NOTIFY pbtChanged)
+    Q_PROPERTY(double pbtHigh READ getPbtHigh NOTIFY pbtChanged)
 
     Q_PROPERTY(QString drawerTitle READ getDrawerTitle NOTIFY drawerTitleChanged)
 
@@ -161,14 +163,16 @@ public:
 
     double getPassbandLow() const { return passbandLow; }
     double getPassbandHigh() const { return passbandHigh; }
+    double getPbtLow() const { return pbtLow; }
+    double getPbtHigh() const { return pbtHigh; }
 
     void setPassbandWidth(int width) {
         double pb = double(width / 1000000.0);
 
         if (passbandWidth != pb) {
             passbandWidth = pb;
+            updatePassband();
         }
-        // Don't emit as it will be handled later.
     }
 
     void setFreqDisplay(QVariantMap m) {
@@ -189,6 +193,9 @@ public:
 
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
     Q_INVOKABLE void tuneSteps(int steps, int modifiers = 0, bool uniqueQueue = false);
+    Q_INVOKABLE void resizePassband(double lowFreqMHz, double highFreqMHz);
+    Q_INVOKABLE void dragPbt(int action, double deltaMHz);
+    Q_INVOKABLE void resetPbt();
     Q_INVOKABLE void storeBsr();
     Q_INVOKABLE void selectVfoB(bool enabled);
     Q_INVOKABLE void swapVfoAB();
@@ -316,6 +323,7 @@ signals:
 
     void pbtInnerChanged();
     void pbtOuterChanged();
+    void pbtChanged();
     void ifShiftChanged();
 
     void passbandChanged();
@@ -337,6 +345,11 @@ signals:
 
 private:
     void buildUiSpecs();
+    void updatePassband();
+    void updatePbt();
+    void updatePassbandModeParameters(const modeInfo &m);
+    int pbtDefaultValue(const funcType &func) const;
+    double pbtOffsetMHz(int value, int defaultValue) const;
     QVariantMap uiSpecs;
     quint64 roundFrequency(quint64 frequency, unsigned int tsHz);
     quint64 roundFrequency(quint64 frequency, int steps, unsigned int tsHz);
@@ -381,6 +394,8 @@ private:
     double passbandHigh = 0;
     double passbandWidth = 0;
     double passbandCenterFrequency = 0.0;
+    double pbtLow = 0;
+    double pbtHigh = 0;
 
     UiFlags flags {}; // Everything off until I tell you otherwise!
     scopeData lastScope; // Contains the previous scope data.

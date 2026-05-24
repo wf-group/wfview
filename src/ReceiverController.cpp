@@ -37,6 +37,20 @@ void ReceiverController::setScopeData(const scopeData &d)
     }
 
 
+    updatePassband();
+
+    if (!d.valid || d.data.isEmpty())
+        return;
+
+    lastScope = d;               // QByteArray is implicitly shared (cheap copy)
+    emit scopeUpdated(lastScope);    // fan out to Spectrum/Waterfall
+}
+
+void ReceiverController::updatePassband()
+{
+    if (frequencyA == 0 || passbandWidth <= 0.0)
+        return;
+
     double freq = (frequencyA/1000000.0);
 
     double pbLow = 0.0;
@@ -91,13 +105,91 @@ void ReceiverController::setScopeData(const scopeData &d)
         passbandLow = pbLow;
         passbandHigh = pbHigh;
         emit passbandChanged();
+        updatePbt();
+    }
+}
+
+int ReceiverController::pbtDefaultValue(const funcType &func) const
+{
+    return qBound(int(func.minVal), 128, int(func.maxVal));
+}
+
+double ReceiverController::pbtOffsetMHz(int value, int defaultValue) const
+{
+    if (passbandWidth <= 0.0)
+        return 0.0;
+
+    return ((double(value - defaultValue)) / 127.0) * passbandWidth;
+}
+
+void ReceiverController::updatePbt()
+{
+    double newLow = 0.0;
+    double newHigh = 0.0;
+
+    if (rigCaps && passbandWidth > 0.0 && passbandHigh > passbandLow &&
+        mode.mk != modeFM && mode.mk != modeWFM &&
+        rigCaps->commands.contains(funcPBTInner) &&
+        rigCaps->commands.contains(funcPBTOuter)) {
+        const int innerDefault = pbtDefaultValue(rigCaps->commands.value(funcPBTInner));
+        const int outerDefault = pbtDefaultValue(rigCaps->commands.value(funcPBTOuter));
+        const double innerOffset = pbtOffsetMHz(pbtInner, innerDefault);
+        const double outerOffset = pbtOffsetMHz(pbtOuter, outerDefault);
+        const bool lowerSide = mode.mk == modeLSB || mode.mk == modeRTTY_R || mode.mk == modePSK_R;
+        const double innerLow = passbandLow + (lowerSide ? -innerOffset / 2.0 : innerOffset / 2.0);
+        const double outerLow = passbandLow + (lowerSide ? -outerOffset / 2.0 : outerOffset / 2.0);
+
+        if (innerDefault != pbtInner || outerDefault != pbtOuter) {
+            newLow = qMax(innerLow, outerLow);
+            newHigh = qMin(innerLow + passbandWidth, outerLow + passbandWidth);
+            if (newHigh <= newLow) {
+                newLow = 0.0;
+                newHigh = 0.0;
+            }
+        }
     }
 
-    if (!d.valid || d.data.isEmpty())
+    if (!qFuzzyCompare(pbtLow, newLow) || !qFuzzyCompare(pbtHigh, newHigh)) {
+        pbtLow = newLow;
+        pbtHigh = newHigh;
+        emit pbtChanged();
+    }
+}
+
+void ReceiverController::updatePassbandModeParameters(const modeInfo &m)
+{
+    if (m.mk == modeUnknown)
         return;
 
-    lastScope = d;               // QByteArray is implicitly shared (cheap copy)
-    emit scopeUpdated(lastScope);    // fan out to Spectrum/Waterfall
+    passbandCenterFrequency = 0.0;
+    if (m.pass > 0)
+        passbandWidth = double(m.pass / 1000000.0);
+
+    switch (m.mk) {
+    // M0VSE this needs to be replaced with 1/2 the "actual" width of the RTTY signal+the mark freq.
+    case modeRTTY:
+    case modeRTTY_R:
+        passbandCenterFrequency = 0.00008925;
+        break;
+    case modeLSB:
+    case modeUSB:
+    case modePSK:
+    case modePSK_R:
+        if (rigCaps->manufacturer == manufIcom)
+            passbandCenterFrequency = 0.0015;
+        else if (rigCaps->manufacturer == manufKenwood)
+            passbandCenterFrequency = 0.0;
+        else if (rigCaps->manufacturer == manufYaesu)
+            passbandCenterFrequency = 0.002;
+        break;
+    case modeAM:
+    case modeCW:
+    case modeCW_R:
+    default:
+        break;
+    }
+
+    updatePassband();
 }
 
 
@@ -162,6 +254,77 @@ void ReceiverController::tuneSteps(int steps, int modifiers, bool uniqueQueue)
     } else {
         queue->add(priorityImmediate, item);
     }
+}
+
+void ReceiverController::resizePassband(double lowFreqMHz, double highFreqMHz)
+{
+    if (mode.bwMin <= 0 || mode.bwMax <= 0)
+        return;
+
+    const double widthMHz = qAbs(highFreqMHz - lowFreqMHz);
+    if (widthMHz <= 0.0)
+        return;
+
+    int widthHz = qRound(widthMHz * 1000000.0);
+    widthHz = qBound(mode.bwMin, widthHz, mode.bwMax);
+
+    if (filterWidth == widthHz)
+        return;
+
+    setFilterWidth(widthHz, true);
+}
+
+void ReceiverController::dragPbt(int action, double deltaMHz)
+{
+    if (!rigCaps || passbandWidth <= 0.0 ||
+        !rigCaps->commands.contains(funcPBTInner) ||
+        !rigCaps->commands.contains(funcPBTOuter))
+        return;
+
+    const funcType inner = rigCaps->commands.value(funcPBTInner);
+    const funcType outer = rigCaps->commands.value(funcPBTOuter);
+    const int innerStart = pbtInner == 0 ? pbtDefaultValue(inner) : pbtInner;
+    const int outerStart = pbtOuter == 0 ? pbtDefaultValue(outer) : pbtOuter;
+    const double direction = (mode.mk == modeLSB || mode.mk == modeRTTY_R || mode.mk == modePSK_R) ? -1.0 : 1.0;
+    const int delta = qRound((direction * deltaMHz / passbandWidth) * 127.0);
+
+    if (delta == 0)
+        return;
+
+    if (action == 2) {
+        const int minDelta = qMax(int(inner.minVal) - innerStart, int(outer.minVal) - outerStart);
+        const int maxDelta = qMin(int(inner.maxVal) - innerStart, int(outer.maxVal) - outerStart);
+        const int boundedDelta = qBound(minDelta, delta, maxDelta);
+        if (boundedDelta == 0)
+            return;
+
+        setPbtInner(innerStart + boundedDelta, true);
+        setPbtOuter(outerStart + boundedDelta, true);
+        return;
+    }
+
+    if (action == 0) {
+        const int next = qBound(int(inner.minVal), innerStart + delta, int(inner.maxVal));
+        setPbtInner(next, true);
+    }
+    if (action == 1) {
+        const int next = qBound(int(outer.minVal), outerStart + delta, int(outer.maxVal));
+        setPbtOuter(next, true);
+    }
+}
+
+void ReceiverController::resetPbt()
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcPBTInner) || !rigCaps->commands.contains(funcPBTOuter))
+        return;
+
+    const funcType inner = rigCaps->commands.value(funcPBTInner);
+    const funcType outer = rigCaps->commands.value(funcPBTOuter);
+    const int innerDefault = pbtDefaultValue(inner);
+    const int outerDefault = pbtDefaultValue(outer);
+
+    setPbtInner(innerDefault, true);
+    setPbtOuter(outerDefault, true);
 }
 
 void ReceiverController::selectVfoB(bool enabled)
@@ -340,7 +503,7 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
         if (m.mk != mode.mk) {
             // We have changed mode so "may" need to change regular commands
 
-            passbandCenterFrequency = 0.0;
+            updatePassbandModeParameters(m);
 
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
 
@@ -395,7 +558,8 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
                 //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
                 //setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
                 //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
-                passbandWidth = double(m.pass/1000000.0);
+                if (m.pass > 0)
+                    passbandWidth = double(m.pass/1000000.0);
             }
 
             if (m.mk == modeFM)
@@ -437,42 +601,13 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
                 queue->del(funcBreakIn,t.receiver);
             }
 
-#if defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif
-
-            switch (m.mk) {
-            // M0VSE this needs to be replaced with 1/2 the "actual" width of the RTTY signal+the mark freq.
-            case modeRTTY:
-            case modeRTTY_R:
-                passbandCenterFrequency = 0.00008925;
-                break;
-            case modeLSB:
-            case modeUSB:
-            case modePSK:
-            case modePSK_R:
-                if (rigCaps->manufacturer == manufIcom)
-                    passbandCenterFrequency = 0.0015;
-                else if (rigCaps->manufacturer == manufKenwood)
-                    passbandCenterFrequency = 0.0;
-                else if (rigCaps->manufacturer == manufYaesu)
-                    passbandCenterFrequency = 0.002;
-
-            case modeAM:
-            case modeCW:
-            case modeCW_R:
-                break;
-            default:
-                break;
-            }
-#if defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
         }
 
         mode = m;
         emit modeChanged();
+    } else if (m.mk != modeUnknown && m.pass > 0) {
+        mode.pass = m.pass;
+        updatePassbandModeParameters(mode);
     }
 }
 
@@ -492,6 +627,7 @@ void ReceiverController::setMode(uchar m, bool u)
             m.data = mode.data;
             m.filter = mode.filter;
             mode = m;
+            updatePassbandModeParameters(mode);
             emit modeChanged();
             emit dataModeChanged();
             emit filterChanged();
@@ -840,6 +976,7 @@ void ReceiverController::setPbtInner(int v, bool u)
     {
         pbtInner = v;
         emit pbtInnerChanged();
+        updatePbt();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTInner,QVariant::fromValue<ushort>(v),false,t.receiver));
@@ -853,6 +990,7 @@ void ReceiverController::setPbtOuter(int v, bool u)
     {
         pbtOuter = v;
         emit pbtOuterChanged();
+        updatePbt();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcPBTOuter,QVariant::fromValue<ushort>(v),false,t.receiver));
@@ -880,6 +1018,7 @@ void ReceiverController::setFilterWidth(int v, bool u)
     {
         filterWidth = v;
         emit filterWidthChanged();
+        setPassbandWidth(v);
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcFilterWidth,QVariant::fromValue<ushort>(v),false,t.receiver));
@@ -902,6 +1041,7 @@ void ReceiverController::setFrequencyA(quint64 f, bool u)
     {
         frequencyA = f;
         emit frequencyAChanged();
+        updatePassband();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             f = roundFrequency(f,stepSize);

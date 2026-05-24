@@ -17,6 +17,120 @@ ApplicationWindow {
     // Bind window visibility to controller
     visible: selectRadioController ? selectRadioController.visible : false
 
+    component PlotAxis: QtObject {
+        property real min: 0
+        property real max: 1
+        property string titleText: ""
+    }
+
+    component PlotSeries: QtObject {
+        property var points: []
+        property int count: points.length
+        property color color: "#ffffff"
+        signal changed()
+
+        function append(x, y) {
+            var next = points.slice()
+            next.push({ "x": x, "y": y })
+            points = next
+            count = points.length
+            changed()
+        }
+
+        function remove(index) {
+            if (index < 0 || index >= points.length)
+                return
+            var next = points.slice()
+            next.splice(index, 1)
+            points = next
+            count = points.length
+            changed()
+        }
+
+        function at(index) {
+            return points[index]
+        }
+    }
+
+    component SimpleLinePlot: Rectangle {
+        id: plot
+        property string title: ""
+        property var series: null
+        property var xAxis: null
+        property var yAxis: null
+
+        color: "#1e1e1e"
+        border.color: "#404040"
+        border.width: 1
+        antialiasing: true
+
+        Connections {
+            target: plot.series
+            ignoreUnknownSignals: true
+            function onChanged() { canvas.requestPaint() }
+        }
+
+        Canvas {
+            id: canvas
+            anchors.fill: parent
+            anchors.margins: 4
+
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                ctx.fillStyle = plot.color
+                ctx.fillRect(0, 0, width, height)
+
+                ctx.font = "bold 10px sans-serif"
+                ctx.fillStyle = "white"
+                ctx.textAlign = "center"
+                ctx.fillText(plot.title, width / 2, 12)
+
+                var left = 26
+                var right = width - 6
+                var top = 20
+                var bottom = height - 18
+                var plotW = Math.max(1, right - left)
+                var plotH = Math.max(1, bottom - top)
+
+                ctx.strokeStyle = "#404040"
+                ctx.lineWidth = 1
+                for (var i = 0; i <= 4; ++i) {
+                    var y = top + (plotH * i / 4)
+                    ctx.beginPath()
+                    ctx.moveTo(left, y)
+                    ctx.lineTo(right, y)
+                    ctx.stroke()
+                }
+
+                if (!plot.series || !plot.xAxis || !plot.yAxis || plot.series.count < 2)
+                    return
+
+                var xSpan = Math.max(1, plot.xAxis.max - plot.xAxis.min)
+                var ySpan = Math.max(1, plot.yAxis.max - plot.yAxis.min)
+                ctx.strokeStyle = plot.series.color
+                ctx.lineWidth = 2
+                ctx.beginPath()
+
+                for (var p = 0; p < plot.series.count; ++p) {
+                    var point = plot.series.at(p)
+                    var x = left + ((point.x - plot.xAxis.min) / xSpan) * plotW
+                    var yValue = Math.max(plot.yAxis.min, Math.min(plot.yAxis.max, point.y))
+                    var y = bottom - ((yValue - plot.yAxis.min) / ySpan) * plotH
+                    if (p === 0)
+                        ctx.moveTo(x, y)
+                    else
+                        ctx.lineTo(x, y)
+                }
+
+                ctx.stroke()
+            }
+        }
+
+        onWidthChanged: canvas.requestPaint()
+        onHeightChanged: canvas.requestPaint()
+    }
+
     // Close handler
     Component.onCompleted: {
         closing.connect(function(close) {
@@ -221,124 +335,89 @@ ApplicationWindow {
             spacing: 10
 
             // UDP Time Difference Chart
-            ChartView {
+            SimpleLinePlot {
                 id: timeDifferenceChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                //Layout.preferredWidth: parent.width / 3
-
                 title: "UDP time difference"
-                titleFont.bold: true
-                titleFont.pointSize: 8
+                xAxis: timeXAxis
+                yAxis: timeYAxis
+                series: timeDifferenceSeries
 
-                legend.visible: false
-                antialiasing: true
-                backgroundColor: "#1e1e1e"
-
-                ValueAxis {
+                PlotAxis {
                     id: timeXAxis
                     min: 0
                     max: 100
-                    labelsVisible: false
                 }
 
-                ValueAxis {
+                PlotAxis {
                     id: timeYAxis
                     min: -10
                     max: 10
                     titleText: "ms"
-                    titleFont.pointSize: 8
-                    labelsColor: "white"
-                    gridLineColor: "#404040"
                 }
 
-                LineSeries {
+                PlotSeries {
                     id: timeDifferenceSeries
-                    axisX: timeXAxis
-                    axisY: timeYAxis
                     color: "#2196F3"
-                    width: 2
                 }
             }
 
             // Waterfall Plot Time Chart
-            ChartView {
+            SimpleLinePlot {
                 id: waterfallChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                //Layout.preferredWidth: parent.width / 3
-
                 title: "Waterfall plot time"
-                titleFont.bold: true
-                titleFont.pointSize: 8
+                xAxis: waterfallXAxis
+                yAxis: waterfallYAxis
+                series: waterfallSeries
 
-                legend.visible: false
-                antialiasing: true
-                backgroundColor: "#1e1e1e"
-
-                ValueAxis {
+                PlotAxis {
                     id: waterfallXAxis
                     min: 0
                     max: 1000
-                    labelsVisible: false
                 }
 
-                ValueAxis {
+                PlotAxis {
                     id: waterfallYAxis
                     min: -10
                     max: 10
                     titleText: "ms"
-                    titleFont.pointSize: 8
-                    labelsColor: "white"
-                    gridLineColor: "#404040"
                 }
 
-                LineSeries {
+                PlotSeries {
                     id: waterfallSeries
-                    axisX: waterfallXAxis
-                    axisY: waterfallYAxis
                     color: "#4CAF50"
-                    width: 2
                 }
             }
 
             // Spectrum Plot Time Chart
-            ChartView {
+            SimpleLinePlot {
                 id: spectrumChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-
                 title: "Spectrum plot time"
-                titleFont.bold: true
-                titleFont.pointSize: 8
+                xAxis: spectrumXAxis
+                yAxis: spectrumYAxis
+                series: spectrumSeries
 
-                legend.visible: false
-                antialiasing: true
-                backgroundColor: "#1e1e1e"
-
-                ValueAxis {
+                PlotAxis {
                     id: spectrumXAxis
                     min: 0
                     max: 1000
-                    labelsVisible: false
                 }
 
-                ValueAxis {
+                PlotAxis {
                     id: spectrumYAxis
                     min: 0
                     max: 50
                     titleText: "ms"
-                    titleFont.pointSize: 8
-                    labelsColor: "white"
-                    gridLineColor: "#404040"
                 }
 
-                LineSeries {
+                PlotSeries {
                     id: spectrumSeries
-                    axisX: spectrumXAxis
-                    axisY: spectrumYAxis
                     color: "#FF9800"
-                    width: 2
                 }
             }
         }

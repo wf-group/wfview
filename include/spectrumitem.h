@@ -35,6 +35,7 @@ public:
     QSGGeometryNode *spectrumLine = nullptr;
     QSGGeometryNode *frequencyLine = nullptr;
     QSGGeometryNode *passband = nullptr;
+    QSGGeometryNode *pbt = nullptr;
     QSGSimpleTextureNode *axisNode = nullptr;
     QSGGeometryNode *bandShapes = nullptr;
 
@@ -56,6 +57,8 @@ class SpectrumItem : public QQuickItem
 
     Q_PROPERTY(double passbandLow  READ getPassbandLow  WRITE setPassbandLow  NOTIFY passbandChanged)
     Q_PROPERTY(double passbandHigh READ getPassbandHigh WRITE setPassbandHigh NOTIFY passbandChanged)
+    Q_PROPERTY(double pbtLow READ getPbtLow WRITE setPbtLow NOTIFY pbtChanged)
+    Q_PROPERTY(double pbtHigh READ getPbtHigh WRITE setPbtHigh NOTIFY pbtChanged)
 
     Q_PROPERTY(float peakDecay READ getPeakDecay WRITE setPeakDecay NOTIFY peakDecayChanged)
 
@@ -85,6 +88,8 @@ public:
     void setCenter(quint64 x);
     double getPassbandLow()  const { return passbandLow; }
     double getPassbandHigh() const { return passbandHigh; }
+    double getPbtLow() const { return pbtLow; }
+    double getPbtHigh() const { return pbtHigh; }
     float getPeakDecay() const { return decay; }
     int getMaxSpotRows() const { return maxSpotRows; }
 
@@ -103,6 +108,8 @@ public slots:
     void setGridStep(uchar v);
     void setPassbandLow(qreal x);
     void setPassbandHigh(qreal x);
+    void setPbtLow(qreal x);
+    void setPbtHigh(qreal x);
     void setPeakDecay(int d);
     void setMaxSpotRows(int rows);
     void updateScope(const scopeData &data);
@@ -116,6 +123,7 @@ signals:
     void scaleChanged();
     void centerChanged();
     void passbandChanged();
+    void pbtChanged();
     void peakDecayChanged();
     void tuneRequested(double freqMHz);
     void spotsChanged();
@@ -124,6 +132,8 @@ signals:
     void hoverSpotChanged(const spotData &spot, QPointF itemPos, bool active);
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
     void passbandResizeRequested(double lowFreq, double highFreq);
+    void pbtDragRequested(int action, double deltaMHz);
+    void pbtResetRequested();
     void processingTimeNs(qint64 ns);
     void colorsChanged();
     void bandsChanged();
@@ -172,6 +182,8 @@ private:
     double center = 0.0;     // 0..1
     double passbandLow  = 0.0;
     double passbandHigh = 0.0;
+    double pbtLow = 0.0;
+    double pbtHigh = 0.0;
 
     int decay = 4;
     int decayCounter = 0;
@@ -179,9 +191,27 @@ private:
     int axis = 20;
     int ticks  = 7;
 
+    enum class PassbandDrag {
+        None,
+        LowEdge,
+        HighEdge,
+        PbtLowEdge,
+        PbtHighEdge,
+        PbtMove
+    };
+
     bool   dragActive       = false;
+    PassbandDrag passbandDrag = PassbandDrag::None;
+    double passbandDragFixedEdge = 0.0;
+    double lastPassbandResizeFreq = 0.0;
+    double pbtDragStartFreq = 0.0;
+    double pbtDragLastDelta = 0.0;
     double lastTuneFreq  = 0.0;
     double xToFreq(qreal x) const;
+    double freqToX(double freqMHz) const;
+    PassbandDrag passbandDragHit(qreal x) const;
+    PassbandDrag pbtDragHit(qreal x) const;
+    bool passbandContains(qreal x) const;
 
     bool overflow = false;
     bool outOfRange = false;

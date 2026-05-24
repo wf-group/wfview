@@ -231,12 +231,26 @@ Control {
                     SplitView.preferredHeight: (splitView.height * 0.5) + 15
                     passbandLow: controller ? controller.passbandLow : 0
                     passbandHigh: controller ? controller.passbandHigh : 0
+                    pbtLow: controller ? controller.pbtLow : 0
+                    pbtHigh: controller ? controller.pbtHigh : 0
                     colors: controller ? controller.colors : null
                     center: controller ? controller.frequencyA : null
                     bands: controller && controller.activeBands
                     onTuneRequested: function(freq) {
                         controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
                         controller.frequencyAChanged() // Signal the controller that frequency has changed
+                    }
+                    onPassbandResizeRequested: function(lowFreq, highFreq) {
+                        if (controller)
+                            controller.resizePassband(lowFreq, highFreq)
+                    }
+                    onPbtDragRequested: function(action, deltaMHz) {
+                        if (controller)
+                            controller.dragPbt(action, deltaMHz)
+                    }
+                    onPbtResetRequested: {
+                        if (controller)
+                            controller.resetPbt()
                     }
 
                 }

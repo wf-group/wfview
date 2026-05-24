@@ -7,7 +7,7 @@ SpectrumItem::SpectrumItem()
     setFlag(ItemHasContents, true);
 
     // allow mouse events
-    setAcceptedMouseButtons(Qt::LeftButton);
+    setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton);
     setAcceptHoverEvents(true);
     setFlag(QQuickItem::ItemHasContents, true);
     qInfo() << "Creating new SpectrumItem()";
@@ -73,6 +73,22 @@ void SpectrumItem::setPassbandHigh(double x)
     update();
 }
 
+void SpectrumItem::setPbtLow(qreal x)
+{
+    if (qFuzzyCompare(pbtLow, x)) return;
+    pbtLow = x;
+    emit pbtChanged();
+    update();
+}
+
+void SpectrumItem::setPbtHigh(qreal x)
+{
+    if (qFuzzyCompare(pbtHigh, x)) return;
+    pbtHigh = x;
+    emit pbtChanged();
+    update();
+}
+
 // peak decay
 void SpectrumItem::setPeakDecay(int d)
 {
@@ -113,9 +129,75 @@ double SpectrumItem::xToFreq(qreal x) const
     return startFreq + t * (endFreq - startFreq);
 }
 
+double SpectrumItem::freqToX(double freqMHz) const
+{
+    if (endFreq <= startFreq)
+        return 0.0;
+
+    return ((freqMHz - startFreq) / (endFreq - startFreq)) * width();
+}
+
+SpectrumItem::PassbandDrag SpectrumItem::passbandDragHit(qreal x) const
+{
+    if (passbandLow <= 0.0 || passbandHigh <= passbandLow || endFreq <= startFreq)
+        return PassbandDrag::None;
+
+    const double lowX = freqToX(passbandLow);
+    const double highX = freqToX(passbandHigh);
+    const double edgeTolerance = 8.0;
+    const bool nearLow = qAbs(x - lowX) <= edgeTolerance;
+    const bool nearHigh = qAbs(x - highX) <= edgeTolerance;
+
+    if (nearLow && nearHigh)
+        return qAbs(x - lowX) <= qAbs(x - highX) ? PassbandDrag::LowEdge : PassbandDrag::HighEdge;
+    if (nearLow)
+        return PassbandDrag::LowEdge;
+    if (nearHigh)
+        return PassbandDrag::HighEdge;
+    return PassbandDrag::None;
+}
+
+SpectrumItem::PassbandDrag SpectrumItem::pbtDragHit(qreal x) const
+{
+    if (endFreq <= startFreq)
+        return PassbandDrag::None;
+
+    const bool havePbtOverlay = pbtLow > 0.0 && pbtHigh > pbtLow;
+    const double lowX = freqToX(havePbtOverlay ? pbtLow : passbandLow);
+    const double highX = freqToX(havePbtOverlay ? pbtHigh : passbandHigh);
+    if (qFuzzyCompare(lowX, highX))
+        return PassbandDrag::None;
+
+    const double edgeTolerance = 8.0;
+    const bool nearLow = qAbs(x - lowX) <= edgeTolerance;
+    const bool nearHigh = qAbs(x - highX) <= edgeTolerance;
+
+    if (nearLow && nearHigh)
+        return qAbs(x - lowX) <= qAbs(x - highX) ? PassbandDrag::PbtLowEdge : PassbandDrag::PbtHighEdge;
+    if (nearLow)
+        return PassbandDrag::PbtLowEdge;
+    if (nearHigh)
+        return PassbandDrag::PbtHighEdge;
+
+    if (x >= qMin(lowX, highX) && x <= qMax(lowX, highX))
+        return PassbandDrag::PbtMove;
+
+    return PassbandDrag::None;
+}
+
+bool SpectrumItem::passbandContains(qreal x) const
+{
+    if (passbandLow <= 0.0 || passbandHigh <= passbandLow || endFreq <= startFreq)
+        return false;
+
+    const double lowX = freqToX(passbandLow);
+    const double highX = freqToX(passbandHigh);
+    return x >= qMin(lowX, highX) && x <= qMax(lowX, highX);
+}
+
 void SpectrumItem::mouseDoubleClickEvent(QMouseEvent *event)
 {
-    if (event->button() != Qt::LeftButton) {
+    if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton) {
         event->ignore();
         return;
     }
@@ -126,6 +208,17 @@ void SpectrumItem::mouseDoubleClickEvent(QMouseEvent *event)
 #else
     const qreal x = event->position().x();
 #endif
+
+    if (event->button() == Qt::RightButton) {
+        if (passbandContains(x)) {
+            emit pbtResetRequested();
+            event->accept();
+        } else {
+            event->ignore();
+        }
+        return;
+    }
+
     const double f = xToFreq(x);
 
     dragActive      = false;
@@ -137,6 +230,21 @@ void SpectrumItem::mouseDoubleClickEvent(QMouseEvent *event)
 void SpectrumItem::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() != Qt::LeftButton) {
+        if (event->button() == Qt::RightButton) {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            QPointF pos = event->pos();
+#else
+            QPointF pos = event->position();
+#endif
+            passbandDrag = pbtDragHit(pos.x());
+            if (passbandDrag != PassbandDrag::None) {
+                dragActive = false;
+                pbtDragStartFreq = xToFreq(pos.x());
+                pbtDragLastDelta = 0.0;
+                event->accept();
+                return;
+            }
+        }
         event->ignore();
         return;
     }
@@ -159,7 +267,14 @@ void SpectrumItem::mousePressEvent(QMouseEvent *event)
         }
     }
 
-    // If user has clicked on the passband, we need to resize it.
+    passbandDrag = passbandDragHit(pos.x());
+    if (passbandDrag != PassbandDrag::None) {
+        dragActive = false;
+        passbandDragFixedEdge = passbandDrag == PassbandDrag::LowEdge ? passbandHigh : passbandLow;
+        lastPassbandResizeFreq = xToFreq(pos.x());
+        event->accept();
+        return;
+    }
 
 
     const double f = xToFreq(pos.x());
@@ -171,6 +286,62 @@ void SpectrumItem::mousePressEvent(QMouseEvent *event)
 
 void SpectrumItem::mouseMoveEvent(QMouseEvent *event)
 {
+    if (passbandDrag != PassbandDrag::None) {
+        if (passbandDrag == PassbandDrag::PbtLowEdge ||
+            passbandDrag == PassbandDrag::PbtHighEdge ||
+            passbandDrag == PassbandDrag::PbtMove) {
+            if (!(event->buttons() & Qt::RightButton)) {
+                passbandDrag = PassbandDrag::None;
+                return;
+            }
+
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            const qreal x = event->pos().x();
+#else
+            const qreal x = event->position().x();
+#endif
+            const double delta = xToFreq(x) - pbtDragStartFreq;
+            const double incremental = delta - pbtDragLastDelta;
+            const double minStepHz = 50.0;
+            if (qAbs(incremental) * 1e6 < minStepHz)
+                return;
+
+            pbtDragLastDelta = delta;
+            int action = 2;
+            if (passbandDrag == PassbandDrag::PbtLowEdge)
+                action = 0;
+            else if (passbandDrag == PassbandDrag::PbtHighEdge)
+                action = 1;
+            emit pbtDragRequested(action, incremental);
+            event->accept();
+            return;
+        }
+
+        if (!(event->buttons() & Qt::LeftButton)) {
+            passbandDrag = PassbandDrag::None;
+            return;
+        }
+
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        const qreal x = event->pos().x();
+#else
+        const qreal x = event->position().x();
+#endif
+        const double f = xToFreq(x);
+        const double minStepHz = 50.0;
+        if (qAbs(f - lastPassbandResizeFreq) * 1e6 < minStepHz)
+            return;
+
+        lastPassbandResizeFreq = f;
+        if (passbandDrag == PassbandDrag::LowEdge)
+            emit passbandResizeRequested(qMin(f, passbandDragFixedEdge), qMax(f, passbandDragFixedEdge));
+        else
+            emit passbandResizeRequested(qMin(passbandDragFixedEdge, f), qMax(passbandDragFixedEdge, f));
+
+        event->accept();
+        return;
+    }
+
     if (!dragActive)
         return;
 
@@ -198,12 +369,13 @@ void SpectrumItem::mouseMoveEvent(QMouseEvent *event)
 
 void SpectrumItem::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() != Qt::LeftButton) {
+    if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton) {
         event->ignore();
         return;
     }
 
     dragActive = false;
+    passbandDrag = PassbandDrag::None;
     event->accept();
 }
 
@@ -241,6 +413,15 @@ void SpectrumItem::hoverMoveEvent(QHoverEvent *event)
         }
     }
 
+    const bool edgeHover = passbandDragHit(pos.x()) != PassbandDrag::None;
+    const PassbandDrag pbtHover = pbtDragHit(pos.x());
+    if (edgeHover || pbtHover == PassbandDrag::PbtLowEdge || pbtHover == PassbandDrag::PbtHighEdge)
+        setCursor(Qt::SizeHorCursor);
+    else if (pbtHover == PassbandDrag::PbtMove)
+        setCursor(Qt::OpenHandCursor);
+    else
+        unsetCursor();
+
     event->accept();
 }
 
@@ -251,6 +432,7 @@ void SpectrumItem::hoverLeaveEvent(QHoverEvent *event)
         hoverActive = false;
         emit hoverSpotChanged(currentHoverSpot, currentHoverPos, false);
     }
+    unsetCursor();
 }
 
 /*
@@ -931,6 +1113,19 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             root->passband->setFlag(QSGNode::OwnsMaterial);
         }
 
+        // -- PBT rectangle ---
+        root->pbt = new QSGGeometryNode;
+        {
+            auto *geom = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), 4);
+            geom->setDrawingMode(QSGGeometry::DrawTriangleStrip);
+            root->pbt->setGeometry(geom);
+            root->pbt->setFlag(QSGNode::OwnsGeometry);
+
+            auto *mat = new QSGFlatColorMaterial;
+            root->pbt->setMaterial(mat);
+            root->pbt->setFlag(QSGNode::OwnsMaterial);
+        }
+
         // -- frequency line ---
         root->frequencyLine = new QSGGeometryNode;
         {
@@ -970,6 +1165,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         root->appendChildNode(root->gradientFill);
         root->appendChildNode(root->spectrumLine);
         root->appendChildNode(root->passband);
+        root->appendChildNode(root->pbt);
         root->appendChildNode(root->frequencyLine);
         root->appendChildNode(root->bandShapes);
         root->appendChildNode(root->axisNode);
@@ -1077,6 +1273,30 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         }
 
         {
+            if (pbtHigh > pbtLow) {
+                float x1 = freqToX(pbtLow);
+                float x2 = freqToX(pbtHigh);
+                if (x2 < x1) std::swap(x1, x2);
+
+                auto *geom = root->pbt->geometry();
+                geom->allocate(4);
+                auto *v = geom->vertexDataAsPoint2D();
+                v[0].set(x1, 0.0f);
+                v[1].set(x1, plotH);
+                v[2].set(x2, 0.0f);
+                v[3].set(x2, plotH);
+                root->pbt->markDirty(QSGNode::DirtyGeometry);
+
+                auto *mat = static_cast<QSGFlatColorMaterial *>(root->pbt->material());
+                mat->setColor(colors.pbt);
+                root->pbt->markDirty(QSGNode::DirtyMaterial);
+            } else {
+                root->pbt->geometry()->allocate(0);
+                root->pbt->markDirty(QSGNode::DirtyGeometry);
+            }
+        }
+
+        {
             const float x = freqToX(center);
 
             auto *geom = root->frequencyLine->geometry();
@@ -1094,6 +1314,8 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         root->frequencyLine->markDirty(QSGNode::DirtyGeometry);
         root->passband->geometry()->allocate(0);
         root->passband->markDirty(QSGNode::DirtyGeometry);
+        root->pbt->geometry()->allocate(0);
+        root->pbt->markDirty(QSGNode::DirtyGeometry);
     }
 
     // --- Dynamic stuff (unchanged logic, but append to dynamicRoot instead of root) ---
