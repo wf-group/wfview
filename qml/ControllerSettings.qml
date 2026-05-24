@@ -379,19 +379,20 @@ Item {
 
                                 delegate: Item {
                                     id: buttonOverlay
-                                    required property int buttonX
-                                    required property int buttonY
-                                    required property int buttonWidth
-                                    required property int buttonHeight
-                                    required property string buttonText
-                                    required property string buttonOnText
-                                    required property string buttonOffText
-                                    required property int buttonNum
-                                    required property bool buttonIsOn
-                                    required property color textColor
-                                    required property color buttonOnColor
-                                    required property color buttonOffColor
-                                    required property bool buttonGraphics
+                                    property var buttonData: modelData || ({})
+                                    property int buttonX: Number(buttonData.buttonX || 0)
+                                    property int buttonY: Number(buttonData.buttonY || 0)
+                                    property int buttonWidth: Number(buttonData.buttonWidth || 0)
+                                    property int buttonHeight: Number(buttonData.buttonHeight || 0)
+                                    property string buttonText: buttonData.buttonText !== undefined ? String(buttonData.buttonText) : "None"
+                                    property string buttonOnText: buttonData.buttonOnText !== undefined ? String(buttonData.buttonOnText) : "None"
+                                    property string buttonOffText: buttonData.buttonOffText !== undefined ? String(buttonData.buttonOffText) : "None"
+                                    property int buttonNum: Number(buttonData.buttonNum || 0)
+                                    property bool buttonIsOn: Boolean(buttonData.buttonIsOn)
+                                    property color textColor: buttonData.textColor || "#ffffff"
+                                    property color buttonOnColor: buttonData.buttonOnColor || "#333333"
+                                    property color buttonOffColor: buttonData.buttonOffColor || "#111111"
+                                    property bool buttonGraphics: Boolean(buttonData.buttonGraphics)
 
                                     x: buttonX
                                     y: buttonY
@@ -508,13 +509,14 @@ Item {
 
                                 delegate: Item {
                                     id: knobOverlay
-                                    required property int knobX
-                                    required property int knobY
-                                    required property int knobWidth
-                                    required property int knobHeight
-                                    required property string knobText
-                                    required property int knobNum
-                                    required property color textColor
+                                    property var knobData: modelData || ({})
+                                    property int knobX: Number(knobData.knobX || 0)
+                                    property int knobY: Number(knobData.knobY || 0)
+                                    property int knobWidth: Number(knobData.knobWidth || 0)
+                                    property int knobHeight: Number(knobData.knobHeight || 0)
+                                    property string knobText: knobData.knobText !== undefined ? String(knobData.knobText) : "None"
+                                    property int knobNum: Number(knobData.knobNum || 0)
+                                    property color textColor: knobData.textColor || "#ffffff"
 
                                     x: knobX
                                     y: knobY
