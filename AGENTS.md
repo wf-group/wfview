@@ -19,7 +19,7 @@ For Qt 6, use the platform qmake variant, for example `qmake6 ../wfview.pro`. Bu
 
 ## Coding Style & Naming Conventions
 
-Follow the existing Qt/C++ style in nearby files. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant widget or window class. File names are lowercase and usually match the class or feature, such as `wfmain.cpp`, `settingswidget.h`, and `icomcommander.cpp`. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.
+Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant controller or QML component. Do not reformat bundled libraries, `old-source/`, generated build trees, or third-party DSP/audio code. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.
 
 ## Testing Guidelines
 

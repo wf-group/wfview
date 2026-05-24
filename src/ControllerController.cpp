@@ -1,9 +1,12 @@
 #include "ControllerController.h"
-#include "logcategories.h"
-#include <QSettings>
-#include <QFile>
 
-namespace {
+#include "logcategories.h"
+
+#include <QFile>
+#include <QSettings>
+
+namespace
+{
 QString commandText(const COMMAND *command, const QString &fallback = QStringLiteral("None"))
 {
     if (command && !command->text.isEmpty())
@@ -11,12 +14,12 @@ QString commandText(const COMMAND *command, const QString &fallback = QStringLit
     return fallback;
 }
 
-const COMMAND *commandOrDefault(const COMMAND *command, QVector<COMMAND> *commands)
+const COMMAND *commandOrDefault(const COMMAND *command, QVector<COMMAND> *commandData)
 {
     if (command)
         return command;
-    if (commands && !commands->isEmpty())
-        return &commands->first();
+    if (commandData && !commandData->isEmpty())
+        return &commandData->first();
     return nullptr;
 }
 
@@ -25,7 +28,8 @@ bool showSensitivityControl(const USBDEVICE *dev)
     if (!dev)
         return false;
 
-    switch (dev->type.model) {
+    switch (dev->type.model)
+    {
     case StreamDeckPedal:
     case StreamDeckOriginal:
     case StreamDeckOriginalV2:
@@ -46,7 +50,8 @@ bool showBrightnessControl(const USBDEVICE *dev)
     if (!dev)
         return false;
 
-    switch (dev->type.model) {
+    switch (dev->type.model)
+    {
     case shuttleXpress:
     case shuttlePro2:
     case RC28:
@@ -79,7 +84,8 @@ bool showColorControl(const USBDEVICE *dev)
     if (!dev)
         return false;
 
-    switch (dev->type.model) {
+    switch (dev->type.model)
+    {
     case shuttleXpress:
     case shuttlePro2:
     case RC28:
@@ -112,17 +118,18 @@ int DeviceModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
         return 0;
-    return m_devices.count();
+    return devices.count();
 }
 
 QVariant DeviceModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() >= m_devices.count())
+    if (!index.isValid() || index.row() >= devices.count())
         return QVariant();
 
-    USBDEVICE* dev = m_devices.at(index.row());
-    
-    switch (role) {
+    USBDEVICE *dev = devices.at(index.row());
+
+    switch (role)
+    {
     case DeviceNameRole:
         return dev->product;
     case DevicePathRole:
@@ -188,7 +195,7 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
 QVariantMap DeviceModel::get(int row) const
 {
     QVariantMap item;
-    if (row < 0 || row >= m_devices.count())
+    if (row < 0 || row >= devices.count())
         return item;
 
     const QModelIndex idx = index(row, 0);
@@ -199,31 +206,32 @@ QVariantMap DeviceModel::get(int row) const
     return item;
 }
 
-void DeviceModel::addDevice(USBDEVICE* dev)
+void DeviceModel::addDevice(USBDEVICE *dev)
 {
-    if (m_pathToIndex.contains(dev->path))
+    if (pathToIndex.contains(dev->path))
         return; // Already exists
 
-    int row = m_devices.count();
+    int row = devices.count();
     beginInsertRows(QModelIndex(), row, row);
-    m_devices.append(dev);
-    m_pathToIndex[dev->path] = row;
+    devices.append(dev);
+    pathToIndex[dev->path] = row;
     endInsertRows();
 }
 
-void DeviceModel::removeDevice(const QString& path)
+void DeviceModel::removeDevice(const QString &path)
 {
-    if (!m_pathToIndex.contains(path))
+    if (!pathToIndex.contains(path))
         return;
 
-    int row = m_pathToIndex[path];
+    int row = pathToIndex[path];
     beginRemoveRows(QModelIndex(), row, row);
-    m_devices.removeAt(row);
-    m_pathToIndex.remove(path);
-    
+    devices.removeAt(row);
+    pathToIndex.remove(path);
+
     // Update indices for devices after removed one
-    for (int i = row; i < m_devices.count(); ++i) {
-        m_pathToIndex[m_devices[i]->path] = i;
+    for (int i = row; i < devices.count(); ++i)
+    {
+        pathToIndex[devices[i]->path] = i;
     }
     endRemoveRows();
 }
@@ -231,33 +239,33 @@ void DeviceModel::removeDevice(const QString& path)
 void DeviceModel::reset()
 {
     beginResetModel();
-    m_devices.clear();
-    m_pathToIndex.clear();
+    devices.clear();
+    pathToIndex.clear();
     endResetModel();
 }
 
-void DeviceModel::updateDevice(const QString& path)
+void DeviceModel::updateDevice(const QString &path)
 {
-    if (!m_pathToIndex.contains(path))
+    if (!pathToIndex.contains(path))
         return;
 
-    int row = m_pathToIndex[path];
+    int row = pathToIndex[path];
     QModelIndex idx = index(row, 0);
     emit dataChanged(idx, idx);
 }
 
-USBDEVICE* DeviceModel::getDevice(const QString& path)
+USBDEVICE *DeviceModel::getDevice(const QString &path)
 {
-    if (!m_pathToIndex.contains(path))
+    if (!pathToIndex.contains(path))
         return nullptr;
-    return m_devices[m_pathToIndex[path]];
+    return devices[pathToIndex[path]];
 }
 
-USBDEVICE* DeviceModel::getDevice(int index)
+USBDEVICE *DeviceModel::getDevice(int index)
 {
-    if (index < 0 || index >= m_devices.count())
+    if (index < 0 || index >= devices.count())
         return nullptr;
-    return m_devices[index];
+    return devices[index];
 }
 
 // ========== CommandModel Implementation ==========
@@ -271,17 +279,18 @@ int CommandModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
         return 0;
-    return m_commands.count();
+    return commandItems.count();
 }
 
 QVariant CommandModel::data(const QModelIndex &index, int role) const
 {
-    if (!index.isValid() || index.row() >= m_commands.count())
+    if (!index.isValid() || index.row() >= commandItems.count())
         return QVariant();
 
-    COMMAND* cmd = m_commands.at(index.row());
-    
-    switch (role) {
+    COMMAND *cmd = commandItems.at(index.row());
+
+    switch (role)
+    {
     case TextRole:
         return cmd->text;
     case IndexRole:
@@ -302,23 +311,29 @@ QHash<int, QByteArray> CommandModel::roleNames() const
     return roles;
 }
 
-void CommandModel::setCommands(QVector<COMMAND>* commands, bool buttonCommands)
+void CommandModel::setCommands(QVector<COMMAND> *commandList, bool buttonCommands)
 {
     beginResetModel();
-    m_commands.clear();
-    
-    for (COMMAND& c : *commands) {
-        if (buttonCommands) {
-            if (c.cmdType == commandButton || c.cmdType == commandAny) {
-                m_commands.append(&c);
+    commandItems.clear();
+
+    for (COMMAND &c : *commandList)
+    {
+        if (buttonCommands)
+        {
+            if (c.cmdType == commandButton || c.cmdType == commandAny)
+            {
+                commandItems.append(&c);
             }
-        } else {
-            if (c.cmdType == commandKnob || c.cmdType == commandAny) {
-                m_commands.append(&c);
+        }
+        else
+        {
+            if (c.cmdType == commandKnob || c.cmdType == commandAny)
+            {
+                commandItems.append(&c);
             }
         }
     }
-    
+
     endResetModel();
 }
 
@@ -326,58 +341,58 @@ void CommandModel::setCommands(QVector<COMMAND>* commands, bool buttonCommands)
 
 ControllerController::ControllerController(QObject *parent)
     : QObject(parent)
-    , m_deviceModel(new DeviceModel(this))
-    , m_commandModel(new CommandModel(this))
-    , m_knobCommandModel(new CommandModel(this))
-    , m_devices(nullptr)
-    , m_buttons(nullptr)
-    , m_knobs(nullptr)
-    , m_commands(nullptr)
-    , m_mutex(nullptr)
-    , m_currentButton(nullptr)
-    , m_currentKnob(nullptr)
+    , deviceModelObject(new DeviceModel(this))
+    , commandModelObject(new CommandModel(this))
+    , knobCommandModelObject(new CommandModel(this))
+    , usbDevices(nullptr)
+    , buttonList(nullptr)
+    , knobList(nullptr)
+    , commandList(nullptr)
+    , controllerMutex(nullptr)
+    , currentButton(nullptr)
+    , currentKnob(nullptr)
 {
 }
 
-ControllerController::~ControllerController()
-{
-}
+ControllerController::~ControllerController() { }
 
-void ControllerController::init(usbDevMap* devices, 
-                                QVector<BUTTON>* buttons, 
-                                QVector<KNOB>* knobs,
-                                QVector<COMMAND>* commands,
-                                QMutex* mutex)
+void ControllerController::init(usbDevMap *deviceMap,
+                                QVector<BUTTON> *buttonData,
+                                QVector<KNOB> *knobData,
+                                QVector<COMMAND> *commandData,
+                                QMutex *sharedMutex)
 {
-    m_devices = devices;
-    m_buttons = buttons;
-    m_knobs = knobs;
-    m_commands = commands;
-    m_mutex = mutex;
+    usbDevices = deviceMap;
+    buttonList = buttonData;
+    knobList = knobData;
+    commandList = commandData;
+    controllerMutex = sharedMutex;
 
-    m_deviceModel->reset();
+    deviceModelObject->reset();
 
     // Populate command models
-    m_commandModel->setCommands(commands, true);  // Button commands
-    m_knobCommandModel->setCommands(commands, false); // Knob commands
+    commandModelObject->setCommands(commandData, true); // Button commands
+    knobCommandModelObject->setCommands(commandData, false); // Knob commands
 
     // Do not show saved/stale controllers until the USB worker has opened them.
     // initDevice() emits newDevice() after paths, commands, buttons, and knobs
     // are refreshed for the current HID device.
-    for (auto it = devices->begin(); it != devices->end(); ++it) {
+    for (auto it = deviceMap->begin(); it != deviceMap->end(); ++it)
+    {
         if (it->detected && it->connected)
-            m_deviceModel->addDevice(&it.value());
+            deviceModelObject->addDevice(&it.value());
     }
 }
 
-void ControllerController::newDevice(USBDEVICE* dev)
+void ControllerController::newDevice(USBDEVICE *dev)
 {
     if (!dev)
         return;
 
     qInfo(logUsbControl()) << "Adding new device to controller:" << dev->product;
-    if (m_deviceModel->getDevice(dev->path)) {
-        m_deviceModel->updateDevice(dev->path);
+    if (deviceModelObject->getDevice(dev->path))
+    {
+        deviceModelObject->updateDevice(dev->path);
         emit deviceUpdated(dev->path);
         updatePage(dev, dev->currentPage);
         emit sendRequest(dev, usbFeatureType::featureSensitivity, dev->sensitivity);
@@ -388,8 +403,8 @@ void ControllerController::newDevice(USBDEVICE* dev)
         return;
     }
 
-    m_deviceModel->addDevice(dev);
-    emit deviceAdded(m_deviceModel->rowCount() - 1);
+    deviceModelObject->addDevice(dev);
+    emit deviceAdded(deviceModelObject->rowCount() - 1);
     updatePage(dev, dev->currentPage);
     emit sendRequest(dev, usbFeatureType::featureSensitivity, dev->sensitivity);
     emit sendRequest(dev, usbFeatureType::featureBrightness, dev->brightness);
@@ -398,77 +413,80 @@ void ControllerController::newDevice(USBDEVICE* dev)
     emit sendRequest(dev, usbFeatureType::featureTimeout, dev->timeout);
 }
 
-void ControllerController::removeDevice(USBDEVICE* dev)
+void ControllerController::removeDevice(USBDEVICE *dev)
 {
     qInfo(logUsbControl()) << "Removing device from controller:" << dev->product;
-    m_deviceModel->removeDevice(dev->path);
+    deviceModelObject->removeDevice(dev->path);
     emit deviceRemoved(0); // Index doesn't matter for removal notification
 }
 
-void ControllerController::setConnected(USBDEVICE* dev)
+void ControllerController::setConnected(USBDEVICE *dev)
 {
-    m_deviceModel->updateDevice(dev->path);
+    deviceModelObject->updateDevice(dev->path);
     emit deviceUpdated(dev->path);
 }
 
-QString ControllerController::getControllerImagePath(const QString& devicePath)
+QString ControllerController::getControllerImagePath(const QString &devicePath)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return QString();
-    
+
     // Return the image path based on device model
-    switch (dev->type.model) {
-        case shuttleXpress:
-            return "qrc:/resources/shuttlexpress.png";
-        case shuttlePro2:
-            return "qrc:/resources/shuttlepro.png";
-        case RC28:
-            return "qrc:/resources/rc28.png";
-        case xBoxGamepad:
-            return "qrc:/resources/xbox.png";
-        case eCoderPlus:
-            return "qrc:/resources/ecoder.png";
-        case QuickKeys:
-            return "qrc:/resources/quickkeys.png";
-        case StreamDeckOriginal:
-        case StreamDeckOriginalV2:
-        case StreamDeckOriginalMK2:
-            return "qrc:/resources/streamdeck.png";
-        case StreamDeckMini:
-        case StreamDeckMiniV2:
-            return "qrc:/resources/streamdeckmini.png";
-        case StreamDeckXL:
-        case StreamDeckXLV2:
-            return "qrc:/resources/streamdeckxl.png";
-        case StreamDeckPlus:
-            return "qrc:/resources/streamdeckplus.png";
-        case StreamDeckPedal:
-            return "qrc:/resources/streamdeckpedal.png";
-        case MiraBox293:
-            return "qrc:/resources/mirabox293.png";
-        case MiraBox293S:
-            return "qrc:/resources/mirabox293s.png";
-        case MiraBoxN3:
-            return "qrc:/resources/miraboxn3.png";
-        default:
-            return QString();
+    switch (dev->type.model)
+    {
+    case shuttleXpress:
+        return "qrc:/resources/shuttlexpress.png";
+    case shuttlePro2:
+        return "qrc:/resources/shuttlepro.png";
+    case RC28:
+        return "qrc:/resources/rc28.png";
+    case xBoxGamepad:
+        return "qrc:/resources/xbox.png";
+    case eCoderPlus:
+        return "qrc:/resources/ecoder.png";
+    case QuickKeys:
+        return "qrc:/resources/quickkeys.png";
+    case StreamDeckOriginal:
+    case StreamDeckOriginalV2:
+    case StreamDeckOriginalMK2:
+        return "qrc:/resources/streamdeck.png";
+    case StreamDeckMini:
+    case StreamDeckMiniV2:
+        return "qrc:/resources/streamdeckmini.png";
+    case StreamDeckXL:
+    case StreamDeckXLV2:
+        return "qrc:/resources/streamdeckxl.png";
+    case StreamDeckPlus:
+        return "qrc:/resources/streamdeckplus.png";
+    case StreamDeckPedal:
+        return "qrc:/resources/streamdeckpedal.png";
+    case MiraBox293:
+        return "qrc:/resources/mirabox293.png";
+    case MiraBox293S:
+        return "qrc:/resources/mirabox293s.png";
+    case MiraBoxN3:
+        return "qrc:/resources/miraboxn3.png";
+    default:
+        return QString();
     }
 }
 
-QVariantList ControllerController::getButtonsForPage(const QString& devicePath, int page)
+QVariantList ControllerController::getButtonsForPage(const QString &devicePath, int page)
 {
     QVariantList result;
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
-    if (!dev || !m_buttons)
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
+    if (!dev || !buttonList)
         return result;
 
-    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(controllerMutex);
 
-    for (const BUTTON& b : *m_buttons) {
-        if (b.parent == dev && b.page == page) {
-            const COMMAND *onCommand = commandOrDefault(b.onCommand, m_commands);
-            const COMMAND *offCommand = commandOrDefault(b.offCommand, m_commands);
+    for (const BUTTON &b : *buttonList)
+    {
+        if (b.parent == dev && b.page == page)
+        {
+            const COMMAND *onCommand = commandOrDefault(b.onCommand, commandList);
+            const COMMAND *offCommand = commandOrDefault(b.offCommand, commandList);
             QVariantMap buttonData;
             buttonData["buttonX"] = b.pos.x();
             buttonData["buttonY"] = b.pos.y();
@@ -490,18 +508,20 @@ QVariantList ControllerController::getButtonsForPage(const QString& devicePath, 
     return result;
 }
 
-QVariantList ControllerController::getKnobsForPage(const QString& devicePath, int page)
+QVariantList ControllerController::getKnobsForPage(const QString &devicePath, int page)
 {
     QVariantList result;
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
-    if (!dev || !m_knobs)
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
+    if (!dev || !knobList)
         return result;
 
-    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(controllerMutex);
 
-    for (const KNOB& k : *m_knobs) {
-        if (k.parent == dev && k.page == page) {
-            const COMMAND *command = commandOrDefault(k.command, m_commands);
+    for (const KNOB &k : *knobList)
+    {
+        if (k.parent == dev && k.page == page)
+        {
+            const COMMAND *command = commandOrDefault(k.command, commandList);
             QVariantMap knobData;
             knobData["knobX"] = k.pos.x();
             knobData["knobY"] = k.pos.y();
@@ -517,54 +537,54 @@ QVariantList ControllerController::getKnobsForPage(const QString& devicePath, in
     return result;
 }
 
-BUTTON* ControllerController::findButton(const QString& devicePath, const QPoint& pos, int page)
+BUTTON *ControllerController::findButton(const QString &devicePath, const QPoint &pos, int page)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
-    if (!dev || !m_buttons)
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
+    if (!dev || !buttonList)
         return nullptr;
 
-    auto it = std::find_if(m_buttons->begin(), m_buttons->end(), 
-        [&](BUTTON& b) {
-            return b.parent == dev && b.pos.contains(pos) && b.page == page;
-        });
+    auto it = std::find_if(buttonList->begin(),
+                           buttonList->end(),
+                           [&](BUTTON &b) { return b.parent == dev && b.pos.contains(pos) && b.page == page; });
 
-    return (it != m_buttons->end()) ? &(*it) : nullptr;
+    return (it != buttonList->end()) ? &(*it) : nullptr;
 }
 
-KNOB* ControllerController::findKnob(const QString& devicePath, const QPoint& pos, int page)
+KNOB *ControllerController::findKnob(const QString &devicePath, const QPoint &pos, int page)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
-    if (!dev || !m_knobs)
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
+    if (!dev || !knobList)
         return nullptr;
 
-    auto it = std::find_if(m_knobs->begin(), m_knobs->end(), 
-        [&](KNOB& k) {
-            return k.parent == dev && k.pos.contains(pos) && k.page == page;
-        });
+    auto it = std::find_if(knobList->begin(),
+                           knobList->end(),
+                           [&](KNOB &k) { return k.parent == dev && k.pos.contains(pos) && k.page == page; });
 
-    return (it != m_knobs->end()) ? &(*it) : nullptr;
+    return (it != knobList->end()) ? &(*it) : nullptr;
 }
 
-void ControllerController::showContextMenu(const QString& devicePath, const QPoint& pos)
+void ControllerController::showContextMenu(const QString &devicePath, const QPoint &pos)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
-    if (!m_mutex)
+    if (!controllerMutex)
         return;
 
-    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(controllerMutex);
 
     // Try to find a button first
-    BUTTON* button = findButton(devicePath, pos, dev->currentPage);
-    if (button) {
-        m_currentButton = button;
-        m_currentKnob = nullptr;
-        const COMMAND *onCommand = commandOrDefault(button->onCommand, m_commands);
-        const COMMAND *offCommand = commandOrDefault(button->offCommand, m_commands);
+    BUTTON *button = findButton(devicePath, pos, dev->currentPage);
+    if (button)
+    {
+        currentButton = button;
+        currentKnob = nullptr;
+        const COMMAND *onCommand = commandOrDefault(button->onCommand, commandList);
+        const COMMAND *offCommand = commandOrDefault(button->offCommand, commandList);
         emit showConfigDialog(QString("Configure Button %1").arg(button->num),
-                              true, false,
+                              true,
+                              false,
                               onCommand ? onCommand->index : 0,
                               offCommand ? offCommand->index : 0,
                               0,
@@ -579,13 +599,15 @@ void ControllerController::showContextMenu(const QString& devicePath, const QPoi
     }
 
     // Try to find a knob
-    KNOB* knob = findKnob(devicePath, pos, dev->currentPage);
-    if (knob) {
-        m_currentKnob = knob;
-        m_currentButton = nullptr;
-        const COMMAND *command = commandOrDefault(knob->command, m_commands);
+    KNOB *knob = findKnob(devicePath, pos, dev->currentPage);
+    if (knob)
+    {
+        currentKnob = knob;
+        currentButton = nullptr;
+        const COMMAND *command = commandOrDefault(knob->command, commandList);
         emit showConfigDialog(QString("Configure Knob %1").arg(knob->num),
-                              false, true,
+                              false,
+                              true,
                               0,
                               0,
                               command ? command->index : 0,
@@ -600,36 +622,37 @@ void ControllerController::showContextMenu(const QString& devicePath, const QPoi
     }
 }
 
-void ControllerController::buttonPressed(const QString& devicePath, 
-                                        const QPoint& pos, 
-                                        bool pressed)
+void ControllerController::buttonPressed(const QString &devicePath, const QPoint &pos, bool pressed)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     const COMMAND *triggerCommand = nullptr;
 
     {
-        QMutexLocker locker(m_mutex);
+        QMutexLocker locker(controllerMutex);
 
-        BUTTON* button = findButton(devicePath, pos, dev->currentPage);
-        if (button) {
-            const COMMAND *command = pressed ? commandOrDefault(button->onCommand, m_commands)
-                                             : commandOrDefault(button->offCommand, m_commands);
+        BUTTON *button = findButton(devicePath, pos, dev->currentPage);
+        if (button)
+        {
+            const COMMAND *command = pressed ? commandOrDefault(button->onCommand, commandList)
+                                             : commandOrDefault(button->offCommand, commandList);
             // Simulate button press/release on the physical controller display.
-            emit sendRequest(dev, usbFeatureType::featureButton,
-                            button->num,
-                            commandText(command),
-                            button->icon,
-                            pressed ? &button->backgroundOff : &button->backgroundOn);
+            emit sendRequest(dev,
+                             usbFeatureType::featureButton,
+                             button->num,
+                             commandText(command),
+                             button->icon,
+                             pressed ? &button->backgroundOff : &button->backgroundOn);
 
             if (command && command->index > 0 && command->command != funcNone)
                 triggerCommand = command;
         }
     }
 
-    if (triggerCommand) {
+    if (triggerCommand)
+    {
         if (triggerCommand->command == funcPageUp)
             setPage(devicePath, dev->currentPage + 1);
         else if (triggerCommand->command == funcPageDown)
@@ -645,23 +668,23 @@ void ControllerController::buttonPressed(const QString& devicePath,
     }
 }
 
-void ControllerController::setPage(const QString& devicePath, int page)
+void ControllerController::setPage(const QString &devicePath, int page)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     updatePage(dev, page);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
 }
 
-void ControllerController::updatePage(USBDEVICE* dev, int page)
+void ControllerController::updatePage(USBDEVICE *dev, int page)
 {
-    if (!dev || !m_mutex || !m_buttons || !m_knobs)
+    if (!dev || !controllerMutex || !buttonList || !knobList)
         return;
 
     {
-        QMutexLocker locker(m_mutex);
+        QMutexLocker locker(controllerMutex);
 
         if (page > dev->pages)
             page = 1;
@@ -671,24 +694,31 @@ void ControllerController::updatePage(USBDEVICE* dev, int page)
         dev->currentPage = page;
 
         // Update buttons for this page
-        for (BUTTON& b : *m_buttons) {
-            if (b.parent == dev) {
-                if (b.page == dev->currentPage) {
+        for (BUTTON &b : *buttonList)
+        {
+            if (b.parent == dev)
+            {
+                if (b.page == dev->currentPage)
+                {
                     const bool useOffState = b.isOn && b.toggle;
-                    const COMMAND *command = commandOrDefault(useOffState ? b.offCommand : b.onCommand, m_commands);
-                    emit sendRequest(dev, usbFeatureType::featureButton,
-                                   b.num,
-                                   commandText(command),
-                                   b.icon,
-                                   useOffState ? &b.backgroundOff : &b.backgroundOn);
+                    const COMMAND *command = commandOrDefault(useOffState ? b.offCommand : b.onCommand, commandList);
+                    emit sendRequest(dev,
+                                     usbFeatureType::featureButton,
+                                     b.num,
+                                     commandText(command),
+                                     b.icon,
+                                     useOffState ? &b.backgroundOff : &b.backgroundOn);
                 }
             }
         }
 
         // Update knobs for this page
-        for (KNOB& k : *m_knobs) {
-            if (k.parent == dev && k.page == dev->currentPage) {
-                if (k.num >= 0 && k.num < dev->knobValues.size()) {
+        for (KNOB &k : *knobList)
+        {
+            if (k.parent == dev && k.page == dev->currentPage)
+            {
+                if (k.num >= 0 && k.num < dev->knobValues.size())
+                {
                     dev->knobValues[k.num].value = k.value;
                     dev->knobValues[k.num].previous = k.value;
                 }
@@ -699,161 +729,166 @@ void ControllerController::updatePage(USBDEVICE* dev, int page)
     emit deviceUpdated(dev->path);
 }
 
-void ControllerController::setTotalPages(const QString& devicePath, int pages)
+void ControllerController::setTotalPages(const QString &devicePath, int pages)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     emit programPages(dev, pages);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
 }
 
-void ControllerController::setSensitivity(const QString& devicePath, int value)
+void ControllerController::setSensitivity(const QString &devicePath, int value)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     qInfo(logUsbControl()) << "Setting sensitivity" << value << "for device" << dev->product;
     dev->sensitivity = value;
     emit sendRequest(dev, usbFeatureType::featureSensitivity, value);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setBrightness(const QString& devicePath, int index)
+void ControllerController::setBrightness(const QString &devicePath, int index)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->brightness = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureBrightness, index);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setSpeed(const QString& devicePath, int index)
+void ControllerController::setSpeed(const QString &devicePath, int index)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->speed = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureSpeed, index);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setOrientation(const QString& devicePath, int index)
+void ControllerController::setOrientation(const QString &devicePath, int index)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->orientation = quint8(index);
     emit sendRequest(dev, usbFeatureType::featureOrientation, index);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setColor(const QString& devicePath, const QColor& color)
+void ControllerController::setColor(const QString &devicePath, const QColor &color)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->color = color;
-    QColor* colorPtr = new QColor(color);
+    QColor *colorPtr = new QColor(color);
     emit sendRequest(dev, usbFeatureType::featureColor, 0, "", nullptr, colorPtr);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setTimeout(const QString& devicePath, int minutes)
+void ControllerController::setTimeout(const QString &devicePath, int minutes)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->timeout = quint8(minutes);
     emit sendRequest(dev, usbFeatureType::featureTimeout, minutes);
-    emit sendRequest(dev, usbFeatureType::featureOverlay, minutes,
-                     QString("Sleep timeout set to %1 minutes").arg(minutes));
-    m_deviceModel->updateDevice(devicePath);
+    emit sendRequest(
+        dev, usbFeatureType::featureOverlay, minutes, QString("Sleep timeout set to %1 minutes").arg(minutes));
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::setDeviceDisabled(const QString& devicePath, bool disabled)
+void ControllerController::setDeviceDisabled(const QString &devicePath, bool disabled)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     dev->disabled = disabled;
     emit programDisable(dev, disabled);
-    m_deviceModel->updateDevice(devicePath);
+    deviceModelObject->updateDevice(devicePath);
     emit deviceUpdated(devicePath);
 }
 
-void ControllerController::applyButtonConfig(int onCommand, 
-                                            int offCommand, 
-                                            int knobCommand,
-                                            bool toggle, 
-                                            int ledNumber)
+void ControllerController::applyButtonConfig(int onCommand, int offCommand, int knobCommand, bool toggle, int ledNumber)
 {
-    if (!m_mutex || !m_commands)
+    if (!controllerMutex || !commandList)
         return;
 
     QString updatedPath;
 
     {
-        QMutexLocker locker(m_mutex);
+        QMutexLocker locker(controllerMutex);
 
-        if (m_currentButton) {
+        if (currentButton)
+        {
             // Update button configuration
-            auto onCmd = std::find_if(m_commands->begin(), m_commands->end(),
-                [onCommand](const COMMAND& c) { return c.index == onCommand; });
+            auto onCmd = std::find_if(commandList->begin(),
+                                      commandList->end(),
+                                      [onCommand](const COMMAND &c) { return c.index == onCommand; });
 
-            auto offCmd = std::find_if(m_commands->begin(), m_commands->end(),
-                [offCommand](const COMMAND& c) { return c.index == offCommand; });
+            auto offCmd = std::find_if(commandList->begin(),
+                                       commandList->end(),
+                                       [offCommand](const COMMAND &c) { return c.index == offCommand; });
 
-            if (onCmd != m_commands->end()) {
-                m_currentButton->onCommand = &(*onCmd);
-                m_currentButton->on = onCmd->text;
+            if (onCmd != commandList->end())
+            {
+                currentButton->onCommand = &(*onCmd);
+                currentButton->on = onCmd->text;
             }
 
-            if (offCmd != m_commands->end()) {
-                m_currentButton->offCommand = &(*offCmd);
-                m_currentButton->off = offCmd->text;
+            if (offCmd != commandList->end())
+            {
+                currentButton->offCommand = &(*offCmd);
+                currentButton->off = offCmd->text;
             }
 
-            m_currentButton->toggle = toggle;
-            m_currentButton->led = ledNumber;
+            currentButton->toggle = toggle;
+            currentButton->led = ledNumber;
 
             // Update the display
-            const COMMAND *command = commandOrDefault(m_currentButton->onCommand, m_commands);
-            emit sendRequest(m_currentButton->parent, usbFeatureType::featureButton,
-                            m_currentButton->num,
-                            commandText(command),
-                            m_currentButton->icon,
-                            &m_currentButton->backgroundOn);
+            const COMMAND *command = commandOrDefault(currentButton->onCommand, commandList);
+            emit sendRequest(currentButton->parent,
+                             usbFeatureType::featureButton,
+                             currentButton->num,
+                             commandText(command),
+                             currentButton->icon,
+                             &currentButton->backgroundOn);
 
-            updatedPath = m_currentButton->parent ? m_currentButton->parent->path : QString();
+            updatedPath = currentButton->parent ? currentButton->parent->path : QString();
         }
 
-        if (m_currentKnob) {
+        if (currentKnob)
+        {
             // Update knob configuration
-            auto cmd = std::find_if(m_commands->begin(), m_commands->end(),
-                [knobCommand](const COMMAND& c) { return c.index == knobCommand; });
+            auto cmd = std::find_if(commandList->begin(),
+                                    commandList->end(),
+                                    [knobCommand](const COMMAND &c) { return c.index == knobCommand; });
 
-            if (cmd != m_commands->end()) {
-                m_currentKnob->command = &(*cmd);
-                m_currentKnob->cmd = cmd->text;
+            if (cmd != commandList->end())
+            {
+                currentKnob->command = &(*cmd);
+                currentKnob->cmd = cmd->text;
             }
 
-            updatedPath = m_currentKnob->parent ? m_currentKnob->parent->path : QString();
+            updatedPath = currentKnob->parent ? currentKnob->parent->path : QString();
         }
     }
 
@@ -861,9 +896,9 @@ void ControllerController::applyButtonConfig(int onCommand,
         emit deviceUpdated(updatedPath);
 }
 
-void ControllerController::setCurrentButtonColor(bool pressedColor, const QColor& color)
+void ControllerController::setCurrentButtonColor(bool pressedColor, const QColor &color)
 {
-    if (!m_mutex || !m_currentButton || !color.isValid())
+    if (!controllerMutex || !currentButton || !color.isValid())
         return;
 
     USBDEVICE *dev = nullptr;
@@ -874,22 +909,23 @@ void ControllerController::setCurrentButtonColor(bool pressedColor, const QColor
     QString updatedPath;
 
     {
-        QMutexLocker locker(m_mutex);
-        if (!m_currentButton)
+        QMutexLocker locker(controllerMutex);
+        if (!currentButton)
             return;
 
         if (pressedColor)
-            m_currentButton->backgroundOff = color;
+            currentButton->backgroundOff = color;
         else
-            m_currentButton->backgroundOn = color;
+            currentButton->backgroundOn = color;
 
-        dev = m_currentButton->parent;
-        buttonNum = m_currentButton->num;
-        icon = m_currentButton->icon;
-        const bool useOffState = m_currentButton->isOn && m_currentButton->toggle;
-        const COMMAND *command = commandOrDefault(useOffState ? m_currentButton->offCommand : m_currentButton->onCommand, m_commands);
+        dev = currentButton->parent;
+        buttonNum = currentButton->num;
+        icon = currentButton->icon;
+        const bool useOffState = currentButton->isOn && currentButton->toggle;
+        const COMMAND *command
+            = commandOrDefault(useOffState ? currentButton->offCommand : currentButton->onCommand, commandList);
         text = commandText(command);
-        displayColor = useOffState ? &m_currentButton->backgroundOff : &m_currentButton->backgroundOn;
+        displayColor = useOffState ? &currentButton->backgroundOff : &currentButton->backgroundOn;
         updatedPath = dev ? dev->path : QString();
     }
 
@@ -899,9 +935,9 @@ void ControllerController::setCurrentButtonColor(bool pressedColor, const QColor
         emit deviceUpdated(updatedPath);
 }
 
-void ControllerController::backupSettings(const QString& devicePath, const QUrl& fileUrl)
+void ControllerController::backupSettings(const QString &devicePath, const QUrl &fileUrl)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
@@ -909,14 +945,14 @@ void ControllerController::backupSettings(const QString& devicePath, const QUrl&
     emit backup(dev, filePath);
 }
 
-void ControllerController::restoreSettings(const QString& devicePath, const QUrl& fileUrl)
+void ControllerController::restoreSettings(const QString &devicePath, const QUrl &fileUrl)
 {
-    USBDEVICE* dev = m_deviceModel->getDevice(devicePath);
+    USBDEVICE *dev = deviceModelObject->getDevice(devicePath);
     if (!dev)
         return;
 
     QString filePath = fileUrl.toLocalFile();
-    
+
     // Validate the backup file
     QSettings settings(filePath, QSettings::IniFormat);
     QString version = settings.value("Version", "").toString();
@@ -926,6 +962,6 @@ void ControllerController::restoreSettings(const QString& devicePath, const QUrl
 
     // In QML, you'd show a dialog here - for now just emit
     // You might want to add a signal for showing confirmation dialogs
-    
+
     emit restore(dev, filePath);
 }

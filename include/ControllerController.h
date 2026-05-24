@@ -1,19 +1,19 @@
 #ifndef CONTROLLERCONTROLLER_H
 #define CONTROLLERCONTROLLER_H
 
-#include <QObject>
-#include <QAbstractListModel>
-#include <QPoint>
-#include <QColor>
-#include <QUrl>
-#include <QMutex>
-#include <QVector>
-#include <QMap>
-#include <QImage>
-#include <QQuickItem>
-#include <QJSValue>
-
 #include "usbcontroller.h"
+
+#include <QAbstractListModel>
+#include <QColor>
+#include <QImage>
+#include <QJSValue>
+#include <QMap>
+#include <QMutex>
+#include <QObject>
+#include <QPoint>
+#include <QQuickItem>
+#include <QUrl>
+#include <QVector>
 
 // Forward declarations
 struct BUTTON;
@@ -28,7 +28,8 @@ class DeviceModel : public QAbstractListModel
     Q_OBJECT
 
 public:
-    enum DeviceRoles {
+    enum DeviceRoles
+    {
         DeviceNameRole = Qt::UserRole + 1,
         DevicePathRole,
         ConnectedRole,
@@ -55,16 +56,16 @@ public:
     QHash<int, QByteArray> roleNames() const override;
     Q_INVOKABLE QVariantMap get(int row) const;
 
-    void addDevice(USBDEVICE* dev);
-    void removeDevice(const QString& path);
-    void updateDevice(const QString& path);
+    void addDevice(USBDEVICE *dev);
+    void removeDevice(const QString &path);
+    void updateDevice(const QString &path);
     void reset();
-    USBDEVICE* getDevice(const QString& path);
-    USBDEVICE* getDevice(int index);
+    USBDEVICE *getDevice(const QString &path);
+    USBDEVICE *getDevice(int index);
 
 private:
-    QVector<USBDEVICE*> m_devices;
-    QMap<QString, int> m_pathToIndex;
+    QVector<USBDEVICE *> devices;
+    QMap<QString, int> pathToIndex;
 };
 
 /**
@@ -75,7 +76,8 @@ class CommandModel : public QAbstractListModel
     Q_OBJECT
 
 public:
-    enum CommandRoles {
+    enum CommandRoles
+    {
         TextRole = Qt::UserRole + 1,
         IndexRole,
         IsSeparatorRole
@@ -87,10 +89,10 @@ public:
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    void setCommands(QVector<COMMAND>* commands, bool buttonCommands);
+    void setCommands(QVector<COMMAND> *commandList, bool buttonCommands);
 
 private:
-    QVector<COMMAND*> m_commands;
+    QVector<COMMAND *> commandItems;
 };
 
 /**
@@ -99,99 +101,116 @@ private:
 class ControllerController : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(DeviceModel* deviceModel READ deviceModel CONSTANT)
-    Q_PROPERTY(CommandModel* commandModel READ commandModel CONSTANT)
-    Q_PROPERTY(CommandModel* knobCommandModel READ knobCommandModel CONSTANT)
+    Q_PROPERTY(DeviceModel *deviceModel READ deviceModel CONSTANT)
+    Q_PROPERTY(CommandModel *commandModel READ commandModel CONSTANT)
+    Q_PROPERTY(CommandModel *knobCommandModel READ knobCommandModel CONSTANT)
 
 public:
     explicit ControllerController(QObject *parent = nullptr);
     ~ControllerController();
 
-    DeviceModel* deviceModel() { return m_deviceModel; }
-    CommandModel* commandModel() { return m_commandModel; }
-    CommandModel* knobCommandModel() { return m_knobCommandModel; }
+    DeviceModel *deviceModel()
+    {
+        return deviceModelObject;
+    }
+    CommandModel *commandModel()
+    {
+        return commandModelObject;
+    }
+    CommandModel *knobCommandModel()
+    {
+        return knobCommandModelObject;
+    }
 
     // Initialize with data from main application
-    Q_INVOKABLE void init(usbDevMap* devices, 
-                         QVector<BUTTON>* buttons, 
-                         QVector<KNOB>* knobs,
-                         QVector<COMMAND>* commands,
-                         QMutex* mutex);
+    Q_INVOKABLE void init(usbDevMap *deviceMap,
+                          QVector<BUTTON> *buttonData,
+                          QVector<KNOB> *knobData,
+                          QVector<COMMAND> *commandData,
+                          QMutex *sharedMutex);
 
     // Device management
-    Q_INVOKABLE void newDevice(USBDEVICE* dev);
-    Q_INVOKABLE void removeDevice(USBDEVICE* dev);
-    Q_INVOKABLE void setConnected(USBDEVICE* dev);
+    Q_INVOKABLE void newDevice(USBDEVICE *dev);
+    Q_INVOKABLE void removeDevice(USBDEVICE *dev);
+    Q_INVOKABLE void setConnected(USBDEVICE *dev);
 
     // Get controller image path based on device type
-    Q_INVOKABLE QString getControllerImagePath(const QString& devicePath);
-    
+    Q_INVOKABLE QString getControllerImagePath(const QString &devicePath);
+
     // Get buttons/knobs for a specific page (returns QVariantList for QML)
-    Q_INVOKABLE QVariantList getButtonsForPage(const QString& devicePath, int page);
-    Q_INVOKABLE QVariantList getKnobsForPage(const QString& devicePath, int page);
+    Q_INVOKABLE QVariantList getButtonsForPage(const QString &devicePath, int page);
+    Q_INVOKABLE QVariantList getKnobsForPage(const QString &devicePath, int page);
 
     // User interactions
-    Q_INVOKABLE void showContextMenu(const QString& devicePath, const QPoint& pos);
-    Q_INVOKABLE void buttonPressed(const QString& devicePath, const QPoint& pos, bool pressed);
+    Q_INVOKABLE void showContextMenu(const QString &devicePath, const QPoint &pos);
+    Q_INVOKABLE void buttonPressed(const QString &devicePath, const QPoint &pos, bool pressed);
 
     // Settings
-    Q_INVOKABLE void setPage(const QString& devicePath, int page);
-    Q_INVOKABLE void setTotalPages(const QString& devicePath, int pages);
-    Q_INVOKABLE void setSensitivity(const QString& devicePath, int value);
-    Q_INVOKABLE void setBrightness(const QString& devicePath, int index);
-    Q_INVOKABLE void setSpeed(const QString& devicePath, int index);
-    Q_INVOKABLE void setOrientation(const QString& devicePath, int index);
-    Q_INVOKABLE void setColor(const QString& devicePath, const QColor& color);
-    Q_INVOKABLE void setTimeout(const QString& devicePath, int minutes);
-    Q_INVOKABLE void setDeviceDisabled(const QString& devicePath, bool disabled);
+    Q_INVOKABLE void setPage(const QString &devicePath, int page);
+    Q_INVOKABLE void setTotalPages(const QString &devicePath, int pages);
+    Q_INVOKABLE void setSensitivity(const QString &devicePath, int value);
+    Q_INVOKABLE void setBrightness(const QString &devicePath, int index);
+    Q_INVOKABLE void setSpeed(const QString &devicePath, int index);
+    Q_INVOKABLE void setOrientation(const QString &devicePath, int index);
+    Q_INVOKABLE void setColor(const QString &devicePath, const QColor &color);
+    Q_INVOKABLE void setTimeout(const QString &devicePath, int minutes);
+    Q_INVOKABLE void setDeviceDisabled(const QString &devicePath, bool disabled);
 
     // Button/Knob configuration
-    Q_INVOKABLE void applyButtonConfig(int onCommand, 
-                                       int offCommand, 
-                                       int knobCommand,
-                                       bool toggle, 
-                                       int ledNumber);
-    Q_INVOKABLE void setCurrentButtonColor(bool pressedColor, const QColor& color);
+    Q_INVOKABLE void applyButtonConfig(int onCommand, int offCommand, int knobCommand, bool toggle, int ledNumber);
+    Q_INVOKABLE void setCurrentButtonColor(bool pressedColor, const QColor &color);
 
     // Backup/Restore
-    Q_INVOKABLE void backupSettings(const QString& devicePath, const QUrl& fileUrl);
-    Q_INVOKABLE void restoreSettings(const QString& devicePath, const QUrl& fileUrl);
+    Q_INVOKABLE void backupSettings(const QString &devicePath, const QUrl &fileUrl);
+    Q_INVOKABLE void restoreSettings(const QString &devicePath, const QUrl &fileUrl);
 
 signals:
-    void sendRequest(USBDEVICE* dev, usbFeatureType request, int val = 0, 
-                    QString text = "", QImage* img = nullptr, QColor* color = nullptr);
-    void programDisable(USBDEVICE* dev, bool disable);
-    void programPages(USBDEVICE* dev, int pages);
-    void backup(USBDEVICE* dev, QString path);
-    void restore(USBDEVICE* dev, QString path);
-    void commandTriggered(const COMMAND* command);
+    void sendRequest(USBDEVICE *dev,
+                     usbFeatureType request,
+                     int val = 0,
+                     QString text = "",
+                     QImage *img = nullptr,
+                     QColor *color = nullptr);
+    void programDisable(USBDEVICE *dev, bool disable);
+    void programPages(USBDEVICE *dev, int pages);
+    void backup(USBDEVICE *dev, QString path);
+    void restore(USBDEVICE *dev, QString path);
+    void commandTriggered(const COMMAND *command);
 
     void deviceAdded(int index);
     void deviceRemoved(int index);
-    void deviceUpdated(const QString& path);
-    void showConfigDialog(const QString& title, bool isButton, bool isKnob,
-                          int onCommand, int offCommand, int knobCommand,
-                          bool toggle, int ledNumber,
-                          bool showLed, bool showColor, bool showIcon,
-                          const QColor& onColor, const QColor& offColor);
+    void deviceUpdated(const QString &path);
+    void showConfigDialog(const QString &title,
+                          bool isButton,
+                          bool isKnob,
+                          int onCommand,
+                          int offCommand,
+                          int knobCommand,
+                          bool toggle,
+                          int ledNumber,
+                          bool showLed,
+                          bool showColor,
+                          bool showIcon,
+                          const QColor &onColor,
+                          const QColor &offColor);
 
 private:
-    BUTTON* findButton(const QString& devicePath, const QPoint& pos, int page);
-    KNOB* findKnob(const QString& devicePath, const QPoint& pos, int page);
-    void updatePage(USBDEVICE* dev, int page);
+    BUTTON *findButton(const QString &devicePath, const QPoint &pos, int page);
+    KNOB *findKnob(const QString &devicePath, const QPoint &pos, int page);
+    void updatePage(USBDEVICE *dev, int page);
 
-    DeviceModel* m_deviceModel;
-    CommandModel* m_commandModel;
-    CommandModel* m_knobCommandModel;
+    DeviceModel *deviceModelObject;
+    CommandModel *commandModelObject;
+    CommandModel *knobCommandModelObject;
 
-    usbDevMap* m_devices;
-    QVector<BUTTON>* m_buttons;
-    QVector<KNOB>* m_knobs;
-    QVector<COMMAND>* m_commands;
-    QMutex* m_mutex;
+    usbDevMap *usbDevices;
+    QVector<BUTTON> *buttonList;
+    QVector<KNOB> *knobList;
+    QVector<COMMAND> *commandList;
+    QMutex *controllerMutex;
 
-    BUTTON* m_currentButton;
-    KNOB* m_currentKnob;
+    BUTTON *currentButton;
+    KNOB *currentKnob;
 };
 
 #endif // CONTROLLERCONTROLLER_H
