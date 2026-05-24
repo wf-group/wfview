@@ -23,7 +23,7 @@ Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers 
 
 ## Testing Guidelines
 
-There is no standalone automated test suite in this tree. Treat a clean qmake build as the minimum validation, then manually exercise the affected workflow: startup, settings persistence, radio connection, audio input/output, server mode, or translation/resource loading. For UI changes, verify the relevant `.ui` form in Qt Designer or by launching the app.
+Unit tests live in `tests/` and use Qt Test. Build them out of tree with `qmake ../tests/tests.pro && make check`, or on Windows generate the Makefile with the matching Qt qmake and run `jom check`. Treat a clean qmake build as the minimum validation, then manually exercise affected hardware/UI workflows that tests cannot cover yet.
 
 ## Commit & Pull Request Guidelines
 

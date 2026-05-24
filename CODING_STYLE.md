@@ -82,3 +82,10 @@ C:\Qt\Tools\QtCreator\bin\clang\bin\clang-format.exe -i include\ControllerContro
 ```
 
 Only run it on wfview-owned files. Do not run it on build directories or imported libraries.
+
+## Unit Tests
+
+- Put Qt Test cases under `tests/`.
+- Prefer tests for pure controller/model logic that does not need a radio, audio device, or USB hardware.
+- Use synthetic fixtures for rig, settings, and controller data.
+- Keep tests deterministic and safe to run in CI.
