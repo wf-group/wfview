@@ -274,6 +274,7 @@ public slots:
 private slots:
     void receiveValueFromQueue(cacheItem c);
     void receiveRigCaps(rigCapabilities* caps);
+    void receiveStatusUpdate(networkStatus status);
     void receiveCommReady();
     void ctChanged(SettingsController::prefCtItems items);
 #if defined(USB_CONTROLLER)

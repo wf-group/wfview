@@ -7,9 +7,11 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: selectRadioWindow
-    title: qsTr("Select Radio")
-    width: 400
-    height: 300
+    title: qsTr("Radio Status")
+    width: 760
+    height: 420
+    minimumWidth: 590
+    minimumHeight: 295
 
     // This property will be set from MainWindow
     property var selectRadioController: null
@@ -58,9 +60,13 @@ ApplicationWindow {
         property var series: null
         property var xAxis: null
         property var yAxis: null
+        property string unit: "ms"
+        property real currentValue: 0
+        property bool hasValue: false
+        property string emptyText: qsTr("Waiting for data")
 
-        color: "#1e1e1e"
-        border.color: "#404040"
+        color: palette.base
+        border.color: palette.mid
         border.width: 1
         antialiasing: true
 
@@ -73,7 +79,7 @@ ApplicationWindow {
         Canvas {
             id: canvas
             anchors.fill: parent
-            anchors.margins: 4
+            anchors.margins: 2
 
             onPaint: {
                 var ctx = getContext("2d")
@@ -81,19 +87,19 @@ ApplicationWindow {
                 ctx.fillStyle = plot.color
                 ctx.fillRect(0, 0, width, height)
 
-                ctx.font = "bold 10px sans-serif"
-                ctx.fillStyle = "white"
+                ctx.font = "bold 11px sans-serif"
+                ctx.fillStyle = palette.text
                 ctx.textAlign = "center"
-                ctx.fillText(plot.title, width / 2, 12)
+                ctx.fillText(plot.title, width / 2, 14)
 
-                var left = 26
-                var right = width - 6
-                var top = 20
-                var bottom = height - 18
+                var left = 36
+                var right = width - 8
+                var top = 24
+                var bottom = height - 24
                 var plotW = Math.max(1, right - left)
                 var plotH = Math.max(1, bottom - top)
 
-                ctx.strokeStyle = "#404040"
+                ctx.strokeStyle = palette.mid
                 ctx.lineWidth = 1
                 for (var i = 0; i <= 4; ++i) {
                     var y = top + (plotH * i / 4)
@@ -102,14 +108,46 @@ ApplicationWindow {
                     ctx.lineTo(right, y)
                     ctx.stroke()
                 }
+                for (var xGrid = 0; xGrid <= 4; ++xGrid) {
+                    var x = left + (plotW * xGrid / 4)
+                    ctx.beginPath()
+                    ctx.moveTo(x, top)
+                    ctx.lineTo(x, bottom)
+                    ctx.stroke()
+                }
 
-                if (!plot.series || !plot.xAxis || !plot.yAxis || plot.series.count < 2)
+                ctx.strokeStyle = palette.text
+                ctx.strokeRect(left, top, plotW, plotH)
+
+                ctx.font = "10px sans-serif"
+                ctx.fillStyle = palette.text
+                ctx.textAlign = "right"
+                ctx.fillText(plot.yAxis ? plot.yAxis.max.toFixed(0) : "", left - 4, top + 4)
+                ctx.fillText(plot.yAxis ? plot.yAxis.min.toFixed(0) : "", left - 4, bottom)
+                ctx.textAlign = "left"
+                ctx.fillText(plot.unit, left, height - 6)
+
+                if (plot.hasValue) {
+                    ctx.textAlign = "right"
+                    ctx.fillText(plot.currentValue.toFixed(1) + " " + plot.unit, right, height - 6)
+                }
+
+                if (!plot.series || !plot.xAxis || !plot.yAxis || plot.series.count < 2) {
+                    ctx.font = "11px sans-serif"
+                    ctx.fillStyle = palette.placeholderText
+                    ctx.textAlign = "center"
+                    ctx.fillText(plot.emptyText, left + plotW / 2, top + plotH / 2)
                     return
+                }
 
                 var xSpan = Math.max(1, plot.xAxis.max - plot.xAxis.min)
                 var ySpan = Math.max(1, plot.yAxis.max - plot.yAxis.min)
                 ctx.strokeStyle = plot.series.color
                 ctx.lineWidth = 2
+                ctx.save()
+                ctx.beginPath()
+                ctx.rect(left, top, plotW, plotH)
+                ctx.clip()
                 ctx.beginPath()
 
                 for (var p = 0; p < plot.series.count; ++p) {
@@ -124,11 +162,51 @@ ApplicationWindow {
                 }
 
                 ctx.stroke()
+                ctx.restore()
             }
+        }
+
+        function requestPaint() {
+            canvas.requestPaint()
         }
 
         onWidthChanged: canvas.requestPaint()
         onHeightChanged: canvas.requestPaint()
+    }
+
+    component LevelMeter: RowLayout {
+        id: meter
+        property string label: ""
+        property int value: 0
+        property color fillColor: "#4CAF50"
+
+        spacing: 6
+
+        Label {
+            text: meter.label
+            Layout.preferredWidth: 34
+            horizontalAlignment: Text.AlignRight
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 16
+            color: selectRadioWindow.palette.base
+            border.color: selectRadioWindow.palette.mid
+
+            Rectangle {
+                width: parent.width * Math.max(0, Math.min(255, meter.value)) / 255
+                height: parent.height
+                color: meter.fillColor
+            }
+        }
+
+        Label {
+            text: meter.value
+            Layout.preferredWidth: 34
+            horizontalAlignment: Text.AlignRight
+            font.pixelSize: 11
+        }
     }
 
     // Close handler
@@ -155,98 +233,119 @@ ApplicationWindow {
 
         function onTimeDifferencePointAdded(counter, time) {
             timeDifferenceSeries.append(counter, time)
+            timeDifferenceChart.currentValue = time
+            timeDifferenceChart.hasValue = true
 
             if (timeDifferenceSeries.count > 100) {
                 timeDifferenceSeries.remove(0)
-                timeXAxis.min = counter - 100
-                timeXAxis.max = counter
             }
 
-            var minY = 10, maxY = -10
-            for (var i = 0; i < timeDifferenceSeries.count; i++) {
-                var point = timeDifferenceSeries.at(i)
-                if (point.y < minY) minY = point.y
-                if (point.y > maxY) maxY = point.y
-            }
-            timeYAxis.min = Math.floor(minY - 1)
-            timeYAxis.max = Math.ceil(maxY + 1)
+            updateXAxis(timeXAxis, counter, 100)
+            updateYAxis(timeYAxis, timeDifferenceSeries, 1, -10, 10, false)
+            timeDifferenceChart.requestPaint()
         }
 
         function onWaterfallPointAdded(counter, time) {
             waterfallSeries.append(counter, time)
+            waterfallChart.currentValue = time
+            waterfallChart.hasValue = true
 
             if (waterfallSeries.count > 1000) {
                 waterfallSeries.remove(0)
-                waterfallXAxis.min = counter - 1000
-                waterfallXAxis.max = counter
             }
 
             if (selectRadioWindow.visible) {
-                var minY = 10, maxY = -10
-                for (var i = 0; i < waterfallSeries.count; i++) {
-                    var point = waterfallSeries.at(i)
-                    if (point.y < minY) minY = point.y
-                    if (point.y > maxY) maxY = point.y
-                }
-                waterfallYAxis.min = Math.floor(minY - 1)
-                waterfallYAxis.max = Math.ceil(maxY + 1)
+                updateXAxis(waterfallXAxis, counter, 1000)
+                updateYAxis(waterfallYAxis, waterfallSeries, 1, 0, 10, true)
+                waterfallChart.requestPaint()
             }
         }
 
         function onSpectrumPointAdded(counter, time) {
             spectrumSeries.append(counter, time)
+            spectrumChart.currentValue = time
+            spectrumChart.hasValue = true
 
             if (spectrumSeries.count > 1000) {
                 spectrumSeries.remove(0)
-                spectrumXAxis.min = counter - 1000
-                spectrumXAxis.max = counter
             }
 
             if (selectRadioWindow.visible) {
-                var minY = 50, maxY = 0
-                for (var i = 0; i < spectrumSeries.count; i++) {
-                    var point = spectrumSeries.at(i)
-                    if (point.y < minY) minY = point.y
-                    if (point.y > maxY) maxY = point.y
-                }
-                spectrumYAxis.min = 0
-                spectrumYAxis.max = Math.ceil(maxY + 5)
+                updateXAxis(spectrumXAxis, counter, 1000)
+                updateYAxis(spectrumYAxis, spectrumSeries, 1, 0, 50, true)
+                spectrumChart.requestPaint()
             }
+        }
+    }
+
+    function updateXAxis(axis, counter, windowSize) {
+        axis.min = Math.max(0, counter - windowSize)
+        axis.max = Math.max(windowSize, counter)
+    }
+
+    function updateYAxis(axis, series, minimumPadding, defaultMin, defaultMax, clampToZero) {
+        if (!series || series.count === 0) {
+            axis.min = defaultMin
+            axis.max = defaultMax
+            return
+        }
+
+        var minY = series.at(0).y
+        var maxY = minY
+        for (var i = 1; i < series.count; ++i) {
+            var point = series.at(i)
+            if (point.y < minY)
+                minY = point.y
+            if (point.y > maxY)
+                maxY = point.y
+        }
+
+        var span = maxY - minY
+        var padding = Math.max(minimumPadding, span * 0.12)
+        axis.min = Math.floor(minY - padding)
+        axis.max = Math.ceil(maxY + padding)
+
+        if (clampToZero)
+            axis.min = Math.max(0, axis.min)
+
+        if (axis.min === axis.max) {
+            axis.min -= minimumPadding
+            axis.max += minimumPadding
         }
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
+        anchors.margins: 8
+        spacing: 6
 
         // Radio selection table
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 92
+            Layout.maximumHeight: 110
             spacing: 0
 
             // Column headers (fixed at top)
             Row {
                 id: header
                 Layout.fillWidth: true
-                height: 25
+                Layout.preferredHeight: 25
                 z: 2
 
                 Repeater {
-                    model: [qsTr("Name"), qsTr("CIV"), qsTr("Baudrate"), qsTr("User"), qsTr("IP")]
+                    model: [qsTr("Rig Name"), qsTr("CI-V"), qsTr("Baud Rate"), qsTr("Current User"), qsTr("User IP Address")]
                     Rectangle {
                         width: radioTable.width / 5
                         height: 25
-                        color: "#404040"
+                        color: selectRadioWindow.palette.mid
                         border.width: 1
-                        border.color: "#666666"
+                        border.color: selectRadioWindow.palette.dark
 
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            color: "white"
+                            color: selectRadioWindow.palette.text
                             font.bold: true
                         }
                     }
@@ -295,44 +394,12 @@ ApplicationWindow {
             }
         }
 
-        // Audio level meters
-        RowLayout {
-            Layout.fillWidth: true
-            //Layout.height: 30
-            spacing: 20
-
-            Label {
-                text: qsTr("AF Level:")
-                //color: "white"
-            }
-
-            ProgressBar {
-                id: afLevel
-                Layout.fillWidth: true
-                from: 0
-                to: 255
-                value: 0
-            }
-
-            Label {
-                text: qsTr("Mod Level:")
-                //color: "white"
-            }
-
-            ProgressBar {
-                id: modLevel
-                Layout.fillWidth: true
-                from: 0
-                to: 255
-                value: 0
-            }
-        }
-
         // Charts in a row
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 10
+            Layout.minimumHeight: 180
+            spacing: 6
 
             // UDP Time Difference Chart
             SimpleLinePlot {
@@ -340,6 +407,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 title: qsTr("UDP time difference")
+                unit: qsTr("ms")
                 xAxis: timeXAxis
                 yAxis: timeYAxis
                 series: timeDifferenceSeries
@@ -369,6 +437,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 title: qsTr("Waterfall plot time")
+                unit: qsTr("ms")
                 xAxis: waterfallXAxis
                 yAxis: waterfallYAxis
                 series: waterfallSeries
@@ -398,6 +467,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 title: qsTr("Spectrum plot time")
+                unit: qsTr("ms")
                 xAxis: spectrumXAxis
                 yAxis: spectrumYAxis
                 series: spectrumSeries
@@ -419,6 +489,26 @@ ApplicationWindow {
                     id: spectrumSeries
                     color: "#FF9800"
                 }
+            }
+        }
+
+        // Audio level meters
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 14
+
+            LevelMeter {
+                id: afLevel
+                label: qsTr("AF")
+                fillColor: "#4CAF50"
+                Layout.fillWidth: true
+            }
+
+            LevelMeter {
+                id: modLevel
+                label: qsTr("MOD")
+                fillColor: "#FF9800"
+                Layout.fillWidth: true
             }
         }
 

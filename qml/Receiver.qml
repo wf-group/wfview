@@ -17,6 +17,8 @@ Control {
     property alias sidePanelOpen: sidePanel.open
 
     signal requestDetach(var globalPos)
+    signal spectrumProcessingTime(real ms)
+    signal waterfallProcessingTime(real ms)
     padding: 1
     clip: false
 
@@ -252,6 +254,9 @@ Control {
                         if (controller)
                             controller.resetPbt()
                     }
+                    onProcessingTimeNs: function(ns) {
+                        root.spectrumProcessingTime(ns / 1000000.0)
+                    }
 
                 }
 
@@ -265,6 +270,9 @@ Control {
                     onTuneRequested: function(freq) {
                         controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
                         controller.frequencyAChanged() // Signal the controller that frequency has changed
+                    }
+                    onProcessingTimeNs: function(ns) {
+                        root.waterfallProcessingTime(ns / 1000000.0)
                     }
                 }
             }

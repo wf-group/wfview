@@ -116,6 +116,9 @@ void WaterfallItem::updateScope(const scopeData &data)
     if (!data.valid || data.data.isEmpty())
         return;
 
+    QElapsedTimer timer;
+    timer.start();
+
     const int w = data.data.size();
     if (w <= 0)
         return;
@@ -157,6 +160,7 @@ void WaterfallItem::updateScope(const scopeData &data)
         dstRow[i] = lut[src[i]];
     }
 
+    scopeUpdateTimeNs.store(timer.nsecsElapsed(), std::memory_order_relaxed);
     dirty = true;
     update();
 }
@@ -176,7 +180,7 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
         if (width() <= 0 || height() <= 0 || img.isNull()) {
             delete oldNode;
-            emit processingTimeNs(timer.nsecsElapsed());
+            emit processingTimeNs(timer.nsecsElapsed() + scopeUpdateTimeNs.exchange(0, std::memory_order_relaxed));
             return nullptr;
         }
 
@@ -203,14 +207,14 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     }
 
     if (!window()) {
-        emit processingTimeNs(timer.nsecsElapsed());
+        emit processingTimeNs(timer.nsecsElapsed() + scopeUpdateTimeNs.exchange(0, std::memory_order_relaxed));
         return root;
     }
 
     const int texW = snapshot.width();
     const int texH = snapshot.height();
     if (texW <= 0 || texH <= 0) {
-        emit processingTimeNs(timer.nsecsElapsed());
+        emit processingTimeNs(timer.nsecsElapsed() + scopeUpdateTimeNs.exchange(0, std::memory_order_relaxed));
         return root;
     }
 
@@ -269,7 +273,7 @@ QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         root->bottomNode->setRect(0, 0, 0, 0);
     }
 
-    emit processingTimeNs(timer.nsecsElapsed());
+    emit processingTimeNs(timer.nsecsElapsed() + scopeUpdateTimeNs.exchange(0, std::memory_order_relaxed));
     return root;
 }
 
@@ -544,4 +548,3 @@ void WaterfallItem::rebuildLut()
 
     lutValid = true;
 }
-

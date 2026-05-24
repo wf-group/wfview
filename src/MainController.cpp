@@ -1228,6 +1228,7 @@ void MainController::startRigConnection()
         connect(m_selRad.get(), &SelectRadioController::selectedRadio, rig, &rigCommander::setCurrentRadio);
         connect(rig, &rigCommander::setRadioUsage, m_selRad.get(), &SelectRadioController::setInUse);
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
+        connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
 
 
 
@@ -1267,6 +1268,16 @@ void MainController::startRigConnection()
 
     }
 
+}
+
+void MainController::receiveStatusUpdate(networkStatus status)
+{
+    if (!m_selRad)
+        return;
+
+    m_selRad->audioOutputLevel(status.rxAudioLevel);
+    m_selRad->audioInputLevel(status.txAudioLevel);
+    m_selRad->addTimeDifference(status.timeDifference);
 }
 
 

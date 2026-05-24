@@ -14,6 +14,7 @@
 #include <QSGGeometry>
 #include <QMouseEvent>
 #include <QElapsedTimer>
+#include <atomic>
 
 #include "wfviewtypes.h"
 #include "colorprefs.h"
@@ -215,6 +216,7 @@ private:
 
     bool overflow = false;
     bool outOfRange = false;
+    std::atomic<qint64> scopeUpdateTimeNs{0};
 
 };
 

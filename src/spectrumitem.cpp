@@ -496,6 +496,9 @@ void SpectrumItem::updateScope(const scopeData &data)
     if (!data.valid || data.data.isEmpty())
         return;
 
+    QElapsedTimer timer;
+    timer.start();
+
     const int n = data.data.size();
     if (n <= 1)
         return;
@@ -556,6 +559,7 @@ void SpectrumItem::updateScope(const scopeData &data)
             peaks[i] = mags[i];
     }
 
+    scopeUpdateTimeNs.store(timer.nsecsElapsed(), std::memory_order_relaxed);
     update();
 }
 
@@ -1765,7 +1769,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         dyn->appendChildNode(node);
     }
 
-    emit processingTimeNs(timer.nsecsElapsed());
+    emit processingTimeNs(timer.nsecsElapsed() + scopeUpdateTimeNs.exchange(0, std::memory_order_relaxed));
     return root;
 }
 

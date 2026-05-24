@@ -407,6 +407,14 @@ ApplicationWindow {
                                     MainController.setReceiverDetached(index, true)
                                 }
                             }
+                            function onSpectrumProcessingTime(ms) {
+                                if (index === 0)
+                                    MainController.selectRadio.spectrumTime(ms)
+                            }
+                            function onWaterfallProcessingTime(ms) {
+                                if (index === 0)
+                                    MainController.selectRadio.waterfallTime(ms)
+                            }
                         }
 
                         Connections {

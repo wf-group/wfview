@@ -12,6 +12,7 @@
 #include <QElapsedTimer>
 #include <QPointer>
 #include <QMutex>
+#include <atomic>
 
 #include "wfviewtypes.h"
 
@@ -114,6 +115,8 @@ private:
     int  lutFloor = 0;
     int  lutCeil  = 255;
     void rebuildLut();
+
+    std::atomic<qint64> scopeUpdateTimeNs{0};
 };
 
 #endif // WATERFALLITEM_H
