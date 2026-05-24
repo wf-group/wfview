@@ -1820,6 +1820,49 @@ void SettingsController::emitGroupChange(const Binding& b)
     if (b.notify) b.notify();
 }
 
+void SettingsController::refreshAudioDevices()
+{
+    audioDev = std::make_unique<audioDevices>(prefs.audioSystem, QFontMetrics(QFont()));
+    audioDev->enumerate();
+
+    prefs.rxSetup.type = prefs.audioSystem;
+    prefs.txSetup.type = prefs.audioSystem;
+
+    const int input = audioDev->findInput(QStringLiteral("Client"), prefs.txSetup.name, true);
+    if (input >= 0) {
+        if (prefs.audioSystem == qtAudio)
+            prefs.txSetup.port = audioDev->getInputDeviceInfo(input);
+        else
+            prefs.txSetup.portInt = audioDev->getInputDeviceInt(input);
+        prefs.txSetup.name = audioDev->getInputName(input);
+        updateOptionInMap(QStringLiteral("UDP.TxAudio"), prefs.txSetup.name);
+    } else {
+        prefs.txSetup.port = {};
+        prefs.txSetup.portInt = -1;
+        prefs.txSetup.name.clear();
+        updateOptionInMap(QStringLiteral("UDP.TxAudio"), prefs.txSetup.name);
+        qWarning(logAudio()) << "No valid audio input device found after audio system change";
+    }
+
+    const int output = audioDev->findOutput(QStringLiteral("Client"), prefs.rxSetup.name, true);
+    if (output >= 0) {
+        if (prefs.audioSystem == qtAudio)
+            prefs.rxSetup.port = audioDev->getOutputDeviceInfo(output);
+        else
+            prefs.rxSetup.portInt = audioDev->getOutputDeviceInt(output);
+        prefs.rxSetup.name = audioDev->getOutputName(output);
+        updateOptionInMap(QStringLiteral("UDP.RxAudio"), prefs.rxSetup.name);
+    } else {
+        prefs.rxSetup.port = {};
+        prefs.rxSetup.portInt = -1;
+        prefs.rxSetup.name.clear();
+        updateOptionInMap(QStringLiteral("UDP.RxAudio"), prefs.rxSetup.name);
+        qWarning(logAudio()) << "No valid audio output device found after audio system change";
+    }
+
+    buildUiSpecs();
+}
+
 
 void SettingsController::updateOptionInMap(const QString& iniKey, const QVariant& v)
 {
@@ -2119,7 +2162,10 @@ void SettingsController::buildBindings()
           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_localAFgain)); });
 
     WF_ENUM_I32("Radio.AudioSystem", prefs.audioSystem, audioType,
-                [this](){ emit raChanged(prefRaItems(prefRaItem::ra_audioSystem)); });
+                [this](){
+                    refreshAudioDevices();
+                    emit raChanged(prefRaItems(prefRaItem::ra_audioSystem));
+                });
 
     // -------------------------
     // Interface group (IF) - common ones

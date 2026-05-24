@@ -919,6 +919,18 @@ Control {
             clip: true
             visible: slide > 0.5
 
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: (event) => {
+                    const maxY = Math.max(0, sideFlick.contentHeight - sideFlick.height)
+                    if (maxY > 0) {
+                        const delta = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 3
+                        sideFlick.contentY = Math.max(0, Math.min(maxY, sideFlick.contentY - delta))
+                    }
+                    event.accepted = true
+                }
+            }
+
             Rectangle {
                 anchors.fill: parent
                 z: -1

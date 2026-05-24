@@ -81,6 +81,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
     connect(m_settings.get(), &SettingsController::ctChanged, this, &MainController::ctChanged);
+    connect(m_settings.get(), &SettingsController::raChanged, this, &MainController::raChanged);
+    connect(m_settings.get(), &SettingsController::lanChanged, this, &MainController::lanChanged);
     connect(m_settings.get(), &SettingsController::clusterChanged, this, &MainController::clusterChanged);
     connect(m_settings.get(), &SettingsController::audioProcChanged, this, &MainController::applyAudioProcessingSettings);
     queue->interval(cmdStartupInterval_ms);
@@ -91,6 +93,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 #endif
 
     ensureAudioProcessors();
+    setupTciServer();
     setupClusterClient();
     startRigConnection();
 
@@ -1117,6 +1120,8 @@ void MainController::shutdown()
         rigThread = nullptr;
     }
 
+    stopTciServer();
+
     if (settings)
     {
         delete settings;
@@ -1142,6 +1147,82 @@ void MainController::ctChanged(SettingsController::prefCtItems items)
 #else
     Q_UNUSED(items)
 #endif
+}
+
+void MainController::lanChanged(SettingsController::prefLanItems items)
+{
+    if (items.testFlag(prefLanItem::l_tciPort)) {
+        stopTciServer();
+        setupTciServer();
+    }
+}
+
+void MainController::raChanged(prefRaItems items)
+{
+    if (!prefs)
+        return;
+
+    if (items.testFlag(prefRaItem::ra_audioSystem)) {
+        prefs->rxSetup.type = prefs->audioSystem;
+        prefs->txSetup.type = prefs->audioSystem;
+
+        if (prefs->audioSystem == tciAudio) {
+            setupTciServer();
+            prefs->rxSetup.tci = tci;
+            prefs->txSetup.tci = tci;
+            if (!tci)
+                qWarning(logAudio()) << "TCI Audio selected but the TCI server is disabled";
+        } else {
+            prefs->rxSetup.tci = nullptr;
+            prefs->txSetup.tci = nullptr;
+        }
+    }
+}
+
+void MainController::setupTciServer()
+{
+    if (!prefs)
+        return;
+
+    if (prefs->tciPort == 0) {
+        stopTciServer();
+        prefs->rxSetup.tci = nullptr;
+        prefs->txSetup.tci = nullptr;
+        return;
+    }
+
+    if (tci != nullptr) {
+        if (prefs->audioSystem == tciAudio) {
+            prefs->rxSetup.tci = tci;
+            prefs->txSetup.tci = tci;
+        }
+        return;
+    }
+
+    tci = new tciServer();
+    tciThread = new QThread(this);
+    tciThread->setObjectName("TCIServer()");
+    tci->moveToThread(tciThread);
+    connect(queue, &cachingQueue::rigCapsUpdated, tci, &tciServer::receiveRigCaps);
+    connect(tciThread, &QThread::finished, tci, &QObject::deleteLater);
+    tciThread->start(QThread::TimeCriticalPriority);
+    QMetaObject::invokeMethod(tci, "init", Qt::QueuedConnection, Q_ARG(quint16, prefs->tciPort));
+
+    if (prefs->audioSystem == tciAudio) {
+        prefs->rxSetup.tci = tci;
+        prefs->txSetup.tci = tci;
+    }
+}
+
+void MainController::stopTciServer()
+{
+    if (!tciThread)
+        return;
+
+    tciThread->quit();
+    tciThread->wait();
+    tci = nullptr;
+    tciThread = nullptr;
 }
 
 void MainController::setupClusterClient()

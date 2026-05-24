@@ -315,10 +315,10 @@ private slots:
 
     void ifChanged(prefIfItems items);
     void colChanged(prefColItems items);
+    void lanChanged(SettingsController::prefLanItems items);
     //void rsChanged(prefRsItems items);
-    //void raChanged(prefRaItems items);
+    void raChanged(prefRaItems items);
     //void ctChanged(prefCtItems items);
-    //void lanChanged(prefLanItems items);
     //void clusterChanged(prefClusterItems items);
     //void udpChanged(prefUDPItems items);
     //void serverChanged(prefServerItems items);
@@ -359,6 +359,8 @@ private:
     void applyClusterSettingsToClient(bool includeTcpEnable);
     void appendClusterOutput(const QString& text);
     void receiveClusterSpots(quint8 receiver, const QList<spotData> &spots);
+    void setupTciServer();
+    void stopTciServer();
 
 
     QString windowTitle = "wfview";

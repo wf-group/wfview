@@ -1944,7 +1944,7 @@ ApplicationWindow {
                                 validator: IntValidator { bottom: 0; top: 65535 }
                                 onEditingFinished: commitIntegerOption("LAN.TCIPort", tciServerPortTxt, 0, 65535)
                             }
-                            Label { text: qsTr("Enter port for TCI server 0 = disabled (restart required if changed)") }
+                            Label { text: qsTr("Enter port for TCI server, 0 = disabled") }
                             Item { Layout.fillWidth: true }
                         }
 
