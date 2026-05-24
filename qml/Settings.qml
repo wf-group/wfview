@@ -1613,12 +1613,46 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
                                     Label { text: qsTr("RX Audio Input") }
-                                    ComboBox { id: serverRXAudioInputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio input selection needs a QML model.") }
+                                    ComboBox {
+                                        id: serverRXAudioInputCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
+                                        model: spec ? spec["model"] : []
+                                        textRole: spec ? spec["textRole"] : "text"
+                                        valueRole: spec ? spec["valueRole"] : "value"
+                                        currentIndex: controller ? indexFromValue(serverRXAudioInputCombo, controller.options["Server.AudioInput"]) : -1
+                                        enabled: window.connStatus !== 2
+                                        Layout.preferredWidth: 160
+                                        onActivated: if (controller) controller.setOption("Server.AudioInput", currentValue)
+                                    }
                                     Label { text: qsTr("TX Audio Output") }
-                                    ComboBox { id: serverTXAudioOutputCombo; model: []; enabled: false; Layout.preferredWidth: 160; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio output selection needs a QML model.") }
+                                    ComboBox {
+                                        id: serverTXAudioOutputCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
+                                        model: spec ? spec["model"] : []
+                                        textRole: spec ? spec["textRole"] : "text"
+                                        valueRole: spec ? spec["valueRole"] : "value"
+                                        currentIndex: controller ? indexFromValue(serverTXAudioOutputCombo, controller.options["Server.AudioOutput"]) : -1
+                                        enabled: window.connStatus !== 2
+                                        Layout.preferredWidth: 160
+                                        onActivated: if (controller) controller.setOption("Server.AudioOutput", currentValue)
+                                    }
                                     Item { width: 20 }
                                     Label { text: qsTr("Audio System") }
-                                    ComboBox { id: audioSystemServerCombo; model: [qsTr("Qt Audio"), qsTr("PortAudio"), qsTr("RT Audio")]; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Server audio system selection is not wired yet.") }
+                                    ComboBox {
+                                        id: audioSystemServerCombo
+                                        model: [
+                                            { text: qsTr("Qt Audio"), value: 0 },
+                                            { text: qsTr("PortAudio"), value: 1 },
+                                            { text: qsTr("RT Audio"), value: 2 }
+                                        ]
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        currentIndex: controller ? indexFromValue(audioSystemServerCombo, controller.options["Radio.AudioSystem"]) : -1
+                                        enabled: window.connStatus !== 2
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Server uses the global audio system setting.")
+                                        onActivated: if (controller) controller.setOption("Radio.AudioSystem", currentValue)
+                                    }
                                     Item { Layout.fillWidth: true }
                                 }
 
@@ -1626,29 +1660,133 @@ ApplicationWindow {
                                 GroupBox {
                                     title: qsTr("Users")
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 220
+                                    Layout.preferredHeight: 260
 
-                                    ListView {
-                                        id: serverUsersTable
+                                    Item {
+                                        id: serverUsersRoot
                                         anchors.fill: parent
-                                        clip: true
+                                        readonly property var usersModel: controller ? controller.serverUsersModel : null
+                                        property int currentRow: -1
+                                        readonly property int wUser: 180
+                                        readonly property int wPass: 180
+                                        readonly property int wType: 180
+                                        readonly property int rowH: 34
+                                        readonly property int pad: 6
 
-                                        model: ListModel {
-                                            // ListElement { username: "user"; password: "pass"; admin: "no" }
-                                        }
-
-                                        delegate: Rectangle {
-                                            width: serverUsersTable.width
-                                            implicitHeight: 28
-                                            border.width: 1
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            spacing: 8
 
                                             RowLayout {
-                                                anchors.fill: parent
-                                                spacing: 8
+                                                Layout.fillWidth: true
+                                                Button {
+                                                    text: qsTr("Add")
+                                                    enabled: serverUsersRoot.usersModel !== null
+                                                    onClicked: serverUsersRoot.usersModel.addEntry("", "", 1)
+                                                }
+                                                Button {
+                                                    text: qsTr("Remove")
+                                                    enabled: serverUsersRoot.usersModel !== null && serverUsersRoot.currentRow >= 0
+                                                    onClicked: {
+                                                        serverUsersRoot.usersModel.removeEntry(serverUsersRoot.currentRow)
+                                                        serverUsersRoot.currentRow = -1
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                            }
 
-                                                Label { Layout.preferredWidth: 140; text: username }   // ListModel roles are direct
-                                                Label { Layout.preferredWidth: 140; text: password }
-                                                Label { Layout.preferredWidth: 140; text: admin }
+                                            Rectangle {
+                                                Layout.fillWidth: true
+                                                height: serverUsersRoot.rowH
+                                                color: palette.mid
+                                                border.color: palette.dark
+
+                                                Row {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: serverUsersRoot.pad
+                                                    anchors.rightMargin: serverUsersRoot.pad
+                                                    spacing: serverUsersRoot.pad
+
+                                                    Label { width: serverUsersRoot.wUser; height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Username"); font.bold: true }
+                                                    Label { width: serverUsersRoot.wPass; height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Password"); font.bold: true }
+                                                    Label { width: serverUsersRoot.wType; height: parent.height; verticalAlignment: Text.AlignVCenter; text: qsTr("Access"); font.bold: true }
+                                                }
+                                            }
+
+                                            ScrollView {
+                                                Layout.fillWidth: true
+                                                Layout.fillHeight: true
+                                                clip: true
+
+                                                contentItem: ListView {
+                                                    id: serverUsersTable
+                                                    width: parent.width
+                                                    model: serverUsersRoot.usersModel
+                                                    clip: true
+                                                    boundsBehavior: Flickable.StopAtBounds
+
+                                                    delegate: Rectangle {
+                                                        width: serverUsersTable.width
+                                                        height: serverUsersRoot.rowH
+                                                        color: (index === serverUsersRoot.currentRow) ? palette.highlight : ((index % 2) ? palette.alternateBase : palette.base)
+                                                        border.color: palette.mid
+
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            onClicked: serverUsersRoot.currentRow = index
+                                                        }
+
+                                                        Row {
+                                                            anchors.fill: parent
+                                                            anchors.leftMargin: serverUsersRoot.pad
+                                                            anchors.rightMargin: serverUsersRoot.pad
+                                                            spacing: serverUsersRoot.pad
+
+                                                            TextField {
+                                                                width: serverUsersRoot.wUser
+                                                                height: parent.height - 6
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                                text: model.username
+                                                                selectByMouse: true
+                                                                onPressed: serverUsersRoot.currentRow = index
+                                                                onActiveFocusChanged: if (activeFocus) serverUsersRoot.currentRow = index
+                                                                onEditingFinished: serverUsersRoot.usersModel.setRoleValue(index, serverUsersRoot.usersModel.UsernameRole, text)
+                                                            }
+
+                                                            TextField {
+                                                                width: serverUsersRoot.wPass
+                                                                height: parent.height - 6
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                                echoMode: TextInput.PasswordEchoOnEdit
+                                                                text: model.password
+                                                                selectByMouse: true
+                                                                onPressed: serverUsersRoot.currentRow = index
+                                                                onActiveFocusChanged: if (activeFocus) serverUsersRoot.currentRow = index
+                                                                onEditingFinished: serverUsersRoot.usersModel.setRoleValue(index, serverUsersRoot.usersModel.PasswordRole, text)
+                                                            }
+
+                                                            ComboBox {
+                                                                id: serverUserTypeCombo
+                                                                width: serverUsersRoot.wType
+                                                                height: parent.height - 6
+                                                                anchors.verticalCenter: parent.verticalCenter
+                                                                textRole: "text"
+                                                                valueRole: "value"
+                                                                model: [
+                                                                    { text: qsTr("Admin User"), value: 0 },
+                                                                    { text: qsTr("Normal User"), value: 1 },
+                                                                    { text: qsTr("Normal with no TX"), value: 2 }
+                                                                ]
+                                                                currentIndex: indexFromValue(serverUserTypeCombo, userType)
+                                                                onActiveFocusChanged: if (activeFocus) serverUsersRoot.currentRow = index
+                                                                onActivated: {
+                                                                    serverUsersRoot.currentRow = index
+                                                                    serverUsersRoot.usersModel.setRoleValue(index, serverUsersRoot.usersModel.UserTypeRole, currentValue)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1818,10 +1956,17 @@ ApplicationWindow {
                             label: CheckBox {
                                 id: clusterTcpEnable
                                 text: qsTr("TCP Cluster Connection")
-                                checked: true
+                                checked: controller ? Boolean(controller.options["Cluster.TcpEnabled"]) : false
+                                onClicked: {
+                                    if (!controller)
+                                        return
+                                    var row = root.currentRow >= 0 ? root.currentRow : root.clusterModel.defaultRow()
+                                    if (row >= 0)
+                                        controller.selectClusterRow(row)
+                                    controller.setOption("Cluster.TcpEnabled", checked)
+                                }
                             }
 
-                            enabled: clusterTcpEnable.checked
                             ColumnLayout {
                                 anchors.fill: parent
                                 spacing: 12
@@ -1855,7 +2000,10 @@ ApplicationWindow {
                                             Button {
                                                 text: qsTr("Add")
                                                 enabled: root.clusterModel !== null
-                                                onClicked: root.clusterModel.addEntry("localhost", 7300, "", "", 30, false)
+                                                onClicked: {
+                                                    root.clusterModel.addEntry("localhost", 7300, "", "", 30, false)
+                                                    root.currentRow = root.clusterModel.count() - 1
+                                                }
                                             }
                                             Button {
                                                 text: qsTr("Remove")
@@ -1864,6 +2012,22 @@ ApplicationWindow {
                                                     root.clusterModel.removeEntry(root.currentRow)
                                                     root.currentRow = -1
                                                 }
+                                            }
+                                            Button {
+                                                text: qsTr("Connect")
+                                                enabled: root.clusterModel !== null && root.clusterModel.count() > 0
+                                                onClicked: {
+                                                    var row = root.currentRow >= 0 ? root.currentRow : root.clusterModel.defaultRow()
+                                                    if (row >= 0) {
+                                                        root.currentRow = row
+                                                        controller.selectClusterRow(row)
+                                                        MainController.connectCluster()
+                                                    }
+                                                }
+                                            }
+                                            Button {
+                                                text: qsTr("Disconnect")
+                                                onClicked: MainController.disconnectCluster()
                                             }
                                             Item { Layout.fillWidth: true }
                                         }
@@ -2010,23 +2174,56 @@ ApplicationWindow {
                             label: CheckBox {
                                     id: clusterUdpEnable
                                     text: qsTr("UDP Broadcast Connection")
-                                    checked: true
+                                    checked: controller ? Boolean(controller.options["Cluster.UdpEnabled"]) : false
+                                    onClicked: if (controller) controller.setOption("Cluster.UdpEnabled", checked)
                                 }
 
 
                             RowLayout {
                                 spacing: 8
                                 Label { text: qsTr("UDP Port") }
-                                TextField { id: clusterUdpPortLineEdit; inputMask: "00000"; Layout.preferredWidth: 120 }
+                                TextField {
+                                    id: clusterUdpPortLineEdit
+                                    text: controller ? String(controller.options["Cluster.UdpPort"]) : ""
+                                    inputMask: "00000"
+                                    Layout.preferredWidth: 120
+                                    onEditingFinished: if (controller) controller.setOption("Cluster.UdpPort", Number(text))
+                                }
                                 Item { Layout.fillWidth: true }
                             }
                         }
 
-                        TextArea {
-                            id: clusterOutputTextEdit
+                        ScrollView {
+                            id: clusterOutputScroll
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            wrapMode: TextArea.Wrap
+                            Layout.preferredHeight: 160
+                            Layout.minimumHeight: 120
+                            Layout.maximumHeight: 180
+                            clip: true
+                            ScrollBar.horizontal.policy: ScrollBar.AsNeeded
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                            TextArea {
+                                id: clusterOutputTextEdit
+                                width: clusterOutputScroll.availableWidth
+                                height: clusterOutputScroll.availableHeight
+                                text: MainController.clusterOutputText
+                                readOnly: true
+                                selectByMouse: true
+                                wrapMode: TextArea.Wrap
+                                persistentSelection: true
+                                background: Rectangle {
+                                    color: palette.base
+                                    border.color: palette.mid
+                                }
+                            }
+                        }
+
+                        Connections {
+                            target: MainController
+                            function onClusterOutputTextChanged() {
+                                clusterOutputTextEdit.cursorPosition = clusterOutputTextEdit.text.length
+                            }
                         }
 
                         RowLayout {
@@ -2036,6 +2233,10 @@ ApplicationWindow {
                                 text: qsTr("Show Skimmer Spots")
                                 checked: controller ? Boolean(controller.options["Cluster.SkimmerSpotsEnable"]) : false
                                 onClicked: if (controller) controller.setOption("Cluster.SkimmerSpotsEnable", checked)
+                            }
+                            Button {
+                                text: qsTr("Clear Output")
+                                onClicked: MainController.clearClusterOutput()
                             }
                             Item { Layout.fillWidth: true }
                         }

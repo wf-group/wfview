@@ -119,43 +119,66 @@ ApplicationWindow {
         id: loggingWindow
     }
 
-    Dialog {
+    Window {
         id: unsavedSettingsDialog
         title: qsTr("Unsaved settings")
-        modal: true
-        focus: true
-        anchors.centerIn: parent
-        closePolicy: Popup.NoAutoClose
-        standardButtons: Dialog.NoButton
+        width: 420
+        height: 150
+        minimumWidth: 420
+        minimumHeight: 150
+        maximumWidth: 420
+        maximumHeight: 150
+        visible: false
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog
+        transientParent: win
+        color: win.palette.window
 
-        contentItem: Label {
-            text: qsTr("Settings have changed since the last save.")
-            color: win.palette.windowText
-            wrapMode: Text.WordWrap
-            width: 360
+        function open() {
+            visible = true
+            raise()
+            requestActivate()
         }
 
-        footer: DialogButtonBox {
-            Button {
-                text: qsTr("Save")
-                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-                onClicked: {
-                    unsavedSettingsDialog.close()
-                    win.finishQuit(true)
-                }
+        onClosing: function(close) {
+            close.accepted = false
+            visible = false
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 16
+
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Settings have changed since the last save.")
+                color: win.palette.windowText
+                wrapMode: Text.WordWrap
             }
-            Button {
-                text: qsTr("Discard")
-                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
-                onClicked: {
-                    unsavedSettingsDialog.close()
-                    win.finishQuit(false)
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 8
+
+                Button {
+                    text: qsTr("Save")
+                    onClicked: {
+                        unsavedSettingsDialog.visible = false
+                        win.finishQuit(true)
+                    }
                 }
-            }
-            Button {
-                text: qsTr("Cancel")
-                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-                onClicked: unsavedSettingsDialog.close()
+                Button {
+                    text: qsTr("Discard")
+                    onClicked: {
+                        unsavedSettingsDialog.visible = false
+                        win.finishQuit(false)
+                    }
+                }
+                Button {
+                    text: qsTr("Cancel")
+                    onClicked: unsavedSettingsDialog.visible = false
+                }
             }
         }
     }

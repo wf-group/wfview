@@ -62,6 +62,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(m_settings.get(), &SettingsController::colChanged, this, &MainController::colChanged);
     connect(m_settings.get(), &SettingsController::ifChanged, this, &MainController::ifChanged);
     connect(m_settings.get(), &SettingsController::ctChanged, this, &MainController::ctChanged);
+    connect(m_settings.get(), &SettingsController::clusterChanged, this, &MainController::clusterChanged);
     connect(m_settings.get(), &SettingsController::audioProcChanged, this, &MainController::applyAudioProcessingSettings);
     queue->interval(cmdStartupInterval_ms);
 
@@ -71,6 +72,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 #endif
 
     ensureAudioProcessors();
+    setupClusterClient();
     startRigConnection();
 
 }
@@ -1029,6 +1031,7 @@ void MainController::shutdown()
 #if defined(USB_CONTROLLER)
     stopUsbControllerDevice();
 #endif
+    stopClusterClient();
 
     if (connStatus != connectionStatus_t::connDisconnected)
     {
@@ -1072,6 +1075,138 @@ void MainController::ctChanged(SettingsController::prefCtItems items)
 #else
     Q_UNUSED(items)
 #endif
+}
+
+void MainController::setupClusterClient()
+{
+    if (cluster || clusterThread)
+        return;
+
+    cluster = new dxClusterClient();
+    clusterThread = new QThread(this);
+    clusterThread->setObjectName("dxClusterClient()");
+    cluster->moveToThread(clusterThread);
+    connect(clusterThread, &QThread::finished, cluster, &QObject::deleteLater);
+    connect(cluster, &dxClusterClient::sendOutput, this, &MainController::appendClusterOutput);
+    connect(cluster, &dxClusterClient::sendSpots, this, &MainController::receiveClusterSpots);
+    clusterThread->start();
+
+    applyClusterSettingsToClient(true);
+}
+
+void MainController::stopClusterClient()
+{
+    if (!clusterThread)
+        return;
+
+    if (cluster) {
+        QMetaObject::invokeMethod(cluster, "enableTcp", Qt::BlockingQueuedConnection, Q_ARG(bool, false));
+        QMetaObject::invokeMethod(cluster, "enableUdp", Qt::BlockingQueuedConnection, Q_ARG(bool, false));
+    }
+
+    clusterThread->quit();
+    clusterThread->wait();
+    cluster = nullptr;
+    clusterThread = nullptr;
+}
+
+void MainController::applyClusterSettingsToClient(bool includeTcpEnable)
+{
+    if (!cluster)
+        return;
+
+    QMetaObject::invokeMethod(cluster, "setUdpPort", Qt::QueuedConnection, Q_ARG(int, prefs->clusterUdpPort));
+    QMetaObject::invokeMethod(cluster, "enableUdp", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterUdpEnable));
+    QMetaObject::invokeMethod(cluster, "setTcpServerName", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpServerName));
+    QMetaObject::invokeMethod(cluster, "setTcpUserName", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpUserName));
+    QMetaObject::invokeMethod(cluster, "setTcpPassword", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpPassword));
+    QMetaObject::invokeMethod(cluster, "setTcpPort", Qt::QueuedConnection, Q_ARG(int, prefs->clusterTcpPort));
+    QMetaObject::invokeMethod(cluster, "setTcpTimeout", Qt::QueuedConnection, Q_ARG(int, prefs->clusterTimeout));
+    QMetaObject::invokeMethod(cluster, "enableSkimmerSpots", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterSkimmerSpotsEnable));
+    if (includeTcpEnable)
+        QMetaObject::invokeMethod(cluster, "enableTcp", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterTcpEnable));
+}
+
+void MainController::clusterChanged(SettingsController::prefClusterItems items)
+{
+    if (!cluster)
+        return;
+
+    if (items.testFlag(prefClusterItem::cl_clusterUdpPort))
+        QMetaObject::invokeMethod(cluster, "setUdpPort", Qt::QueuedConnection, Q_ARG(int, prefs->clusterUdpPort));
+    if (items.testFlag(prefClusterItem::cl_clusterUdpEnable))
+        QMetaObject::invokeMethod(cluster, "enableUdp", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterUdpEnable));
+    if (items.testFlag(prefClusterItem::cl_clusterTcpServerName))
+        QMetaObject::invokeMethod(cluster, "setTcpServerName", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpServerName));
+    if (items.testFlag(prefClusterItem::cl_clusterTcpUserName))
+        QMetaObject::invokeMethod(cluster, "setTcpUserName", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpUserName));
+    if (items.testFlag(prefClusterItem::cl_clusterTcpPassword))
+        QMetaObject::invokeMethod(cluster, "setTcpPassword", Qt::QueuedConnection, Q_ARG(QString, prefs->clusterTcpPassword));
+    if (items.testFlag(prefClusterItem::cl_clusterTcpPort))
+        QMetaObject::invokeMethod(cluster, "setTcpPort", Qt::QueuedConnection, Q_ARG(int, prefs->clusterTcpPort));
+    if (items.testFlag(prefClusterItem::cl_clusterTimeout))
+        QMetaObject::invokeMethod(cluster, "setTcpTimeout", Qt::QueuedConnection, Q_ARG(int, prefs->clusterTimeout));
+    if (items.testFlag(prefClusterItem::cl_clusterSkimmerSpotsEnable))
+        QMetaObject::invokeMethod(cluster, "enableSkimmerSpots", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterSkimmerSpotsEnable));
+    if (items.testFlag(prefClusterItem::cl_clusterTcpEnable)) {
+        if (prefs->clusterTcpEnable)
+            applyClusterSettingsToClient(false);
+        QMetaObject::invokeMethod(cluster, "enableTcp", Qt::QueuedConnection, Q_ARG(bool, prefs->clusterTcpEnable));
+    }
+}
+
+void MainController::connectCluster()
+{
+    if (!cluster)
+        setupClusterClient();
+
+    if (prefs->clusterTcpServerName.trimmed().isEmpty()) {
+        appendClusterOutput(tr("\nNo TCP cluster server is selected.\n"));
+        return;
+    }
+
+    applyClusterSettingsToClient(false);
+    QMetaObject::invokeMethod(cluster, "enableTcp", Qt::QueuedConnection, Q_ARG(bool, false));
+    QMetaObject::invokeMethod(cluster, "enableTcp", Qt::QueuedConnection, Q_ARG(bool, true));
+}
+
+void MainController::disconnectCluster()
+{
+    if (cluster)
+        QMetaObject::invokeMethod(cluster, "enableTcp", Qt::QueuedConnection, Q_ARG(bool, false));
+}
+
+void MainController::clearClusterOutput()
+{
+    if (m_clusterOutputText.isEmpty())
+        return;
+
+    m_clusterOutputText.clear();
+    emit clusterOutputTextChanged();
+}
+
+void MainController::appendClusterOutput(const QString& text)
+{
+    if (text.isEmpty())
+        return;
+
+    m_clusterOutputText.append(text);
+    constexpr qsizetype maxChars = 12000;
+    if (m_clusterOutputText.size() > maxChars) {
+        m_clusterOutputText = m_clusterOutputText.right(maxChars);
+        const qsizetype firstNewline = m_clusterOutputText.indexOf(QLatin1Char('\n'));
+        if (firstNewline > 0 && firstNewline + 1 < m_clusterOutputText.size())
+            m_clusterOutputText.remove(0, firstNewline + 1);
+    }
+    emit clusterOutputTextChanged();
+}
+
+void MainController::receiveClusterSpots(quint8 receiver, const QList<spotData> &spots)
+{
+    if (receiver >= receivers.size() || receivers[receiver] == nullptr)
+        return;
+
+    receivers[receiver]->setClusterSpots(spots);
 }
 
 #if defined(USB_CONTROLLER)
@@ -1747,6 +1882,15 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             rc->setColors(m_settings->getCurrentColorPreset());
             connect(rc, &ReceiverController::dataModeChanged, this, [this, i]() {
                 handleDataModeChanged(i);
+            });
+            connect(rc, &ReceiverController::scopeUpdated, this, [this, i](const scopeData &scope) {
+                if (!cluster || !scope.valid || scope.endFreq <= scope.startFreq)
+                    return;
+
+                QMetaObject::invokeMethod(cluster, "freqRange", Qt::QueuedConnection,
+                                          Q_ARG(quint8, quint8(i)),
+                                          Q_ARG(double, scope.startFreq),
+                                          Q_ARG(double, scope.endFreq));
             });
 
             if (i == 0) {

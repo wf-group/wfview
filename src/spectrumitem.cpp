@@ -19,6 +19,7 @@ void SpectrumItem::setColors(const colorPrefsType &c)
     qInfo() << "Setting new color preset to spectrum" << c.presetNum << c.presetName;
     colors = c;
     emit colorsChanged();
+    update();
 }
 
 // grid/scale configuration
@@ -1523,7 +1524,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         const float axisHeight = float(axis);  // or 0.0f if you don't use axis
         const float plotHeight = itemHeight - axisHeight;
 
-        int fontPx = int(qBound(8.0, plotHeight * 0.08, 16.0));
+        int fontPx = int(qBound(9.0, plotHeight * 0.075, 15.0));
         int rows   = qMax(1, maxSpotRows);
 
         QFont font;
@@ -1532,10 +1533,12 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
         QFontMetricsF fm(font);
         const int textHeight   = int(std::ceil(fm.height()));
-        const int marginTop    = 2;
-        const int verticalPad  = 4;
-        const int rowHeight    = textHeight + verticalPad;
-        const int overlayHeight = marginTop + rows * rowHeight;
+        const int marginTop    = 4;
+        const int labelPadX    = 5;
+        const int labelPadY    = 2;
+        const int rowHeight    = textHeight + labelPadY * 2 + 3;
+        const int leaderHeight = 9;
+        const int overlayHeight = marginTop + rows * rowHeight + leaderHeight;
 
         if (overlayHeight > 0) {
 
@@ -1548,8 +1551,13 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             painter.setRenderHint(QPainter::TextAntialiasing, true);
             painter.setFont(font);
 
-            QColor baseTextColor(255, 255, 255);
-            QColor baseOutlineColor(0, 0, 0, 200);
+            QColor baseTextColor = colors.clusterSpots.isValid() ? colors.clusterSpots : QColor(Qt::red);
+            QColor baseOutlineColor = colors.plotBackground.isValid() ? colors.plotBackground : QColor(Qt::black);
+            QColor baseBackColor = baseOutlineColor;
+            if (baseTextColor.alpha() <= 0)
+                baseTextColor = QColor(Qt::red);
+            baseOutlineColor.setAlpha(220);
+            baseBackColor.setAlpha(150);
 
             QVector<QVector<QPair<float, float>>> rowRanges(rows);
             spotLayouts.reserve(spots.size());
@@ -1598,7 +1606,8 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
                 if (textWidth <= 0.0f)
                     return;
 
-                float halfWidth = textWidth * 0.5f;
+                const float labelWidth = textWidth + labelPadX * 2;
+                float halfWidth = labelWidth * 0.5f;
                 float left  = x - halfWidth;
                 float right = x + halfWidth;
 
@@ -1612,12 +1621,16 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
                     right -= excess;
                     if (left < 0.0f) left = 0.0f;
                 }
+                left = qMax(0.0f, left);
+                left = qMin(left, qMax(0.0f, itemWidth - labelWidth));
+                right = qMin(itemWidth, left + labelWidth);
 
                 int chosenRow = -1;
+                const float collisionGap = 3.0f;
                 for (int r = 0; r < rows && chosenRow < 0; ++r) {
                     bool overlaps = false;
                     for (const auto &range : rowRanges[r]) {
-                        if (!(right < range.first || left > range.second)) {
+                        if (!(right + collisionGap < range.first || left - collisionGap > range.second)) {
                             overlaps = true;
                             break;
                         }
@@ -1632,11 +1645,11 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
                 rowRanges[chosenRow].append(qMakePair(left, right));
 
                 float y = float(marginTop + chosenRow * rowHeight);
-                QRectF rect(left, y, textWidth, textHeight);
+                QRectF labelRect(left, y, right - left, rowHeight - 2);
+                QRectF textRect = labelRect.adjusted(labelPadX, labelPadY, -labelPadX, -labelPadY);
 
-                // record this for hover hit-testing (item coords == overlay coords)
                 SpotLayout layout;
-                layout.rect = rect;
+                layout.rect = labelRect;
                 layout.spot = s;
                 spotLayouts.push_back(layout);
 
@@ -1649,29 +1662,40 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
                 textColor.setAlpha(textAlpha);
                 outlineColor.setAlpha(outlineAlpha);
+                QColor backColor = baseBackColor;
+                backColor.setAlpha(int(baseBackColor.alpha() * alphaFactor + 0.5));
 
                 if (textAlpha <= 0 && outlineAlpha <= 0)
                     return;
 
-                // outline
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(backColor);
+                painter.drawRoundedRect(labelRect, 3.0, 3.0);
+
+                painter.setPen(QPen(outlineColor, 1.0));
+                painter.drawLine(QPointF(x, labelRect.bottom()),
+                                 QPointF(x, float(overlayHeight)));
+
                 painter.setPen(outlineColor);
                 for (int dx = -1; dx <= 1; ++dx) {
                     for (int dy = -1; dy <= 1; ++dy) {
                         if (!dx && !dy) continue;
-                        painter.drawText(rect.translated(dx, dy),
+                        painter.drawText(textRect.translated(dx, dy),
                                          Qt::AlignCenter,
                                          label);
                     }
                 }
 
                 painter.setPen(textColor);
-                painter.drawText(rect, Qt::AlignCenter, label);
+                painter.drawText(textRect, Qt::AlignCenter, label);
             };
 
             QVector<spotData> sorted = spots;
             std::sort(sorted.begin(), sorted.end(),
                       [](const spotData &a, const spotData &b) {
-                          return a.frequency < b.frequency;
+                          if (!qFuzzyCompare(a.frequency, b.frequency))
+                              return a.frequency < b.frequency;
+                          return a.timestamp > b.timestamp;
                       });
 
             for (const spotData &s : sorted)
@@ -1805,6 +1829,9 @@ void SpectrumItem::setController(QObject *c)
         connect(rx, &ReceiverController::scopeUpdated,
                 this, &SpectrumItem::updateScope,
                 Qt::DirectConnection);          // same thread (GUI)
+        connect(rx, &ReceiverController::clusterSpotsUpdated,
+                this, &SpectrumItem::setSpots,
+                Qt::DirectConnection);
     }
 
     emit controllerChanged();

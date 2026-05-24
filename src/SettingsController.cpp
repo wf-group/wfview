@@ -1,6 +1,7 @@
 #include "SettingsController.h"
 #include "logcategories.h"
 #include "waterfallitem.h" // To get the theme
+#include <utility>
 
 
 static inline QVariant qColorToVariant(const QColor& c) {
@@ -46,6 +47,7 @@ SettingsController::SettingsController(QString file, QObject *p) :
 
     m_options = new QQmlPropertyMap(this);
     m_clusterModel = std::make_unique<ClusterSettingsModel>();
+    m_serverUsersModel = std::make_unique<ServerUsersModel>();
 
 
     setDefPrefs();
@@ -57,6 +59,20 @@ SettingsController::SettingsController(QString file, QObject *p) :
     seedOptionsFromBindings();
 
     m_clusterModel->setFromList(prefs.clusters);
+    prefs.clusters = m_clusterModel->toList();
+    updateDefaultClusterPrefs();
+    m_serverUsersModel->setFromList(serverConfig.users);
+    connect(m_clusterModel.get(), &ClusterSettingsModel::modified, this, [this]() {
+        prefs.clusters = m_clusterModel->toList();
+        updateDefaultClusterPrefs();
+        markDirty();
+        emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpServerName) |
+                            prefClusterItems(prefClusterItem::cl_clusterTcpUserName) |
+                            prefClusterItems(prefClusterItem::cl_clusterTcpPassword) |
+                            prefClusterItems(prefClusterItem::cl_clusterTcpPort) |
+                            prefClusterItems(prefClusterItem::cl_clusterTimeout));
+    });
+    connect(m_serverUsersModel.get(), &ServerUsersModel::modified, this, &SettingsController::markDirty);
 }
 
 void SettingsController::buildUiSpecs()
@@ -820,6 +836,8 @@ void SettingsController::save()
     // Basic things to load:
 
     prefs.clusters = m_clusterModel->toList();
+    updateDefaultClusterPrefs();
+    serverConfig.users = m_serverUsersModel->toList();
 
     QString versionstr = QString(WFVIEW_VERSION);
     QString majorVersion = "-1";
@@ -1585,6 +1603,26 @@ void SettingsController::markDirty()
     }
 }
 
+void SettingsController::updateDefaultClusterPrefs()
+{
+    for (const auto &cluster : std::as_const(prefs.clusters)) {
+        if (!cluster.isdefault)
+            continue;
+
+        prefs.clusterTcpServerName = cluster.server;
+        prefs.clusterTcpUserName = cluster.userName;
+        prefs.clusterTcpPassword = cluster.password;
+        prefs.clusterTcpPort = cluster.port;
+        prefs.clusterTimeout = cluster.timeout;
+        updateOptionInMap("Cluster.TcpServerName", prefs.clusterTcpServerName);
+        updateOptionInMap("Cluster.TcpUserName", prefs.clusterTcpUserName);
+        updateOptionInMap("Cluster.TcpPassword", prefs.clusterTcpPassword);
+        updateOptionInMap("Cluster.TcpPort", prefs.clusterTcpPort);
+        updateOptionInMap("Cluster.Timeout", prefs.clusterTimeout);
+        return;
+    }
+}
+
 void SettingsController::emitGroupChange(const Binding& b)
 {
     if (b.notify) b.notify();
@@ -1675,6 +1713,23 @@ QVariant SettingsController::option(const QString& key) const
     const QVariant v = it.value().get();
     qWarning() << "option:" << "key=" << key << "realKey=" << realKey << "val=" << v;
     return v;
+}
+
+bool SettingsController::selectClusterRow(int row)
+{
+    if (!m_clusterModel || row < 0 || row >= m_clusterModel->count())
+        return false;
+
+    m_clusterModel->setDefaultRow(row, true);
+    prefs.clusters = m_clusterModel->toList();
+    updateDefaultClusterPrefs();
+    markDirty();
+    emit clusterChanged(prefClusterItems(prefClusterItem::cl_clusterTcpServerName) |
+                        prefClusterItems(prefClusterItem::cl_clusterTcpUserName) |
+                        prefClusterItems(prefClusterItem::cl_clusterTcpPassword) |
+                        prefClusterItems(prefClusterItem::cl_clusterTcpPort) |
+                        prefClusterItems(prefClusterItem::cl_clusterTimeout));
+    return true;
 }
 
 void SettingsController::seedOptionsFromBindings()
@@ -2069,6 +2124,44 @@ void SettingsController::buildBindings()
 
     WF_I32("Server.AudioPort", serverConfig.audioPort,
            [this](){ emit serverChanged(prefServerItems(prefServerItem::s_audioPort)); });
+
+    WF_BIND("Server.AudioInput", QVariant(serverConfig.rigs.isEmpty() ? QString() : serverConfig.rigs.first()->rxAudioSetup.name), {
+        if (serverConfig.rigs.isEmpty())
+            return false;
+        const QString name = _v.toString();
+        auto *rig = serverConfig.rigs.first();
+        if (rig->rxAudioSetup.name == name)
+            return false;
+
+        rig->rxAudioSetup.name = name;
+        const int index = audioDev ? audioDev->findInput("Server", name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                rig->rxAudioSetup.port = audioDev->getInputDeviceInfo(index);
+            else
+                rig->rxAudioSetup.portInt = audioDev->getInputDeviceInt(index);
+        }
+        return true;
+    }, [this](){ emit serverChanged(prefServerItems(prefServerItem::s_audioInput)); });
+
+    WF_BIND("Server.AudioOutput", QVariant(serverConfig.rigs.isEmpty() ? QString() : serverConfig.rigs.first()->txAudioSetup.name), {
+        if (serverConfig.rigs.isEmpty())
+            return false;
+        const QString name = _v.toString();
+        auto *rig = serverConfig.rigs.first();
+        if (rig->txAudioSetup.name == name)
+            return false;
+
+        rig->txAudioSetup.name = name;
+        const int index = audioDev ? audioDev->findOutput("Server", name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                rig->txAudioSetup.port = audioDev->getOutputDeviceInfo(index);
+            else
+                rig->txAudioSetup.portInt = audioDev->getOutputDeviceInt(index);
+        }
+        return true;
+    }, [this](){ emit serverChanged(prefServerItems(prefServerItem::s_audioOutput)); });
 
     auto audioNotify = [this](){ emit audioProcChanged(); };
 

@@ -1,6 +1,8 @@
 #include "cluster.h"
 #include "logcategories.h"
 
+#include <utility>
+
 
 dxClusterClient::dxClusterClient(QObject* parent):
     QObject(parent)
@@ -57,12 +59,15 @@ void dxClusterClient::enableTcp(bool enable)
     tcpEnable = enable;
     if (enable)
     {
-        //tcpRegex = QRegularExpression("^DX de ([a-z-|A-Z|0-9|#|/]+):\\s+([0-9|.]+)\\s+([a-z|A-Z|0-9|/]+)+\\s+(.*)\\s+(\\d{4}Z)");
-        tcpRegex = QRegularExpression("^DX de ([A-Z|0-9|\\/\\-#]{3,}): +(\\d*.\\d{1,2}) +([A-Z|0-9|\\/]{3,}) +(.{1,})? +(\\d{4})Z");
+        // Keep this deliberately tolerant. DXSpider, AR-Cluster and CC Cluster
+        // all use the real-time "DX de <spotter>: <freq> <dx> <comment> <time>Z"
+        // shape, but suffixes and extra text vary between servers.
+        tcpRegex = QRegularExpression("^\\s*DX\\s+de\\s+(\\S+):\\s+([0-9]+(?:\\.[0-9]+)?)\\s+(\\S+)(?:\\s+(.*?))?\\s+(\\d{4})Z(?:\\s+.*)?$");
         tcpRegex.setPatternOptions(QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
 
         if (tcpSocket == nullptr)
         {
+            tcpReceiveBuffer.clear();
             tcpSocket = new QTcpSocket(this);
             tcpSocket->connectToHost(tcpServerName, tcpPort);
             qInfo(logCluster()) << "Starting tcpSocket() on:" << tcpPort;
@@ -95,6 +100,33 @@ void dxClusterClient::enableTcp(bool enable)
             tcpSocket = nullptr;
         }
     }
+}
+
+bool dxClusterClient::parseTcpSpotLine(const QString &line, int timeout, spotData *spot)
+{
+    if (spot == nullptr)
+        return false;
+
+    const QString trimmed = line.trimmed();
+    static const QRegularExpression spotRegex(
+        QStringLiteral(R"(^DX\s+de\s+(\S+):\s+([0-9]+(?:\.[0-9]+)?)\s+(\S+)(?:\s+(.*?))?\s+(\d{4})Z(?:\s+.*)?$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch match = spotRegex.match(trimmed);
+    if (!match.hasMatch())
+        return false;
+
+    bool ok = false;
+    const double frequency = match.captured(2).toDouble(&ok);
+    if (!ok || frequency <= 0.0)
+        return false;
+
+    spot->spottercall = match.captured(1);
+    spot->frequency = frequency / 1000.0;
+    spot->dxcall = match.captured(3);
+    spot->comment = match.captured(4).trimmed();
+    spot->timestamp = QDateTime::currentDateTimeUtc();
+    spot->timeout = timeout;
+    return !spot->spottercall.isEmpty() && !spot->dxcall.isEmpty();
 }
 
 void dxClusterClient::udpDataReceived()
@@ -172,57 +204,69 @@ void dxClusterClient::udpDataReceived()
 
 void dxClusterClient::tcpDataReceived()
 {
-    QString data = QString(tcpSocket->readAll());
+    QString data = QString::fromUtf8(tcpSocket->readAll());
 
     emit sendOutput(data);
-    if (!authenticated) {
-        if (data.contains("login:") || data.contains("call:") || data.contains("callsign:")) {
+    tcpReceiveBuffer.append(data);
+
+    QStringList lines = tcpReceiveBuffer.split(QRegularExpression("[\r\n]+"));
+    if (!tcpReceiveBuffer.endsWith(QLatin1Char('\n')) && !tcpReceiveBuffer.endsWith(QLatin1Char('\r'))) {
+        tcpReceiveBuffer = lines.takeLast();
+    } else {
+        tcpReceiveBuffer.clear();
+    }
+
+    bool parsedSpot = false;
+    for (const QString &line : std::as_const(lines)) {
+        spotData parsed;
+        if (parseTcpSpotLine(line, tcpTimeout, &parsed)) {
+            parsedSpot = true;
+            spotData* spotDataEntry = new spotData(parsed);
+            qInfo(logCluster()) << "Got spot:" << spotDataEntry->dxcall;
+
+#ifdef USESQL
+            database db = database();
+            db.query(QString("DELETE from spots where dxcall='%1'").arg(spotDataEntry->dxcall));
+            QString query = QString("INSERT INTO spots(type,spottercall,frequency,dxcall,comment,timestamp) VALUES('%1','%2',%3,'%4','%5','%6')\n")
+                .arg("TCP").arg(spotDataEntry->spottercall).arg(spotDataEntry->frequency).arg(spotDataEntry->dxcall).arg(spotDataEntry->comment).arg(spotDataEntry->timestamp.toString("yyyy-MM-dd hh:mm:ss"));
+            db.query(query);
+#else
+            bool found = false;
+            QMap<QString, spotData*>::iterator spot = allSpots.find(spotDataEntry->dxcall);
+            while (spot != allSpots.end() && spot.key() == spotDataEntry->dxcall && spot.value()->frequency == spotDataEntry->frequency) {
+                found = true;
+                *spot.value() = *spotDataEntry;
+                ++spot;
+            }
+            if (found == false) {
+                allSpots.insert(spotDataEntry->dxcall, spotDataEntry);
+            } else {
+                delete spotDataEntry;
+            }
+#endif
+        }
+    }
+
+    if (parsedSpot) {
+        if (!authenticated) {
+            authenticated = true;
+            if (skimmerSpots)
+                enableSkimmerSpots(true);
+        }
+        updateSpots();
+    } else if (!authenticated) {
+        if (data.contains("login:", Qt::CaseInsensitive) || data.contains("call:", Qt::CaseInsensitive) || data.contains("callsign:", Qt::CaseInsensitive)) {
             sendTcpData(QString("%1\n").arg(tcpUserName));
             return;
         }
-        if (data.contains("password:")) {
+        if (data.contains("password:", Qt::CaseInsensitive)) {
             sendTcpData(QString("%1\n").arg(tcpPassword));
             return;
         }
-        if (data.contains("Hello")) {
+        if (data.contains("Hello", Qt::CaseInsensitive)) {
             authenticated = true;
             enableSkimmerSpots(skimmerSpots);
         }
-    }
-    else {
-        QRegularExpressionMatchIterator i = tcpRegex.globalMatch(data);
-        while (i.hasNext()) {
-            QRegularExpressionMatch match = i.next();
-            if (match.hasMatch()) {
-                spotData* data = new spotData();
-                data->spottercall = match.captured(1);
-                data->frequency = match.captured(2).toDouble() / 1000.0;
-                data->dxcall = match.captured(3);
-                data->comment = match.captured(4).trimmed();
-                data->timestamp = QDateTime::currentDateTimeUtc();
-                data->timeout = tcpTimeout;
-                qInfo() << "Got spot:" << data->dxcall;
-
-#ifdef USESQL
-                database db = database();
-                db.query(QString("DELETE from spots where dxcall='%1'").arg(data->dxcall));
-                QString query = QString("INSERT INTO spots(type,spottercall,frequency,dxcall,comment,timestamp) VALUES('%1','%2',%3,'%4','%5','%6')\n")
-                    .arg("TCP").arg(data->spottercall).arg(data->frequency).arg(data->dxcall).arg(data->comment).arg(data->timestamp.toString("yyyy-MM-dd hh:mm:ss"));
-                db.query(query);
-#else
-                bool found = false;
-                QMap<QString, spotData*>::iterator spot = allSpots.find(data->dxcall);
-                while (spot != allSpots.end() && spot.key() == data->dxcall && spot.value()->frequency == data->frequency) {
-                    found = true;
-                    ++spot;
-                }
-                if (found == false) {
-                    allSpots.insert(data->dxcall, data);
-                }
-#endif
-            }
-        }
-        updateSpots();
     }
 }
 
@@ -242,9 +286,11 @@ void dxClusterClient::sendTcpData(QString data)
 
 void dxClusterClient::tcpCleanup()
 {
+    bool changed = false;
 #ifdef USESQL
     database db = database();
     db.query(QString("DELETE FROM spots where timestamp < datetime('now', '-%1 minutes')").arg(tcpTimeout));
+    changed = true;
 #else
     QMap<QString, spotData*>::iterator spot = allSpots.begin();;
     while (spot != allSpots.end()) {
@@ -252,6 +298,7 @@ void dxClusterClient::tcpCleanup()
         {
             delete spot.value(); // Stop memory leak?
             spot = allSpots.erase(spot);
+            changed = true;
         } 
         else
         {
@@ -259,6 +306,8 @@ void dxClusterClient::tcpCleanup()
         }
     }
 #endif
+    if (changed)
+        updateSpots();
 }
 
 void dxClusterClient::tcpDisconnected() {
@@ -313,10 +362,8 @@ void dxClusterClient::updateSpots()
             }
             ++mainSpot;
         }
-        if (!spots.empty()) {
-            emit sendSpots(range.key(),spots);
-            //qInfo(logCluster()) << "Sending" << spots.size() << "DX spots to receiver" << range.key();
-        }
+        emit sendSpots(range.key(),spots);
+        //qInfo(logCluster()) << "Sending" << spots.size() << "DX spots to receiver" << range.key();
         ++range;
     }
 

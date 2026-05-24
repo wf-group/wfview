@@ -62,11 +62,9 @@ public:
         bool anyChanged = false;
 
         if (!on) {
-            // turning OFF this row only
-            if (m_items[row].isdefault) {
-                m_items[row].isdefault = false;
-                anyChanged = true;
-            }
+            // Keep one active default. Users choose another row rather than clearing all.
+            emit dataChanged(index(row, IsDefault), index(row, IsDefault), { IsDefaultRole, Qt::CheckStateRole });
+            return;
         } else {
             // turning ON: this row true, all others false
             for (int i = 0; i < m_items.count(); ++i) {
@@ -83,7 +81,17 @@ public:
             emit dataChanged(index(0, IsDefault),
                              index(m_items.count() - 1, IsDefault),
                              { Qt::DisplayRole, Qt::EditRole, Qt::CheckStateRole, IsDefaultRole });
+            emit modified();
         }
+    }
+
+    Q_INVOKABLE int defaultRow() const
+    {
+        for (int i = 0; i < m_items.count(); ++i) {
+            if (m_items.at(i).isdefault)
+                return i;
+        }
+        return m_items.isEmpty() ? -1 : 0;
     }
 
     explicit ClusterSettingsModel(QObject *parent = nullptr)
@@ -200,6 +208,7 @@ public:
         if (changed) {
             emit dataChanged(this->index(r, 0), this->index(r, ColumnCount - 1),
                              { role, Qt::DisplayRole, Qt::EditRole });
+            emit modified();
         }
         return changed;
     }
@@ -282,19 +291,21 @@ public:
         const int r = m_items.count();
         beginInsertRows(QModelIndex(), r, r);
 
+        const bool makeDefault = isdefault || m_items.isEmpty();
         m_items.append({
             server,
             port,
             userName,
             password,
             timeout,
-            isdefault
+            makeDefault
         });
 
         endInsertRows();
 
-        if (isdefault)
+        if (makeDefault)
             enforceSingleDefault(r);
+        emit modified();
     }
 
     Q_INVOKABLE void removeEntry(int row) {
@@ -304,12 +315,14 @@ public:
         beginRemoveRows(QModelIndex(), row, row);
         m_items.removeAt(row);
         endRemoveRows();
+        emit modified();
     }
 
     Q_INVOKABLE void clearAll() {
         beginResetModel();
         m_items.clear();
         endResetModel();
+        emit modified();
     }
 
     Q_INVOKABLE int count() const {
@@ -321,6 +334,15 @@ public:
     void setFromList(const QList<clusterSettings> &list) {
         beginResetModel();
         m_items = list;
+        bool hasDefault = false;
+        for (const auto &item : std::as_const(m_items)) {
+            if (item.isdefault) {
+                hasDefault = true;
+                break;
+            }
+        }
+        if (!hasDefault && !m_items.isEmpty())
+            m_items[0].isdefault = true;
         endResetModel();
     }
 
@@ -356,6 +378,197 @@ private:
 
 private:
     QList<clusterSettings> m_items;
+
+signals:
+    void modified();
+};
+
+class ServerUsersModel : public QAbstractTableModel
+{
+    Q_OBJECT
+
+public:
+    enum Column {
+        Username = 0,
+        Password,
+        UserType,
+        ColumnCount
+    };
+    Q_ENUM(Column)
+
+    enum Roles {
+        UsernameRole = Qt::UserRole + 1,
+        PasswordRole,
+        UserTypeRole,
+        UserTypeNameRole
+    };
+    Q_ENUM(Roles)
+
+    explicit ServerUsersModel(QObject *parent = nullptr)
+        : QAbstractTableModel(parent) {}
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override
+    {
+        return parent.isValid() ? 0 : items.count();
+    }
+
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override
+    {
+        Q_UNUSED(parent)
+        return ColumnCount;
+    }
+
+    QHash<int, QByteArray> roleNames() const override
+    {
+        return {
+            { UsernameRole, "username" },
+            { PasswordRole, "password" },
+            { UserTypeRole, "userType" },
+            { UserTypeNameRole, "userTypeName" }
+        };
+    }
+
+    QVariant data(const QModelIndex &index, int role) const override
+    {
+        if (!index.isValid() || index.row() < 0 || index.row() >= items.count())
+            return {};
+
+        const SERVERUSER &user = items.at(index.row());
+        switch (role) {
+        case UsernameRole: return user.username;
+        case PasswordRole: return user.password;
+        case UserTypeRole: return user.userType;
+        case UserTypeNameRole: return userTypeName(user.userType);
+        default: break;
+        }
+
+        if (role == Qt::DisplayRole || role == Qt::EditRole) {
+            switch (index.column()) {
+            case Username: return user.username;
+            case Password: return user.password;
+            case UserType: return user.userType;
+            default: return {};
+            }
+        }
+
+        return {};
+    }
+
+    bool setData(const QModelIndex &index, const QVariant &value, int role) override
+    {
+        if (!index.isValid() || index.row() < 0 || index.row() >= items.count())
+            return false;
+
+        SERVERUSER &user = items[index.row()];
+        bool changed = false;
+        switch (role) {
+        case UsernameRole: {
+            const QString v = value.toString();
+            if (user.username != v) {
+                user.username = v;
+                changed = true;
+            }
+            break;
+        }
+        case PasswordRole: {
+            const QString v = value.toString();
+            if (user.password != v) {
+                user.password = v;
+                changed = true;
+            }
+            break;
+        }
+        case UserTypeRole: {
+            const quint8 v = static_cast<quint8>(value.toUInt());
+            if (user.userType != v) {
+                user.userType = v;
+                changed = true;
+            }
+            break;
+        }
+        default:
+            return false;
+        }
+
+        if (changed) {
+            emit dataChanged(this->index(index.row(), 0),
+                             this->index(index.row(), ColumnCount - 1),
+                             { role, Qt::DisplayRole, Qt::EditRole, UserTypeNameRole });
+            emit modified();
+        }
+        return changed;
+    }
+
+    Qt::ItemFlags flags(const QModelIndex &index) const override
+    {
+        return index.isValid() ? Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable
+                               : Qt::NoItemFlags;
+    }
+
+    Q_INVOKABLE bool setRoleValue(int row, int role, const QVariant &value)
+    {
+        if (row < 0 || row >= items.count())
+            return false;
+
+        int col = Username;
+        switch (role) {
+        case UsernameRole: col = Username; break;
+        case PasswordRole: col = Password; break;
+        case UserTypeRole: col = UserType; break;
+        default: return false;
+        }
+
+        return setData(index(row, col), value, role);
+    }
+
+    Q_INVOKABLE void addEntry(const QString &username = {}, const QString &password = {}, int userType = 1)
+    {
+        const int row = items.count();
+        beginInsertRows(QModelIndex(), row, row);
+        SERVERUSER user;
+        user.username = username;
+        user.password = password;
+        user.userType = static_cast<quint8>(userType);
+        items.append(user);
+        endInsertRows();
+        emit modified();
+    }
+
+    Q_INVOKABLE void removeEntry(int row)
+    {
+        if (row < 0 || row >= items.count())
+            return;
+
+        beginRemoveRows(QModelIndex(), row, row);
+        items.removeAt(row);
+        endRemoveRows();
+        emit modified();
+    }
+
+    Q_INVOKABLE QString userTypeName(int userType) const
+    {
+        switch (userType) {
+        case 0: return tr("Admin User");
+        case 1: return tr("Normal User");
+        case 2: return tr("Normal with no TX");
+        default: return tr("Unknown");
+        }
+    }
+
+    void setFromList(const QList<SERVERUSER> &list)
+    {
+        beginResetModel();
+        items = list;
+        endResetModel();
+    }
+
+    const QList<SERVERUSER>& toList() const { return items; }
+
+signals:
+    void modified();
+
+private:
+    QList<SERVERUSER> items;
 };
 
 
@@ -368,6 +581,7 @@ class SettingsController : public QObject {
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
 
     Q_PROPERTY(ClusterSettingsModel* clusterModel READ clusterModel CONSTANT)
+    Q_PROPERTY(ServerUsersModel* serverUsersModel READ serverUsersModel CONSTANT)
     Q_PROPERTY(ControllerController* controllerController READ controllerController CONSTANT)
 
 public:
@@ -380,6 +594,7 @@ public:
     // Generic key/value API (still useful for C++ and QML writes)
     Q_INVOKABLE QVariant option(const QString& key) const;
     Q_INVOKABLE void setOption(const QString& key, const QVariant& value);
+    Q_INVOKABLE bool selectClusterRow(int row);
 
     QVariantMap getUiSpecs() const { return uiSpecs; }
 
@@ -390,6 +605,7 @@ public:
     audioDevices* getAudioDevices() {return audioDev.get();}
 
     ClusterSettingsModel* clusterModel() const { return m_clusterModel.get(); }
+    ServerUsersModel* serverUsersModel() const { return m_serverUsersModel.get(); }
     ControllerController* controllerController() const { return m_controllerController; }
 
     usbDevMap* usbDevices() { return &m_usbDevices; }
@@ -441,6 +657,7 @@ private:
     void setDefPrefs();
 
     void buildUiSpecs();
+    void updateDefaultClusterPrefs();
 
     struct Binding {
         std::function<QVariant()> get;
@@ -472,6 +689,7 @@ private:
     std::unique_ptr<QSettings> settings;
     std::unique_ptr<audioDevices> audioDev;
     std::unique_ptr<ClusterSettingsModel> m_clusterModel;
+    std::unique_ptr<ServerUsersModel> m_serverUsersModel;
 
     QQmlPropertyMap* m_options = nullptr;
     bool m_dirty = false;

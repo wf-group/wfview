@@ -232,6 +232,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<lpfhpf>();
 #ifndef BUILD_WFSERVER
     qRegisterMetaType<QVector<spotData>>();
+    qRegisterMetaType<QList<spotData>>();
     qRegisterMetaType<clusterSettings>();
     qRegisterMetaType<colorPrefsType>();
 #endif

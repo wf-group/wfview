@@ -56,6 +56,7 @@ class dxClusterClient : public QObject
 public:
     explicit dxClusterClient(QObject* parent = nullptr);
     virtual ~dxClusterClient();
+    static bool parseTcpSpotLine(const QString &line, int timeout, spotData *spot);
 
 signals:
     void addSpot(spotData* spot);
@@ -98,6 +99,7 @@ private:
     int tcpTimeout;
     QDomDocument udpSpotReader;
     QRegularExpression tcpRegex;
+    QString tcpReceiveBuffer;
     QMutex mutex;
     bool authenticated=false;
     QTimer* tcpCleanupTimer=nullptr;
@@ -116,5 +118,4 @@ private:
 Q_DECLARE_METATYPE(clusterSettings)
 
 #endif
-
 

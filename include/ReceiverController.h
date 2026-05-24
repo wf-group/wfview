@@ -246,6 +246,8 @@ public slots:
     void setFilterWidth(int v, bool u=true);
 
     void setScopeData(const scopeData &d);
+    void setClusterSpots(const QList<spotData> &spots);
+    void clearClusterSpots();
 
     void setFrequencyA(quint64 f, bool u=true);
     void setFrequencyB(quint64 f, bool u=true);
@@ -283,6 +285,7 @@ signals:
     void freqDisplayChanged();
     void uiFlagsChanged();
     void scopeUpdated(const scopeData &d);
+    void clusterSpotsUpdated(const QVector<spotData> &spots);
     void uiSpecsChanged();
 
     void activeChanged();

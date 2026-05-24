@@ -46,6 +46,20 @@ void ReceiverController::setScopeData(const scopeData &d)
     emit scopeUpdated(lastScope);    // fan out to Spectrum/Waterfall
 }
 
+void ReceiverController::setClusterSpots(const QList<spotData> &newSpots)
+{
+    QVector<spotData> out;
+    out.reserve(newSpots.size());
+    for (const auto &spot : newSpots)
+        out.append(spot);
+    emit clusterSpotsUpdated(out);
+}
+
+void ReceiverController::clearClusterSpots()
+{
+    emit clusterSpotsUpdated({});
+}
+
 void ReceiverController::updatePassband()
 {
     if (frequencyA == 0 || passbandWidth <= 0.0)
