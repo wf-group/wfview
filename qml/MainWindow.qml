@@ -119,31 +119,30 @@ ApplicationWindow {
         id: loggingWindow
     }
 
-    Window {
+    Dialog {
         id: unsavedSettingsDialog
         title: qsTr("Unsaved settings")
         width: 420
         height: 150
-        minimumWidth: 420
-        minimumHeight: 150
-        maximumWidth: 420
-        maximumHeight: 150
+        x: Math.round((win.width - width) / 2)
+        y: Math.round((win.height - height) / 2)
         visible: false
-        modality: Qt.ApplicationModal
-        flags: Qt.Dialog
-        transientParent: win
-        color: win.palette.window
+        modal: true
+        closePolicy: Popup.NoAutoClose
 
-        function open() {
-            visible = true
-            raise()
-            requestActivate()
+        background: Rectangle {
+            color: win.palette.window
+            border.color: win.palette.highlight
+            border.width: 1
+            radius: 4
         }
 
-        onClosing: function(close) {
-            close.accepted = false
-            visible = false
+        function showDialog() {
+            open()
+            forceActiveFocus()
         }
+
+        onRejected: close()
 
         ColumnLayout {
             anchors.fill: parent
@@ -187,11 +186,11 @@ ApplicationWindow {
     onClosing: function(close) {
         if (!win.quitConfirmed && shouldConfirmUnsavedSettings()) {
             close.accepted = false
-            unsavedSettingsDialog.open()
+            unsavedSettingsDialog.showDialog()
             return
         }
 
-        MainController.shutdown()
+        shutdownAndQuit()
         close.accepted = true
     }
 
@@ -344,7 +343,7 @@ ApplicationWindow {
 
     function requestQuit() {
         if (shouldConfirmUnsavedSettings()) {
-            unsavedSettingsDialog.open()
+            unsavedSettingsDialog.showDialog()
             return
         }
 
@@ -357,7 +356,20 @@ ApplicationWindow {
             MainController.settings.save()
 
         win.quitConfirmed = true
+        shutdownAndQuit()
         win.close()
+    }
+
+    function shutdownAndQuit() {
+        unsavedSettingsDialog.visible = false
+        if (settings)
+            settings.visible = false
+        if (txAudioProcessingWindow)
+            txAudioProcessingWindow.visible = false
+        if (rxAudioProcessingWindow)
+            rxAudioProcessingWindow.visible = false
+
+        MainController.quitApplication()
     }
 
     Component {

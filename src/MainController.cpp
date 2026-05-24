@@ -1,6 +1,7 @@
 #include "MainController.h"
 
 #include "logcategories.h"
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QStandardPaths>
@@ -1063,6 +1064,12 @@ void MainController::shutdown()
 
 }
 
+void MainController::quitApplication()
+{
+    shutdown();
+    QCoreApplication::quit();
+}
+
 void MainController::ctChanged(SettingsController::prefCtItems items)
 {
 #if defined(USB_CONTROLLER)
@@ -1100,8 +1107,7 @@ void MainController::stopClusterClient()
         return;
 
     if (cluster) {
-        QMetaObject::invokeMethod(cluster, "enableTcp", Qt::BlockingQueuedConnection, Q_ARG(bool, false));
-        QMetaObject::invokeMethod(cluster, "enableUdp", Qt::BlockingQueuedConnection, Q_ARG(bool, false));
+        QMetaObject::invokeMethod(cluster, "shutdown", Qt::BlockingQueuedConnection);
     }
 
     clusterThread->quit();

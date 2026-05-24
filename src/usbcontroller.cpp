@@ -212,7 +212,7 @@ void usbController::runTimer()
             if (!mutex->tryLock(0))
             {
                 // If mutex can't immediately be locked, try next time (no need to tell user)
-                continue;
+                break;
             }
 
             res = hid_read(dev->handle, (quint8*)data.data(), HIDDATALENGTH);

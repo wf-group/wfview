@@ -30,6 +30,9 @@ dxClusterClient::~dxClusterClient()
 
 void dxClusterClient::enableUdp(bool enable)
 {
+    if (shuttingDown && enable)
+        return;
+
     udpEnable = enable;
     if (enable)
     {
@@ -56,9 +59,17 @@ void dxClusterClient::enableUdp(bool enable)
 
 void dxClusterClient::enableTcp(bool enable)
 {
+    if (shuttingDown && enable)
+        return;
+
     tcpEnable = enable;
     if (enable)
     {
+        if (tcpServerName.trimmed().isEmpty()) {
+            emit sendOutput(QString("\nNo TCP cluster server is selected.\n"));
+            return;
+        }
+
         // Keep this deliberately tolerant. DXSpider, AR-Cluster and CC Cluster
         // all use the real-time "DX de <spotter>: <freq> <dx> <comment> <time>Z"
         // shape, but suffixes and extra text vary between servers.
@@ -96,10 +107,20 @@ void dxClusterClient::enableTcp(bool enable)
                 tcpCleanupTimer = nullptr;
             }
             tcpSocket->disconnect();
-            delete tcpSocket;
+            tcpSocket->abort();
+            tcpSocket->deleteLater();
             tcpSocket = nullptr;
+            tcpReceiveBuffer.clear();
+            authenticated = false;
         }
     }
+}
+
+void dxClusterClient::shutdown()
+{
+    shuttingDown = true;
+    enableTcp(false);
+    enableUdp(false);
 }
 
 bool dxClusterClient::parseTcpSpotLine(const QString &line, int timeout, spotData *spot)
@@ -311,6 +332,9 @@ void dxClusterClient::tcpCleanup()
 }
 
 void dxClusterClient::tcpDisconnected() {
+    if (shuttingDown || !tcpEnable || tcpSocket == nullptr)
+        return;
+
     qWarning(logCluster()) << "TCP Cluster server disconnected...";
     emit sendOutput(QString("\nDisconnected from %0 %1\n").arg(tcpServerName).arg(tcpPort));
 

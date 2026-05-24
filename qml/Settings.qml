@@ -60,6 +60,18 @@ ApplicationWindow {
         requestActivate()
     }
 
+    function commitIntegerOption(key, field, minimum, maximum) {
+        if (!controller)
+            return
+
+        var value = parseInt(field.text)
+        if (isNaN(value) || value < minimum || value > maximum) {
+            field.text = String(controller.options[key])
+            return
+        }
+        controller.setOption(key, value)
+    }
+
 
     component ColorRow : RowLayout {
         spacing: 8
@@ -420,7 +432,16 @@ ApplicationWindow {
                                         text: qsTr("Manual Radio CI-V Address:")
                                         Accessible.name: "Manual CI-V address Checkbox"
                                         ToolTip.visible: hovered
-                                        checked: false
+                                        checked: controller ? Number(controller.options["Radio.CIVAddr"]) !== 0 : false
+                                        onClicked: {
+                                            if (!controller)
+                                                return
+
+                                            if (!checked)
+                                                controller.setOption("Radio.CIVAddr", 0)
+                                            else if (Number(controller.options["Radio.CIVAddr"]) === 0)
+                                                controller.setOption("Radio.CIVAddr", 0x94)
+                                        }
                                         ToolTip.text: qsTr("If you are using an older (year 2010) radio, you may need to enable this option to manually specify the CI-V address. This option is also useful for radios that do not have CI-V Transceive enabled and thus will not answer our broadcast query for connected rigs on the CI-V bus.\n\nIf you have a modern radio with CI-V Transceive enabled, you should not need to check this box.\n\nYou will need to Save Settings and re-launch wfview for this to take effect.")
                                     }
 
@@ -433,14 +454,18 @@ ApplicationWindow {
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Enter the address in hexadecimal, no prefix. Examples: IC-706:58, IC-756:50, IC-7300:94, IC-7100:88, etc. After changing, press Save Settings and re-launch wfview.")
                                         text: (controller && controller.options && controller.options["Radio.CIVAddr"] !== undefined)
-                                              ? controller.options["Radio.CIVAddr"].toString(16).toUpperCase()
+                                              ? (Number(controller.options["Radio.CIVAddr"]) === 0 ? qsTr("auto") : controller.options["Radio.CIVAddr"].toString(16).toUpperCase())
                                               : ""
 
 
                                         onEditingFinished: {
                                             const v = parseInt(text, 16)
-                                            if (!isNaN(v))
+                                            if (!isNaN(v) && v > 0 && v < 0xe0)
                                                 controller.setOption("Radio.CIVAddr", v)
+                                            else
+                                                text = Number(controller.options["Radio.CIVAddr"]) === 0
+                                                       ? qsTr("auto")
+                                                       : controller.options["Radio.CIVAddr"].toString(16).toUpperCase()
                                         }
                                     }
 
@@ -809,13 +834,15 @@ ApplicationWindow {
                                     Label { text: qsTr("Duplex") }
                                     ComboBox {
                                         id: audioDuplexCombo
+                                        textRole: "text"
+                                        valueRole: "value"
                                         model: [
                                             { text: qsTr("Full Duplex"), value: 0 },
                                             { text: qsTr("Half Duplex"), value: 1 }
                                         ]
                                         Accessible.name: "Full or Half Duplex Combo"
                                         currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(audioDuplexCombo,controller.options["UDP.HalfDuplex"])
+                                                      ? indexFromValue(audioDuplexCombo, Boolean(controller.options["UDP.HalfDuplex"]) ? 1 : 0)
                                                       : -1
                                         onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
                                     }
@@ -1297,8 +1324,20 @@ ApplicationWindow {
                                 ToolTip.text: qsTr("Select a color preset here.")
                             }
 
-                            Button { id: colorRevertPresetBtn; text: qsTr("Revert"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Color preset reset has not been ported to QML yet.") }
-                            Button { id: colorRenamePresetBtn; text: qsTr("Rename Preset"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("Color preset rename has not been ported to QML yet.") }
+                            Label { text: qsTr("Name:") }
+                            TextField {
+                                id: colorPresetNameField
+                                Layout.preferredWidth: 120
+                                maximumLength: 10
+                                text: controller ? String(controller.options["Color.PresetName"]) : ""
+                                selectByMouse: true
+                                onEditingFinished: {
+                                    if (controller && text.length > 0)
+                                        controller.setOption("Color.PresetName", text)
+                                    else if (controller)
+                                        text = String(controller.options["Color.PresetName"])
+                                }
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
@@ -1526,16 +1565,12 @@ ApplicationWindow {
                             Button {
                                 id: satOpsBtn
                                 text: qsTr("Satellite Ops")
-                                enabled: false
-                                ToolTip.visible: hovered
-                                ToolTip.text: qsTr("Satellite setup has not been ported to QML yet.")
+                                visible: false
                             }
                             Button {
                                 id: adjRefBtn
                                 text: qsTr("Adjust Reference")
-                                enabled: false
-                                ToolTip.visible: hovered
-                                ToolTip.text: qsTr("Reference adjustment has not been ported to QML yet.")
+                                visible: false
                             }
                         }
 
@@ -1595,16 +1630,34 @@ ApplicationWindow {
                                     spacing: 8
 
                                     Label { id: serverControlPortLabel; text: qsTr("Control Port") }
-                                    TextField { id: serverControlPortText; text: controller ? String(controller.options["Server.ControlPort"]) : "50001"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.ControlPort", Number(text)) }
+                                    TextField {
+                                        id: serverControlPortText
+                                        text: controller ? String(controller.options["Server.ControlPort"]) : "50001"
+                                        Layout.preferredWidth: 130
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 1; top: 65535 }
+                                        onEditingFinished: commitIntegerOption("Server.ControlPort", serverControlPortText, 1, 65535)
+                                    }
 
                                     Label { id: serverCATPortLabel; text: qsTr("CAT Port") }
-                                    TextField { id: serverCivPortText; text: controller ? String(controller.options["Server.CivPort"]) : "50002"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.CivPort", Number(text)) }
+                                    TextField {
+                                        id: serverCivPortText
+                                        text: controller ? String(controller.options["Server.CivPort"]) : "50002"
+                                        Layout.preferredWidth: 130
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 1; top: 65535 }
+                                        onEditingFinished: commitIntegerOption("Server.CivPort", serverCivPortText, 1, 65535)
+                                    }
 
                                     Label { id: serverAudioPortLabel; text: qsTr("Audio Port") }
-                                    TextField { id: serverAudioPortText; text: controller ? String(controller.options["Server.AudioPort"]) : "50003"; Layout.preferredWidth: 130; inputMask: "99999"; onEditingFinished: if (controller) controller.setOption("Server.AudioPort", Number(text)) }
-
-                                    Label { id: serverScopePortLabel; text: qsTr("Scope Port") }
-                                    TextField { id: serverScopePortText; text: "50004"; enabled: false; Layout.preferredWidth: 130; inputMask: "99999"; ToolTip.visible: hovered; ToolTip.text: qsTr("The server scope port is not exposed by the current server config.") }
+                                    TextField {
+                                        id: serverAudioPortText
+                                        text: controller ? String(controller.options["Server.AudioPort"]) : "50003"
+                                        Layout.preferredWidth: 130
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 1; top: 65535 }
+                                        onEditingFinished: commitIntegerOption("Server.AudioPort", serverAudioPortText, 1, 65535)
+                                    }
 
                                     Item { Layout.fillWidth: true }
                                 }
@@ -1833,7 +1886,9 @@ ApplicationWindow {
                                 text: controller ? String(controller.options["LAN.RigCtlPort"]) : ""
                                 Layout.preferredWidth: 75
                                 Layout.maximumWidth: 75
-                                onEditingFinished: if (controller) controller.setOption("LAN.RigCtlPort", Number(text))
+                                inputMethodHints: Qt.ImhDigitsOnly
+                                validator: IntValidator { bottom: 1; top: 65535 }
+                                onEditingFinished: commitIntegerOption("LAN.RigCtlPort", rigctldPortTxt, 1, 65535)
                                 Accessible.name: "RIGCTLD server port"
                             }
                             Item { Layout.fillWidth: true }
@@ -1849,17 +1904,31 @@ ApplicationWindow {
                                 Accessible.name: "Virtual Serial Port Selector"
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal.")
-                                model: [] // TODO
-                                enabled: false
+                                editable: true
+                                model: [ "none", "rig-pty0", "rig-pty1", "rig-pty2", "rig-pty3" ]
+                                currentIndex: controller ? Math.max(0, find(String(controller.options["Radio.VirtualSerialPort"]))) : 0
+                                editText: controller ? String(controller.options["Radio.VirtualSerialPort"]) : "none"
+                                onAccepted: if (controller) controller.setOption("Radio.VirtualSerialPort", editText.length ? editText : "none")
+                                onActivated: if (controller) controller.setOption("Radio.VirtualSerialPort", currentText.length ? currentText : "none")
                             }
-                            Label { id: ptyDeviceLabel; text: "" }
+                            Label {
+                                id: ptyDeviceLabel
+                                text: qsTr("Use \"none\" to disable the virtual serial bridge.")
+                            }
                             Item { Layout.fillWidth: true }
                         }
 
                         RowLayout {
                             spacing: 8
                             Label { text: qsTr("TCP Server Port") }
-                            TextField { id: tcpServerPortTxt; text: controller ? String(controller.options["LAN.TCPPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCPPort", Number(text)) }
+                            TextField {
+                                id: tcpServerPortTxt
+                                text: controller ? String(controller.options["LAN.TCPPort"]) : ""
+                                Layout.preferredWidth: 80
+                                inputMethodHints: Qt.ImhDigitsOnly
+                                validator: IntValidator { bottom: 0; top: 65535 }
+                                onEditingFinished: commitIntegerOption("LAN.TCPPort", tcpServerPortTxt, 0, 65535)
+                            }
                             Label { text: qsTr("Enter port for TCP server, 0 = disabled (restart required if changed)") }
                             Item { Layout.fillWidth: true }
                         }
@@ -1867,7 +1936,14 @@ ApplicationWindow {
                         RowLayout {
                             spacing: 8
                             Label { text: qsTr("TCI Server Port") }
-                            TextField { id: tciServerPortTxt; text: controller ? String(controller.options["LAN.TCIPort"]) : ""; Layout.preferredWidth: 80; onEditingFinished: if (controller) controller.setOption("LAN.TCIPort", Number(text)) }
+                            TextField {
+                                id: tciServerPortTxt
+                                text: controller ? String(controller.options["LAN.TCIPort"]) : ""
+                                Layout.preferredWidth: 80
+                                inputMethodHints: Qt.ImhDigitsOnly
+                                validator: IntValidator { bottom: 0; top: 65535 }
+                                onEditingFinished: commitIntegerOption("LAN.TCIPort", tciServerPortTxt, 0, 65535)
+                            }
                             Label { text: qsTr("Enter port for TCI server 0 = disabled (restart required if changed)") }
                             Item { Layout.fillWidth: true }
                         }
@@ -1916,8 +1992,8 @@ ApplicationWindow {
                                 Accessible.name: "Enable USB Controllers Checkbox"
                             }
                             Item { width: 20 }
-                            Button { id: usbControllersReset; text: qsTr("Reset Buttons"); enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("USB controller reset has not been ported to QML yet."); Accessible.name: "Reset USB Controllers Button" }
-                            Label { id: usbResetLbl; text: qsTr("Only reset buttons/commands if you have issues.") }
+                            Button { id: usbControllersReset; text: qsTr("Reset Buttons"); visible: false; Accessible.name: "Reset USB Controllers Button" }
+                            Label { id: usbResetLbl; visible: false; text: qsTr("Only reset buttons/commands if you have issues.") }
                             Item { Layout.fillWidth: true }
                         }
                         // Add the controller settings
@@ -2185,9 +2261,10 @@ ApplicationWindow {
                                 TextField {
                                     id: clusterUdpPortLineEdit
                                     text: controller ? String(controller.options["Cluster.UdpPort"]) : ""
-                                    inputMask: "00000"
+                                    inputMethodHints: Qt.ImhDigitsOnly
+                                    validator: IntValidator { bottom: 1; top: 65535 }
                                     Layout.preferredWidth: 120
-                                    onEditingFinished: if (controller) controller.setOption("Cluster.UdpPort", Number(text))
+                                    onEditingFinished: commitIntegerOption("Cluster.UdpPort", clusterUdpPortLineEdit, 1, 65535)
                                 }
                                 Item { Layout.fillWidth: true }
                             }
@@ -2265,9 +2342,7 @@ ApplicationWindow {
                             Button {
                                 id: debugBtn
                                 text: qsTr("Debug")
-                                enabled: false
-                                ToolTip.visible: hovered
-                                ToolTip.text: qsTr("The old debug action has not been ported to QML yet.")
+                                visible: false
                             }
                             Item { Layout.fillWidth: true }
                         }
@@ -2464,9 +2539,7 @@ ApplicationWindow {
             Button {
                 id: revertSettingsBtn
                 text: qsTr("Revert to Default")
-                enabled: false
-                ToolTip.visible: hovered
-                ToolTip.text: qsTr("Full preference reset has not been ported to QML yet.")
+                visible: false
                 Accessible.name: "Revert to Default"
             }
 

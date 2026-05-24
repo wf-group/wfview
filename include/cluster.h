@@ -81,6 +81,7 @@ public slots:
     void tcpCleanup();
     void freqRange(quint8 receiver, double low, double high);
     void enableSkimmerSpots(bool enable);
+    void shutdown();
 
 private:
     void sendTcpData(QString data);
@@ -113,9 +114,9 @@ private:
     QMap<uchar,rangeValues> freqRanges;
     QMap<QString,spotData*> allSpots;
     bool skimmerSpots = false;
+    bool shuttingDown = false;
 };
 
 Q_DECLARE_METATYPE(clusterSettings)
 
 #endif
-

@@ -298,6 +298,7 @@ public slots:
     void setWindowTitle(const QString &t);
     void connectionHandler();
     void shutdown();
+    Q_INVOKABLE void quitApplication();
 
 private slots:
     void receiveValueFromQueue(cacheItem c);

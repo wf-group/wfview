@@ -511,6 +511,7 @@ int main(int argc, char *argv[])
     QQuickStyle::setStyle("Fusion"); // MUST be before loading any QML that imports Controls
     std::cout << "DEBUG: Creating QQmlApplicationEngine" << std::endl;
     QQmlApplicationEngine engine;
+    QObject::connect(&engine, &QQmlEngine::quit, &a, &QCoreApplication::quit);
 
     std::cout << "DEBUG: Creating MainController" << std::endl;
     auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, &a);
