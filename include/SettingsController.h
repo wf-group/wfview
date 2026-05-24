@@ -677,6 +677,7 @@ private:
     void seedOptionsFromBindings();     // push current values into the QQmlPropertyMap
     void updateOptionInMap(const QString& key, const QVariant& v);
     void refreshAudioDevices();
+    void applyManufacturerDefaults();
 
     void emitGroupChange(const Binding& b);
     void refreshCurrentColorPresetOptions(bool loading=true);

@@ -95,7 +95,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     ensureAudioProcessors();
     setupTciServer();
     setupClusterClient();
-    startRigConnection();
+    if (prefs->hasRunSetup)
+        openRigConnection();
 
 }
 
@@ -1102,10 +1103,8 @@ void MainController::shutdown()
         connectionHandler(); // This will disconnect/delete if the radio is connected/connecting
     }
 
-    // rigThread is started unconditionally in startRigConnection() (called from constructor),
-    // but connectionHandler() only runs above when connStatus != connDisconnected.
-    // If we started without ever connecting (connDisconnected throughout), rigThread is still
-    // running and must be explicitly stopped here to avoid "QThread destroyed while running".
+    // If startup connection failed or was cancelled while connStatus is disconnected, the
+    // commander thread still needs explicit cleanup.
     if (rigThread)
     {
         if (rig) {
@@ -1161,6 +1160,30 @@ void MainController::raChanged(prefRaItems items)
 {
     if (!prefs)
         return;
+
+    if (items.testFlag(prefRaItem::ra_manufacturer)) {
+        setManufacturer(prefs->manufacturer);
+
+        if (connStatus == connectionStatus_t::connDisconnected) {
+            // Match v2: changing manufacturer only rebuilds the rig definition list.
+            // Any idle commander from a failed/cancelled connection must be discarded;
+            // a new manufacturer-specific commander is created only when connecting.
+            if (rig) {
+                QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
+                                          rig->thread() == QThread::currentThread()
+                                              ? Qt::DirectConnection
+                                              : Qt::BlockingQueuedConnection);
+            }
+            if (rigThread) {
+                rigThread->quit();
+                rigThread->wait();
+            }
+            rig = nullptr;
+            rigThread = nullptr;
+        } else {
+            qInfo(logRig()) << "Radio manufacturer changed; reconnect to apply commander type";
+        }
+    }
 
     if (items.testFlag(prefRaItem::ra_audioSystem)) {
         prefs->rxSetup.type = prefs->audioSystem;
@@ -1581,9 +1604,7 @@ void MainController::connectionHandler()
 {
     if (connStatus == connectionStatus_t::connDisconnected)
     {
-        // Start the connection.
-        connStatus = connectionStatus_t::connConnecting;
-        startRigConnection();
+        openRigConnection();
     } else {
         // disconnect and delete
         // Might as well empty both queue and cache, as both are now invalid.
@@ -1625,6 +1646,36 @@ void MainController::connectionHandler()
     emit connStatusChanged();
 }
 
+void MainController::openRigConnection()
+{
+    if (!prefs)
+        return;
+
+    connStatus = connectionStatus_t::connConnecting;
+    emit connStatusChanged();
+
+    if (prefs->audioSystem == tciAudio) {
+        prefs->rxSetup.tci = tci;
+        prefs->txSetup.tci = tci;
+    }
+
+    startRigConnection();
+
+    if (!rig)
+        return;
+
+    // Set a suitable queue interval to ensure polling happens quickly enough.
+    queue->interval(cmdStartupInterval_ms); // Currently 250ms but could be configurable
+
+    if (prefs->enableLAN)
+    {
+        udpPrefs->waterfallFormat = prefs->waterfallFormat;
+        emit sendNetworkCommSetup(rigList, prefs->radioCIVAddr, *udpPrefs, prefs->rxSetup, prefs->txSetup, prefs->virtualSerialPort, prefs->tcpPort);
+    } else {
+        emit sendSerialCommSetup(rigList, prefs->radioCIVAddr, prefs->serialPortRadio, prefs->serialPortBaud,prefs->virtualSerialPort, prefs->tcpPort,prefs->waterfallFormat);
+    }
+}
+
 void MainController::startRigConnection()
 {
     if (!rigThread)
@@ -1647,9 +1698,6 @@ void MainController::startRigConnection()
             setConnStatus(connectionStatus_t::connDisconnected);
             return;
         }
-
-        // Set a suitable queue interval to ensure polling happens quickly enough.
-        queue->interval(cmdStartupInterval_ms); // Currently 250ms but could be configurable
 
         rigThread = new QThread(this);
         rigThread->setObjectName("rigCommander()");
@@ -1680,28 +1728,6 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
         connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
-
-
-
-
-        if (prefs->enableLAN)
-        {
-            // "We need to setup the tx/rx audio:
-            udpPrefs->waterfallFormat = prefs->waterfallFormat;
-            // 60 second connection timeout.
-            //ConnectionTimer.start(60000);
-            emit sendNetworkCommSetup(rigList, prefs->radioCIVAddr, *udpPrefs, prefs->rxSetup, prefs->txSetup, prefs->virtualSerialPort, prefs->tcpPort);
-        } else {
-            if( (prefs->serialPortRadio.toLower() == QString("auto")))
-            {
-                //findSerialPort();
-            } else {
-                //serialPortRig = prefs->serialPortRadio;
-            }
-            emit sendSerialCommSetup(rigList, prefs->radioCIVAddr, prefs->serialPortRadio, prefs->serialPortBaud,prefs->virtualSerialPort, prefs->tcpPort,prefs->waterfallFormat);
-            //ui->statusBar->showMessage(QString("Connecting to rig using serial port ").append(serialPortRig), 1000);
-        }
-
 
         /*
         connect(this, SIGNAL(setPTTType(pttType_t)), rig, SLOT(setPTTType(pttType_t)));

@@ -766,6 +766,7 @@ ApplicationWindow {
                                     Label { text: qsTr("RX Codec") }
                                     ComboBox {
                                         id: audioRXCodecCombo
+                                        enabled: manufacturerCombo.currentValue !== 1
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
@@ -789,6 +790,7 @@ ApplicationWindow {
                                     Label { text: qsTr("TX Codec") }
                                     ComboBox {
                                         id: audioTXCodecCombo
+                                        enabled: manufacturerCombo.currentValue !== 1
                                         textRole: "text"
                                         valueRole: "value"
                                         model: [
@@ -816,6 +818,7 @@ ApplicationWindow {
                                     ComboBox {
                                         id: audioSampleRateCombo
                                         Accessible.name: "Audio Sample Rate Selector"
+                                        enabled: manufacturerCombo.currentValue !== 1
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(audioSampleRateCombo,controller.options["UDP.SampleRate"])
                                                       : -1

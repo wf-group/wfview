@@ -1863,6 +1863,55 @@ void SettingsController::refreshAudioDevices()
     buildUiSpecs();
 }
 
+void SettingsController::applyManufacturerDefaults()
+{
+    prefUDPItems udpItems;
+
+    auto updatePort = [this, &udpItems](const QString &key, auto &field, int value, prefUDPItem item) {
+        if (field == value)
+            return;
+        field = value;
+        updateOptionInMap(key, field);
+        udpItems |= item;
+    };
+
+    auto updateAudioInt = [this, &udpItems](const QString &key, auto &field, int value, prefUDPItem item) {
+        if (int(field) == value)
+            return;
+        field = value;
+        updateOptionInMap(key, int(field));
+        udpItems |= item;
+    };
+
+    switch (prefs.manufacturer) {
+    case manufIcom:
+        updatePort(QStringLiteral("UDP.ControlLANPort"), udpPrefs.controlLANPort, 50001, prefUDPItem::u_controlLANPort);
+        updatePort(QStringLiteral("UDP.SerialLANPort"), udpPrefs.serialLANPort, 50002, prefUDPItem::u_serialLANPort);
+        updatePort(QStringLiteral("UDP.AudioLANPort"), udpPrefs.audioLANPort, 50003, prefUDPItem::u_audioLANPort);
+        break;
+    case manufKenwood:
+        updatePort(QStringLiteral("UDP.ControlLANPort"), udpPrefs.controlLANPort, 60000, prefUDPItem::u_controlLANPort);
+        updatePort(QStringLiteral("UDP.AudioLANPort"), udpPrefs.audioLANPort, 60001, prefUDPItem::u_audioLANPort);
+        updateAudioInt(QStringLiteral("UDP.SampleRate"), prefs.rxSetup.sampleRate, 16000, prefUDPItem::u_sampleRate);
+        if (prefs.txSetup.sampleRate != 16000)
+            prefs.txSetup.sampleRate = 16000;
+        updateAudioInt(QStringLiteral("UDP.RxCodec"), prefs.rxSetup.codec, 4, prefUDPItem::u_rxCodec);
+        updateAudioInt(QStringLiteral("UDP.TxCodec"), prefs.txSetup.codec, 4, prefUDPItem::u_txCodec);
+        break;
+    case manufYaesu:
+        updatePort(QStringLiteral("UDP.ControlLANPort"), udpPrefs.controlLANPort, 50000, prefUDPItem::u_controlLANPort);
+        updatePort(QStringLiteral("UDP.SerialLANPort"), udpPrefs.serialLANPort, 50001, prefUDPItem::u_serialLANPort);
+        updatePort(QStringLiteral("UDP.AudioLANPort"), udpPrefs.audioLANPort, 50002, prefUDPItem::u_audioLANPort);
+        updatePort(QStringLiteral("UDP.ScopeLANPort"), udpPrefs.scopeLANPort, 50003, prefUDPItem::u_scopeLANPort);
+        break;
+    default:
+        break;
+    }
+
+    if (udpItems)
+        emit udpChanged(udpItems);
+}
+
 
 void SettingsController::updateOptionInMap(const QString& iniKey, const QVariant& v)
 {
@@ -1922,6 +1971,9 @@ void SettingsController::setOption(const QString& key, const QVariant& value)
     // Mark dirty + update map (QML reacts to the map)
     markDirty();
     updateOptionInMap(key, newVal);
+
+    if (key == QStringLiteral("Radio.Manufacturer"))
+        applyManufacturerDefaults();
 
     // Notify other subsystems (your notify lambda)
     emitGroupChange(it.value());
