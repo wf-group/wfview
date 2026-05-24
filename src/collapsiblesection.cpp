@@ -3,11 +3,13 @@
 #include "collapsiblesection.h"
 #include <QFont>
 #include <QCursor>
+#include <QAccessible>
 
 CollapsibleSection::CollapsibleSection(const QString& title,
                                        QWidget*       pinnedWidget,
                                        QWidget*       parent)
     : QFrame(parent)
+    , m_title(title)
 {
     setFrameShape(QFrame::StyledPanel);
     setFrameShadow(QFrame::Plain);
@@ -28,6 +30,10 @@ CollapsibleSection::CollapsibleSection(const QString& title,
     m_toggle->setAutoRaise(true);
     m_toggle->setToolTip(tr("Collapse / expand this section"));
     m_toggle->setCursor(Qt::PointingHandCursor);
+    // QToolButton defaults to NoFocus; make the disclosure toggle reachable by
+    // keyboard/screen-reader users (it is the only way to reveal a collapsed
+    // section's controls).
+    m_toggle->setFocusPolicy(Qt::StrongFocus);
     header->addWidget(m_toggle);
 
     auto* lbl = new QLabel(title);
@@ -46,6 +52,8 @@ CollapsibleSection::CollapsibleSection(const QString& title,
 
     // ── Body placeholder — filled by setBodyWidget() ─────────────────────
     // (nothing added yet; setBodyWidget() appends to outer)
+
+    updateToggleAccessibility();
 
     // Clicking the header row or the toggle button both toggle the section.
     connect(m_toggle, &QToolButton::clicked, this, &CollapsibleSection::onHeaderClicked);
@@ -97,8 +105,23 @@ void CollapsibleSection::applyState()
     m_toggle->setArrowType(m_expanded ? Qt::DownArrow : Qt::RightArrow);
     if (m_body)
         m_body->setVisible(m_expanded);
+    updateToggleAccessibility();
 
     // Tell our parent layout that our preferred size has changed.
     // The parent dialog handles the actual window resize via expandedChanged.
     updateGeometry();
+}
+
+void CollapsibleSection::updateToggleAccessibility()
+{
+    // Screen readers announce the toggle, which is otherwise just an arrow:
+    // give it the section title and the current expanded/collapsed state.
+    const QString state = m_expanded ? tr("expanded") : tr("collapsed");
+    m_toggle->setAccessibleName(tr("%1, %2").arg(m_title, state));
+    m_toggle->setAccessibleDescription(tr("Collapse or expand the %1 section").arg(m_title));
+
+    if (QAccessible::isActive()) {
+        QAccessibleEvent event(m_toggle, QAccessible::NameChanged);
+        QAccessible::updateAccessibility(&event);
+    }
 }

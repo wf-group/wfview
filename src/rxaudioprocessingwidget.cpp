@@ -362,6 +362,7 @@ void RxAudioProcessingWidget::buildUi()
         // Suppression
         {
             auto* row = makeSliderRow(speexSuppress, lblSpeexSuppress, -70, -1, -30, 80);
+            speexSuppress->setAccessibleName(tr("Speex suppression"));
             speexSuppress->setToolTip(tr("Maximum noise attenuation in dB (e.g. -30 dB).  "
                                          "More negative = stronger suppression, more artefacts."));
             lblSpeexSuppress->setText("-30 dB");
@@ -412,6 +413,7 @@ void RxAudioProcessingWidget::buildUi()
             speexAgcLevel = new QSlider(Qt::Horizontal);
             speexAgcLevel->setRange(500, 32000);
             speexAgcLevel->setValue(8000);
+            speexAgcLevel->setAccessibleName(tr("AGC target level"));
             speexAgcLevel->setToolTip(tr("Target RMS level for AGC (Speex default: 8000)."));
             lblAgcLevel = new QLabel("8000");
             lblAgcLevel->setMinimumWidth(60);
@@ -423,6 +425,7 @@ void RxAudioProcessingWidget::buildUi()
             }
 
             auto* rowMG = makeSliderRow(speexAgcMaxGain, lblAgcMaxGain, 0, 60, 30, 60);
+            speexAgcMaxGain->setAccessibleName(tr("AGC maximum gain"));
             speexAgcMaxGain->setToolTip(tr("Maximum gain the AGC may apply (dB)."));
             lblAgcMaxGain->setText("30 dB");
             form->addRow(tr("  AGC max gain:"), rowMG);
@@ -438,6 +441,7 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(speexVadCheck);
 
             auto* rowPS = makeSliderRow(speexVadProbStart, lblVadProbStart, 0, 100, 85, 60);
+            speexVadProbStart->setAccessibleName(tr("VAD probability to start"));
             speexVadProbStart->setToolTip(tr(
                 "Probability required to switch from silence to voice state (%).\n"
                 "Higher = harder to trigger voice detection."));
@@ -445,6 +449,7 @@ void RxAudioProcessingWidget::buildUi()
             form->addRow(tr("  Prob-start:"), rowPS);
 
             auto* rowPC = makeSliderRow(speexVadProbCont, lblVadProbCont, 0, 100, 65, 60);
+            speexVadProbCont->setAccessibleName(tr("VAD probability to continue"));
             speexVadProbCont->setToolTip(tr(
                 "Probability required to remain in voice state (%).\n"
                 "Lower = voice state is held longer; higher = drops out faster."));
@@ -462,6 +467,7 @@ void RxAudioProcessingWidget::buildUi()
 
             // SNR Decay: 0..95 → 0.00..0.95
             auto* rowSD = makeSliderRow(speexSnrDecay, lblSnrDecay, 0, 95, 70, 60);
+            speexSnrDecay->setAccessibleName(tr("SNR decay"));
             speexSnrDecay->setToolTip(tr(
                 "SNR smoothing decay (0.00–0.95, default 0.70).\n"
                 "Controls how long the algorithm \"remembers\" speech was present.\n"
@@ -473,6 +479,7 @@ void RxAudioProcessingWidget::buildUi()
 
             // Noise update rate: 1..50 → 0.01..0.50
             auto* rowNU = makeSliderRow(speexNoiseUpdate, lblNoiseUpdate, 1, 50, 3, 60);
+            speexNoiseUpdate->setAccessibleName(tr("Noise update rate"));
             speexNoiseUpdate->setToolTip(tr(
                 "Noise floor update rate (0.01–0.50, default 0.03).\n"
                 "How fast the noise floor estimate adapts.\n"
@@ -483,6 +490,7 @@ void RxAudioProcessingWidget::buildUi()
 
             // Prior base: 5..50 → 0.05..0.50
             auto* rowPB = makeSliderRow(speexPriorBase, lblPriorBase, 5, 50, 10, 60);
+            speexPriorBase->setAccessibleName(tr("Prior base weight"));
             speexPriorBase->setToolTip(tr(
                 "Prior SNR base weight (0.05–0.50, default 0.10).\n"
                 "Minimum weight given to the current frame's observation.\n"
@@ -518,6 +526,7 @@ void RxAudioProcessingWidget::buildUi()
         // Noise reduction
         {
             auto* row = makeSliderRow(anrNoiseRedSlider, lblAnrNoiseRed, 0, 48, 12, 70);
+            anrNoiseRedSlider->setAccessibleName(tr("ANR noise reduction"));
             anrNoiseRedSlider->setToolTip(tr(
                 "Amount of noise suppression in dB.\n"
                 "Higher values reduce more noise but may introduce artefacts.\n"
@@ -530,6 +539,7 @@ void RxAudioProcessingWidget::buildUi()
         {
             // Stored as 0–100 integer (×0.1 → 0.0–10.0)
             auto* row = makeSliderRow(anrSensSlider, lblAnrSens, 0, 100, 11, 70);
+            anrSensSlider->setAccessibleName(tr("ANR sensitivity"));
             anrSensSlider->setToolTip(tr(
                 "Sensitivity: −log₁₀ of the probability that noise exceeds the threshold.\n"
                 "Higher = less aggressive (fewer false positives, may miss noise).\n"
@@ -544,6 +554,7 @@ void RxAudioProcessingWidget::buildUi()
         // Frequency smoothing
         {
             auto* row = makeSliderRow(anrSmoothSlider, lblAnrSmooth, 0, 6, 0, 70);
+            anrSmoothSlider->setAccessibleName(tr("ANR frequency smoothing"));
             anrSmoothSlider->setToolTip(tr(
                 "Frequency smoothing (bands).\n"
                 "Averages gain across neighbouring frequency bins to reduce musical noise.\n"
@@ -581,6 +592,7 @@ void RxAudioProcessingWidget::buildUi()
             anrProfileSpec->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
             anrProfileSpec->setStaticMode();  // no timer; repaint only when data arrives
             anrProfileSpec->setVisible(false);  // shown after profile is collected
+            anrProfileSpec->setAccessibleName(tr("Noise profile spectrum display"));
             form->addRow(anrProfileSpec);
 
             // 1-second tick timer for countdown during collection
@@ -669,6 +681,7 @@ void RxAudioProcessingWidget::buildUi()
             eqGainSlider[i]->setTickPosition(QSlider::TicksBothSides);
             eqGainSlider[i]->setTickInterval(10);
             eqGainSlider[i]->setMinimumHeight(100);
+            eqGainSlider[i]->setAccessibleName(tr("%1 gain").arg(tr(bandDefs[i].name)));
             eqGainSlider[i]->setToolTip(tr("%1: adjust gain from -9 to +9 dB").arg(bandDefs[i].name));
             col->addWidget(eqGainSlider[i], 1, Qt::AlignHCenter);
 
@@ -680,6 +693,7 @@ void RxAudioProcessingWidget::buildUi()
             eqFreqDial[i]->setWrapping(false);
             eqFreqDial[i]->setNotchesVisible(false);
             eqFreqDial[i]->setFixedSize(35, 35);
+            eqFreqDial[i]->setAccessibleName(tr("%1 frequency").arg(tr(bandDefs[i].name)));
             eqFreqDial[i]->setToolTip(tr("%1: adjust frequency for this band (%2–%3 Hz)")
                 .arg(bandDefs[i].name)
                 .arg(bandDefs[i].freqMin)
@@ -732,6 +746,7 @@ void RxAudioProcessingWidget::buildUi()
         auto* row = makeSliderRow(outputGain, lblOutputGain, -60, 200, 0, 80);
         outputGain->setTickPosition(QSlider::TicksBelow);
         outputGain->setTickInterval(50);
+        outputGain->setAccessibleName(tr("Output gain"));
         outputGain->setToolTip(tr(
             "Post-NR output gain adjustment (-6 dB to +20 dB).\n"
             "Use to compensate for any level change caused by noise reduction."));
@@ -761,6 +776,7 @@ void RxAudioProcessingWidget::buildUi()
         specWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         specWidget->setToolTip(tr("RX audio spectrum (input: green = radio signal before NR, "
                                   "output: orange = after noise reduction and gain)."));
+        specWidget->setAccessibleName(tr("RX audio spectrum display"));
         vbox->addWidget(specWidget, 1);
 
         specGrp = new CollapsibleSection(tr("RX Spectrum"), specInhibitDuringTx);

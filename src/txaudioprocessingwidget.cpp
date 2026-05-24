@@ -337,6 +337,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Threshold: -70..0 dB
         gateThreshold  = makeGateSlider(-70, 0, -40);
+        gateThreshold->setAccessibleName(tr("Noise gate threshold"));
         lblGateThreshold = new QLabel("-40 dB");
         {
             auto* row = new QHBoxLayout;
@@ -349,6 +350,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Attack: 1..500 ms
         gateAttack  = makeGateSlider(1, 500, 10);
+        gateAttack->setAccessibleName(tr("Noise gate attack"));
         lblGateAttack = new QLabel("10 ms");
         {
             auto* row = new QHBoxLayout;
@@ -360,6 +362,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Hold: 2..1000 ms
         gateHold  = makeGateSlider(2, 1000, 100);
+        gateHold->setAccessibleName(tr("Noise gate hold"));
         lblGateHold = new QLabel("100 ms");
         {
             auto* row = new QHBoxLayout;
@@ -372,6 +375,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Decay: 2..2000 ms
         gateDecay  = makeGateSlider(2, 1000, 200);
+        gateDecay->setAccessibleName(tr("Noise gate decay"));
         lblGateDecay = new QLabel("200 ms");
         {
             auto* row = new QHBoxLayout;
@@ -383,6 +387,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Range: -90..0 dB
         gateRange  = makeGateSlider(-90, 0, -60);
+        gateRange->setAccessibleName(tr("Noise gate range"));
         lblGateRange = new QLabel("-90 dB");
         {
             auto* row = new QHBoxLayout;
@@ -395,6 +400,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // LF key filter cutoff: 20..4000 Hz
         gateLfCutoff  = makeGateSlider(20, 500, 380);
+        gateLfCutoff->setAccessibleName(tr("Noise gate key low frequency cutoff"));
         lblGateLfCutoff = new QLabel("380 Hz");
         {
             auto* row = new QHBoxLayout;
@@ -407,6 +413,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // HF key filter cutoff: 200..20000 Hz
         gateHfCutoff  = makeGateSlider(200, 4000, 2700);
+        gateHfCutoff->setAccessibleName(tr("Noise gate key high frequency cutoff"));
         lblGateHfCutoff = new QLabel("8000 Hz");
         {
             auto* row = new QHBoxLayout;
@@ -458,6 +465,8 @@ void TxAudioProcessingWidget::buildUi()
 
         form->addRow(tr("Input gain:"),  makeGainSlider(inputGain,  lblInputGain));
         form->addRow(tr("Output gain:"), makeGainSlider(outputGain, lblOutputGain));
+        inputGain->setAccessibleName(tr("Input gain"));
+        outputGain->setAccessibleName(tr("Output gain"));
         inputGain->setToolTip(tr("Tip: Increase to around +10dB to drive the compressor into harder compression."));
         outputGain->setToolTip(tr("Tip: Use the output gain to makeup for lost amplitude from the compression stage."));
         mainLayout->addWidget(grp);
@@ -479,6 +488,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Peak limit: -30..0 dB, stored ×10, so range -300..0
         compPeakLimit = makeSlider(-300, 0, -100);
+        compPeakLimit->setAccessibleName(tr("Compressor peak limit"));
         lblPeak       = new QLabel("-10.0 dB");
         {
             auto* row = new QHBoxLayout;
@@ -489,6 +499,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Release: 0.01..1.0 s → stored ×100, range 1..100
         compRelease = makeSlider(1, 100, 10);
+        compRelease->setAccessibleName(tr("Compressor release time"));
         lblRelease  = new QLabel("0.10 s");
         {
             auto* row = new QHBoxLayout;
@@ -499,6 +510,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Fast ratio: DSP 0.0=1:1 (no compression) … 1.0=100:1 (max), stored ×100
         compFastRatio = makeSlider(0, 100, 50);
+        compFastRatio->setAccessibleName(tr("Compressor fast ratio"));
         lblFast       = new QLabel(" 50:1");
         lblFast->setMinimumWidth(55);
         {
@@ -510,6 +522,7 @@ void TxAudioProcessingWidget::buildUi()
 
         // Slow ratio: DSP 0.0=1:1 (no compression) … 1.0=100:1 (max), stored ×100
         compSlowRatio = makeSlider(0, 100, 30);
+        compSlowRatio->setAccessibleName(tr("Compressor slow ratio"));
         lblSlow       = new QLabel(" 30:1");
         lblSlow->setMinimumWidth(55);
         {
@@ -556,6 +569,10 @@ void TxAudioProcessingWidget::buildUi()
             eqSliders[i]->setTickPosition(QSlider::TicksRight);
             eqSliders[i]->setTickInterval(10); // 1.0 dB ticks
             eqSliders[i]->setMinimumHeight(120);
+            eqSliders[i]->setAccessibleName(
+                tr("Equalizer %1 gain").arg(kBandFreqs[i] >= 1000.0f
+                    ? tr("%1 kHz").arg(kBandFreqs[i] / 1000.0f, 0, 'f', 1)
+                    : tr("%1 Hz").arg(int(kBandFreqs[i]))));
 
             eqValues[i] = new QLabel("0.0");
             eqValues[i]->setAlignment(Qt::AlignHCenter);
@@ -609,6 +626,7 @@ void TxAudioProcessingWidget::buildUi()
         specWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         specWidget->setToolTip(tr("TX audio spectrum (input: green, output: orange). "
                                   "Uses a 1024-point sliding DFT, 50 Hz – 8 kHz."));
+        specWidget->setAccessibleName(tr("TX audio spectrum display"));
         vbox->addWidget(specWidget, 1);
 
         specGrp = new CollapsibleSection(tr("TX Spectrum"), specInhibitDuringRx);
@@ -642,6 +660,7 @@ void TxAudioProcessingWidget::buildUi()
         sidetoneLevel = new QSlider(Qt::Horizontal);
         sidetoneLevel->setRange(0, 100);
         sidetoneLevel->setValue(50);
+        sidetoneLevel->setAccessibleName(tr("Self-monitor level"));
         lblSidetone = new QLabel("50%");
         {
             auto* row = new QHBoxLayout;

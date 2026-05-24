@@ -53,7 +53,11 @@ private slots:
 
 private:
     void applyState();
+    // Keep the toggle's accessible name in sync with the title and the
+    // expanded/collapsed state so screen readers announce both.
+    void updateToggleAccessibility();
 
+    QString      m_title;
     QToolButton* m_toggle       {nullptr};
     QWidget*     m_pinnedWidget {nullptr};
     QWidget*     m_body         {nullptr};
