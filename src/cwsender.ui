@@ -25,6 +25,9 @@
         <property name="focusPolicy">
          <enum>Qt::FocusPolicy::NoFocus</enum>
         </property>
+        <property name="accessibleName">
+         <string>Received Text</string>
+        </property>
         <property name="undoRedoEnabled">
          <bool>false</bool>
         </property>
@@ -40,6 +43,9 @@
         </property>
         <property name="toolTip">
          <string>CW Transmission Transcript</string>
+        </property>
+        <property name="accessibleName">
+         <string>Transmission Transcript</string>
         </property>
         <property name="undoRedoEnabled">
          <bool>false</bool>
@@ -109,6 +115,9 @@
               <property name="toolTip">
                <string>Local sidetone generator volume</string>
               </property>
+              <property name="accessibleName">
+               <string>Local Sidetone Level</string>
+              </property>
               <property name="maximum">
                <number>100</number>
               </property>
@@ -121,6 +130,9 @@
              <widget class="QCheckBox" name="sidetoneEnableChk">
               <property name="toolTip">
                <string>Enable local sidetone generator</string>
+              </property>
+              <property name="accessibleName">
+               <string>Enable Local Sidetone</string>
               </property>
               <property name="text">
                <string>Enable</string>
@@ -178,6 +190,9 @@
               <property name="toolTip">
                <string>Type here to send text as CW</string>
               </property>
+              <property name="accessibleName">
+               <string>Text to Send</string>
+              </property>
               <property name="inputMethodHints">
                <set>Qt::InputMethodHint::ImhUppercaseOnly</set>
               </property>
@@ -208,6 +223,9 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="accessibleName">
+             <string>Break In Mode</string>
             </property>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set the desired break-in mode:&lt;/p&gt;&lt;p&gt;1. None: You must manually key and unkey the radio.&lt;/p&gt;&lt;p&gt;2. Semi: Transmit is automatic and switches to receive at the end of the text.&lt;/p&gt;&lt;p&gt;3. Full: Same as semi, but with breaks between characters when possible.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -257,6 +275,9 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="accessibleName">
+             <string>Pitch in Hz</string>
+            </property>
             <property name="toolTip">
              <string>Sets the pitch</string>
             </property>
@@ -291,6 +312,9 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="accessibleName">
+             <string>Dash Ratio</string>
             </property>
             <property name="toolTip">
              <string>Sets the dash ratio</string>
@@ -327,6 +351,9 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="accessibleName">
+             <string>Words Per Minute</string>
+            </property>
             <property name="toolTip">
              <string>Set the Words Per Minute</string>
             </property>
@@ -346,6 +373,9 @@
             <property name="toolTip">
              <string>Replace numbers with short letters, for example 9 becomes N</string>
             </property>
+            <property name="accessibleName">
+             <string>Cut Numbers</string>
+            </property>
             <property name="text">
              <string>Cut Num</string>
             </property>
@@ -355,6 +385,9 @@
            <widget class="QCheckBox" name="sendImmediateChk">
             <property name="toolTip">
              <string>Send immediately: Don't wait for enter, send characters as they are typed</string>
+            </property>
+            <property name="accessibleName">
+             <string>Send Immediately</string>
             </property>
             <property name="text">
              <string>Send Immed</string>
@@ -499,6 +532,9 @@
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
+           </property>
+           <property name="accessibleName">
+            <string>Sequence Number</string>
            </property>
            <property name="maximumSize">
             <size>

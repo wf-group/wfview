@@ -25,6 +25,9 @@
      </item>
      <item>
       <widget class="QLineEdit" name="freqMhzLineEdit">
+       <property name="accessibleName">
+        <string>Frequency in MHz</string>
+       </property>
       </widget>
      </item>
      <item>

@@ -27,10 +27,13 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     displayLayout = new QHBoxLayout();
 
 
+    // Accessibility: these VFO/scope buttons were NoFocus, making them
+    // unreachable by keyboard/VoiceOver. None of them transmit, so they are
+    // made Tab-focusable (StrongFocus) below.
     vfoSelectButton=new QPushButton(tr("VFO A"),this);
     vfoSelectButton->setHidden(true);
     vfoSelectButton->setCheckable(true);
-    vfoSelectButton->setFocusPolicy(Qt::NoFocus);
+    vfoSelectButton->setFocusPolicy(Qt::StrongFocus);
     connect(vfoSelectButton, &QPushButton::clicked, this, [=](bool en) {
         vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
         queue->add(priorityImmediate,queueItem(funcSelectVFO,QVariant::fromValue<vfo_t>(vfo_t(en)),false,t.receiver));
@@ -48,7 +51,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     vfoSwapButton=new QPushButton(tr("A<>B"),this);
     vfoSwapButton->setHidden(true);
-    vfoSwapButton->setFocusPolicy(Qt::NoFocus);
+    vfoSwapButton->setFocusPolicy(Qt::StrongFocus);
     connect(vfoSwapButton, &QPushButton::clicked, this, [=]() {
         vfoSwap();
         vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
@@ -58,7 +61,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     vfoEqualsButton=new QPushButton(tr("A=B"),this);
     vfoEqualsButton->setHidden(true);
-    vfoEqualsButton->setFocusPolicy(Qt::NoFocus);
+    vfoEqualsButton->setFocusPolicy(Qt::StrongFocus);
     connect(vfoEqualsButton, &QPushButton::clicked, this, [=]() {
         vfoCommandType t = queue->getVfoCommand(vfoB,receiver,false);
         queue->add(priorityImmediate,funcVFOEqualAB,false,0);
@@ -69,7 +72,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     vfoMemoryButton=new QPushButton(tr("V/M"),this);
     vfoMemoryButton->setHidden(true);
     vfoMemoryButton->setCheckable(true);
-    vfoMemoryButton->setFocusPolicy(Qt::NoFocus);
+    vfoMemoryButton->setFocusPolicy(Qt::StrongFocus);
     connect(vfoMemoryButton, &QPushButton::clicked, this, [=](bool en) {
         vfo_t v = vfoA;
 
@@ -85,14 +88,14 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     satelliteButton=new QPushButton(tr("SAT"),this);
     satelliteButton->setHidden(true);
     satelliteButton->setCheckable(true);
-    satelliteButton->setFocusPolicy(Qt::NoFocus);
+    satelliteButton->setFocusPolicy(Qt::StrongFocus);
     connect(satelliteButton, &QPushButton::clicked, this, [=](bool en) {
         queue->add(priorityImmediate,queueItem(funcSatelliteMode,QVariant::fromValue<bool>(en),false,0));
     });
 
     splitButton=new QPushButton(tr("SPLIT"),this);
     splitButton->setHidden(true);
-    splitButton->setFocusPolicy(Qt::NoFocus);
+    splitButton->setFocusPolicy(Qt::StrongFocus);
     splitButton->setCheckable(true);
     connect(splitButton, &QPushButton::clicked, this, [=](bool en) {
         queue->add(priorityImmediate,queueItem(funcSplitStatus,QVariant::fromValue<uchar>(en),false,0));
@@ -183,7 +186,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
 
     holdButton = new QPushButton("HOLD");
     holdButton->setCheckable(true);
-    holdButton->setFocusPolicy(Qt::NoFocus);
+    holdButton->setFocusPolicy(Qt::StrongFocus);
 
     controlSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
     midSpacer = new QSpacerItem(0,0,QSizePolicy::Expanding,QSizePolicy::Fixed);
@@ -194,7 +197,7 @@ receiverWidget::receiverWidget(bool scope, uchar receiver, uchar vfo, QWidget *p
     confButton->setAccessibleName(tr("Configure Scope"));
     confButton->setAccessibleDescription(tr("Change various settings of the current Scope"));
     confButton->setToolTip(tr("Configure Scope"));
-    confButton->setFocusPolicy(Qt::NoFocus);
+    confButton->setFocusPolicy(Qt::StrongFocus);
 
     modeCombo = new QComboBox();
     modeCombo->setToolTip(tr("Select current radio mode"));

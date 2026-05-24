@@ -650,6 +650,9 @@
       </item>
       <item>
        <widget class="QComboBox" name="bandStkPopdown">
+        <property name="accessibleName">
+         <string>Band Stack Selection</string>
+        </property>
         <item>
          <property name="text">
           <string>1 - Latest Used</string>

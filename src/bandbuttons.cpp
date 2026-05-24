@@ -6,6 +6,12 @@ bandbuttons::bandbuttons(QWidget *parent) :
     ui(new Ui::bandbuttons)
 {
     ui->setupUi(this);
+
+    // Accessibility: the band buttons are NoFocus in the .ui. Selecting a band
+    // does not transmit, so make them reachable by keyboard/VoiceOver via Tab.
+    for (QPushButton* btn : ui->groupBox_3->findChildren<QPushButton*>())
+        btn->setFocusPolicy(Qt::StrongFocus);
+
     ui->bandStkLastUsedBtn->setVisible(false);
     ui->bandStkVoiceBtn->setVisible(false);
     ui->bandStkDataBtn->setVisible(false);

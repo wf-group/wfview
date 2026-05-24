@@ -10,6 +10,7 @@
 #include <QImage>
 #include <QtGui>
 #include <QApplication>
+#include <QTimer>
 
 enum FctlUnit {
     FCTL_UNIT_NONE,            // Freq displayed without unit: 14.236.000
@@ -94,6 +95,12 @@ private:
     bool    inRect(QRect &rect, QPointF &point);
     void    setActiveDigit(int idx);
 
+    // Accessibility (screen readers / VoiceOver): keep the accessible name in
+    // sync with the current frequency so it can be read on demand, and announce
+    // the value only once tuning has settled (never on every change).
+    QString accessibleFreqText() const;
+    void    refreshAccessibleFrequency();
+
     bool        m_UpdateAll;
     bool        m_ExternalKeyActive;
     bool        m_LRMouseFreqSel;   /* Use left/right mouse buttons. If FALSE click area determines up/down. */
@@ -116,6 +123,8 @@ private:
     int scrollYperClick = 24;
     int scrollXperClick = 24;
     qreal scrollWheelOffsetAccumulated=0;
+
+    QTimer*     m_a11yAnnounceTimer = nullptr;
 
     qint64      m_MinStep;
     qint64      m_freq;

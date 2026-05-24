@@ -666,6 +666,12 @@
                  <property name="toolTip">
                   <string>Set the rado monitor level</string>
                  </property>
+                 <property name="accessibleName">
+                  <string>Monitor Level</string>
+                 </property>
+                 <property name="accessibleDescription">
+                  <string>Transmit monitor audio level</string>
+                 </property>
                  <property name="maximum">
                   <number>255</number>
                  </property>
@@ -719,6 +725,9 @@
                   <property name="toolTip">
                    <string>Noise Blanker</string>
                   </property>
+                  <property name="accessibleName">
+                   <string>Noise Blanker</string>
+                  </property>
                   <property name="text">
                    <string>NB</string>
                   </property>
@@ -727,6 +736,9 @@
                 <item>
                  <widget class="QCheckBox" name="nrEnableChk">
                   <property name="toolTip">
+                   <string>Noise Reduction</string>
+                  </property>
+                  <property name="accessibleName">
                    <string>Noise Reduction</string>
                   </property>
                   <property name="text">
@@ -738,6 +750,9 @@
                  <widget class="QCheckBox" name="ipPlusEnableChk">
                   <property name="toolTip">
                    <string>IP+ Funcion</string>
+                  </property>
+                  <property name="accessibleName">
+                   <string>IP Plus</string>
                   </property>
                   <property name="text">
                    <string>IP+</string>
@@ -756,6 +771,9 @@
                   <property name="toolTip">
                    <string>Digi-Sel</string>
                   </property>
+                  <property name="accessibleName">
+                   <string>Digi-Sel</string>
+                  </property>
                   <property name="text">
                    <string>DS</string>
                   </property>
@@ -764,6 +782,9 @@
                 <item>
                  <widget class="QCheckBox" name="compEnableChk">
                   <property name="toolTip">
+                   <string>Compressor</string>
+                  </property>
+                  <property name="accessibleName">
                    <string>Compressor</string>
                   </property>
                   <property name="text">
@@ -775,6 +796,9 @@
                  <widget class="QCheckBox" name="voxEnableChk">
                   <property name="toolTip">
                    <string>Vox Enable</string>
+                  </property>
+                  <property name="accessibleName">
+                   <string>VOX, Voice Operated Transmit</string>
                   </property>
                   <property name="text">
                    <string>VOX</string>
@@ -1131,6 +1155,9 @@
                <widget class="QCheckBox" name="rxAntennaCheck">
                 <property name="enabled">
                  <bool>false</bool>
+                </property>
+                <property name="accessibleName">
+                 <string>Receive Antenna</string>
                 </property>
                 <property name="text">
                  <string>RX</string>

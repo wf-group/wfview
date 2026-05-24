@@ -41,6 +41,23 @@ wfmain::wfmain(const QString settingsFile, const QString logFile, bool debugMode
 
     ui->monitorLabel->setText("Mon");
 
+    // Accessibility: the operating buttons are NoFocus in the .ui so the tuning
+    // controls keep keyboard focus. That leaves keyboard-only and VoiceOver
+    // users unable to Tab to them. Make the navigation/dialog buttons reachable
+    // by Tab, but deliberately leave the transmit-hazardous buttons (Transmit,
+    // Tune, Power On/Off) as NoFocus so a stray Space/Enter can't key the rig.
+    const QList<QPushButton*> tabFocusButtons = {
+        ui->cwButton, ui->rptSetupBtn, ui->memoriesBtn,
+        ui->dualWatchBtn, ui->scopeDualBtn, ui->scopeMainSubBtn,
+        ui->splitBtn, ui->swapMainSubBtn, ui->mainEqualsSubBtn,
+        ui->aboutBtn, ui->showSettingsBtn, ui->saveSettingsBtn,
+        ui->radioStatusBtn, ui->showLogBtn, ui->showBandsBtn,
+        ui->showFreqBtn, ui->rigCreatorBtn, ui->TXaudioProcBtn,
+        ui->RXaudioProcBtn, ui->connectBtn, ui->exitBtn
+    };
+    for (QPushButton* btn : tabFocusButtons)
+        btn->setFocusPolicy(Qt::StrongFocus);
+
 
     logWindow = new loggingWindow(logFile);
     initLogging();

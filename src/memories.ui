@@ -22,7 +22,11 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QComboBox" name="group"/>
+        <widget class="QComboBox" name="group">
+         <property name="accessibleName">
+          <string>Memory Group</string>
+         </property>
+        </widget>
        </item>
        <item>
         <spacer name="horizontalSpacer_4">

@@ -33,8 +33,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <QDebug>
+#include <QAccessible>
 #include "freqctrl.h"
 #include "logcategories.h"
+
+// Milliseconds of no frequency change before the value is announced to a
+// screen reader. This keeps spinning the dial (hundreds of changes/second)
+// from flooding the user with speech: nothing is spoken until tuning settles.
+#define A11Y_ANNOUNCE_SETTLE_MS 500
 
 // Manual adjustment of Font size as percent of control height
 #define DIGIT_SIZE_PERCENT 90
@@ -77,10 +83,47 @@
     //m_DigitFont = QFont("Arial", 12, QFont::Normal);
 
     setStatusTip(tr(STATUS_TIP));
+
+    // Announce the settled frequency to screen readers only after the user
+    // stops tuning, so rapid changes (dial spinning) never spam speech.
+    m_a11yAnnounceTimer = new QTimer(this);
+    m_a11yAnnounceTimer->setSingleShot(true);
+    m_a11yAnnounceTimer->setInterval(A11Y_ANNOUNCE_SETTLE_MS);
+    connect(m_a11yAnnounceTimer, &QTimer::timeout, this, [=]() {
+        if (QAccessible::isActive())
+        {
+            QAccessibleEvent event(this, QAccessible::NameChanged);
+            QAccessible::updateAccessibility(&event);
+        }
+    });
+
+    setAccessibleDescription(tr("Radio frequency. Scroll or use the arrow keys to change it."));
+    setAccessibleName(accessibleFreqText());
 }
 
 freqCtrl::~freqCtrl()
 {
+}
+
+QString freqCtrl::accessibleFreqText() const
+{
+    // wfview drives this control in Hz; present a spoken-friendly MHz value.
+    return tr("%1 MHz").arg(m_freq / 1.0e6, 0, 'f', 6);
+}
+
+void freqCtrl::refreshAccessibleFrequency()
+{
+    // setFrequency() is a hot path (the dial can fire hundreds of times per
+    // second), so do nothing unless a screen reader is actually connected.
+    if (!QAccessible::isActive() || m_a11yAnnounceTimer == nullptr)
+        return;
+
+    // Updating the accessible name does not itself trigger speech, so the
+    // current value can always be read on demand without flooding the user.
+    setAccessibleName(accessibleFreqText());
+
+    // (Re)start the settle timer; the value is announced once tuning stops.
+    m_a11yAnnounceTimer->start();
 }
 
 QSize freqCtrl::minimumSizeHint() const
@@ -320,6 +363,7 @@ void freqCtrl::setFrequency(qint64 freq)
     // signal the new frequency to world
     m_Oldfreq = m_freq;
     emit    newFrequency(m_freq);
+    refreshAccessibleFrequency();
     updateCtrl(m_LastLeadZeroPos != m_LeadZeroPos);
     m_LastLeadZeroPos = m_LeadZeroPos;
 }
