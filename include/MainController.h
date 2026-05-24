@@ -62,6 +62,10 @@ public:
     Q_PROPERTY(int txPower READ txPower WRITE setTxPower NOTIFY txPowerChanged)
     Q_PROPERTY(int monitorGain READ monitorGain WRITE setMonitorGain NOTIFY monitorGainChanged)
     Q_PROPERTY(int micGain READ micGain WRITE setMicGain NOTIFY micGainChanged)
+    Q_PROPERTY(QString modGainLabel READ modGainLabel NOTIFY modSourcesChanged)
+    Q_PROPERTY(int modGainMin READ modGainMin NOTIFY modSourcesChanged)
+    Q_PROPERTY(int modGainMax READ modGainMax NOTIFY modSourcesChanged)
+    Q_PROPERTY(int modSourceRevision READ modSourceRevision NOTIFY modSourcesChanged)
     Q_PROPERTY(int ritFrequency READ ritFrequency WRITE setRitFrequency NOTIFY ritFrequencyChanged)
     Q_PROPERTY(bool transmitting READ transmitting WRITE setTransmit NOTIFY transmittingChanged)
     Q_PROPERTY(bool tunerEnabled READ tunerEnabled WRITE setTunerEnabled NOTIFY tunerEnabledChanged)
@@ -159,6 +163,10 @@ public:
     int txPower() const { return m_txPower; }
     int monitorGain() const { return m_monitorGain; }
     int micGain() const { return m_micGain; }
+    QString modGainLabel() const { return m_modGainLabel; }
+    int modGainMin() const { return m_modGainMin; }
+    int modGainMax() const { return m_modGainMax; }
+    int modSourceRevision() const { return m_modSourceRevision; }
     int ritFrequency() const { return m_ritFrequency; }
     bool transmitting() const { return m_transmitting; }
     bool tunerEnabled() const { return m_tunerEnabled; }
@@ -207,6 +215,10 @@ public:
     Q_INVOKABLE QVariantMap optionalMeterExtremities(int meterType) const;
     Q_INVOKABLE bool isOptionalMeterAvailable(int meterType) const;
     Q_INVOKABLE void setOptionalMeterType(int slot, int meterType);
+    Q_INVOKABLE QVariantList modSourceOptions(int dataMode) const;
+    Q_INVOKABLE int modSourceReg(int dataMode) const;
+    Q_INVOKABLE bool modSourceSupported(int dataMode) const;
+    Q_INVOKABLE void setModSource(int dataMode, int reg);
 
 public slots:
     void setTxPower(int value);
@@ -261,6 +273,7 @@ signals:
     void txPowerChanged();
     void monitorGainChanged();
     void micGainChanged();
+    void modSourcesChanged();
     void ritFrequencyChanged();
     void transmittingChanged();
     void tunerEnabledChanged();
@@ -304,6 +317,13 @@ private:
     void buildUiSpecs();
     void setRadioStatusText(const QString& text);
     void setRigModelName(const QString& modelName);
+    funcs modSourceCommand(int dataMode) const;
+    funcType inputLevelCommand(inputTypes input) const;
+    uchar currentDataMode() const;
+    void receiveModInput(const rigInput& input, int dataMode);
+    void processModLevel(inputTypes input, int level);
+    void updateCurrentModSource(bool requestLevel);
+    void handleDataModeChanged(int receiver);
 #if defined(USB_CONTROLLER)
     void setupUsbControllerDevice();
     void stopUsbControllerDevice();
@@ -364,6 +384,11 @@ private:
     int m_txPower = 0;
     int m_monitorGain = 0;
     int m_micGain = 0;
+    QString m_modGainLabel = "Mic";
+    int m_modGainMin = 0;
+    int m_modGainMax = 255;
+    int m_modSourceRevision = 0;
+    rigInput m_currentModSrc[4];
     int m_ritFrequency = 0;
     bool m_transmitting = false;
     bool m_tunerEnabled = false;

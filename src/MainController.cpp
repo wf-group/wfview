@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QTimer>
+#include <algorithm>
 
 static QVariantList spectrumToVariantList(const QVector<double>& bins)
 {
@@ -484,6 +485,131 @@ void MainController::setOptionalMeterType(int slot, int meterType)
     emit optionalMetersChanged();
 }
 
+funcs MainController::modSourceCommand(int dataMode) const
+{
+    switch (dataMode) {
+    case 0: return funcDATAOffMod;
+    case 1: return funcDATA1Mod;
+    case 2: return funcDATA2Mod;
+    case 3: return funcDATA3Mod;
+    default: return funcNone;
+    }
+}
+
+funcType MainController::inputLevelCommand(inputTypes input) const
+{
+    funcs func = funcNone;
+    switch (input) {
+    case inputMICACCA:
+    case inputMICACCB:
+    case inputMICACCAACCB:
+    case inputMICUSB:
+    case inputMic:
+    case inputUnknown:
+        func = funcMicGain;
+        break;
+    case inputACCAACCB:
+    case inputACCA:
+    case inputACCUSB:
+        func = funcACCAModLevel;
+        break;
+    case inputACCB:
+        func = funcACCBModLevel;
+        break;
+    case inputUSB:
+        func = funcUSBModLevel;
+        break;
+    case inputLAN:
+        func = funcLANModLevel;
+        break;
+    case inputSPDIF:
+        func = funcSPDIFModLevel;
+        break;
+    default:
+        break;
+    }
+
+    return (rigCaps && rigCaps->commands.contains(func)) ? rigCaps->commands.value(func) : funcType();
+}
+
+uchar MainController::currentDataMode() const
+{
+    if (currentReceiver < receivers.size() && receivers[currentReceiver])
+        return qMin(receivers[currentReceiver]->getDataMode(), uchar(3));
+
+    return 0;
+}
+
+QVariantList MainController::modSourceOptions(int dataMode) const
+{
+    QVariantList values;
+    if (!rigCaps || !modSourceSupported(dataMode))
+        return values;
+
+    for (const auto& input : rigCaps->inputs) {
+        if (dataMode != 0 && input.reg < 0)
+            continue;
+
+        values.append(QVariantMap{
+            {"text", input.name},
+            {"value", int(input.reg)},
+            {"type", int(input.type)}
+        });
+    }
+
+    if (values.isEmpty())
+        values.append(QVariantMap{{"text", tr("None")}, {"value", -1}, {"type", int(inputUnknown)}});
+
+    return values;
+}
+
+int MainController::modSourceReg(int dataMode) const
+{
+    if (!m_settings || dataMode < 0 || dataMode > 3)
+        return -1;
+
+    return m_settings->getPrefs()->inputSource[dataMode].reg;
+}
+
+bool MainController::modSourceSupported(int dataMode) const
+{
+    const funcs func = modSourceCommand(dataMode);
+    return rigCaps && func != funcNone && rigCaps->commands.contains(func);
+}
+
+void MainController::setModSource(int dataMode, int reg)
+{
+    if (!rigCaps || !m_settings || dataMode < 0 || dataMode > 3)
+        return;
+
+    auto it = std::find_if(rigCaps->inputs.cbegin(), rigCaps->inputs.cend(), [reg](const rigInput& input) {
+        return int(input.reg) == reg;
+    });
+
+    if (it == rigCaps->inputs.cend())
+        return;
+
+    const funcs sourceFunc = modSourceCommand(dataMode);
+    if (sourceFunc == funcNone || !rigCaps->commands.contains(sourceFunc))
+        return;
+
+    auto* pref = m_settings->getPrefs();
+    pref->inputSource[dataMode] = *it;
+    m_currentModSrc[dataMode] = *it;
+
+    queue->add(priorityImmediate, queueItem(sourceFunc, QVariant::fromValue<rigInput>(*it), false, currentReceiver));
+
+    const auto levelCommand = inputLevelCommand(it->type);
+    if (levelCommand.cmd != funcNone)
+        queue->addUnique(priorityHigh, queueItem(levelCommand.cmd, true, currentReceiver));
+
+    if (currentDataMode() == dataMode)
+        updateCurrentModSource(true);
+
+    ++m_modSourceRevision;
+    emit modSourcesChanged();
+}
+
 funcs MainController::meterCommandForType(meter_t meterType) const
 {
     switch (meterType) {
@@ -777,18 +903,17 @@ void MainController::setMonitorGain(int value)
 
 void MainController::setMicGain(int value)
 {
-    if (rigCaps && rigCaps->commands.contains(funcMicGain)) {
-        const auto cmd = rigCaps->commands.find(funcMicGain).value();
-        value = qBound(cmd.minVal, value, cmd.maxVal);
-    }
+    const auto source = m_settings ? m_settings->getPrefs()->inputSource[currentDataMode()] : rigInput(inputMic);
+    const auto cmd = inputLevelCommand(source.type);
+    value = qBound(cmd.minVal, value, cmd.maxVal);
 
     if (m_micGain != value) {
         m_micGain = value;
         emit micGainChanged();
     }
 
-    if (rigCaps && rigCaps->commands.contains(funcMicGain)) {
-        queue->addUnique(priorityImmediate, queueItem(funcMicGain, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+    if (cmd.cmd != funcNone) {
+        queue->addUnique(priorityImmediate, queueItem(cmd.cmd, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
     }
 }
 
@@ -1292,6 +1417,87 @@ void MainController::receiveStatusUpdate(networkStatus status)
                            .arg(status.packetsSent, 3));
 }
 
+void MainController::receiveModInput(const rigInput& input, int dataMode)
+{
+    if (!m_settings || dataMode < 0 || dataMode > 3)
+        return;
+
+    auto* pref = m_settings->getPrefs();
+    if (m_currentModSrc[dataMode] == input)
+        return;
+
+    const auto oldLevelCommand = inputLevelCommand(pref->inputSource[dataMode].type);
+    if (oldLevelCommand.cmd != funcNone)
+        queue->del(oldLevelCommand.cmd, currentReceiver);
+
+    pref->inputSource[dataMode] = input;
+    m_currentModSrc[dataMode] = input;
+
+    if (currentDataMode() == dataMode)
+        updateCurrentModSource(true);
+
+    ++m_modSourceRevision;
+    emit modSourcesChanged();
+}
+
+void MainController::processModLevel(inputTypes input, int level)
+{
+    if (!m_settings)
+        return;
+
+    auto* pref = m_settings->getPrefs();
+    const uchar dataMode = currentDataMode();
+    if (pref->inputSource[dataMode].type != input)
+        return;
+
+    pref->inputSource[dataMode].level = uchar(level);
+    if (m_micGain != level) {
+        m_micGain = level;
+        emit micGainChanged();
+    }
+}
+
+void MainController::updateCurrentModSource(bool requestLevel)
+{
+    if (!m_settings)
+        return;
+
+    const auto input = m_settings->getPrefs()->inputSource[currentDataMode()];
+    const auto levelCommand = inputLevelCommand(input.type);
+    const QString label = input.name.isEmpty() ? tr("Mic") : input.name;
+
+    bool changed = false;
+    if (m_modGainLabel != label) {
+        m_modGainLabel = label;
+        changed = true;
+    }
+    if (m_modGainMin != levelCommand.minVal || m_modGainMax != levelCommand.maxVal) {
+        m_modGainMin = levelCommand.minVal;
+        m_modGainMax = levelCommand.maxVal;
+        changed = true;
+    }
+
+    if (requestLevel && levelCommand.cmd != funcNone)
+        queue->add(priorityMedium, levelCommand.cmd, true, currentReceiver);
+
+    if (changed)
+        emit modSourcesChanged();
+}
+
+void MainController::handleDataModeChanged(int receiver)
+{
+    if (receiver != currentReceiver || !m_settings)
+        return;
+
+    const uchar dataMode = currentDataMode();
+    m_currentModSrc[dataMode] = rigInput();
+
+    const funcs sourceFunc = modSourceCommand(dataMode);
+    if (sourceFunc != funcNone && rigCaps && rigCaps->commands.contains(sourceFunc))
+        queue->add(priorityImmediate, sourceFunc, false, currentReceiver);
+
+    updateCurrentModSource(false);
+}
 
 void MainController::receiveCommReady()
 {
@@ -1537,6 +1743,9 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
+            connect(rc, &ReceiverController::dataModeChanged, this, [this, i]() {
+                handleDataModeChanged(i);
+            });
 
             if (i == 0) {
                 // Report scope redraw time to Select Radio window (only scope 0)
@@ -1552,6 +1761,9 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         connStatus = connectionStatus_t::connConnected;
         setRigModelName(rigCaps->modelName);
         setWindowTitle(rigCaps->modelName);
+        updateCurrentModSource(false);
+        ++m_modSourceRevision;
+        emit modSourcesChanged();
 
         getInitialRigState();
         buildUiSpecs();
@@ -2286,31 +2498,31 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcREFAdjustFine:
         //break;
     case funcACCAModLevel:
-        //processModLevel(inputACCA,val.value.value<uchar>());
+        processModLevel(inputACCA, val.value.value<uchar>());
         break;
     case funcACCBModLevel:
-        //processModLevel(inputACCB,val.value.value<uchar>());
+        processModLevel(inputACCB, val.value.value<uchar>());
         break;
     case funcUSBModLevel:
-        //processModLevel(inputUSB,val.value.value<uchar>());
+        processModLevel(inputUSB, val.value.value<uchar>());
         break;
     case funcSPDIFModLevel:
-        //processModLevel(inputSPDIF,val.value.value<uchar>());
+        processModLevel(inputSPDIF, val.value.value<uchar>());
         break;
     case funcLANModLevel:
-        //processModLevel(inputLAN,val.value.value<uchar>());
+        processModLevel(inputLAN, val.value.value<uchar>());
         break;
     case funcDATAOffMod:
-        //receiveModInput(val.value.value<rigInput>(), 0);
+        receiveModInput(val.value.value<rigInput>(), 0);
         break;
     case funcDATA1Mod:
-        //receiveModInput(val.value.value<rigInput>(), 1);
+        receiveModInput(val.value.value<rigInput>(), 1);
         break;
     case funcDATA2Mod:
-        //receiveModInput(val.value.value<rigInput>(), 2);
+        receiveModInput(val.value.value<rigInput>(), 2);
         break;
     case funcDATA3Mod:
-        //receiveModInput(val.value.value<rigInput>(), 3);
+        receiveModInput(val.value.value<rigInput>(), 3);
         break;
     case funcDashRatio:
         m_cwSender->setDashRatio(val.value.value<uchar>());

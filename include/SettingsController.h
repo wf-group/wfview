@@ -400,6 +400,7 @@ public:
 
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
+    Q_INVOKABLE void markDirty();
 
     // Flags
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
@@ -452,7 +453,6 @@ private:
     void seedOptionsFromBindings();     // push current values into the QQmlPropertyMap
     void updateOptionInMap(const QString& key, const QVariant& v);
 
-    void markDirty();
     void emitGroupChange(const Binding& b);
     void refreshCurrentColorPresetOptions(bool loading=true);
 

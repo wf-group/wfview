@@ -1421,25 +1421,76 @@ ApplicationWindow {
                     ColumnLayout {
                         anchors.fill: parent
                         spacing: 10
+                        enabled: window.connStatus === 2
 
                         RowLayout {
                             spacing: 8
-                            Label { id: modInputDataOffComboText; text: qsTr("Data Off Modulation Input:") }
+                            Label {
+                                id: modInputDataOffComboText
+                                text: qsTr("Data Off Modulation Input:")
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(0)
+                                enabled: window.connStatus === 2
+                            }
                             ComboBox {
                                 id: modInputCombo
                                 Accessible.name: "Modulation Input"
                                 Accessible.description: "Transmit modulation source"
-                                enabled: false
-                                ToolTip.visible: hovered
-                                ToolTip.text: qsTr("Modulation input selection needs a QML model and controller binding.")
-                                model: [] // TODO
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(0)
+                                enabled: visible && window.connStatus === 2
+                                textRole: "text"
+                                valueRole: "value"
+                                model: MainController.modSourceRevision >= 0 ? MainController.modSourceOptions(0) : []
+                                currentIndex: MainController.modSourceRevision >= 0 ? indexFromValue(modInputCombo, MainController.modSourceReg(0)) : -1
+                                onActivated: MainController.setModSource(0, currentValue)
                             }
-                            Label { id: modInputData1ComboText; text: qsTr("(Data Mod Inputs) DATA1:") }
-                            ComboBox { id: modInputData1Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA1 modulation input selection needs a QML model and controller binding.") }
-                            Label { id: modInputData2ComboText; text: qsTr("DATA2:") }
-                            ComboBox { id: modInputData2Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA2 modulation input selection needs a QML model and controller binding.") }
-                            Label { id: modInputData3ComboText; text: qsTr("DATA3:") }
-                            ComboBox { id: modInputData3Combo; model: []; enabled: false; ToolTip.visible: hovered; ToolTip.text: qsTr("DATA3 modulation input selection needs a QML model and controller binding.") }
+                            Label {
+                                id: modInputData1ComboText
+                                text: qsTr("(Data Mod Inputs) DATA1:")
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(1)
+                                enabled: window.connStatus === 2
+                            }
+                            ComboBox {
+                                id: modInputData1Combo
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(1)
+                                enabled: visible && window.connStatus === 2
+                                textRole: "text"
+                                valueRole: "value"
+                                model: MainController.modSourceRevision >= 0 ? MainController.modSourceOptions(1) : []
+                                currentIndex: MainController.modSourceRevision >= 0 ? indexFromValue(modInputData1Combo, MainController.modSourceReg(1)) : -1
+                                onActivated: MainController.setModSource(1, currentValue)
+                            }
+                            Label {
+                                id: modInputData2ComboText
+                                text: qsTr("DATA2:")
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(2)
+                                enabled: window.connStatus === 2
+                            }
+                            ComboBox {
+                                id: modInputData2Combo
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(2)
+                                enabled: visible && window.connStatus === 2
+                                textRole: "text"
+                                valueRole: "value"
+                                model: MainController.modSourceRevision >= 0 ? MainController.modSourceOptions(2) : []
+                                currentIndex: MainController.modSourceRevision >= 0 ? indexFromValue(modInputData2Combo, MainController.modSourceReg(2)) : -1
+                                onActivated: MainController.setModSource(2, currentValue)
+                            }
+                            Label {
+                                id: modInputData3ComboText
+                                text: qsTr("DATA3:")
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(3)
+                                enabled: window.connStatus === 2
+                            }
+                            ComboBox {
+                                id: modInputData3Combo
+                                visible: MainController.modSourceRevision >= 0 && MainController.modSourceSupported(3)
+                                enabled: visible && window.connStatus === 2
+                                textRole: "text"
+                                valueRole: "value"
+                                model: MainController.modSourceRevision >= 0 ? MainController.modSourceOptions(3) : []
+                                currentIndex: MainController.modSourceRevision >= 0 ? indexFromValue(modInputData3Combo, MainController.modSourceReg(3)) : -1
+                                onActivated: MainController.setModSource(3, currentValue)
+                            }
                             Item { Layout.fillWidth: true }
                         }
 

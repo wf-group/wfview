@@ -775,11 +775,10 @@ ApplicationWindow {
                         ColumnLayout {
                             Slider {
                                 id: micGainSlider
-                                readonly property var spec: controlSpec("micGain", 0, 255)
-                                from: spec.min
-                                to: spec.max
+                                from: MainController.modGainMin
+                                to: MainController.modGainMax
                                 value: MainController.micGain
-                                enabled: spec.available ?? false
+                                enabled: MainController.modGainMax > MainController.modGainMin
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: MainController.micGain = Math.round(value)
@@ -789,7 +788,7 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: qsTr("Mic"); horizontalAlignment: Text.AlignHCenter }
+                            Label { text: MainController.modGainLabel; horizontalAlignment: Text.AlignHCenter }
                         }
                     }
                 }
