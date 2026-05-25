@@ -45,7 +45,10 @@ ApplicationWindow {
 
         function applyExtremities() {
             const ext = MainController.optionalMeterExtremities(meterChoice)
-            optionalMeter.setMeterExtremities(ext.low, ext.high, ext.red)
+            if (ext.valid)
+                optionalMeter.setMeterExtremities(ext.low, ext.high, ext.red)
+            else
+                optionalMeter.clearMeterExtremities()
         }
 
         Meter {
@@ -113,7 +116,6 @@ ApplicationWindow {
         Connections {
             target: MainController
             function onUiSpecsChanged() { optionalMeterSlot.applyExtremities() }
-            function onOptionalMetersChanged() { optionalMeterSlot.applyExtremities() }
         }
     }
 

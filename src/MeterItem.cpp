@@ -11,7 +11,7 @@ MeterItem::MeterItem(QQuickItem *parent) : QQuickPaintedItem(parent)
     setRenderTarget(QQuickPaintedItem::FramebufferObject); // good default
     setAcceptedMouseButtons(Qt::LeftButton);
 
-    qInfo(logSystem) << "Creating new MeterItem()";
+    qDebug(logSystem) << "Creating MeterItem";
     m_currentColor = colorFromString("#148CD2").darker();
     m_peakColor    = colorFromString("#3CA0DB").lighter();
     m_averageColor = colorFromString("#3FB7CD");
@@ -187,7 +187,7 @@ void MeterItem::setMeterType(int t)
     emit meterShortStringChanged();
     clearMeter();        // matches your QWidget behaviour
     markScaleDirty();
-    qInfo(logSystem) << "meterType set to" << m_meterShortString;
+    qDebug(logSystem) << "meterType set to" << m_meterShortString;
 }
 
 void MeterItem::setMeterShortString(const QString &s)
@@ -261,13 +261,32 @@ void MeterItem::clearMeter()
 
 void MeterItem::setMeterExtremities(double min, double max, double redline)
 {
-    qInfo(logSystem) << "Got new meterExtemeties for" << m_meterShortString << "min" << min << "max" << max;
+    if (!qIsFinite(min) || !qIsFinite(max) || !qIsFinite(redline) || max <= min) {
+        clearMeterExtremities();
+        return;
+    }
+
+    if (m_haveExtremities && m_scaleMin == min && m_scaleMax == max && m_scaleRedline == redline)
+        return;
+
+    qDebug(logSystem) << "Meter extremities changed for" << m_meterShortString << "min" << min << "max" << max;
     m_scaleMin = min;
     m_scaleMax = max;
     m_scaleRedline = redline;
     m_haveExtremities = true;
     emit scaleChanged();
     markScaleDirty();
+}
+
+void MeterItem::clearMeterExtremities()
+{
+    if (!m_haveExtremities)
+        return;
+
+    m_haveExtremities = false;
+    m_scaleReady = false;
+    emit scaleChanged();
+    update();
 }
 
 // trivial setters (same pattern)

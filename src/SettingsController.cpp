@@ -225,7 +225,7 @@ void SettingsController::buildUiSpecs()
 
     // Audio input devices
     for (auto &a: audioDev->getInputList()) {
-        qInfo() << "added audio input device::::" << a;
+        qDebug(logAudio()) << "Audio input device:" << a->name;
         values.append(QVariantMap{
             {"text",  a->name},
             {"value", a->name}
@@ -1780,10 +1780,10 @@ void SettingsController::setDefPrefs()
         }
     }
 
-    // ADD THIS DEBUG:
-    qInfo() << "Preset 0 (Dark) button:" << colorPreset[0].button;
-    qInfo() << "Preset 1 (Bright) button:" << colorPreset[1].button;
-    qInfo() << "Preset 2 button:" << colorPreset[2].button;
+    qDebug(logGui()) << "Color preset buttons"
+                     << "dark" << colorPreset[0].button
+                     << "bright" << colorPreset[1].button
+                     << "custom" << colorPreset[2].button;
 }
 
 void SettingsController::markDirty()
@@ -1922,19 +1922,8 @@ void SettingsController::updateOptionInMap(const QString& iniKey, const QVariant
 
     const QString qmlKey = iniKey;
 
-    const QVariant before = m_options->value(qmlKey);
-    qWarning() << "updateOptionInMap this=" << this
-               << "m_options=" << m_options
-               << "iniKey=" << iniKey
-               << "qmlKey=" << qmlKey
-               << "val=" << v
-               << "before=" << before;
-
     // IMPORTANT: insert() emits QQmlPropertyMap::valueChanged -> QML updates
     m_options->insert(qmlKey, v);
-
-    const QVariant after = m_options->value(qmlKey);
-    qWarning() << "updateOptionInMap after=" << after;
 }
 
 
@@ -1949,24 +1938,14 @@ void SettingsController::setOption(const QString& key, const QVariant& value)
     }
 
     const QVariant oldVal = it.value().get();
-    const QVariant mapBefore = m_options ? (*m_options)[key] : QVariant("NO_MAP");
-
-    qWarning() << "setOption"
-               << "key=" << key
-               << "incoming=" << value
-               << "old=" << oldVal
-               << "mapBefore=" << mapBefore;
 
     // Apply change into prefs
     const bool changed = it.value().set(value);
-    if (!changed) {
-        qWarning() << "setOption: NO CHANGE"
-                   << "incoming=" << value
-                   << "old=" << oldVal;
+    if (!changed)
         return;
-    }
 
     const QVariant newVal = it.value().get();
+    qDebug(logSystem) << "setting changed" << key << oldVal << "->" << newVal;
 
     // Mark dirty + update map (QML reacts to the map)
     markDirty();
@@ -1977,12 +1956,6 @@ void SettingsController::setOption(const QString& key, const QVariant& value)
 
     // Notify other subsystems (your notify lambda)
     emitGroupChange(it.value());
-
-    const QVariant mapAfter = m_options ? (*m_options)[key] : QVariant("NO_MAP");
-
-    qWarning() << "setOption DONE"
-               << "new=" << newVal
-               << "mapAfter=" << mapAfter;
 }
 
 QVariant SettingsController::option(const QString& key) const
@@ -1998,7 +1971,6 @@ QVariant SettingsController::option(const QString& key) const
     }
 
     const QVariant v = it.value().get();
-    qWarning() << "option:" << "key=" << key << "realKey=" << realKey << "val=" << v;
     return v;
 }
 

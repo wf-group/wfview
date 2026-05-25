@@ -85,6 +85,7 @@ public:
     Q_INVOKABLE void setLevels2(double current, double peak);   // like your overload
     Q_INVOKABLE void clearMeter();
     Q_INVOKABLE void setMeterExtremities(double min, double max, double redline);
+    Q_INVOKABLE void clearMeterExtremities();
 
 signals:
     void configureMeterRequested(int meterType); // QML will open popup and select

@@ -62,7 +62,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     });
     setManufacturer(prefs->manufacturer);
     setAppTheme(prefs->useSystemTheme);
-    qInfo() << "******** Theme colors:" << m_theme.text().name();
+    qDebug(logGui()) << "Theme text color:" << m_theme.text().name();
 
     m_theme.syncFromAppPalette();
 
@@ -105,12 +105,10 @@ void MainController::updateApplicationPalette()
 {
     colorPrefsType colors = m_settings->getCurrentColorPreset();
 
-
-    // DEBUG: Check what we actually got
-    qInfo() << "=== Color Preset Values ===";
-    qInfo() << "Window:" << colors.window;
-    qInfo() << "Button:" << colors.button;
-    qInfo() << "ButtonText:" << colors.buttonText;
+    qDebug(logGui()) << "Color preset"
+                     << "window" << colors.window
+                     << "button" << colors.button
+                     << "buttonText" << colors.buttonText;
 
     for (auto *r : std::as_const(receivers)) {
         if (r) r->setColors(colors);
@@ -195,10 +193,11 @@ void MainController::updateApplicationPalette()
     } else {
         QGuiApplication::setPalette(systemPalette);
     }
-    qInfo() << "Normal WindowText:" << palette.color(QPalette::Active, QPalette::WindowText);
-    qInfo() << "Disabled WindowText:" << palette.color(QPalette::Disabled, QPalette::WindowText);
-    qInfo() << "Normal ButtonText:" << palette.color(QPalette::Active, QPalette::ButtonText);
-    qInfo() << "Disabled ButtonText:" << palette.color(QPalette::Disabled, QPalette::ButtonText);
+    qDebug(logGui()) << "Palette text colors"
+                     << "window" << palette.color(QPalette::Active, QPalette::WindowText)
+                     << "disabledWindow" << palette.color(QPalette::Disabled, QPalette::WindowText)
+                     << "button" << palette.color(QPalette::Active, QPalette::ButtonText)
+                     << "disabledButton" << palette.color(QPalette::Disabled, QPalette::ButtonText);
 }
 
 void MainController::ensureAudioProcessors()
@@ -416,15 +415,12 @@ void MainController::ifChanged(prefIfItems items)
     if_forceVfoMode = 1 << 25,
     if_autoPowerOn = 1 << 26,
      */
-    qInfo() << "Received if item in MainController" << items;
-
     for (int bit = 0; bit < 32; bit++) {
         prefIfItem item = static_cast<prefIfItem>(1 << bit);
         if (items & item) {
             switch (item)
             {
             case if_frequencyUnits:
-                qInfo() << "Got new frequencyUnit";
                 // Receiver frequency unit handling has not been ported to QML yet.
                 break;
             case if_useSystemTheme:
@@ -500,19 +496,31 @@ QVariantMap MainController::optionalMeterExtremities(int meterType) const
     double low = 0.0;
     double high = 255.0;
     double red = 241.0;
+    bool valid = false;
 
     switch (type) {
+    case meterNone:
+        break;
+    case meterAudio:
+    case meterRxAudio:
+    case meterTxMod:
+        valid = true;
+        break;
     case meterComp:
         low = 0.0; high = 100.0; red = 75.0;
+        valid = true;
         break;
     case meterdBu:
         low = 0.0; high = 80.0; red = 80.0;
+        valid = true;
         break;
     case meterdBuEMF:
         low = 0.0; high = 85.0; red = 85.0;
+        valid = true;
         break;
     case meterdBm:
         low = -100.0; high = -20.0; red = -20.0;
+        valid = true;
         break;
     default:
         if (rigCaps && type > meterNone && type <= meterUnknown && rigCaps->meters[type].size()) {
@@ -523,10 +531,12 @@ QVariantMap MainController::optionalMeterExtremities(int meterType) const
                 low = qMin(low, it->second);
                 high = qMax(high, it->second);
             }
+            valid = high > low;
         }
         break;
     }
 
+    ext["valid"] = valid;
     ext["low"] = low;
     ext["high"] = high;
     ext["red"] = red;
@@ -745,7 +755,7 @@ void MainController::receiveOptionalMeter(meter_t meterType, double level)
 
 void MainController::colChanged(prefColItems items)
 {
-    qInfo() << "Received changed colors into MainController" << items;
+    qDebug(logGui()) << "Color preferences changed" << items;
 
     // No need to step through each color, just update the preset.
 
