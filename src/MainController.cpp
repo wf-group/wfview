@@ -93,6 +93,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 #endif
 
     ensureAudioProcessors();
+    setupRigCtlServer();
     setupTciServer();
     setupClusterClient();
     if (prefs->hasRunSetup)
@@ -1132,6 +1133,7 @@ void MainController::shutdown()
         rigThread = nullptr;
     }
 
+    stopRigCtlServer();
     stopTciServer();
 
     if (settings)
@@ -1187,6 +1189,11 @@ void MainController::lanChanged(SettingsController::prefLanItems items)
     if (items.testFlag(prefLanItem::l_tciPort)) {
         stopTciServer();
         setupTciServer();
+    }
+
+    if (items.testFlag(prefLanItem::l_enableRigCtlD) || items.testFlag(prefLanItem::l_rigCtlPort)) {
+        stopRigCtlServer();
+        setupRigCtlServer();
     }
 }
 
@@ -1280,6 +1287,33 @@ void MainController::stopTciServer()
     tciThread->wait();
     tci = nullptr;
     tciThread = nullptr;
+}
+
+void MainController::setupRigCtlServer()
+{
+    if (!prefs || !prefs->enableRigCtlD || prefs->rigCtlPort == 0) {
+        stopRigCtlServer();
+        return;
+    }
+
+    if (rigCtl)
+        return;
+
+    rigCtl = new rigCtlD(this);
+    if (rigCtl->startServer(prefs->rigCtlPort) < 0) {
+        rigCtl->deleteLater();
+        rigCtl = nullptr;
+    }
+}
+
+void MainController::stopRigCtlServer()
+{
+    if (!rigCtl)
+        return;
+
+    rigCtl->stopServer();
+    rigCtl->deleteLater();
+    rigCtl = nullptr;
 }
 
 void MainController::setupClusterClient()
@@ -2407,8 +2441,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         ui->connectBtn->setText("Disconnect from Radio"); // We must be connected now.
         connStatus = connConnected;
 
-        // Now we know that we are connected, enable rigctld
-        enableRigCtl(prefs->enableRigCtlD);
+        // Keep rigctld listening according to current LAN settings.
+        setupRigCtlServer();
 
         if(prefs->enableLAN)
         {

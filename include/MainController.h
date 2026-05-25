@@ -364,6 +364,8 @@ private:
     void applyClusterSettingsToClient(bool includeTcpEnable);
     void appendClusterOutput(const QString& text);
     void receiveClusterSpots(quint8 receiver, const QList<spotData> &spots);
+    void setupRigCtlServer();
+    void stopRigCtlServer();
     void setupTciServer();
     void stopTciServer();
 

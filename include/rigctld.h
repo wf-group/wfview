@@ -181,6 +181,10 @@ private:
     rigCapabilities* rigCaps=nullptr;
     rigCtlD* parent;
     bool chkVfoEecuted=false;
+    QString rigctlSeparator = "\n";
+    int rigctlCacheTimeoutMs = 0;
+    int rigctlTwiddleTimeoutSec = 0;
+    int rigctlVfoOpt = 0;
     unsigned long crcTable[256];
     unsigned long doCrc(quint8* p, size_t n);
     //funcs currentVfoFreqFunc=funcFreq;
@@ -191,10 +195,13 @@ private:
     QString getMode(modeInfo mode);
     bool getMode(QString modeString, modeInfo& mode);
     QString getFilter(quint8 mode, quint8 filter);
-    quint8 getAntennas();
+    quint32 getAntennas();
+    int hamlibAntIndexFromRigNum(int rigNum);
+    quint8 rigAntNumFromHamlibIndex(int hamlibIndex);
     quint64 getRadioModes(QString mode = "");
     QString getAntName(quint8 ant);
     quint8 antFromName(QString name);
+    bool isVfoName(const QString &vfo) const;
     rigStateType vfoFromName(QString vfo);
     QString getVfoName(vfo_t vfo);
     funcs getFreqFunc(vfo_t, bool set=false);
