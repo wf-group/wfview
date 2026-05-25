@@ -342,6 +342,7 @@ void rigCtlClient::receiveRigCaps(rigCapabilities* caps)
         closeSocket();
     }
     this->rigCaps = caps;
+    updateVfoList();
 }
 
 rigCtlClient::rigCtlClient(int socketId, rigCtlD* parent) : QObject(parent)
@@ -367,18 +368,7 @@ rigCtlClient::rigCtlClient(int socketId, rigCtlD* parent) : QObject(parent)
 
     // Find what VFOs we have:
     if (rigCaps != nullptr)
-    {
-        if (rigCaps->numVFO > 0 && rigCaps->commands.contains(funcVFOASelect))
-            vfoList |= 1<<0;
-        if (rigCaps->numVFO > 1 && rigCaps->commands.contains(funcVFOBSelect))
-            vfoList |= 1<<1;
-        if (rigCaps->numReceiver > 0 && rigCaps->commands.contains(funcVFOMainSelect))
-            vfoList |= 1<<26;
-        if (rigCaps->numReceiver > 1 && rigCaps->commands.contains(funcVFOSubSelect))
-            vfoList |= 1<<25;
-        if (rigCaps->commands.contains(funcMemoryMode))
-            vfoList |= 1<<28;
-    }
+        updateVfoList();
 }
 
 void rigCtlClient::socketReadyRead()
@@ -689,18 +679,7 @@ void rigCtlClient::socketReadyRead()
                 }
                 else if (commands_list[i].sstr == 0xf4)
                 {
-                    QStringList vfos;
-                    if (rigCaps->numVFO > 0 && rigCaps->commands.contains(funcVFOASelect))
-                        vfos.append("VFOA");
-                    if (rigCaps->numVFO > 1 && rigCaps->commands.contains(funcVFOBSelect))
-                        vfos.append("VFOB");
-                    if (rigCaps->numReceiver > 0 && rigCaps->commands.contains(funcVFOMainSelect))
-                        vfos.append("Main");
-                    if (rigCaps->numReceiver > 1 && rigCaps->commands.contains(funcVFOSubSelect))
-                        vfos.append("Sub");
-                    if (rigCaps->commands.contains(funcMemoryMode))
-                        vfos.append("MEM");
-                    response.append(vfos.join(" "));
+                    response.append(availableVfoNames().join(" "));
                     ret = RIG_OK;
                     break;
                 }
@@ -1052,6 +1031,50 @@ bool rigCtlClient::isVfoName(const QString &vfo) const
     return rigctlcompat::isVfoName(vfo);
 }
 
+QStringList rigCtlClient::availableVfoNames() const
+{
+    QStringList vfos;
+    if (!rigCaps)
+        return vfos;
+
+    if (rigCaps->commands.contains(funcMemoryMode))
+        vfos.append("MEM");
+
+    if (rigCaps->numReceiver > 0 && rigCaps->commands.contains(funcVFOMainSelect))
+        vfos.append("Main");
+    if (rigCaps->numReceiver > 1 && rigCaps->commands.contains(funcVFOSubSelect))
+        vfos.append("Sub");
+
+    if (rigCaps->numVFO > 0 && rigCaps->commands.contains(funcVFOASelect))
+        vfos.append("VFOA");
+    else if (rigCaps->numReceiver > 0 && rigCaps->commands.contains(funcVFOMainSelect))
+        vfos.append("VFOA");
+
+    if (rigCaps->numVFO > 1 && rigCaps->commands.contains(funcVFOBSelect))
+        vfos.append("VFOB");
+    else if (rigCaps->numReceiver > 1 && rigCaps->commands.contains(funcVFOSubSelect))
+        vfos.append("VFOB");
+
+    vfos.removeDuplicates();
+    return vfos;
+}
+
+void rigCtlClient::updateVfoList()
+{
+    vfoList = 0;
+    const QStringList vfos = availableVfoNames();
+    if (vfos.contains("VFOA"))
+        vfoList |= 1 << 0;
+    if (vfos.contains("VFOB"))
+        vfoList |= 1 << 1;
+    if (vfos.contains("Sub"))
+        vfoList |= 1 << 25;
+    if (vfos.contains("Main"))
+        vfoList |= 1 << 26;
+    if (vfos.contains("MEM"))
+        vfoList |= 1 << 28;
+}
+
 rigStateType rigCtlClient::vfoFromName(QString vfo) {
 
     rigStateType state = queue->getState();
@@ -1345,19 +1368,7 @@ int rigCtlClient::getCommand(QStringList& response, bool extended, const command
             // Setting VFO:
             if (params[0] == "?") {
                 // This is a query for a list of values
-                QString vfo;
-                if (rigCaps->numVFO > 0 && rigCaps->commands.contains(funcVFOASelect))
-                    vfo.append("VFOA ");
-                if (rigCaps->numVFO > 1 && rigCaps->commands.contains(funcVFOASelect))
-                    vfo.append("VFOB ");
-                if (rigCaps->numReceiver > 0 && rigCaps->commands.contains(funcVFOMainSelect))
-                    vfo.append("Main ");
-                if (rigCaps->numReceiver > 1 && rigCaps->commands.contains(funcVFOSubSelect))
-                    vfo.append("Sub ");
-                if (rigCaps->commands.contains(funcMemoryMode))
-                    vfo.append("MEM ");
-                vfo.chop(1);
-                response.append(vfo);
+                response.append(availableVfoNames().join(" "));
                 return RIG_OK;
             }
             else

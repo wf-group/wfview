@@ -204,6 +204,8 @@ private:
     bool isVfoName(const QString &vfo) const;
     rigStateType vfoFromName(QString vfo);
     QString getVfoName(vfo_t vfo);
+    QStringList availableVfoNames() const;
+    void updateVfoList();
     funcs getFreqFunc(vfo_t, bool set=false);
     funcs getModeFunc(vfo_t, bool set=false);
     int getCommand(QStringList& respone, bool extended, const commandStruct cmd, QStringList params , QString fullcmd );
