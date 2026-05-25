@@ -888,7 +888,22 @@ ApplicationWindow {
                                 ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
                                 ToolTip.delay: 300
                             }
-                            Label { text: qsTr("Mon"); horizontalAlignment: Text.AlignHCenter }
+                            Label {
+                                id: monitorLabel
+                                text: qsTr("Mon")
+                                horizontalAlignment: Text.AlignHCenter
+                                enabled: mainControlSpecs.canMonitor ?? false
+                                font.bold: MainController.monitorEnabled
+                                font.strikeout: !MainController.monitorEnabled
+                                opacity: enabled ? 1.0 : 0.45
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: monitorLabel.enabled
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: MainController.monitorEnabled = !MainController.monitorEnabled
+                                }
+                            }
                         }
                         ColumnLayout {
                             Slider {

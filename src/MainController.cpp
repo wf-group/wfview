@@ -833,6 +833,7 @@ void MainController::buildUiSpecs()
         {"canCompressor", rigCaps->commands.contains(funcCompressor)},
         {"canVox", rigCaps->commands.contains(funcVox)},
         {"canSendCW", rigCaps->commands.contains(funcSendCW)},
+        {"canMonitor", rigCaps->commands.contains(funcMonitor)},
         {"txPower", rangeSpec(funcRFPower, 0, 255)},
         {"monitorGain", rangeSpec(funcMonitorGain, 0, 255)},
         {"micGain", rangeSpec(funcMicGain, 0, 255)},
@@ -968,6 +969,18 @@ void MainController::setMonitorGain(int value)
 
     if (rigCaps && rigCaps->commands.contains(funcMonitorGain)) {
         queue->addUnique(priorityImmediate, queueItem(funcMonitorGain, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+    }
+}
+
+void MainController::setMonitorEnabled(bool enabled)
+{
+    if (m_monitorEnabled != enabled) {
+        m_monitorEnabled = enabled;
+        emit monitorEnabledChanged();
+    }
+
+    if (rigCaps && rigCaps->commands.contains(funcMonitor)) {
+        queue->add(priorityImmediate, queueItem(funcMonitor, QVariant::fromValue<bool>(enabled), false, currentReceiver));
     }
 }
 
@@ -2796,8 +2809,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         }
         break;
     case funcMonitor:
-        //receiveMonitor(val.value.value<bool>());
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_monitorEnabled != enabled) {
+            m_monitorEnabled = enabled;
+            emit monitorEnabledChanged();
+        }
         break;
+    }
     case funcVox:
     {
         const bool enabled = val.value.value<bool>();

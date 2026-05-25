@@ -64,6 +64,7 @@ public:
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)    
     Q_PROPERTY(int txPower READ txPower WRITE setTxPower NOTIFY txPowerChanged)
     Q_PROPERTY(int monitorGain READ monitorGain WRITE setMonitorGain NOTIFY monitorGainChanged)
+    Q_PROPERTY(bool monitorEnabled READ monitorEnabled WRITE setMonitorEnabled NOTIFY monitorEnabledChanged)
     Q_PROPERTY(int micGain READ micGain WRITE setMicGain NOTIFY micGainChanged)
     Q_PROPERTY(QString modGainLabel READ modGainLabel NOTIFY modSourcesChanged)
     Q_PROPERTY(int modGainMin READ modGainMin NOTIFY modSourcesChanged)
@@ -161,6 +162,7 @@ public:
     QVariantMap getUiSpecs() const { return uiSpecs; }
     int txPower() const { return m_txPower; }
     int monitorGain() const { return m_monitorGain; }
+    bool monitorEnabled() const { return m_monitorEnabled; }
     int micGain() const { return m_micGain; }
     QString modGainLabel() const { return m_modGainLabel; }
     int modGainMin() const { return m_modGainMin; }
@@ -230,6 +232,7 @@ public:
 public slots:
     void setTxPower(int value);
     void setMonitorGain(int value);
+    void setMonitorEnabled(bool enabled);
     void setMicGain(int value);
     void setRitFrequency(int value);
     void setTransmit(bool enabled);
@@ -279,6 +282,7 @@ signals:
     void audioProcessingSpectrumStateChanged(bool txEnabled, bool rxEnabled);
     void txPowerChanged();
     void monitorGainChanged();
+    void monitorEnabledChanged();
     void micGainChanged();
     void modSourcesChanged();
     void ritFrequencyChanged();
@@ -406,6 +410,7 @@ private:
     bool m_audioProcessorSignalsConnected = false;
     int m_txPower = 0;
     int m_monitorGain = 0;
+    bool m_monitorEnabled = false;
     int m_micGain = 0;
     QString m_modGainLabel = "Mic";
     int m_modGainMin = 0;
