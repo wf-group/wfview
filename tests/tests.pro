@@ -15,13 +15,16 @@ SOURCES += \
     $$PWD/tst_main.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
+    $$PWD/tst_rigctlcompat.cpp \
     $$PWD/tst_rigprotocols.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \
-    $$PWD/../src/logcategories.cpp
+    $$PWD/../src/logcategories.cpp \
+    $$PWD/../src/rigctlcompat.cpp
 
 HEADERS += \
     $$PWD/../include/cluster.h \
     $$PWD/../include/ControllerController.h \
     $$PWD/../include/logcategories.h \
+    $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/usbcontroller.h

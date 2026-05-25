@@ -1,5 +1,6 @@
 #include "rigctld.h"
 #include "logcategories.h"
+#include "rigctlcompat.h"
 
 #include <QDateTime>
 #include <QThread>
@@ -726,29 +727,7 @@ void rigCtlClient::socketReadyRead()
                     if (command.isEmpty()) {
                         ret = -RIG_EINVAL;
                     } else {
-                        const QString mode = command[0].toUpper();
-                        int normal = 2400;
-                        int narrow = 1800;
-                        int wide = 3000;
-
-                        if (mode == "CW" || mode == "CWR" || mode == "CW-R" || mode == "RTTY" || mode == "RTTYR" || mode == "RTTY-R" || mode == "PSK" || mode == "PSKR") {
-                            normal = 500;
-                            narrow = 250;
-                            wide = 1200;
-                        } else if (mode == "AM" || mode == "AMS" || mode == "AMN" || mode == "AM-D" || mode == "PKTAM") {
-                            normal = 6000;
-                            narrow = 3000;
-                            wide = 9000;
-                        } else if (mode == "FM" || mode == "FMN" || mode == "WFM" || mode == "PKTFM" || mode == "PKTFMN" || mode == "FM-D") {
-                            normal = 10000;
-                            narrow = 7000;
-                            wide = 15000;
-                        }
-
-                        response.append(QString("Mode=%1").arg(command[0]));
-                        response.append(QString("Normal=%1Hz").arg(normal));
-                        response.append(QString("Narrow=%1Hz").arg(narrow));
-                        response.append(QString("Wide=%1Hz").arg(wide));
+                        response.append(rigctlcompat::modeBandwidthResponse(command[0]));
                         ret = RIG_OK;
                     }
                     break;
@@ -1006,32 +985,26 @@ bool rigCtlClient::getMode(QString modeString, modeInfo& mode)
 
 quint32 rigCtlClient::getAntennas()
 {
-    quint32 ant=0;
-    for (auto &i: rigCaps->antennas)
-    {
-        const int antennaIndex = hamlibAntIndexFromRigNum(i.num);
-        if (antennaIndex >= 0 && antennaIndex < 32)
-            ant |= 1U << antennaIndex;
-    }
-    return ant;
+    QList<int> antennaNumbers;
+    for (const auto &antenna : rigCaps->antennas)
+        antennaNumbers.append(antenna.num);
+    return rigctlcompat::antennaMask(antennaNumbers);
 }
 
 int rigCtlClient::hamlibAntIndexFromRigNum(int rigNum)
 {
-    bool zeroBased = false;
+    QList<int> antennaNumbers;
     for (const auto &antenna : rigCaps->antennas)
-        zeroBased = zeroBased || antenna.num == 0;
-
-    return zeroBased ? rigNum : rigNum - 1;
+        antennaNumbers.append(antenna.num);
+    return rigctlcompat::hamlibAntennaIndex(rigNum, antennaNumbers);
 }
 
 quint8 rigCtlClient::rigAntNumFromHamlibIndex(int hamlibIndex)
 {
-    for (const auto &antenna : rigCaps->antennas) {
-        if (hamlibAntIndexFromRigNum(antenna.num) == hamlibIndex)
-            return static_cast<quint8>(antenna.num);
-    }
-    return static_cast<quint8>(hamlibIndex);
+    QList<int> antennaNumbers;
+    for (const auto &antenna : rigCaps->antennas)
+        antennaNumbers.append(antenna.num);
+    return rigctlcompat::rigAntennaNumber(hamlibIndex, antennaNumbers);
 }
 
 quint64 rigCtlClient::getRadioModes(QString md) 
@@ -1067,47 +1040,16 @@ quint64 rigCtlClient::getRadioModes(QString md)
 
 QString rigCtlClient::getAntName(quint8 ant)
 {
-    QString ret;
-    switch (ant)
-    {
-        case 0: ret = "ANT1"; break;
-        case 1: ret = "ANT2"; break;
-        case 2: ret = "ANT3"; break;
-        case 3: ret = "ANT4"; break;
-        case 4: ret = "ANT5"; break;
-        case 30: ret = "ANT_UNKNOWN"; break;
-        case 31: ret = "ANT_CURR"; break;
-        default: ret = "ANT_UNK"; break;
-    }
-    return ret;
+    return rigctlcompat::antennaName(ant);
 }
 
 quint8 rigCtlClient::antFromName(QString name) {
-    quint8 ret = 99;
-
-    if (name.toUpper() == "ANT1")
-        ret = 0;
-    else if (name.toUpper() == "ANT2")
-        ret = 1;
-    else if (name.toUpper() == "ANT3")
-        ret = 2;
-    else if (name.toUpper() == "ANT4")
-        ret = 3;
-    else if (name.toUpper() == "ANT5")
-        ret = 4;
-    else if (name.toUpper() == "ANT_UNKNOWN")
-        ret = 30;
-    else if (name.toUpper() == "ANT_CURR")
-        ret = 31;
-    else  
-        ret = 99;
-    return ret;
+    return rigctlcompat::antennaIndexFromName(name);
 }
 
 bool rigCtlClient::isVfoName(const QString &vfo) const
 {
-    const QString name = vfo.toUpper();
-    return name == "VFOA" || name == "VFOB" || name == "MAIN" || name == "SUB" || name == "MEM" || name == "CURR";
+    return rigctlcompat::isVfoName(vfo);
 }
 
 rigStateType rigCtlClient::vfoFromName(QString vfo) {

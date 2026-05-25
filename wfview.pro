@@ -335,6 +335,7 @@ SOURCES += \
     src/radio/yaesuudpcontrol.cpp \
     src/radio/yaesuudpscope.cpp \
     src/rigcommander.cpp \
+    src/rigctlcompat.cpp \
     src/rigctld.cpp \
     src/rigidentities.cpp \
     src/rigserver.cpp \
@@ -406,6 +407,7 @@ HEADERS  += \
     include/pttyhandler.h \
     include/repeaterattributes.h \
     include/rigcommander.h \
+    include/rigctlcompat.h \
     include/rigctld.h \
     include/rigidentities.h \
     include/rigserver.h \
