@@ -1657,8 +1657,12 @@ int rigCtlClient::getSubCommand(QStringList& response, bool extended, const comm
                         uchar v = static_cast<uchar>(params[1].toInt());
                         if (params[0] == "FBKIN")
                             v = (v << 1) & 0x02; // BREAKIN is not bool!
-                        if (params[0] == "AGC")
-                            v = (v << 1);
+                        if (params[0] == "AGC") {
+                            const int agc = rigctlcompat::rigAgcFromHamlib(params[1].toInt());
+                            if (agc < 0)
+                                return -RIG_EINVAL;
+                            v = static_cast<uchar>(agc);
+                        }
                         if (sub[i].func == funcPreamp)
                             v = static_cast<uchar>(qBound(0, params[1].toInt() / 10, 2));
                         val.setValue(v);
@@ -1711,8 +1715,11 @@ int rigCtlClient::getSubCommand(QStringList& response, bool extended, const comm
                         val = item.value.toInt();
                         if (params[0] == "FBKIN")
                             val = (val >> 1) & 0x01;
-                        if (params[0] == "AGC")
-                            val = (val >> 1);
+                        if (params[0] == "AGC") {
+                            val = rigctlcompat::hamlibAgcFromRig(val);
+                            if (val < 0)
+                                return -RIG_EINVAL;
+                        }
                         if (sub[i].func == funcPreamp)
                             val *= 10;
                         resp.append(QString::number(val));

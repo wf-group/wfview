@@ -20,6 +20,8 @@ quint32 antennaMask(const QList<int> &rigNumbers);
 QString antennaName(int hamlibIndex);
 quint8 antennaIndexFromName(const QString &name);
 bool isVfoName(const QString &name);
+int rigAgcFromHamlib(int hamlibAgc);
+int hamlibAgcFromRig(int rigAgc);
 ModeBandwidths modeBandwidths(const QString &modeName);
 QStringList modeBandwidthResponse(const QString &modeName);
 

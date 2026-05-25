@@ -77,6 +77,35 @@ bool isVfoName(const QString &name)
            || upperName == QLatin1String("CURR");
 }
 
+int rigAgcFromHamlib(int hamlibAgc)
+{
+    switch (hamlibAgc) {
+    case 0: return 0;  // OFF
+    case 1: return 1;  // SUPERFAST, 0.1 sec in SSB modes
+    case 2: return 3;  // FAST, 0.3 sec in SSB modes
+    case 5: return 8;  // MEDIUM, 2.0 sec in SSB modes
+    case 3: return 13; // SLOW, 6.0 sec in SSB modes
+    default: return -1;
+    }
+}
+
+int hamlibAgcFromRig(int rigAgc)
+{
+    if (rigAgc == 0)
+        return 0; // OFF
+    if (rigAgc == 1)
+        return 1; // SUPERFAST
+    if (rigAgc == 3)
+        return 2; // FAST
+    if (rigAgc == 8)
+        return 5; // MEDIUM
+    if (rigAgc == 13)
+        return 3; // SLOW
+    if (rigAgc >= 2 && rigAgc <= 12)
+        return 4; // USER-selected time constant
+    return -1;
+}
+
 ModeBandwidths modeBandwidths(const QString &modeName)
 {
     const QString mode = modeName.toUpper();
