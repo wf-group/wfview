@@ -3,7 +3,9 @@
 
 #include <QObject>
 #include <QUrl>
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QSettings>
 
 #include <QVariantMap>
@@ -237,9 +239,18 @@ private:
 class IniSortProxy : public QSortFilterProxyModel {
 
     Q_OBJECT
+    Q_PROPERTY(int visibleRows READ visibleRows NOTIFY visibleRowsChanged)
 
 public:
-    using QSortFilterProxyModel::QSortFilterProxyModel;
+    explicit IniSortProxy(QObject *parent = nullptr) : QSortFilterProxyModel(parent)
+    {
+        connect(this, &QAbstractItemModel::rowsInserted, this, &IniSortProxy::visibleRowsChanged);
+        connect(this, &QAbstractItemModel::rowsRemoved, this, &IniSortProxy::visibleRowsChanged);
+        connect(this, &QAbstractItemModel::modelReset, this, &IniSortProxy::visibleRowsChanged);
+        connect(this, &QAbstractItemModel::layoutChanged, this, &IniSortProxy::visibleRowsChanged);
+    }
+
+    int visibleRows() const { return rowCount(); }
 
     Q_INVOKABLE int mapRowToSource(int proxyRow) const {
         if (proxyRow < 0 || proxyRow >= rowCount()) return -1;
@@ -255,6 +266,9 @@ public:
         const QModelIndex p = mapFromSource(s);
         return p.isValid() ? p.row() : -1;
     }
+
+signals:
+    void visibleRowsChanged();
 protected:
     bool lessThan(const QModelIndex &left,
                   const QModelIndex &right) const override
@@ -492,6 +506,19 @@ public:
 
     Q_INVOKABLE bool loadFile(QString filename);
     Q_INVOKABLE bool saveFile(QString filename);
+
+    Q_INVOKABLE QUrl userRigsFolder() const {
+        QString p = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/rigs";
+        QDir().mkpath(p);
+        return QUrl::fromLocalFile(QDir::cleanPath(p));
+    }
+
+    Q_INVOKABLE QUrl suggestedSaveFile() const {
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/rigs";
+        QDir().mkpath(dir);
+        const QString name = currentFile.isEmpty() ? QStringLiteral("custom.rig") : QFileInfo(currentFile).fileName();
+        return QUrl::fromLocalFile(QDir(dir).absoluteFilePath(name));
+    }
 
     Q_INVOKABLE QUrl defaultRigsFolder() const {
         QString p = QCoreApplication::applicationDirPath();

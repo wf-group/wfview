@@ -27,6 +27,7 @@ ApplicationWindow {
         mid: MainController.settings.options["Color.Mid"]
         dark: MainController.settings.options["Color.Dark"]
         light: MainController.settings.options["Color.Light"]
+        placeholderText: MainController.settings.options["Color.PlaceholderText"]
     }
 
     property string mode: "tx"
@@ -73,6 +74,16 @@ ApplicationWindow {
                 return i
         }
         return -1
+    }
+
+    function canvasColor(c, alpha) {
+        if (c === undefined || c === null)
+            return "rgba(255,255,255," + alpha + ")"
+        return "rgba("
+                + Math.round(c.r * 255) + ","
+                + Math.round(c.g * 255) + ","
+                + Math.round(c.b * 255) + ","
+                + (alpha === undefined ? c.a : alpha) + ")"
     }
 
     component SwitchRow: CheckBox {
@@ -247,30 +258,102 @@ ApplicationWindow {
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.reset()
-                    ctx.fillStyle = win.palette.base
+                    var minDb = -90
+                    var maxDb = 0
+                    var left = 42
+                    var right = 8
+                    var top = 8
+                    var bottom = 24
+                    var plotX = left
+                    var plotY = top
+                    var plotW = Math.max(1, width - left - right)
+                    var plotH = Math.max(1, height - top - bottom)
+                    var bgColor = win.canvasColor(win.palette.base, 1)
+                    var gridColor = win.canvasColor(win.palette.mid, 1)
+                    var textColor = win.canvasColor(win.palette.text, 1)
+                    var subtleTextColor = win.canvasColor(win.palette.text, 0.75)
+
+                    ctx.fillStyle = bgColor
                     ctx.fillRect(0, 0, width, height)
-                    ctx.strokeStyle = win.palette.mid
-                    ctx.lineWidth = 1
-                    for (var i = 1; i < 4; ++i) {
-                        var y = height * i / 4
-                        ctx.beginPath()
-                        ctx.moveTo(0, y)
-                        ctx.lineTo(width, y)
-                        ctx.stroke()
+
+                    drawGrid()
+
+                    function dbToY(db) {
+                        return plotY + plotH - ((db - minDb) / (maxDb - minDb)) * plotH
                     }
-                    if (!box.spectrumEnabled) {
-                        ctx.fillStyle = win.palette.text
+
+                    function freqToX(freq) {
+                        var logMin = Math.log(50) / Math.LN10
+                        var logMax = Math.log(8000) / Math.LN10
+                        var logFreq = Math.log(Math.max(50, freq)) / Math.LN10
+                        return plotX + ((logFreq - logMin) / (logMax - logMin)) * plotW
+                    }
+
+                    function freqLabel(freq) {
+                        if (freq >= 1000)
+                            return (freq / 1000).toFixed(freq % 1000 === 0 ? 0 : 1) + "k"
+                        return String(freq)
+                    }
+
+                    function drawGrid() {
+                        ctx.save()
+                        ctx.font = "10px sans-serif"
+                        ctx.textBaseline = "middle"
+                        ctx.lineWidth = 1
+                        ctx.strokeStyle = gridColor
+                        ctx.fillStyle = subtleTextColor
+
+                        var dbStep = 6
+                        while (plotH * dbStep / (maxDb - minDb) < 14 && dbStep < (maxDb - minDb))
+                            dbStep += 6
+
+                        ctx.setLineDash([3, 3])
+                        for (var db = minDb; db <= maxDb; db += dbStep) {
+                            var y = dbToY(db)
+                            ctx.beginPath()
+                            ctx.moveTo(plotX, y)
+                            ctx.lineTo(plotX + plotW, y)
+                            ctx.stroke()
+                            ctx.textAlign = "right"
+                            ctx.fillText(String(db), plotX - 5, y)
+                        }
+
+                        var freqs = [50, 100, 200, 400, 800, 1600, 3200, 6400, 8000]
                         ctx.textAlign = "center"
-                        ctx.fillText(qsTr("Enable spectrum to view audio FFT data"), width / 2, height / 2)
+                        for (var f = 0; f < freqs.length; ++f) {
+                            var x = freqToX(freqs[f])
+                            ctx.beginPath()
+                            ctx.moveTo(x, plotY)
+                            ctx.lineTo(x, plotY + plotH)
+                            ctx.stroke()
+                            ctx.fillText(freqLabel(freqs[f]), x, plotY + plotH + 13)
+                        }
+                        ctx.setLineDash([])
+
+                        ctx.strokeStyle = textColor
+                        ctx.beginPath()
+                        ctx.rect(plotX, plotY, plotW, plotH)
+                        ctx.stroke()
+
+                        ctx.textAlign = "left"
+                        ctx.textBaseline = "top"
+                        ctx.fillText("dBFS", 4, plotY)
+                        ctx.restore()
+                    }
+
+                    if (!box.spectrumEnabled) {
+                        ctx.fillStyle = textColor
+                        ctx.textAlign = "center"
+                        ctx.fillText(qsTr("Enable spectrum to view audio FFT data"), plotX + plotW / 2, plotY + plotH / 2)
                         return
                     }
                     if ((!box.inputBins || box.inputBins.length < 2) && (!box.outputBins || box.outputBins.length < 2)) {
-                        ctx.fillStyle = win.palette.text
+                        ctx.fillStyle = textColor
                         ctx.textAlign = "center"
                         var status = qsTr("Waiting for audio spectrum data")
                         status += qsTr(" | blocks: ") + box.blocksProcessed
                         status += qsTr(" | processor spectrum: ") + (box.processorEnabled ? qsTr("on") : qsTr("off"))
-                        ctx.fillText(status, width / 2, height / 2)
+                        ctx.fillText(status, plotX + plotW / 2, plotY + plotH / 2)
                         return
                     }
                     draw(box.inputBins, box.primaryColor)
@@ -281,9 +364,9 @@ ApplicationWindow {
                         ctx.lineWidth = 1.5
                         ctx.beginPath()
                         for (var n = 0; n < bins.length; ++n) {
-                            var db = Math.max(-120, Math.min(0, Number(bins[n])))
-                            var x = n * width / (bins.length - 1)
-                            var y = height - ((db + 120) / 120) * height
+                            var db = Math.max(minDb, Math.min(maxDb, Number(bins[n])))
+                            var x = plotX + n * plotW / (bins.length - 1)
+                            var y = dbToY(db)
                             if (n === 0) ctx.moveTo(x, y)
                             else ctx.lineTo(x, y)
                         }

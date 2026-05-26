@@ -48,6 +48,10 @@ bool RigCreatorController::loadFile(QString file)
     setLoading(true);
 
     const bool ok = m_store->load(file);
+    if (ok) {
+        currentFile = file;
+        emit iniPathChanged();
+    }
 
     setLoading(false);
 
@@ -75,5 +79,10 @@ bool RigCreatorController::saveFile(QString file)
     if (!file.endsWith(".rig", Qt::CaseInsensitive))
         file += ".rig";
 
-    return m_store->saveAs(file);
+    const bool ok = m_store->saveAs(file);
+    if (ok) {
+        currentFile = file;
+        emit iniPathChanged();
+    }
+    return ok;
 }

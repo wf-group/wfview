@@ -14,8 +14,27 @@ ApplicationWindow {
 
     width: 1200
     height: 880
+    color: palette.window
+
+    palette {
+        window: MainController.settings.options["Color.Window"]
+        windowText: MainController.settings.options["Color.WindowText"]
+        base: MainController.settings.options["Color.Base"]
+        alternateBase: MainController.settings.options["Color.AlternateBase"]
+        text: MainController.settings.options["Color.MainText"]
+        button: MainController.settings.options["Color.Button"]
+        buttonText: MainController.settings.options["Color.ButtonText"]
+        brightText: MainController.settings.options["Color.BrightText"]
+        highlight: MainController.settings.options["Color.Highlight"]
+        highlightedText: MainController.settings.options["Color.HighlightedText"]
+        mid: MainController.settings.options["Color.Mid"]
+        dark: MainController.settings.options["Color.Dark"]
+        light: MainController.settings.options["Color.Light"]
+        placeholderText: MainController.settings.options["Color.PlaceholderText"]
+    }
 
     Component.onCompleted: {
+        MainController.updateApplicationPalette()
         rigCreator.closing.connect(function(event) {
             rigCreator.destroy()
         })
@@ -25,7 +44,7 @@ ApplicationWindow {
     FileDialog {
         id: loadRigDialog
         title: qsTr("Open Rig File")
-        currentFolder: rig.defaultRigsFolder()
+        currentFolder: rig.userRigsFolder()
         nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.OpenFile
         onAccepted: {
@@ -42,7 +61,8 @@ ApplicationWindow {
     FileDialog {
         id: saveRigDialog
         title: qsTr("Save Rig File")
-        currentFolder: rig.defaultRigsFolder()
+        currentFolder: rig.userRigsFolder()
+        selectedFile: rig.suggestedSaveFile()
         nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.SaveFile
         onAccepted: {
@@ -366,10 +386,10 @@ ApplicationWindow {
         property int padding: 8
         property int radius: 4
 
-        property color borderColor: "#404040"
+        property color borderColor: rigCreator.palette.mid
         property color bgColor: "transparent"
-        property color titleBg: "#1e1e1e"
-        property color textColor: "#e0e0e0"
+        property color titleBg: rigCreator.palette.window
+        property color textColor: rigCreator.palette.windowText
 
         // Everything you place inside PanelFrame goes into contentItem
         default property alias content: contentItem.data
@@ -424,11 +444,11 @@ ApplicationWindow {
         property int rowHeight: 28
         property int headerHeight: 30
 
-        property color gridColor: "#404040"
-        property color headerBg: "#2b2b2b"
-        property color rowBgA: "#1e1e1e"
-        property color rowBgB: "#232323"
-        property color textColor: "#e0e0e0"
+        property color gridColor: rigCreator.palette.mid
+        property color headerBg: rigCreator.palette.button
+        property color rowBgA: rigCreator.palette.base
+        property color rowBgB: rigCreator.palette.alternateBase
+        property color textColor: rigCreator.palette.text
 
         // Context state
         property int ctxRow: -1
@@ -614,23 +634,27 @@ ApplicationWindow {
                     }
 
                     // --- Table ---
-                    TableView {
-                        id: tv
+                    Item {
+                        id: tableHost
                         width: parent.width
                         height: parent.height - headerBar.height
-                        clip: true
+
+                        TableView {
+                            id: tv
+                            anchors.fill: parent
+                            clip: true
                         model: panel.model
 
                         rowSpacing: 0
                         columnSpacing: 0
 
-                        ScrollBar.vertical: ScrollBar {}
-                        ScrollBar.horizontal: ScrollBar {}
+                            ScrollBar.vertical: ScrollBar {}
+                            ScrollBar.horizontal: ScrollBar {}
 
-                        columnWidthProvider: function(col) {
-                            if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
-                            return panel.columns[col].width ?? 140
-                        }
+                            columnWidthProvider: function(col) {
+                                if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
+                                return panel.columns[col].width ?? 140
+                            }
 
                         delegate: Rectangle {
                             implicitHeight: panel.rowHeight
@@ -705,6 +729,30 @@ ApplicationWindow {
 
                                     property var choicesRef: editorLoader.colDef.choices || []
                                     property var valueRef: editorLoader.cellValueRef
+                                    property bool searchable: editorLoader.colDef.searchable === true
+                                    property string choiceFilter: ""
+
+                                    function filterChoices() {
+                                        if (!searchable || choiceFilter.trim().length === 0)
+                                            return choicesRef
+
+                                        var out = []
+                                        var terms = choiceFilter.toLowerCase().trim().split(/\s+/)
+                                        for (var i = 0; i < choicesRef.length; ++i) {
+                                            var item = choicesRef[i]
+                                            var text = String((item && item.text !== undefined) ? item.text : item).toLowerCase()
+                                            var ok = true
+                                            for (var t = 0; t < terms.length; ++t) {
+                                                if (text.indexOf(terms[t]) < 0) {
+                                                    ok = false
+                                                    break
+                                                }
+                                            }
+                                            if (ok)
+                                                out.push(item)
+                                        }
+                                        return out
+                                    }
 
                                     function syncCurrent() {
                                         if (!cb || cb.count <= 0) return
@@ -713,7 +761,10 @@ ApplicationWindow {
 
                                         for (var i = 0; i < cb.count; ++i) {
                                             var it = cb.model[i]
-                                            if (it && it.value === v) { cb.currentIndex = i; return }
+                                            if (it && it.value === v) {
+                                                cb.currentIndex = i
+                                                return
+                                            }
                                         }
 
                                         var sv = String((v !== undefined && v !== null) ? v : "")
@@ -721,7 +772,10 @@ ApplicationWindow {
                                         for (var j = 0; j < cb.count; ++j) {
                                             var it2 = cb.model[j]
                                             var t = (it2 && it2.text !== undefined && it2.text !== null) ? it2.text : ""
-                                            if (it2 && String(t) === sv) { cb.currentIndex = j; return }
+                                            if (it2 && String(t) === sv) {
+                                                cb.currentIndex = j
+                                                return
+                                            }
                                         }
 
                                         cb.currentIndex = -1
@@ -737,7 +791,69 @@ ApplicationWindow {
 
                                         Component.onCompleted: Qt.callLater(syncCurrent)
                                         onCountChanged: Qt.callLater(syncCurrent)
-                                        onActivated: editorLoader.cellDataRef.display = currentValue
+                                        onActivated: {
+                                            editorLoader.cellDataRef.display = currentValue
+                                            choiceFilter = ""
+                                        }
+
+                                        popup: Popup {
+                                            id: comboPopup
+                                            y: cb.height
+                                            width: searchable ? Math.max(cb.width, 260) : cb.width
+                                            height: Math.min(360, popupColumn.implicitHeight + topPadding + bottomPadding)
+                                            padding: 4
+                                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+
+                                            onOpened: {
+                                                if (searchable) {
+                                                    choiceFilter = ""
+                                                    searchField.text = ""
+                                                    searchField.forceActiveFocus()
+                                                }
+                                            }
+
+                                            contentItem: Column {
+                                                id: popupColumn
+                                                width: comboPopup.availableWidth
+                                                spacing: 4
+
+                                                TextField {
+                                                    id: searchField
+                                                    width: parent.width
+                                                    visible: searchable
+                                                    placeholderText: qsTr("Search commands")
+                                                    selectByMouse: true
+                                                    onTextChanged: choiceFilter = text
+                                                }
+
+                                                ListView {
+                                                    width: parent.width
+                                                    height: Math.min(300, Math.max(1, count) * 28)
+                                                    clip: true
+                                                    model: searchable ? filterChoices() : choicesRef
+
+                                                    delegate: ItemDelegate {
+                                                        width: ListView.view.width
+                                                        height: 28
+                                                        text: {
+                                                            var item = modelData
+                                                            return String((item && item.text !== undefined) ? item.text : item)
+                                                        }
+                                                        highlighted: {
+                                                            var item = modelData
+                                                            return item && item.value === valueRef
+                                                        }
+                                                        onClicked: {
+                                                            var item = modelData
+                                                            editorLoader.cellDataRef.display = item && item.value !== undefined ? item.value : item
+                                                            choiceFilter = ""
+                                                            comboPopup.close()
+                                                            Qt.callLater(syncCurrent)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
 
                                     onChoicesRefChanged: Qt.callLater(syncCurrent)
@@ -792,6 +908,30 @@ ApplicationWindow {
                                 }
                             }
                         }
+                        }
+
+                        MouseArea {
+                            id: emptyTableMouse
+                            anchors.fill: parent
+                            visible: panel.model && panel.model.visibleRows === 0
+                            acceptedButtons: Qt.RightButton
+
+                            onPressed: function(mouse) {
+                                if (mouse.button !== Qt.RightButton)
+                                    return
+
+                                panel.ctxRow = -1
+                                panel.ctxCol = -1
+                                panel.ctxCellData = null
+                                panel.ctxCellText = ""
+
+                                var p = panel.mapFromItem(emptyTableMouse, mouse.x, mouse.y)
+                                ctxMenu.x = p.x
+                                ctxMenu.y = p.y
+                                ctxMenu.open()
+                                mouse.accepted = true
+                            }
+                        }
                     }
                 }
             }
@@ -825,10 +965,10 @@ ApplicationWindow {
         id: sp
 
         // same visual defaults as TablePanel
-        borderColor: "#404040"
+        borderColor: rigCreator.palette.mid
         bgColor: "transparent"
-        titleBg: "#1e1e1e"
-        textColor: "#e0e0e0"
+        titleBg: rigCreator.palette.window
+        textColor: rigCreator.palette.windowText
         padding: 8
         radius: 4
 
@@ -1042,7 +1182,7 @@ ApplicationWindow {
                                 model: commandsProxy
                                 sourceModel: commandsModel
                                 columns: [
-                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices, searchable: true },
                                     { title: qsTr("Command"), name: "String",     width: 140 },
                                     { title: qsTr("Min"),     name: "Min",        width: 60  },
                                     { title: qsTr("Max"),     name: "Max",        width: 60  },
@@ -1121,7 +1261,7 @@ ApplicationWindow {
                                         { text: qsTr("Medium Low"), value: "Medium Low" },
                                         { text: qsTr("Low"), value: "Low" }
                                     ]},
-                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices },
+                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices, searchable: true },
                                     { title: qsTr("VFO"),     name: "VFO",     width: 40 }
                                 ]
                             }
