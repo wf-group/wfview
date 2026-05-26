@@ -64,6 +64,22 @@ Control {
                 : fallback
     }
 
+    function boolReceiverSetting(key, fallback) {
+        const v = receiverSetting(key, fallback)
+        if (typeof v === "boolean")
+            return v
+        if (typeof v === "number")
+            return v !== 0
+        if (typeof v === "string") {
+            const s = v.trim().toLowerCase()
+            if (s === "true" || s === "1" || s === "yes" || s === "on")
+                return true
+            if (s === "false" || s === "0" || s === "no" || s === "off" || s === "")
+                return false
+        }
+        return Boolean(fallback)
+    }
+
     function saveReceiverSetting(key, value) {
         if (!root.restoringReceiverUiState && MainController.settings)
             MainController.settings.saveReceiverSetting(root.receiverIndex, key, value)
@@ -653,7 +669,10 @@ Control {
             Behavior on slide { NumberAnimation { duration: 140 } }
 
             // keep slide consistent when open toggles / width changes
-            onOpenChanged: slide = open ? width : 0
+            onOpenChanged: {
+                slide = open ? width : 0
+                root.saveReceiverSetting("BandDrawerOpen", open)
+            }
             onWidthChanged: slide = open ? width : 0
             onLockedChanged: {
                 if (locked) {
@@ -905,7 +924,10 @@ Control {
             x: locked && open ? receiverRoot.width - width : receiverRoot.width - slide
             Behavior on slide { NumberAnimation { duration: 140 } }
 
-            onOpenChanged: slide = open ? width : 0
+            onOpenChanged: {
+                slide = open ? width : 0
+                root.saveReceiverSetting("ControlDrawerOpen", open)
+            }
             onWidthChanged: slide = open ? width : 0
             onLockedChanged: {
                 if (locked) {
@@ -2089,14 +2111,14 @@ Control {
     }
 
     Component.onCompleted: {
-        bandPanel.locked = Boolean(receiverSetting("BandDrawerLocked", false))
-        bandPanel.open = bandPanel.locked
+        bandPanel.locked = boolReceiverSetting("BandDrawerLocked", false)
+        bandPanel.open = boolReceiverSetting("BandDrawerOpen", bandPanel.locked) || bandPanel.locked
         bandPanel.slide = bandPanel.open ? bandPanel.width : 0
 
-        sidePanel.locked = Boolean(receiverSetting("ControlDrawerLocked", false))
-        sidePanel.open = sidePanel.locked
+        sidePanel.locked = boolReceiverSetting("ControlDrawerLocked", false)
+        sidePanel.open = boolReceiverSetting("ControlDrawerOpen", sidePanel.locked) || sidePanel.locked
         sidePanel.slide = sidePanel.open ? sidePanel.width : 0
-        root.receiverFullScreen = Boolean(receiverSetting("DetachedFullScreen", false))
+        root.receiverFullScreen = boolReceiverSetting("DetachedFullScreen", false)
 
         root.restoringReceiverUiState = false
     }
