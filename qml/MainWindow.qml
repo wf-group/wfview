@@ -346,6 +346,23 @@ ApplicationWindow {
         return spec ? spec : { "available": false, "min": fallbackMin, "max": fallbackMax }
     }
 
+    function controlAvailable(name) {
+        return Boolean(mainControlSpecs[name] ?? false)
+    }
+
+    function rangeControlVisible(name) {
+        var spec = mainControlSpecs[name]
+        return Boolean(spec && (spec.available ?? false) && (spec.visible ?? true))
+    }
+
+    function anyControlVisible(names) {
+        for (var i = 0; i < names.length; ++i) {
+            if (controlAvailable(names[i]))
+                return true
+        }
+        return false
+    }
+
     function activeReceiverItem() {
         for (var i = 0; i < receiversRepeater.count; ++i) {
             var row = receiversRepeater.itemAt(i)
@@ -804,11 +821,12 @@ ApplicationWindow {
                         onToggled: MainController.setFrequencyLock(checked)
                     }
 
-                    RowLayout {
-                        Dial {
-                            id: ritTuneDial
-                            Layout.preferredWidth: 30
-                            Layout.preferredHeight: 30
+                        RowLayout {
+                            visible: mainControlSpecs.canRit ?? false
+                            Dial {
+                                id: ritTuneDial
+                                Layout.preferredWidth: 30
+                                Layout.preferredHeight: 30
                             readonly property var spec: controlSpec("ritFrequency", -500, 500)
                             from: spec.min
                             to: spec.max
@@ -855,6 +873,7 @@ ApplicationWindow {
                             Label { text: qsTr("Vol"); horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
+                            visible: rangeControlVisible("txPower")
                             Slider {
                                 id: txPowerSlider
                                 readonly property var spec: controlSpec("txPower", 0, 255)
@@ -874,6 +893,7 @@ ApplicationWindow {
                             Label { text: qsTr("TX"); horizontalAlignment: Text.AlignHCenter }
                         }
                         ColumnLayout {
+                            visible: rangeControlVisible("monitorGain") || (mainControlSpecs.canMonitor ?? false)
                             Slider {
                                 id: monitorSlider
                                 readonly property var spec: controlSpec("monitorGain", 0, 255)
@@ -908,12 +928,14 @@ ApplicationWindow {
                             }
                         }
                         ColumnLayout {
+                            visible: rangeControlVisible("micGain")
                             Slider {
                                 id: micGainSlider
+                                readonly property var spec: controlSpec("micGain", 0, 255)
                                 from: MainController.modGainMin
                                 to: MainController.modGainMax
                                 value: MainController.micGain
-                                enabled: MainController.modGainMax > MainController.modGainMin
+                                enabled: spec.available ?? false
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
                                 onMoved: MainController.micGain = Math.round(value)
@@ -939,28 +961,33 @@ ApplicationWindow {
                         checkable: true
                         checked: MainController.transmitting
                         enabled: mainControlSpecs.canTransmit ?? false
+                        visible: mainControlSpecs.canTransmit ?? false
                         onClicked: MainController.toggleTransmit()
                     }
                     CheckBox {
                         text: qsTr("Enable ATU")
                         checked: MainController.tunerEnabled
                         enabled: mainControlSpecs.canTune ?? false
+                        visible: mainControlSpecs.canTune ?? false
                         onToggled: MainController.tunerEnabled = checked
                     }
                     Button {
                         text: qsTr("Tune")
                         enabled: mainControlSpecs.canTune ?? false
+                        visible: mainControlSpecs.canTune ?? false
                         onClicked: MainController.tuneNow()
                     }
                     Button {
                         text: qsTr("CW")
                         enabled: mainControlSpecs.canSendCW ?? false
+                        visible: mainControlSpecs.canSendCW ?? false
                         onClicked: MainController.showCWSender()
                     }
 
                     Button {
                         text: qsTr("Rpt/Split")
                         enabled: false
+                        visible: false
                         ToolTip.visible: hovered
                         ToolTip.text: qsTr("Repeater setup has not been ported to QML yet.")
                     }
@@ -982,6 +1009,7 @@ ApplicationWindow {
                     GroupBox {
                         title: qsTr("Scope Settings")
                         Layout.fillWidth: true
+                        visible: anyControlVisible(["canDualScope", "canDualWatch", "canSplit", "canMainSub", "canSwapMainSub", "canEqualMainSub"])
 
                         GridLayout {
                             columns: 3
@@ -993,6 +1021,7 @@ ApplicationWindow {
                                 checkable: true
                                 checked: MainController.dualScope
                                 enabled: mainControlSpecs.canDualScope ?? false
+                                visible: mainControlSpecs.canDualScope ?? false
                                 onToggled: MainController.dualScope = checked
                             }
                             Button {
@@ -1000,6 +1029,7 @@ ApplicationWindow {
                                 checkable: true
                                 checked: MainController.dualWatch
                                 enabled: mainControlSpecs.canDualWatch ?? false
+                                visible: mainControlSpecs.canDualWatch ?? false
                                 onToggled: MainController.dualWatch = checked
                             }
                             Button {
@@ -1007,22 +1037,26 @@ ApplicationWindow {
                                 checkable: true
                                 checked: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
+                                visible: mainControlSpecs.canSplit ?? false
                                 onToggled: MainController.splitEnabled = checked
                             }
 
                             Button {
                                 text: qsTr("Main/Sub")
                                 enabled: mainControlSpecs.canMainSub ?? false
+                                visible: mainControlSpecs.canMainSub ?? false
                                 onClicked: MainController.selectMainSub()
                             }
                             Button {
                                 text: qsTr("Main<>Sub")
                                 enabled: mainControlSpecs.canSwapMainSub ?? false
+                                visible: mainControlSpecs.canSwapMainSub ?? false
                                 onClicked: MainController.swapMainSub()
                             }
                             Button {
                                 text: qsTr("Main=Sub")
                                 enabled: mainControlSpecs.canEqualMainSub ?? false
+                                visible: mainControlSpecs.canEqualMainSub ?? false
                                 onClicked: MainController.equalizeMainSub()
                             }
                         }
@@ -1031,6 +1065,7 @@ ApplicationWindow {
                     GroupBox {
                         title: qsTr("Other Controls")
                         Layout.fillWidth: true
+                        visible: anyControlVisible(["canCompressor", "canVox"])
 
                         ColumnLayout {
                             spacing: 3
@@ -1039,12 +1074,14 @@ ApplicationWindow {
                                     text: qsTr("CMP")
                                     checked: MainController.compressorEnabled
                                     enabled: mainControlSpecs.canCompressor ?? false
+                                    visible: mainControlSpecs.canCompressor ?? false
                                     onToggled: MainController.compressorEnabled = checked
                                 }
                                 CheckBox {
                                     text: qsTr("VOX")
                                     checked: MainController.voxEnabled
                                     enabled: mainControlSpecs.canVox ?? false
+                                    visible: mainControlSpecs.canVox ?? false
                                     onToggled: MainController.voxEnabled = checked
                                 }
                             }
@@ -1133,7 +1170,13 @@ ApplicationWindow {
             anchors.rightMargin: win.contentHorizontalPadding
             spacing: 12
 
-            Item { Layout.fillWidth: true }
+            Label {
+                Layout.fillWidth: true
+                text: MainController ? MainController.footerMessageText : ""
+                color: win.palette.windowText
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignLeft
+            }
 
             Label {
                 Layout.preferredWidth: 360
