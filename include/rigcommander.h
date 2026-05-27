@@ -63,6 +63,9 @@ public slots:
     virtual void process();
     virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf);
     virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    virtual void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
+                                  QString username, QString password, QString calledNumber,
+                                  audioSetup rxSetup, audioSetup txSetup);
     virtual void closeComm();
 
     virtual void setPTTType(pttType_t ptt);

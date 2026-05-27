@@ -90,6 +90,22 @@ void rigCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
     qWarning(logRig()) << "commSetup() (network) not implemented by rig type";
 }
 
+void rigCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString host, quint16 port,
+                                    QString username, QString password, QString calledNumber,
+                                    audioSetup rxSetup, audioSetup txSetup)
+{
+    Q_UNUSED(rigList)
+    Q_UNUSED(rigCivAddr)
+    Q_UNUSED(host)
+    Q_UNUSED(port)
+    Q_UNUSED(username)
+    Q_UNUSED(password)
+    Q_UNUSED(calledNumber)
+    Q_UNUSED(rxSetup)
+    Q_UNUSED(txSetup)
+    qWarning(logRig()) << "commSetup() (wfshare) not implemented by rig type";
+}
+
 void rigCommander::closeComm()
 {
     qWarning(logRig()) << "closeComm() not implemented by rig type";

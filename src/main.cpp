@@ -213,6 +213,7 @@ int main(int argc, char *argv[])
 #endif
     qRegisterMetaType<QList<radio_cap_packet>>();
     qRegisterMetaType<networkStatus>();
+    qRegisterMetaType<IaxStats>();
     qRegisterMetaType<networkAudioLevels>();
     qRegisterMetaType<codecType>();
     qRegisterMetaType<errorType>();
@@ -263,7 +264,7 @@ int main(int argc, char *argv[])
 
     const QString helpText = QString("\nUsage: -l --logfile filename.log, -s --settings filename.ini, -c --clearconfig CONFIRM, -b --background (not Windows), -d --debug, -v --version"
 #ifdef BUILD_WFSERVER
-                                     ", --setup (interactive config wizard)"
+                                     ", --setup (interactive config wizard; modify or replace settings)"
 #endif
                                      "\n"); // TODO...
 #ifdef BUILD_WFSERVER
@@ -535,8 +536,6 @@ int main(int argc, char *argv[])
     QObject::connect(&a, &QCoreApplication::aboutToQuit,
                      g_log.get(), &LoggingController::uninstallQtMessageHandler,
                      Qt::DirectConnection);
-
-    qmlRegisterSingletonInstance("WFVIEW", 1, 0, "MainController", g_mwc.get());
 
     qmlRegisterType<ReceiverController>("WFVIEW", 1, 0, "ReceiverController");
     qmlRegisterType<RigCreatorController>("WFVIEW", 1, 0, "RigCreatorController");

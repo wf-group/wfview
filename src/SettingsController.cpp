@@ -700,6 +700,22 @@ void SettingsController::load()
 
     settings->endGroup();
 
+    settings->beginGroup("Experimental");
+    prefs.wfShareEnabled = settings->value("WfShareEnabled",
+                                           settings->value("IaxEnabled", defPrefs.wfShareEnabled)).toBool();
+    prefs.wfShareDirectMode = settings->value("WfShareDirectMode", defPrefs.wfShareDirectMode).toBool();
+    prefs.wfShareHost = settings->value("WfShareHost",
+                                        settings->value("IaxHost", defPrefs.wfShareHost)).toString();
+    prefs.wfSharePort = settings->value("WfSharePort",
+                                        settings->value("IaxPort", defPrefs.wfSharePort)).toUInt();
+    prefs.wfShareUsername = settings->value("WfShareUsername",
+                                            settings->value("IaxUsername", defPrefs.wfShareUsername)).toString();
+    prefs.wfSharePassword = settings->value("WfSharePassword",
+                                            settings->value("IaxPassword", defPrefs.wfSharePassword)).toString();
+    prefs.wfShareCalledNumber = settings->value("WfShareCalledNumber",
+                                                settings->value("IaxCalledNumber", defPrefs.wfShareCalledNumber)).toString();
+    settings->endGroup();
+
     settings->beginGroup("Server");
     //setupui->acceptServerConfig(&serverConfig);
 
@@ -1195,6 +1211,16 @@ void SettingsController::save()
 
     settings->endGroup();
 
+    settings->beginGroup("Experimental");
+    settings->setValue("WfShareEnabled", prefs.wfShareEnabled);
+    settings->setValue("WfShareDirectMode", prefs.wfShareDirectMode);
+    settings->setValue("WfShareHost", prefs.wfShareHost);
+    settings->setValue("WfSharePort", prefs.wfSharePort);
+    settings->setValue("WfShareUsername", prefs.wfShareUsername);
+    settings->setValue("WfSharePassword", prefs.wfSharePassword);
+    settings->setValue("WfShareCalledNumber", prefs.wfShareCalledNumber);
+    settings->endGroup();
+
     // Memory channels
     /*
     settings->beginGroup("Memory");
@@ -1555,6 +1581,13 @@ void SettingsController::setDefPrefs()
 
     defPrefs.tcpPort = 0;
     defPrefs.tciPort = 50001;
+    defPrefs.wfShareEnabled = false;
+    defPrefs.wfShareDirectMode = false;
+    defPrefs.wfShareHost = QStringLiteral("pbx.wfshare.org");
+    defPrefs.wfSharePort = 4569;
+    defPrefs.wfShareUsername.clear();
+    defPrefs.wfSharePassword.clear();
+    defPrefs.wfShareCalledNumber.clear();
     defPrefs.clusterUdpEnable = false;
     defPrefs.clusterTcpEnable = false;
     defPrefs.waterfallFormat = 0;
@@ -2150,6 +2183,17 @@ void SettingsController::buildBindings()
 
     WF_U8("LAN.WaterfallFormat", prefs.waterfallFormat,
           [this](){ emit lanChanged(prefLanItems(prefLanItem::l_waterfallFormat)); });
+
+    // -------------------------
+    // Experimental group
+    // -------------------------
+    WF_BOOL("Experimental.WfShareEnabled", prefs.wfShareEnabled, [](){});
+    WF_BOOL("Experimental.WfShareDirectMode", prefs.wfShareDirectMode, [](){});
+    WF_STR("Experimental.WfShareHost", prefs.wfShareHost, [](){});
+    WF_U16("Experimental.WfSharePort", prefs.wfSharePort, [](){});
+    WF_STR("Experimental.WfShareUsername", prefs.wfShareUsername, [](){});
+    WF_STR("Experimental.WfSharePassword", prefs.wfSharePassword, [](){});
+    WF_STR("Experimental.WfShareCalledNumber", prefs.wfShareCalledNumber, [](){});
 
     // -------------------------
     // Radio Access group (RA)

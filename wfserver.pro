@@ -199,6 +199,7 @@ SOURCES += \
     src/audio/audiohandlertcioutput.cpp \
     src/audio/resampler/resample.c \
     src/radio/icomcommander.cpp \
+    src/radio/icomcivradiotransport.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
     src/radio/icomudpbase.cpp \
@@ -214,10 +215,14 @@ SOURCES += \
     src/radio/yaesuudpcontrol.cpp \
     src/radio/yaesuudpscope.cpp \
     src/cachingqueue.cpp \
+    src/directradiotransport.cpp \
+    src/iaxclientsession.cpp \
+    src/iaxradiotransport.cpp \
     src/main.cpp\
     src/servermain.cpp \
     src/serverwizard.cpp \
     src/commhandler.cpp \
+    src/radiotransportframe.cpp \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
     src/logcategories.cpp \
@@ -251,11 +256,16 @@ HEADERS  += \
     include/audiohandlertcioutput.h \
     include/cachingqueue.h \
     include/commhandler.h \
+    include/directradiotransport.h \
     include/ft4222handler.h \
     include/kenwoodcommander.h \
+    include/radiotransport.h \
     include/rigcommander.h \
     include/icomcommander.h \
+    include/icomcivradiotransport.h \
     include/icomserver.h \
+    include/iaxclientsession.h \
+    include/iaxradiotransport.h \
     include/freqmemory.h \
     include/rigidentities.h \
     include/rtpaudio.h \
@@ -268,6 +278,7 @@ HEADERS  += \
     include/keyboard.h \
     include/wfviewtypes.h \
     include/pttyhandler.h \
+    include/radiotransportframe.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \
     include/icomudpcivdata.h \

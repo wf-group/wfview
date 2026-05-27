@@ -3,6 +3,7 @@
 #include "serverwizard.h"
 
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include <QCoreApplication>
@@ -63,6 +64,51 @@ QString promptConstrained(const QString& msg, int maxLen, bool allowSpaces)
             continue;
         }
         return s;
+    }
+}
+
+QString promptConstrainedDefault(const QString& msg, const QString& def, int maxLen, bool allowSpaces)
+{
+    while (true) {
+        QString s = prompt(QString("%1 [%2]: ").arg(msg, def));
+        if (s.isEmpty()) {
+            s = def;
+        }
+        if (s.isEmpty()) {
+            std::cout << "Value required.\n";
+            continue;
+        }
+        if (s.length() > maxLen) {
+            std::cout << "Too long (max " << maxLen << " characters).\n";
+            continue;
+        }
+        if (!isPrintableAscii(s)) {
+            std::cout << "Only printable ASCII characters allowed.\n";
+            continue;
+        }
+        if (!allowSpaces && s.contains(' ')) {
+            std::cout << "Spaces are not allowed.\n";
+            continue;
+        }
+        return s;
+    }
+}
+
+bool promptYesNo(const QString& msg, bool def)
+{
+    const QString suffix = def ? QStringLiteral(" [Y/n]: ") : QStringLiteral(" [y/N]: ");
+    while (true) {
+        const QString s = prompt(msg + suffix);
+        if (s.isEmpty()) {
+            return def;
+        }
+        if (s.compare("y", Qt::CaseInsensitive) == 0 || s.compare("yes", Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+        if (s.compare("n", Qt::CaseInsensitive) == 0 || s.compare("no", Qt::CaseInsensitive) == 0) {
+            return false;
+        }
+        std::cout << "Please enter y or n.\n";
     }
 }
 
@@ -148,18 +194,76 @@ namespace serverwizard {
 int run(const QString& settingsFile)
 {
     const QString resolvedPath = resolveSettingsPath(settingsFile);
+    std::unique_ptr<QSettings> existing(openSettings(settingsFile));
 
     std::cout << "\n=== wfserver interactive setup wizard ===\n";
     std::cout << "Settings file: " << resolvedPath.toStdString() << "\n\n";
-    std::cout << "WARNING: continuing will ERASE any existing configuration at the\n";
-    std::cout << "above path and replace it with the values you enter here.\n";
-    {
-        QString c = prompt("Press 'y' to continue, anything else to abort: ");
-        if (c.compare("y", Qt::CaseInsensitive) != 0) {
+
+    const bool hasExistingSettings = QFileInfo::exists(resolvedPath) ||
+                                     !existing->allKeys().isEmpty() ||
+                                     !existing->childGroups().isEmpty();
+    bool replaceAll = true;
+    if (hasExistingSettings) {
+        std::cout << "Existing configuration found.\n";
+        while (true) {
+            const QString c = prompt("Choose [M]odify existing, [R]eplace all, or [Q]uit [M]: ");
+            if (c.isEmpty() || c.compare("m", Qt::CaseInsensitive) == 0) {
+                replaceAll = false;
+                break;
+            }
+            if (c.compare("r", Qt::CaseInsensitive) == 0) {
+                replaceAll = true;
+                break;
+            }
+            if (c.compare("q", Qt::CaseInsensitive) == 0) {
+                std::cout << "Aborted. No changes made.\n";
+                return 1;
+            }
+            std::cout << "Invalid selection.\n";
+        }
+    }
+    if (replaceAll) {
+        std::cout << "WARNING: replace mode will ERASE any existing configuration at the\n";
+        std::cout << "above path and replace it with the values you enter here.\n";
+        if (!promptYesNo("Continue in replace mode?", false)) {
             std::cout << "Aborted. No changes made.\n";
             return 1;
         }
     }
+
+    const int existingAudioSystem = existing->value("AudioSystem", 0).toInt();
+    int existingNumRadios = existing->beginReadArray("Radios");
+    existing->setArrayIndex(0);
+    const QString existingSerialPort = existing->value("SerialPortRadio", "auto").toString();
+    const quint32 existingBaud = existing->value("SerialPortBaud", 115200).toUInt();
+    const int existingPttType = existing->value("PTTType", int(pttCIV)).toInt();
+    const bool existingForceRts = existing->value("ForceRTSasPTT", existingPttType == int(pttRTS)).toBool();
+    const QString existingRigName = existing->value("RigName", "IC-7300").toString();
+    const QVariant existingCivVariant = existing->value("RigCIVuInt");
+    const int existingWaterfallFormat = existing->value("WaterfallFormat", 0).toInt();
+    const QString existingRxName = existing->value("AudioInput", "default").toString();
+    const QString existingTxName = existing->value("AudioOutput", "default").toString();
+    const QString existingGuid = existing->value("GUID", QUuid::createUuid().toString()).toString();
+    existing->endArray();
+    Q_UNUSED(existingNumRadios)
+    existing->beginGroup("Server");
+    const int existingControlPort = existing->value("ServerControlPort", 50001).toInt();
+    const int existingCivPort = existing->value("ServerCivPort", 50002).toInt();
+    const int existingAudioPort = existing->value("ServerAudioPort", 50003).toInt();
+    const bool existingWfShareEnabled = existing->value("WfShareEnabled", false).toBool();
+    const QString existingWfShareHost = existing->value("WfShareHost", "pbx.wfshare.org").toString();
+    const int existingWfSharePort = existing->value("WfSharePort", 4569).toInt();
+    const QString existingWfShareUsername = existing->value("WfShareUsername", "").toString();
+    const QString existingWfSharePassword = existing->value("WfSharePassword", "").toString();
+    const bool existingWfShareDirectEnabled = existing->value("WfShareDirectEnabled", false).toBool();
+    const int existingWfShareDirectPort = existing->value("WfShareDirectPort", 4569).toInt();
+    existing->beginReadArray("Users");
+    existing->setArrayIndex(0);
+    const QString existingUsername = existing->value("Username", "user").toString();
+    const QString existingEncodedPassword = existing->value("Password", "").toString();
+    const int existingUserType = existing->value("UserType", 0).toInt();
+    existing->endArray();
+    existing->endGroup();
 
     // --- Serial port ---
     QStringList portLabels;
@@ -186,9 +290,16 @@ int run(const QString& settingsFile)
     }
     std::cout << "  [A] auto  (wfserver auto-detects an Icom serial port at startup)\n";
     std::cout << "  [M] Enter a serial port path manually\n";
+    if (!replaceAll) {
+        std::cout << "  [K] keep current (" << existingSerialPort.toStdString() << ")\n";
+    }
     int portIdx = -1;
     while (portIdx == -1) {
         QString s = prompt("Enter selection: ");
+        if (!replaceAll && (s.isEmpty() || s.compare("k", Qt::CaseInsensitive) == 0)) {
+            portIdx = -4;
+            break;
+        }
         if (s.compare("a", Qt::CaseInsensitive) == 0) { portIdx = autoIdx; break; }
         if (s.compare("m", Qt::CaseInsensitive) == 0) { portIdx = manualIdx; break; }
         bool ok = false;
@@ -197,7 +308,9 @@ int run(const QString& settingsFile)
         std::cout << "Invalid selection.\n";
     }
     QString serialPort;
-    if (portIdx == autoIdx) {
+    if (portIdx == -4) {
+        serialPort = existingSerialPort;
+    } else if (portIdx == autoIdx) {
         serialPort = "auto";
     } else if (portIdx == manualIdx) {
         while (serialPort.isEmpty()) {
@@ -211,9 +324,10 @@ int run(const QString& settingsFile)
     // --- Baud rate ---
     std::cout << "\nCommon baud rates: 4800, 9600, 19200, 38400, 57600, 115200\n";
     quint32 baud = 0;
+    const quint32 defaultBaud = replaceAll ? quint32(115200) : existingBaud;
     while (baud == 0) {
-        QString s = prompt("Enter baud rate [115200]: ");
-        if (s.isEmpty()) { baud = 115200; break; }
+        QString s = prompt(QString("Enter baud rate [%1]: ").arg(defaultBaud));
+        if (s.isEmpty()) { baud = defaultBaud; break; }
         bool ok = false;
         quint32 v = s.toUInt(&ok);
         if (ok && v > 0) baud = v;
@@ -223,11 +337,19 @@ int run(const QString& settingsFile)
     // --- PTT type ---
     bool forceRTSasPTT = false;
     pttType_t pttType = pttCIV;
+    if (!replaceAll) {
+        forceRTSasPTT = existingForceRts;
+        pttType = static_cast<pttType_t>(existingPttType);
+    }
     std::cout << "\nPTT method -- use RTS for older radios (ex. IC-718),\n";
     std::cout << "and use CI-V for more modern radios (ex. IC-7300).\n";
     while (true) {
-        QString s = prompt("Enter 'rts' or 'civ' [CI-V]: ");
-        if (s.isEmpty() || s.compare("civ", Qt::CaseInsensitive) == 0
+        const QString currentPtt = forceRTSasPTT ? QStringLiteral("RTS") : QStringLiteral("CI-V");
+        QString s = prompt(QString("Enter 'rts' or 'civ' [%1]: ").arg(currentPtt));
+        if (s.isEmpty()) {
+            break;
+        }
+        if (s.compare("civ", Qt::CaseInsensitive) == 0
             || s.compare("ci-v", Qt::CaseInsensitive) == 0) {
             forceRTSasPTT = false;
             pttType = pttCIV;
@@ -243,14 +365,15 @@ int run(const QString& settingsFile)
 
     // --- Audio backend + devices (loopable) ---
     // Menu values match the audioType enum (qtAudio=0, portAudio=1, rtAudio=2).
-    audioType audioSystem = qtAudio;
+    audioType audioSystem = replaceAll ? qtAudio : static_cast<audioType>(existingAudioSystem);
     QString rxName, txName;
 
     while (true) {
         int menu;
         while (true) {
-            QString s = prompt("\nAudio backend -- [0] Qt  [1] Port Audio  [2] RT Audio [0]: ");
-            if (s.isEmpty()) { menu = 0; break; }
+            QString s = prompt(QString("\nAudio backend -- [0] Qt  [1] Port Audio  [2] RT Audio [%1]: ")
+                                   .arg(static_cast<int>(audioSystem)));
+            if (s.isEmpty()) { menu = static_cast<int>(audioSystem); break; }
             bool ok = false;
             menu = s.toInt(&ok);
             if (ok && menu >= 0 && menu <= 2) break;
@@ -270,22 +393,31 @@ int run(const QString& settingsFile)
             continue;
         }
 
-        int ri = selectAudioDevice("\nAvailable audio INPUT devices:", ins,
-            "Note: The audio input should be the radio's receive audio.");
-        if (ri == -2) continue;
-        int ro = selectAudioDevice("\nAvailable audio OUTPUT devices:", outs,
-            "Note: The audio output should go to the radio's transmit audio input.");
-        if (ro == -2) continue;
+        if (!replaceAll && !existingRxName.isEmpty() && !existingTxName.isEmpty() &&
+            promptYesNo(QString("Keep current audio devices (%1 / %2)?")
+                            .arg(existingRxName, existingTxName), true)) {
+            rxName = existingRxName;
+            txName = existingTxName;
+        } else {
+            int ri = selectAudioDevice("\nAvailable audio INPUT devices:", ins,
+                "Note: The audio input should be the radio's receive audio.");
+            if (ri == -2) continue;
+            int ro = selectAudioDevice("\nAvailable audio OUTPUT devices:", outs,
+                "Note: The audio output should go to the radio's transmit audio input.");
+            if (ro == -2) continue;
 
-        rxName = devs.getInputName(ri);
-        txName = devs.getOutputName(ro);
+            rxName = devs.getInputName(ri);
+            txName = devs.getOutputName(ro);
+        }
         break;
     }
 
     // --- Rig name ---
     std::cout << "\nRig name (recommended: the radio model number, e.g. IC-7300).\n";
     std::cout << "No spaces, printable ASCII, max 16 characters.\n";
-    QString rigName = promptConstrained("Rig name: ", 16, false);
+    QString rigName = replaceAll
+                          ? promptConstrained("Rig name: ", 16, false)
+                          : promptConstrainedDefault("Rig name", existingRigName, 16, false);
 
     // --- CI-V address ---
     std::cout << "\nCI-V address.\n";
@@ -295,9 +427,16 @@ int run(const QString& settingsFile)
     std::cout << "(ie, \"152\"), or a hexadecimal value (ie, \"0x98\" or \"h98\").\n";
     int civAddr = -1; // -1 => auto (do not write)
     while (true) {
-        QString s = prompt("CI-V address [auto]: ");
+        const QString civDefaultText = (!replaceAll && existingCivVariant.isValid())
+                                           ? existingCivVariant.toString()
+                                           : QStringLiteral("auto");
+        QString s = prompt(QString("CI-V address [%1]: ").arg(civDefaultText));
         if (s.isEmpty() || s.compare("auto", Qt::CaseInsensitive) == 0) {
-            civAddr = -1;
+            if (!replaceAll && existingCivVariant.isValid() && s.isEmpty()) {
+                civAddr = existingCivVariant.toInt();
+            } else {
+                civAddr = -1;
+            }
             break;
         }
         QString norm = s;
@@ -322,10 +461,10 @@ int run(const QString& settingsFile)
     std::cout << "\nWaterfall format:\n";
     std::cout << "  [0] chunk format, serial-style\n";
     std::cout << "  [1] combined format, network-style\n";
-    int waterfallFormat = 0;
+    int waterfallFormat = replaceAll ? 0 : existingWaterfallFormat;
     while (true) {
-        QString s = prompt("Enter selection [0]: ");
-        if (s.isEmpty()) { waterfallFormat = 0; break; }
+        QString s = prompt(QString("Enter selection [%1]: ").arg(waterfallFormat));
+        if (s.isEmpty()) { break; }
         bool ok = false;
         int v = s.toInt(&ok);
         if (ok && (v == 0 || v == 1)) { waterfallFormat = v; break; }
@@ -334,16 +473,88 @@ int run(const QString& settingsFile)
 
     // --- Network ports ---
     std::cout << "\nNetwork ports (UDP, press Enter to accept defaults):\n";
-    int controlPort = promptPort("Control port", 50001);
-    int civPort     = promptPort("CI-V port",    50002);
-    int audioPort   = promptPort("Audio port",   50003);
+    int controlPort = promptPort("Control port", replaceAll ? 50001 : existingControlPort);
+    int civPort     = promptPort("CI-V port",    replaceAll ? 50002 : existingCivPort);
+    int audioPort   = promptPort("Audio port",   replaceAll ? 50003 : existingAudioPort);
+
+    // --- wfshare ---
+    std::cout << "\nwfshare remote access:\n";
+    std::cout << "  [0] disabled\n";
+    std::cout << "  [1] PBX relay registration (pbx.wfshare.org / Asterisk)\n";
+    std::cout << "  [2] direct point-to-point listener\n";
+    int wfShareMode = 0;
+    if (!replaceAll) {
+        wfShareMode = existingWfShareDirectEnabled ? 2 : (existingWfShareEnabled ? 1 : 0);
+    }
+    while (true) {
+        QString s = prompt(QString("Enter selection [%1]: ").arg(wfShareMode));
+        if (s.isEmpty()) {
+            break;
+        }
+        bool ok = false;
+        int v = s.toInt(&ok);
+        if (ok && v >= 0 && v <= 2) {
+            wfShareMode = v;
+            break;
+        }
+        std::cout << "Enter 0, 1, or 2.\n";
+    }
+
+    bool wfShareEnabled = wfShareMode == 1;
+    bool wfShareDirectEnabled = wfShareMode == 2;
+    int wfShareDirectPort = replaceAll ? 4569 : existingWfShareDirectPort;
+    if (wfShareDirectEnabled) {
+        wfShareDirectPort = promptPort("wfshare direct listen port", wfShareDirectPort);
+        std::cout << "Direct mode uses the server user accounts configured below for authentication.\n";
+    }
+    QString wfShareHost = replaceAll ? QStringLiteral("pbx.wfshare.org") : existingWfShareHost;
+    int wfSharePort = replaceAll ? 4569 : existingWfSharePort;
+    QString wfShareUsername = replaceAll ? QString() : existingWfShareUsername;
+    QString wfSharePassword = replaceAll ? QString() : existingWfSharePassword;
+    if (wfShareEnabled) {
+        QString host = prompt(QString("wfshare host [%1]: ").arg(wfShareHost));
+        if (!host.isEmpty()) {
+            wfShareHost = host;
+        }
+        wfSharePort = promptPort("wfshare port", wfSharePort);
+        wfShareUsername = promptConstrainedDefault("wfshare username", wfShareUsername, 32, false);
+        QString passwordPrompt = wfSharePassword.isEmpty()
+                                     ? QStringLiteral("wfshare password: ")
+                                     : QStringLiteral("wfshare password [keep current]: ");
+        QString newPassword = prompt(passwordPrompt);
+        if (!newPassword.isEmpty()) {
+            wfSharePassword = newPassword;
+        } else if (wfSharePassword.isEmpty()) {
+            std::cout << "Value required.\n";
+            wfSharePassword = promptConstrained("wfshare password: ", 64, false);
+        }
+    }
 
     // --- Admin user ---
     std::cout << "\nCreate the initial admin user account.\n";
     std::cout << "(Additional users can be added later by editing the settings file.)\n";
     std::cout << "Printable ASCII only, 16 character max for each field.\n";
-    QString username = promptConstrained("Username: ", 16, false);
-    QString password = promptConstrained("Password: ", 16, false);
+    QString username = replaceAll
+                           ? promptConstrained("Username: ", 16, false)
+                           : promptConstrainedDefault("Username", existingUsername, 16, false);
+    QString password;
+    QString encodedPassword = existingEncodedPassword;
+    if (!replaceAll && !encodedPassword.isEmpty()) {
+        QString p = prompt("Password [keep current]: ");
+        if (p.isEmpty()) {
+            password = QStringLiteral("<unchanged>");
+        } else {
+            password = p;
+            QByteArray encoded;
+            passcode(password, encoded);
+            encodedPassword = QString(encoded);
+        }
+    } else {
+        password = promptConstrained("Password: ", 16, false);
+        QByteArray encoded;
+        passcode(password, encoded);
+        encodedPassword = QString(encoded);
+    }
 
     // --- Review ---
     auto backendLabel = [](audioType t) -> const char* {
@@ -373,11 +584,23 @@ int run(const QString& settingsFile)
     std::cout << "  ServerControlPort= " << controlPort << "\n";
     std::cout << "  ServerCivPort    = " << civPort << "\n";
     std::cout << "  ServerAudioPort  = " << audioPort << "\n";
-    QByteArray encoded;
-    passcode(password, encoded);
+    std::cout << "  WfShareEnabled   = " << (wfShareEnabled ? "true" : "false") << "\n";
+    std::cout << "  WfShareDirect    = " << (wfShareDirectEnabled ? "true" : "false") << "\n";
+    if (wfShareEnabled) {
+        std::cout << "  WfShareHost      = " << wfShareHost.toStdString() << "\n";
+        std::cout << "  WfSharePort      = " << wfSharePort << "\n";
+        std::cout << "  WfShareUsername  = " << wfShareUsername.toStdString() << "\n";
+    }
+    if (wfShareDirectEnabled) {
+        std::cout << "  WfShareDirectPort= " << wfShareDirectPort << "\n";
+    }
     std::cout << "  Users\\1\\Username = " << username.toStdString() << "  (UserType=0)\n";
-    std::cout << "  Users\\1\\Password = " << QString(encoded).toStdString()
-              << "  (decodes as " << password.toStdString() << ")\n";
+    std::cout << "  Users\\1\\Password = " << encodedPassword.toStdString();
+    if (password == QStringLiteral("<unchanged>")) {
+        std::cout << "  (unchanged)\n";
+    } else {
+        std::cout << "  (decodes as " << password.toStdString() << ")\n";
+    }
 
     QString confirm = prompt("\nSave these settings? (y/N): ");
     if (confirm.compare("y", Qt::CaseInsensitive) != 0) {
@@ -387,39 +610,65 @@ int run(const QString& settingsFile)
 
     // --- Write settings ---
     QSettings* s = openSettings(settingsFile);
-    s->clear();
+    if (replaceAll) {
+        s->clear();
+    }
 
     s->setValue("AudioSystem", static_cast<int>(audioSystem));
     s->setValue("Manufacturer", static_cast<int>(manufIcom));
 
-    s->beginWriteArray("Radios");
-    s->setArrayIndex(0);
-    if (civAddr >= 0) {
-        s->setValue("RigCIVuInt", civAddr);
+    auto writeRadioValues = [&](const QString& prefix) {
+        if (civAddr >= 0) {
+            s->setValue(prefix + "RigCIVuInt", civAddr);
+        } else {
+            s->remove(prefix + "RigCIVuInt");
+        }
+        s->setValue(prefix + "PTTType", static_cast<int>(pttType));
+        s->setValue(prefix + "ForceRTSasPTT", forceRTSasPTT);
+        s->setValue(prefix + "SerialPortRadio", serialPort);
+        s->setValue(prefix + "RigName", rigName);
+        s->setValue(prefix + "SerialPortBaud", baud);
+        s->setValue(prefix + "AudioInput", rxName);
+        s->setValue(prefix + "AudioOutput", txName);
+        s->setValue(prefix + "WaterfallFormat", waterfallFormat);
+        s->setValue(prefix + "GUID", replaceAll ? QUuid::createUuid().toString() : existingGuid);
+    };
+
+    if (replaceAll) {
+        s->beginWriteArray("Radios");
+        s->setArrayIndex(0);
+        writeRadioValues(QString());
+        s->endArray();
+    } else {
+        writeRadioValues(QStringLiteral("Radios/1/"));
     }
-    s->setValue("PTTType", static_cast<int>(pttType));
-    s->setValue("ForceRTSasPTT", forceRTSasPTT);
-    s->setValue("SerialPortRadio", serialPort);
-    s->setValue("RigName", rigName);
-    s->setValue("SerialPortBaud", baud);
-    s->setValue("AudioInput", rxName);
-    s->setValue("AudioOutput", txName);
-    s->setValue("WaterfallFormat", waterfallFormat);
-    s->setValue("GUID", QUuid::createUuid().toString());
-    s->endArray();
 
     s->beginGroup("Server");
     s->setValue("ServerEnabled", true);
     s->setValue("ServerControlPort", controlPort);
     s->setValue("ServerCivPort", civPort);
     s->setValue("ServerAudioPort", audioPort);
+    s->setValue("WfShareEnabled", wfShareEnabled);
+    s->setValue("WfShareHost", wfShareHost);
+    s->setValue("WfSharePort", wfSharePort);
+    s->setValue("WfShareUsername", wfShareUsername);
+    s->setValue("WfSharePassword", wfSharePassword);
+    s->setValue("WfShareDirectEnabled", wfShareDirectEnabled);
+    s->setValue("WfShareDirectPort", wfShareDirectPort);
+    s->remove("WfShareStationId");
 
-    s->beginWriteArray("Users");
-    s->setArrayIndex(0);
-    s->setValue("Username", username);
-    s->setValue("Password", QString(encoded));
-    s->setValue("UserType", 0);
-    s->endArray();
+    if (replaceAll) {
+        s->beginWriteArray("Users");
+        s->setArrayIndex(0);
+        s->setValue("Username", username);
+        s->setValue("Password", encodedPassword);
+        s->setValue("UserType", existingUserType);
+        s->endArray();
+    } else {
+        s->setValue("Users/1/Username", username);
+        s->setValue("Users/1/Password", encodedPassword);
+        s->setValue("Users/1/UserType", existingUserType);
+    }
 
     s->endGroup();
     s->sync();

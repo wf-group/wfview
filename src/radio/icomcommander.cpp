@@ -1,6 +1,9 @@
 #include "icomcommander.h"
 #include <QDebug>
 
+#include "audiohandler.h"
+#include "audiopacketcodec.h"
+#include "iaxradiotransport.h"
 #include "rigidentities.h"
 #include "logcategories.h"
 #include "printhex.h"
@@ -20,6 +23,26 @@
 //  echo "w \0xFE\0xFE\0x94\0xE0\0x27\0x11\0x00\0xFD" | rigctl -m 3073 -r /dev/ttyUSB0 -s 115200 -vvvvv
 
 // Note: When sending \x00, must use QByteArray.setRawData()
+
+namespace {
+
+void applyIaxStatsToNetworkStatus(const IaxStats &stats, networkStatus *status)
+{
+    if (status == nullptr)
+        return;
+
+    status->networkLatency = stats.lagMs;
+    status->packetsSent = stats.fullFramesTx + stats.miniFramesTx + stats.fullFramesRx + stats.miniFramesRx;
+    status->packetsLost = stats.retries + stats.oSeqnoGaps + stats.invalidIaxFrames;
+    status->message = QStringLiteral("IAX rx: %1 ms / lag: %2 ms / retry: %3 / OSeq gap: %4 / invalid: %5")
+                          .arg(status->rxCurrentLatency, 3)
+                          .arg(stats.lagMs, 3)
+                          .arg(stats.retries, 3)
+                          .arg(stats.oSeqnoGaps, 3)
+                          .arg(stats.invalidIaxFrames, 3);
+}
+
+}
 
 icomCommander::icomCommander(rigCommander* parent) : rigCommander(parent)
 {
@@ -45,6 +68,7 @@ icomCommander::~icomCommander()
     qDebug(logRig()) << "Closing rig comms";
     if (comm != nullptr) {
         delete comm;
+        comm = nullptr;
     }
 
     if (udpHandlerThread != nullptr) {
@@ -56,11 +80,16 @@ icomCommander::~icomCommander()
         }
         udpHandlerThread->quit();
         udpHandlerThread->wait();
+        udpHandlerThread = nullptr;
     }
+    udp = nullptr;
 
     if (ptty != nullptr) {
         delete ptty;
+        ptty = nullptr;
     }
+
+    closeWfShare();
 }
 
 
@@ -183,6 +212,123 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
 
 }
 
+void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString host,
+                                     quint16 port, QString username, QString password, QString calledNumber,
+                                     audioSetup rxSetup, audioSetup txSetup)
+{
+    Q_UNUSED(txSetup)
+    this->rigList = rigList;
+    civAddr = rigCivAddr;
+    usingNativeLAN = false;
+    wfShareRxSetup = rxSetup;
+    wfShareRxSetup.codec = 0x40;
+    wfShareRxSetup.sampleRate = 16000;
+    wfShareRxSetup.isinput = false;
+    wfShareStats = IaxStats();
+    wfShareStatus = networkStatus();
+
+    if (wfShareTransport != nullptr) {
+        wfShareTransport->disconnectTransport();
+        delete wfShareTransport;
+        wfShareTransport = nullptr;
+    }
+
+    auto *iaxTransport = new IaxRadioTransport(this);
+    wfShareTransport = iaxTransport;
+    connect(iaxTransport, &IaxRadioTransport::iaxStatsChanged, this, [this](IaxStats stats) {
+        wfShareStats = stats;
+        applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
+        emit haveStatusUpdate(wfShareStatus);
+    });
+    connect(wfShareTransport, &RadioTransport::streamReceived, this, [this](RadioTransportChannel channel, QByteArray data) {
+        if (channel == RadioTransportChannel::Civ || channel == RadioTransportChannel::Scope) {
+            handleNewData(data);
+        } else if (channel == RadioTransportChannel::AudioRx) {
+            if (!haveRigCaps) {
+                return;
+            }
+
+            audioPacket packet;
+            if (audioPacketCodec::decode(data, &packet)) {
+                wfShareAudioRxFrames++;
+                if (wfShareAudioRxFrames <= 10 || wfShareAudioRxFrames % 250 == 0) {
+                    qDebug(logRig()).noquote()
+                        << QStringLiteral("wfshare received RX audio frame %1 bytes %2")
+                               .arg(wfShareAudioRxFrames)
+                               .arg(packet.data.size());
+                }
+                if (wfShareRxAudio == nullptr) {
+                    if (wfShareRxSetup.type == qtAudio) {
+                        wfShareRxAudio = new audioHandlerQtOutput();
+                    } else if (wfShareRxSetup.type == portAudio) {
+                        wfShareRxAudio = new audioHandlerPaOutput();
+                    } else if (wfShareRxSetup.type == rtAudio) {
+                        wfShareRxAudio = new audioHandlerRtOutput();
+                    } else {
+                        qCritical(logAudio()) << "Unsupported wfshare receive audio handler selected" << wfShareRxSetup.type;
+                        return;
+                    }
+
+                    wfShareRxAudioThread = new QThread(this);
+                    wfShareRxAudioThread->setObjectName(QStringLiteral("wfshareRxAudio()"));
+                    wfShareRxAudio->moveToThread(wfShareRxAudioThread);
+                    wfShareRxAudioThread->start(QThread::TimeCriticalPriority);
+                    connect(wfShareRxAudioThread, SIGNAL(finished()), wfShareRxAudio, SLOT(deleteLater()));
+                    connect(wfShareRxAudio, &audioHandlerBase::haveLevels, this,
+                            [this](quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current,
+                                   bool under, bool over) {
+                                Q_UNUSED(amplitudeRMS)
+                                wfShareStatus.rxAudioLevel = quint8(qMin<quint16>(amplitudePeak, 255));
+                                wfShareStatus.rxLatency = latency;
+                                wfShareStatus.rxCurrentLatency = qint16(current);
+                                wfShareStatus.rxUnderrun = under;
+                                wfShareStatus.rxOverrun = over;
+                                applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
+                                emit haveStatusUpdate(wfShareStatus);
+                            });
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+                    QMetaObject::invokeMethod(wfShareRxAudio, [this]() {
+                        wfShareRxAudio->init(wfShareRxSetup);
+                    }, Qt::QueuedConnection);
+#else
+                    QMetaObject::invokeMethod(wfShareRxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, wfShareRxSetup));
+#endif
+                }
+
+                QMetaObject::invokeMethod(wfShareRxAudio, "incomingAudio", Qt::QueuedConnection, Q_ARG(audioPacket, packet));
+                receiveAudioData(packet);
+            } else {
+                qWarning(logRig()) << "wfshare audio packet decode failed";
+            }
+        }
+    });
+    connect(wfShareTransport, &RadioTransport::connectedChanged, this, [this](bool connected) {
+        if (connected) {
+            qInfo(logRig()) << "wfshare CI-V transport connected";
+            QMetaObject::invokeMethod(this, [this]() {
+                commonSetup();
+            }, Qt::QueuedConnection);
+        }
+    });
+    connect(wfShareTransport, &RadioTransport::errorOccurred, this, [this](const QString &message) {
+        handlePortError(errorType(true, QStringLiteral("wfshare"), message));
+    });
+    connect(this, &icomCommander::dataForComm, wfShareTransport, [this](const QByteArray &data) {
+        if (wfShareTransport != nullptr) {
+            wfShareTransport->sendStream(RadioTransportChannel::Civ, data);
+        }
+    });
+
+    RadioTransportEndpoint endpoint;
+    endpoint.host = host;
+    endpoint.port = port;
+    endpoint.username = username;
+    endpoint.password = password;
+    endpoint.options.insert(QStringLiteral("calledNumber"), calledNumber);
+    wfShareTransport->connectTransport(endpoint);
+}
+
 void icomCommander::closeComm()
 {
     qDebug(logRig()) << "Closing rig comms";
@@ -207,6 +353,41 @@ void icomCommander::closeComm()
         delete ptty;
     }
     ptty = nullptr;
+
+    closeWfShare();
+}
+
+void icomCommander::closeWfShare()
+{
+    if (wfShareTransport != nullptr) {
+        disconnect(wfShareTransport, nullptr, this, nullptr);
+        disconnect(this, nullptr, wfShareTransport, nullptr);
+        wfShareTransport->disconnectTransport();
+        delete wfShareTransport;
+        wfShareTransport = nullptr;
+    }
+
+    if (wfShareRxAudio != nullptr) {
+        disconnect(wfShareRxAudio, nullptr, this, nullptr);
+        if (wfShareRxAudioThread == nullptr ||
+            wfShareRxAudio->thread() == QThread::currentThread() ||
+            !wfShareRxAudioThread->isRunning()) {
+            wfShareRxAudio->dispose();
+        } else {
+            QMetaObject::invokeMethod(wfShareRxAudio, &audioHandlerBase::dispose,
+                                      Qt::BlockingQueuedConnection);
+        }
+    }
+
+    if (wfShareRxAudioThread != nullptr) {
+        wfShareRxAudioThread->quit();
+        wfShareRxAudioThread->wait();
+        delete wfShareRxAudioThread;
+        wfShareRxAudioThread = nullptr;
+    }
+    wfShareRxAudio = nullptr;
+    wfShareStats = IaxStats();
+    wfShareStatus = networkStatus();
 }
 
 void icomCommander::commonSetup()
@@ -2428,9 +2609,18 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         }
     }
 
-    if (func == funcAfGain && value.isValid() && udp != nullptr) {
-        // Ignore the AF Gain command, just queue it for processing
-        emit haveSetVolume(static_cast<uchar>(value.toInt()));
+    if (func == funcAfGain && value.isValid() && (udp != nullptr || wfShareTransport != nullptr)) {
+        // Network audio uses local output gain rather than sending AF Gain to the radio.
+        const auto volume = static_cast<uchar>(value.toInt());
+        if (udp != nullptr) {
+            emit haveSetVolume(volume);
+        }
+        if (wfShareTransport != nullptr) {
+            wfShareRxSetup.localAFgain = volume;
+            if (wfShareRxAudio != nullptr) {
+                QMetaObject::invokeMethod(wfShareRxAudio, "setVolume", Qt::QueuedConnection, Q_ARG(quint8, volume));
+            }
+        }
         queue->receiveValue(func,value,false);
         return;
     }

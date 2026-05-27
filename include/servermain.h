@@ -31,6 +31,8 @@
 #include "yaesuserver.h"
 #include "rigctld.h"
 #include "signal.h"
+#include "iaxclientsession.h"
+#include "radiotransportframe.h"
 
 #include <qserialportinfo.h>
 
@@ -202,6 +204,10 @@ private:
     void removeRig();
 
     void setServerToPrefs();
+    void startWfShareStation();
+    void flushWfShareTxBuffer();
+    void ensureWfShareRxAudio(RIGCONFIG *radio);
+    void sendWfShareAudio(const audioPacket &packet);
     void setInitialTiming();
     void getSettingsFilePath(QString settingsFile);
     void setManufacturer(manufacturersType_t man);
@@ -250,6 +256,13 @@ private:
         bool haveRigCaps = false;
         quint16 tcpPort;
         audioType audioSystem;
+        bool wfShareEnabled;
+        QString wfShareHost;
+        quint16 wfSharePort;
+        QString wfShareUsername;
+        QString wfSharePassword;
+        bool wfShareDirectEnabled;
+        quint16 wfShareDirectPort;
     } prefs;
 
     preferences defPrefs;
@@ -279,6 +292,15 @@ private:
 
     rigServer* server = Q_NULLPTR;
     rigCtlD* rigCtl = Q_NULLPTR;
+    IaxClientSession* wfShareStation = Q_NULLPTR;
+    IaxClientSession* wfShareDirect = Q_NULLPTR;
+    bool wfShareClientConnected = false;
+    bool wfShareClientHasSentCiv = false;
+    quint32 wfShareRxFrames = 0;
+    quint32 wfShareTxFrames = 0;
+    QTimer* wfShareTxFlushTimer = Q_NULLPTR;
+    QByteArray wfShareTxBuffer;
+    QByteArray wfSharePendingCivToClient;
     QThread* serverThread = Q_NULLPTR;
 
     rigstate* rigState = Q_NULLPTR;

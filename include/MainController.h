@@ -51,6 +51,7 @@ public:
     Q_ENUM (connectionType_t)
 
     Q_PROPERTY(QString windowTitle READ getWindowTitle WRITE setWindowTitle NOTIFY windowTitleChanged)
+    Q_PROPERTY(QString footerMessageText READ footerMessageText NOTIFY footerMessageTextChanged)
     Q_PROPERTY(QString radioStatusText READ radioStatusText NOTIFY radioStatusTextChanged)
     Q_PROPERTY(QString rigModelName READ rigModelName NOTIFY rigModelNameChanged)
     Q_PROPERTY(QString clusterOutputText READ clusterOutputText NOTIFY clusterOutputTextChanged)
@@ -104,6 +105,7 @@ public:
     ~MainController() override { shutdown(); } // still fine as a backup
 
     QString getWindowTitle() const { return windowTitle; }
+    QString footerMessageText() const { return m_footerMessageText; }
     QString radioStatusText() const { return m_radioStatusText; }
     QString rigModelName() const { return m_rigModelName; }
     QString clusterOutputText() const { return m_clusterOutputText; }
@@ -224,6 +226,7 @@ public:
     Q_INVOKABLE void connectCluster();
     Q_INVOKABLE void disconnectCluster();
     Q_INVOKABLE void clearClusterOutput();
+    Q_INVOKABLE void testWfShareConnection();
     Q_INVOKABLE void resetUsbControllers();
     Q_INVOKABLE void revertSettingsToDefault();
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
@@ -246,6 +249,7 @@ public slots:
 
 signals:
     void windowTitleChanged();
+    void footerMessageTextChanged();
     void radioStatusTextChanged();
     void rigModelNameChanged();
     void receiverCountChanged();
@@ -254,6 +258,9 @@ signals:
 
     void sendSerialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
     void sendNetworkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendWfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
+                              QString username, QString password, QString calledNumber,
+                              audioSetup rxSetup, audioSetup txSetup);
     void sendCloseComm();
 
     void setCIVAddr(quint16 newRigCIVAddr);
@@ -309,6 +316,7 @@ private slots:
     void receiveRigCaps(rigCapabilities* caps);
     void receiveStatusUpdate(networkStatus status);
     void receiveCommReady();
+    void receivePortError(errorType err);
     void ctChanged(SettingsController::prefCtItems items);
     void clusterChanged(SettingsController::prefClusterItems items);
 #if defined(USB_CONTROLLER)
@@ -330,6 +338,7 @@ private slots:
 private:
     void buildUiSpecs();
     void setRadioStatusText(const QString& text);
+    void setFooterMessageText(const QString& text);
     void setRigModelName(const QString& modelName);
     funcs modSourceCommand(int dataMode) const;
     funcType inputLevelCommand(inputTypes input) const;
@@ -371,6 +380,7 @@ private:
 
 
     QString windowTitle = "wfview";
+    QString m_footerMessageText;
     QString m_radioStatusText;
     QString m_rigModelName;
     QString m_clusterOutputText;
@@ -449,6 +459,7 @@ private:
 
     int cmdInterval_ms = 100;
     int cmdStartupInterval_ms = 250;
+    int wfShareCmdInterval_ms = 25;
 
     std::unique_ptr<SettingsController> m_settings;
     std::unique_ptr<SelectRadioController> m_selRad;

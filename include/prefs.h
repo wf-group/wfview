@@ -321,6 +321,15 @@ struct preferences {
     quint16 tciPort=50001;
     quint8 waterfallFormat;
 
+    // Experimental wfshare remote transport:
+    bool wfShareEnabled = false;
+    bool wfShareDirectMode = false;
+    QString wfShareHost;
+    quint16 wfSharePort = 4569;
+    QString wfShareUsername;
+    QString wfSharePassword;
+    QString wfShareCalledNumber;
+
     // Cluster:
     QList<clusterSettings> clusters;
     bool clusterUdpEnable;

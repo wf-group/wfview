@@ -1,14 +1,17 @@
 #include "MainController.h"
 
+#include "iaxclientsession.h"
 #include "logcategories.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QGuiApplication>
 #include <QMutexLocker>
+#include <QPointer>
 #include <QStandardPaths>
 #include <QTimer>
 #include <algorithm>
+#include <memory>
 
 static QVariantList spectrumToVariantList(const QVector<double>& bins)
 {
@@ -85,7 +88,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(m_settings.get(), &SettingsController::lanChanged, this, &MainController::lanChanged);
     connect(m_settings.get(), &SettingsController::clusterChanged, this, &MainController::clusterChanged);
     connect(m_settings.get(), &SettingsController::audioProcChanged, this, &MainController::applyAudioProcessingSettings);
-    queue->interval(cmdStartupInterval_ms);
+    queue->interval(prefs->wfShareEnabled ? wfShareCmdInterval_ms : cmdStartupInterval_ms);
 
 #if defined(USB_CONTROLLER)
     if (prefs->enableUSBControllers)
@@ -96,8 +99,13 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     setupRigCtlServer();
     setupTciServer();
     setupClusterClient();
-    if (prefs->hasRunSetup)
-        openRigConnection();
+    if (prefs->hasRunSetup) {
+        if (prefs->wfShareEnabled) {
+            QTimer::singleShot(3000, this, &MainController::openRigConnection);
+        } else {
+            openRigConnection();
+        }
+    }
 
 }
 
@@ -818,12 +826,12 @@ void MainController::buildUiSpecs()
         {"visible",!values.empty()}
     };
 
-    auto rangeSpec = [this](funcs f, int fallbackMin, int fallbackMax) {
+    auto rangeSpec = [this](funcs f, int fallbackMin, int fallbackMax, bool requiresTransmit = false) {
         QVariantMap spec;
-        spec["available"] = rigCaps->commands.contains(f);
+        spec["available"] = rigCaps->commands.contains(f) && (!requiresTransmit || rigCaps->hasTransmit);
         spec["min"] = fallbackMin;
         spec["max"] = fallbackMax;
-        if (rigCaps->commands.contains(f)) {
+        if (spec["available"].toBool()) {
             const auto cmd = rigCaps->commands.find(f).value();
             spec["min"] = cmd.minVal;
             spec["max"] = cmd.maxVal;
@@ -837,17 +845,17 @@ void MainController::buildUiSpecs()
         {"canRit", rigCaps->commands.contains(funcRitStatus) || rigCaps->commands.contains(funcRitFreq)},
         {"canDualScope", rigCaps->numReceiver > 1},
         {"canDualWatch", rigCaps->commands.contains(funcVFODualWatch)},
-        {"canSplit", rigCaps->commands.contains(funcSplitStatus)},
+        {"canSplit", rigCaps->hasTransmit && rigCaps->commands.contains(funcSplitStatus)},
         {"canMainSub", rigCaps->commands.contains(funcVFOBandMS)},
         {"canSwapMainSub", rigCaps->commands.contains(funcVFOSwapMS)},
         {"canEqualMainSub", rigCaps->commands.contains(funcVFOEqualMS)},
-        {"canCompressor", rigCaps->commands.contains(funcCompressor)},
-        {"canVox", rigCaps->commands.contains(funcVox)},
-        {"canSendCW", rigCaps->commands.contains(funcSendCW)},
-        {"canMonitor", rigCaps->commands.contains(funcMonitor)},
-        {"txPower", rangeSpec(funcRFPower, 0, 255)},
-        {"monitorGain", rangeSpec(funcMonitorGain, 0, 255)},
-        {"micGain", rangeSpec(funcMicGain, 0, 255)},
+        {"canCompressor", rigCaps->hasTransmit && rigCaps->commands.contains(funcCompressor)},
+        {"canVox", rigCaps->hasTransmit && rigCaps->commands.contains(funcVox)},
+        {"canSendCW", rigCaps->hasTransmit && rigCaps->commands.contains(funcSendCW)},
+        {"canMonitor", rigCaps->hasTransmit && rigCaps->commands.contains(funcMonitor)},
+        {"txPower", rangeSpec(funcRFPower, 0, 255, true)},
+        {"monitorGain", rangeSpec(funcMonitorGain, 0, 255, true)},
+        {"micGain", rangeSpec(funcMicGain, 0, 255, true)},
         {"ritFrequency", rangeSpec(funcRitFreq, -500, 500)}
     };
     emit uiSpecsChanged();
@@ -1433,6 +1441,77 @@ void MainController::clearClusterOutput()
     emit clusterOutputTextChanged();
 }
 
+void MainController::testWfShareConnection()
+{
+    if (!prefs) {
+        qWarning(logSystem()) << "wfshare test failed: settings are not loaded";
+        return;
+    }
+
+    const QString host = prefs->wfShareHost.trimmed().isEmpty()
+        ? (prefs->wfShareDirectMode ? QStringLiteral("127.0.0.1") : QStringLiteral("pbx.wfshare.org"))
+        : prefs->wfShareHost.trimmed();
+    const quint16 port = prefs->wfSharePort == 0 ? quint16(4569) : prefs->wfSharePort;
+    const QString username = prefs->wfShareUsername.trimmed();
+    const QString password = prefs->wfSharePassword;
+    const QString calledNumber = prefs->wfShareDirectMode ? QString() : prefs->wfShareCalledNumber.trimmed();
+
+    qInfo(logSystem()).noquote()
+        << QStringLiteral("wfshare test: connecting %1 to %2:%3 as %4%5")
+                .arg(prefs->wfShareDirectMode ? QStringLiteral("direct") : QStringLiteral("via relay"))
+                .arg(host)
+                .arg(port)
+                .arg(username.isEmpty() ? QStringLiteral("<empty>") : username)
+                .arg(calledNumber.isEmpty()
+                         ? QString()
+                         : QStringLiteral(" for station %1").arg(calledNumber));
+
+    auto *session = new IaxClientSession(this);
+    QPointer<IaxClientSession> guard(session);
+    auto finished = std::make_shared<bool>(false);
+    auto finishSession = [guard, finished]() {
+        if (*finished || !guard)
+            return;
+
+        *finished = true;
+        QTimer::singleShot(0, guard, [guard]() {
+            if (!guard)
+                return;
+
+            guard->disconnectFromServer();
+            guard->deleteLater();
+        });
+    };
+
+    connect(session, &IaxClientSession::debugMessage, this, [](const QString &message) {
+        qDebug(logSystem()).noquote() << QStringLiteral("wfshare test: %1").arg(message);
+    });
+    connect(session, &IaxClientSession::errorOccurred, this, [finishSession](const QString &message) {
+        qWarning(logSystem()).noquote() << QStringLiteral("wfshare test failed: %1").arg(message);
+        finishSession();
+    });
+    connect(session, &IaxClientSession::connectedChanged, this, [finishSession](bool connected) {
+        if (!connected)
+            return;
+
+        qInfo(logSystem()) << "wfshare test: authentication accepted; holding call briefly for routing test";
+        QTimer::singleShot(5000, qApp, [finishSession]() {
+            qInfo(logSystem()) << "wfshare test: ending routing test call";
+            finishSession();
+        });
+    });
+
+    QTimer::singleShot(15000, this, [guard, finished, finishSession]() {
+        if (*finished || !guard)
+            return;
+
+        qWarning(logSystem()) << "wfshare test failed: timed out waiting for accept/reject";
+        finishSession();
+    });
+
+    session->connectToServer(host, port, username, password, calledNumber);
+}
+
 void MainController::resetUsbControllers()
 {
 #if defined(USB_CONTROLLER)
@@ -1716,6 +1795,7 @@ void MainController::connectionHandler()
         }
 
         queue->interval(-1); // Disable queue
+        setFooterMessageText(QString());
         setRadioStatusText(QString());
         setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
@@ -1743,9 +1823,22 @@ void MainController::openRigConnection()
         return;
 
     // Set a suitable queue interval to ensure polling happens quickly enough.
-    queue->interval(cmdStartupInterval_ms); // Currently 250ms but could be configurable
+    queue->interval(prefs->wfShareEnabled ? wfShareCmdInterval_ms : cmdStartupInterval_ms);
 
-    if (prefs->enableLAN)
+    if (prefs->wfShareEnabled)
+    {
+        const QString host = prefs->wfShareHost.trimmed().isEmpty()
+            ? (prefs->wfShareDirectMode ? QStringLiteral("127.0.0.1") : QStringLiteral("pbx.wfshare.org"))
+            : prefs->wfShareHost.trimmed();
+        const quint16 port = prefs->wfSharePort == 0 ? quint16(4569) : prefs->wfSharePort;
+        emit sendWfShareCommSetup(rigList, prefs->radioCIVAddr, host, port,
+                                  prefs->wfShareUsername.trimmed(),
+                                  prefs->wfSharePassword,
+                                  prefs->wfShareDirectMode ? QString() : prefs->wfShareCalledNumber.trimmed(),
+                                  prefs->rxSetup,
+                                  prefs->txSetup);
+    }
+    else if (prefs->enableLAN)
     {
         udpPrefs->waterfallFormat = prefs->waterfallFormat;
         emit sendNetworkCommSetup(rigList, prefs->radioCIVAddr, *udpPrefs, prefs->rxSetup, prefs->txSetup, prefs->virtualSerialPort, prefs->tcpPort);
@@ -1789,6 +1882,7 @@ void MainController::startRigConnection()
         // Renamed commSetup to network/serial to make it easier to differentiate.
         connect(this, &MainController::sendNetworkCommSetup,rig,&rigCommander::networkCommSetup);
         connect(this, &MainController::sendSerialCommSetup,rig,&rigCommander::serialCommSetup);
+        connect(this, &MainController::sendWfShareCommSetup, rig, &rigCommander::wfShareCommSetup);
 
         // This is the signal from rigCommander that we are connected and ready to start model detection.
         connect(rig, &rigCommander::commReady, this, &MainController::receiveCommReady);
@@ -1805,6 +1899,7 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::setRadioUsage, m_selRad.get(), &SelectRadioController::setInUse);
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
         connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
+        connect(rig, &rigCommander::havePortError, this, &MainController::receivePortError);
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
 
         /*
@@ -1834,6 +1929,11 @@ void MainController::receiveStatusUpdate(networkStatus status)
     m_selRad->audioInputLevel(status.txAudioLevel);
     m_selRad->addTimeDifference(status.timeDifference);
 
+    if (status.message.startsWith(QStringLiteral("IAX "))) {
+        setRadioStatusText(status.message);
+        return;
+    }
+
     const QString txPrefix = status.message.contains(QStringLiteral("(no tx)")) ? QStringLiteral("(no tx) ") : QString();
     setRadioStatusText(QStringLiteral("%1rx latency: %2 ms / rtt: %3 ms / loss: %4/%5")
                            .arg(txPrefix)
@@ -1841,6 +1941,55 @@ void MainController::receiveStatusUpdate(networkStatus status)
                            .arg(status.networkLatency, 3)
                            .arg(status.packetsLost, 3)
                            .arg(status.packetsSent, 3));
+}
+
+void MainController::receivePortError(errorType err)
+{
+    qWarning(logSystem()) << "Radio connection error from" << err.device << ":" << err.message;
+
+    if (!prefs || !prefs->wfShareEnabled)
+        return;
+
+    if (shuttingDown || connStatus == connectionStatus_t::connDisconnected)
+        return;
+
+    queue->clear();
+    queue->clearCache();
+
+    if (rig) {
+        QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
+                                  rig->thread() == QThread::currentThread()
+                                      ? Qt::DirectConnection
+                                      : Qt::BlockingQueuedConnection);
+    }
+    if (rigThread) {
+        rigThread->quit();
+        rigThread->wait();
+    }
+    rig = nullptr;
+    rigThread = nullptr;
+
+    for (auto *r : std::as_const(receivers)) {
+        if (r) r->deleteLater();
+    }
+    receivers.clear();
+    detached.clear();
+    currentReceiver = 0;
+    emit receiverCountChanged();
+    emit detachedChanged();
+
+    if (m_memoriesModel) {
+        m_memoriesModel->deleteLater();
+        m_memoriesModel = nullptr;
+        emit memoriesModelChanged();
+    }
+
+    queue->interval(-1);
+    setFooterMessageText(QString());
+    setRadioStatusText(QString());
+    setRigModelName(QString());
+    connStatus = connectionStatus_t::connDisconnected;
+    emit connStatusChanged();
 }
 
 void MainController::receiveModInput(const rigInput& input, int dataMode)
@@ -1928,7 +2077,7 @@ void MainController::handleDataModeChanged(int receiver)
 void MainController::receiveCommReady()
 {
     qInfo(logSystem()) << "Received CommReady() signal from rigCommander()";
-    if(!prefs->enableLAN)
+    if(!prefs->enableLAN && !prefs->wfShareEnabled)
     {
         // If we're not using the LAN, then we're on serial, and
         // we already know the baud rate and can calculate the timing parameters.
@@ -2146,6 +2295,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         if(prefs->polling_ms != 0)
         {
             queue->interval(prefs->polling_ms); // Set sensible frequency to poll the radio
+        } else if (prefs->wfShareEnabled) {
+            queue->interval(wfShareCmdInterval_ms);
         } else {
             if (prefs->serialPortBaud == 0)
             {
@@ -2218,6 +2369,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
     }
     else
     {
+        setFooterMessageText(QString());
         setRadioStatusText(QString());
         setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
@@ -2454,7 +2606,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         // Keep rigctld listening according to current LAN settings.
         setupRigCtlServer();
 
-        if(prefs->enableLAN)
+        if(prefs->enableLAN || prefs->wfShareEnabled)
         {
             ui->afGainSlider->setValue(prefs->localAFgain);
             queue->receiveValue(funcAfGain,quint8(prefs->localAFgain),currentReceiver);
@@ -3037,6 +3189,11 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     // 0x27
     case funcScopeWaveData:
+        if (val.receiver >= receivers.size() || receivers[val.receiver] == nullptr) {
+            qWarning(logSystem()) << "Ignoring scope data for invalid receiver" << val.receiver
+                                  << "receiver count" << receivers.size();
+            break;
+        }
         QMetaObject::invokeMethod(receivers[val.receiver], "setScopeData",
                                   Qt::QueuedConnection,
                                   Q_ARG(scopeData, val.value.value<scopeData>()));
@@ -4045,6 +4202,15 @@ void MainController::setRadioStatusText(const QString& text)
     emit radioStatusTextChanged();
 }
 
+void MainController::setFooterMessageText(const QString& text)
+{
+    if (m_footerMessageText == text)
+        return;
+
+    m_footerMessageText = text;
+    emit footerMessageTextChanged();
+}
+
 void MainController::setRigModelName(const QString& modelName)
 {
     if (m_rigModelName == modelName)
@@ -4062,7 +4228,7 @@ void MainController::syncRadioClock()
 void MainController::prepareRadioClockSync()
 {
     if (!queue || !rigCaps || !rigCaps->commands.contains(funcTime)) {
-        setRadioStatusText(tr("Radio clock sync is not available for this connection."));
+        setFooterMessageText(tr("Radio clock sync is not available for this connection."));
         return;
     }
 
@@ -4088,7 +4254,7 @@ void MainController::prepareRadioClockSync()
 
     radioClockSyncTimer.start(delayMs);
     waitingToSetRadioClock = true;
-    setRadioStatusText(tr("Setting radio clock at the next minute boundary."));
+    setFooterMessageText(tr("Setting radio clock at the next minute boundary."));
 }
 
 void MainController::sendRadioClockSync()
@@ -4098,7 +4264,7 @@ void MainController::sendRadioClockSync()
         return;
     }
 
-    setRadioStatusText(tr("Setting radio clock now."));
+    setFooterMessageText(tr("Setting radio clock now."));
 
     if (rigCaps->commands.contains(funcUTCOffset))
         queue->add(priorityImmediate, queueItem(funcUTCOffset, QVariant::fromValue<timekind>(radioClockUtcOffset)));

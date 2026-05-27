@@ -2356,6 +2356,115 @@ ApplicationWindow {
                             wrapMode: Text.WordWrap
                         }
 
+                        GroupBox {
+                            title: qsTr("wfshare Remote Access")
+                            Layout.fillWidth: true
+
+                            GridLayout {
+                                anchors.fill: parent
+                                columns: 3
+                                columnSpacing: 10
+                                rowSpacing: 8
+
+                                CheckBox {
+                                    id: wfShareEnabledCheck
+                                    text: qsTr("Enable wfshare")
+                                    checked: controller ? Boolean(controller.options["Experimental.WfShareEnabled"]) : false
+                                    onClicked: if (controller) controller.setOption("Experimental.WfShareEnabled", checked)
+                                    Layout.columnSpan: 3
+                                }
+
+                                CheckBox {
+                                    id: wfShareDirectCheck
+                                    text: qsTr("Direct point-to-point mode")
+                                    checked: controller ? Boolean(controller.options["Experimental.WfShareDirectMode"]) : false
+                                    enabled: wfShareEnabledCheck.checked
+                                    onClicked: if (controller) controller.setOption("Experimental.WfShareDirectMode", checked)
+                                    Layout.columnSpan: 3
+                                }
+
+                                Label { text: qsTr("Remote host") }
+                                TextField {
+                                    id: wfShareHostField
+                                    Layout.fillWidth: true
+                                    text: controller ? String(controller.options["Experimental.WfShareHost"]) : "pbx.wfshare.org"
+                                    placeholderText: wfShareDirectCheck.checked ? qsTr("server hostname or IP") : qsTr("pbx.wfshare.org")
+                                    enabled: wfShareEnabledCheck.checked
+                                    onEditingFinished: if (controller) controller.setOption("Experimental.WfShareHost", text.trim())
+                                }
+                                Label { text: wfShareDirectCheck.checked ? qsTr("Remote wfserver address") : qsTr("wfshare relay hostname") }
+
+                                Label { text: qsTr("Port") }
+                                SpinBox {
+                                    id: wfSharePortSpin
+                                    from: 1
+                                    to: 65535
+                                    value: controller ? Number(controller.options["Experimental.WfSharePort"]) : 4569
+                                    editable: true
+                                    enabled: wfShareEnabledCheck.checked
+                                    onValueModified: if (controller) controller.setOption("Experimental.WfSharePort", value)
+                                }
+                                Label { text: qsTr("Default wfshare port is 4569") }
+
+                                Label { text: qsTr("Username") }
+                                TextField {
+                                    id: wfShareUserField
+                                    Layout.fillWidth: true
+                                    text: controller ? String(controller.options["Experimental.WfShareUsername"]) : ""
+                                    enabled: wfShareEnabledCheck.checked
+                                    onEditingFinished: if (controller) controller.setOption("Experimental.WfShareUsername", text.trim())
+                                }
+                                Label { text: qsTr("wfshare account username") }
+
+                                Label { text: qsTr("Password") }
+                                TextField {
+                                    id: wfSharePasswordField
+                                    Layout.fillWidth: true
+                                    text: controller ? String(controller.options["Experimental.WfSharePassword"]) : ""
+                                    echoMode: TextInput.Password
+                                    enabled: wfShareEnabledCheck.checked
+                                    onEditingFinished: if (controller) controller.setOption("Experimental.WfSharePassword", text)
+                                }
+                                Label { text: qsTr("wfshare account password") }
+
+                                Label { text: qsTr("Station ID") }
+                                TextField {
+                                    id: wfShareStationField
+                                    Layout.fillWidth: true
+                                    text: controller ? String(controller.options["Experimental.WfShareCalledNumber"]) : ""
+                                    placeholderText: qsTr("remote station")
+                                    enabled: wfShareEnabledCheck.checked && !wfShareDirectCheck.checked
+                                    onEditingFinished: if (controller) controller.setOption("Experimental.WfShareCalledNumber", text.trim())
+                                }
+                                Label { text: wfShareDirectCheck.checked ? qsTr("Not used in direct mode") : qsTr("Remote station or PBX route to call") }
+
+                                RowLayout {
+                                    Layout.columnSpan: 3
+                                    Layout.fillWidth: true
+                                    Button {
+                                        text: qsTr("Test wfshare Connection")
+                                        enabled: wfShareEnabledCheck.checked
+                                        onClicked: {
+                                            if (controller) {
+                                                controller.setOption("Experimental.WfShareHost", wfShareHostField.text.trim())
+                                                controller.setOption("Experimental.WfShareDirectMode", wfShareDirectCheck.checked)
+                                                controller.setOption("Experimental.WfSharePort", wfSharePortSpin.value)
+                                                controller.setOption("Experimental.WfShareUsername", wfShareUserField.text.trim())
+                                                controller.setOption("Experimental.WfSharePassword", wfSharePasswordField.text)
+                                                controller.setOption("Experimental.WfShareCalledNumber", wfShareStationField.text.trim())
+                                            }
+                                            MainController.testWfShareConnection()
+                                        }
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Handshake progress is written to the application log.")
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+                        }
+
                         RowLayout {
                             spacing: 8
                             Button {

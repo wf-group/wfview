@@ -312,14 +312,19 @@ SOURCES += \
     src/commhandler.cpp \
     src/cwsidetone.cpp \
     src/database.cpp \
+    src/directradiotransport.cpp \
     src/freqctrlquick.cpp \
     src/freqmemory.cpp \
     src/ft4222handler.cpp \
+    src/iaxclientsession.cpp \
+    src/iaxradiotransport.cpp \
     src/keyboard.cpp \
     src/logcategories.cpp \
     src/main.cpp \
     src/pttyhandler.cpp \
+    src/radiotransportframe.cpp \
     src/radio/icomcommander.cpp \
+    src/radio/icomcivradiotransport.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
     src/radio/icomudpbase.cpp \
@@ -389,14 +394,18 @@ HEADERS  += \
     include/commhandler.h \
     include/cwsidetone.h \
     include/database.h \
+    include/directradiotransport.h \
     include/freqmemory.h \
     include/ft4222handler.h \
     include/icomcommander.h \
+    include/icomcivradiotransport.h \
     include/icomserver.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \
     include/icomudpcivdata.h \
     include/icomudphandler.h \
+    include/iaxclientsession.h \
+    include/iaxradiotransport.h \
     include/kenwoodcommander.h \
     include/kenwoodserver.h \
     include/keyboard.h \
@@ -406,6 +415,8 @@ HEADERS  += \
     include/printhex.h \
     include/pttyhandler.h \
     include/repeaterattributes.h \
+    include/radiotransport.h \
+    include/radiotransportframe.h \
     include/rigcommander.h \
     include/rigctlcompat.h \
     include/rigctld.h \

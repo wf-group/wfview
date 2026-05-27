@@ -1,6 +1,7 @@
 #ifndef ICOMCOMMANDER_H
 #define ICOMCOMMANDER_H
 
+#include "iaxclientsession.h"
 #include "rigcommander.h"
 
 // This file figures out what to send to the comm and also
@@ -11,6 +12,8 @@
 #define compCivAddr 0xE1
 
 //#define DEBUG_PARSE // Enable to output Info messages every 10s with command parse timing.
+
+class RadioTransport;
 
 class icomCommander : public rigCommander
 {
@@ -25,6 +28,9 @@ public slots:
     void process() override;
     void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
     void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
+                          QString username, QString password, QString calledNumber,
+                          audioSetup rxSetup, audioSetup txSetup) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
 
@@ -97,6 +103,7 @@ private:
     void sendDataOut();
     void prepDataAndSend(QByteArray data);
     void debugMe();
+    void closeWfShare();
 
     centerSpanData createScopeCenter(uchar s, QString name);
 
@@ -104,6 +111,13 @@ private:
     pttyHandler* ptty = nullptr;
     tcpServer* tcp = nullptr;
     icomUdpHandler* udp=nullptr;
+    RadioTransport* wfShareTransport = nullptr;
+    audioHandlerBase* wfShareRxAudio = nullptr;
+    QThread* wfShareRxAudioThread = nullptr;
+    audioSetup wfShareRxSetup;
+    quint32 wfShareAudioRxFrames = 0;
+    IaxStats wfShareStats;
+    networkStatus wfShareStatus;
     QThread* udpHandlerThread = nullptr;
 
     QByteArray payloadIn;
