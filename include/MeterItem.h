@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QImage>
 #include <QColor>
+#include <QTimer>
 #include <vector>
 
 #include "rigcommander.h" // meter_t
@@ -143,6 +144,10 @@ private:
     int m_peakBalisticLength = 30;
     int m_avgPosition = 0;
     int m_peakPosition = 0;
+    int m_peakHoldSamples = 0;
+    int m_peakHoldSampleCount = 20;
+    int m_peakDecaySampleCount = 90;
+    QTimer m_peakDecayTimer;
     std::vector<double> m_avgLevels;
     std::vector<double> m_peakLevels;
 
@@ -174,6 +179,9 @@ private:
     double getValueFromPixelScale(int p) const;
     int getPixelScaleFromValue(double v) const;
     int nearestStep(double val, int stepSize); // round to nearest step
+    void updateAverage(double current);
+    void updatePeak(double current);
+    void decayPeak();
 
     // draw value bars
     void drawValue_Linear(QPainter *qp, bool reverse);

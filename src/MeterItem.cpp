@@ -29,6 +29,10 @@ MeterItem::MeterItem(QQuickItem *parent) : QQuickPaintedItem(parent)
     setImplicitWidth(m_scalePixelWidth + m_mXstart + 15);
     setImplicitHeight(24); // whatever looks right for your header
 
+    m_peakDecayTimer.setInterval(50);
+    connect(&m_peakDecayTimer, &QTimer::timeout, this, &MeterItem::decayPeak);
+    m_peakDecayTimer.start();
+
     markScaleDirty();
 }
 
@@ -201,9 +205,19 @@ void MeterItem::setCurrent(double c)
 {
     // "current" means "now", ie, the value at this moment.
     this->m_current = c;
+    updateAverage(c);
+    updatePeak(c);
 
-    m_avgLevels[(m_avgPosition++)%m_averageBalisticLength] = c;
-    m_peakLevels[(m_peakPosition++)%m_peakBalisticLength] = c;
+    //m_haveUpdatedData = true;
+    m_haveReceivedSomeData = true;
+
+    this->update();
+    emit levelsChanged();
+}
+
+void MeterItem::updateAverage(double current)
+{
+    m_avgLevels[(m_avgPosition++)%m_averageBalisticLength] = current;
 
     double sum=0.0;
 
@@ -216,20 +230,38 @@ void MeterItem::setCurrent(double c)
     // inserts data, thus assuring that we will never have a zero for both
     // the position and the size.
     m_average = sum / std::min(m_avgPosition, (int)m_avgLevels.size());
+}
 
-    m_peak = (-1)*UINT16_MAX;
-
-    for(unsigned int i=0; i < m_peakLevels.size(); i++)
-    {
-        if( m_peakLevels[i] >  m_peak)
-            m_peak = m_peakLevels[i];
+void MeterItem::updatePeak(double current)
+{
+    if (m_peakPosition == 0 || current >= m_peak) {
+        m_peak = current;
+        m_peakHoldSamples = m_peakHoldSampleCount;
     }
 
-    //m_haveUpdatedData = true;
-    m_haveReceivedSomeData = true;
+    m_peakLevels[(m_peakPosition++)%m_peakBalisticLength] = m_peak;
+}
 
-    this->update();
+void MeterItem::decayPeak()
+{
+    if (!m_haveReceivedSomeData || m_peak <= m_current)
+        return;
+
+    if (m_peakHoldSamples > 0) {
+        --m_peakHoldSamples;
+        return;
+    }
+
+    const double range = qMax(1.0, qAbs(m_scaleMax - m_scaleMin));
+    const double decayStep = range / qMax(1, m_peakDecaySampleCount);
+    const double nextPeak = qMax(m_current, m_peak - decayStep);
+
+    if (qFuzzyCompare(nextPeak, m_peak))
+        return;
+
+    m_peak = nextPeak;
     emit levelsChanged();
+    update();
 }
 
 void MeterItem::setLevels(double c, double pk, double avg)
@@ -237,6 +269,7 @@ void MeterItem::setLevels(double c, double pk, double avg)
     m_current = c;
     m_peak = pk;
     m_average = avg;
+    m_peakHoldSamples = m_peakHoldSampleCount;
     m_haveReceivedSomeData = true;
     emit levelsChanged();
     update();
@@ -254,6 +287,7 @@ void MeterItem::clearMeter()
     std::fill(m_avgLevels.begin(), m_avgLevels.end(), 0.0);
     std::fill(m_peakLevels.begin(), m_peakLevels.end(), 0.0);
     m_avgPosition = m_peakPosition = 0;
+    m_peakHoldSamples = 0;
     m_haveReceivedSomeData = false;
     emit levelsChanged();
     update();
