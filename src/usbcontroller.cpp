@@ -1847,6 +1847,9 @@ void usbController::backupController(USBDEVICE* dev, QString file)
     QMutexLocker locker(mutex);
 
     QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+    settings->setIniCodec("UTF-8");
+#endif
 
     qInfo(logUsbControl()) << "Backup of" << dev->path << "to" << file;
 
@@ -1937,6 +1940,9 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     QMutexLocker locker(mutex);
 
     QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+    settings->setIniCodec("UTF-8");
+#endif
 
     settings->beginGroup("Controller");
 

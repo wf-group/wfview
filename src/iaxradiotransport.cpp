@@ -138,7 +138,10 @@ void IaxRadioTransport::sendStream(RadioTransportChannel channel, const QByteArr
                    .arg(int(channel))
                    .arg(data.size());
     }
-    session.sendPayload(radioTransportFrame::encode(frame));
+    const bool reliable = channel == RadioTransportChannel::Control ||
+                          channel == RadioTransportChannel::Civ ||
+                          channel == RadioTransportChannel::Cat;
+    session.sendPayload(radioTransportFrame::encode(frame), reliable);
 }
 
 void IaxRadioTransport::setState(RadioTransportState newState)

@@ -116,7 +116,7 @@ public slots:
     void registerWithServer(const QString &host, quint16 port, const QString &username,
                             const QString &password, quint16 refreshSeconds = 60);
     void disconnectFromServer();
-    void sendPayload(const QByteArray &payload);
+    void sendPayload(const QByteArray &payload, bool reliable = false);
     void sendRealtimePayload(const QByteArray &payload);
 
 signals:
@@ -159,6 +159,7 @@ private:
     void markConnectedCall();
     void clearActiveCallState();
     bool isCallFrame(const iax::Frame &frame) const;
+    int acknowledgePendingFrames(quint16 sourceCall, quint8 incomingSeq);
     quint32 pendingFrameKey(quint16 sourceCall, quint8 outgoingSeq) const;
 
     struct PendingFrame {

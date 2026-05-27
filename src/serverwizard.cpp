@@ -139,16 +139,23 @@ QString resolveSettingsPath(const QString& settingsFile)
 
 QSettings* openSettings(const QString& settingsFile)
 {
+    auto withUtf8Codec = [](QSettings* settings) {
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        settings->setIniCodec("UTF-8");
+#endif
+        return settings;
+    };
+
     if (settingsFile.isNull() || settingsFile.isEmpty()) {
         return new QSettings();
     }
     QFileInfo info(settingsFile);
     if (info.isAbsolute()) {
-        return new QSettings(settingsFile, QSettings::IniFormat);
+        return withUtf8Codec(new QSettings(settingsFile, QSettings::IniFormat));
     }
     QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (path.isEmpty()) path = QDir::homePath();
-    return new QSettings(path + "/" + info.fileName(), QSettings::IniFormat);
+    return withUtf8Codec(new QSettings(path + "/" + info.fileName(), QSettings::IniFormat));
 }
 
 int selectFromList(const QString& header, const QStringList& items)

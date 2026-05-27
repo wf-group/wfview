@@ -81,16 +81,22 @@ public:
     }
 
 
-    Q_INVOKABLE bool saveAs(QString fileUrlOrPath) const {
+    Q_INVOKABLE bool saveAs(QString fileUrlOrPath) {
         const QString path = toLocalPath(fileUrlOrPath);
         if (path.isEmpty()) return false;
 
         QSettings out(path, QSettings::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        out.setIniCodec("UTF-8");
+#endif
         out.clear();
         for (auto it = m_data.constBegin(); it != m_data.constEnd(); ++it)
             out.setValue(it.key(), denormalize(it.value()));
         out.sync();
-        return out.status() == QSettings::NoError;
+        const bool ok = out.status() == QSettings::NoError;
+        if (ok)
+            setDirty(false);
+        return ok;
     }
 
     Q_INVOKABLE QVariant get(const QString &key, const QVariant &def = {}) const {
@@ -530,6 +536,24 @@ public:
         p = QDir::cleanPath(p);
         return QUrl::fromLocalFile(p);
     }
+
+    Q_INVOKABLE QVariantList modeNameChoices() const {
+        QVariantList choices;
+        if (!m_store)
+            return choices;
+
+        const QString prefix = QStringLiteral("Rig/Modes");
+        const int count = m_store->get(prefix + QStringLiteral("/size"), 0).toInt();
+
+        for (int row = 1; row <= count; ++row) {
+            const QString name = m_store->get(QStringLiteral("%1/%2/Name").arg(prefix).arg(row)).toString().trimmed();
+            if (!name.isEmpty())
+                choices.append(QVariantMap{{QStringLiteral("text"), name}, {QStringLiteral("value"), name}});
+        }
+
+        return choices;
+    }
+
     bool loading() const { return m_loading; }
 
     void setLoading(bool on) {
@@ -540,9 +564,11 @@ public:
 
     QObject* store() const { return m_store; }
     QQmlPropertyMap* settings() const { return m_settings; }
-    bool dirty() const { return m_dirty; }
+    bool dirty() const { return m_store && m_store->dirty(); }
     QString iniPath() const { return m_iniPath; }
     QVariantList commandTypeChoices() const { return m_commandTypeChoices; }
+    Q_INVOKABLE bool hasCurrentFile() const { return !currentFile.isEmpty(); }
+    Q_INVOKABLE bool saveCurrentFile() { return !currentFile.isEmpty() && saveFile(currentFile); }
 
 
 

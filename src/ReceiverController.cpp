@@ -68,6 +68,75 @@ void ReceiverController::clearClusterSpots()
     emit clusterSpotsUpdated({});
 }
 
+void ReceiverController::applyModeSpecificPeriodicCommands(const modeInfo &mode)
+{
+    if (!rigCaps)
+        return;
+
+    const QString modeName = mode.name.trimmed().toUpper();
+
+    for (const auto &periodic : std::as_const(rigCaps->periodic)) {
+        if (periodic.modes.isEmpty())
+            continue;
+
+        const bool allReceivers = periodic.receiver == char(-1);
+        const uchar periodicReceiver = allReceivers ? receiver : uchar(periodic.receiver);
+        if (!allReceivers && periodicReceiver != receiver)
+            continue;
+
+        if (periodic.modes.contains(modeName))
+            queue->addUnique(queuePriority(periodic.prioVal), periodic.func, true, periodicReceiver);
+        else {
+            qDebug(logSystem()) << "Removing mode-specific periodic command" << funcString[periodic.func]
+                                << "for mode" << modeName << "receiver" << periodicReceiver;
+            queue->del(periodic.func, periodicReceiver, true);
+        }
+    }
+}
+
+bool ReceiverController::periodicCommandAllowedByMode(funcs func, uchar receiver, const modeInfo &mode) const
+{
+    if (!rigCaps)
+        return true;
+
+    const QString modeName = mode.name.trimmed().toUpper();
+    bool restricted = false;
+    for (const auto &periodic : std::as_const(rigCaps->periodic)) {
+        const bool allReceivers = periodic.receiver == char(-1);
+        const bool receiverMatches = allReceivers || uchar(periodic.receiver) == receiver;
+        if (periodic.func != func || !receiverMatches || periodic.modes.isEmpty())
+            continue;
+
+        restricted = true;
+        if (periodic.modes.contains(modeName))
+            return true;
+    }
+
+    return !restricted;
+}
+
+void ReceiverController::updateModeSensitiveUiSpecs()
+{
+    bool changed = false;
+    for (auto it = uiSpecs.begin(); it != uiSpecs.end(); ++it) {
+        QVariantMap spec = it.value().toMap();
+        if (!spec.contains("command"))
+            continue;
+
+        const funcs func = funcs(spec.value("command").toInt());
+        const bool enabled = periodicCommandAllowedByMode(func, receiver, mode);
+        if (spec.value("enabled", true).toBool() == enabled)
+            continue;
+
+        spec["enabled"] = enabled;
+        it.value() = spec;
+        changed = true;
+    }
+
+    if (changed)
+        emit uiSpecsChanged();
+}
+
 void ReceiverController::updatePassband()
 {
     if (frequencyA == 0 || passbandWidth <= 0.0)
@@ -582,22 +651,21 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
         return;
     }
 
-    if (m.filter != 0xff && this->mode.filter != m.filter)
-    {
-        qInfo(logSystem()) << __func__ << QString("Received new filter for %0 (%1): %2 (%3) filter:%4 data:%5")
-        .arg((receiver?"Sub":"Main")).arg(QString::number(m.mk)).arg(m.reg).arg(m.name).arg(m.filter).arg(m.data) ;
-        setFilter(m.filter,false);
-    }
+    if (m.mk == modeUnknown)
+        return;
 
-    if (m.data != 0xff && this->mode.data != m.data)
-    {
-        qInfo(logSystem()) << __func__ << QString("Received new data mode for %0 (%1): %2 (%3) filter:%4 data:%5")
-        .arg((receiver?"Sub":"Main")).arg(QString::number(m.mk)).arg(m.reg).arg(m.name).arg(m.filter).arg(m.data) ;
-        setDataMode(m.data,false);
-    }
+    modeInfo confirmed = m;
+    if (confirmed.filter == 0xff)
+        confirmed.filter = mode.filter;
+    if (confirmed.data == 0xff)
+        confirmed.data = mode.data;
 
-    if (m.mk != modeUnknown && mode.mk != m.mk) {
-        qInfo(logSystem()) << __func__ << QString("Received new mode for %0 (%1): %2 (%3) filter:%4 data:%5")
+    const bool modeValueChanged = mode.mk != confirmed.mk;
+    const bool filterValueChanged = confirmed.filter != 0xff && mode.filter != confirmed.filter;
+    const bool dataValueChanged = confirmed.data != 0xff && mode.data != confirmed.data;
+
+    if (modeValueChanged || filterValueChanged || dataValueChanged) {
+        qInfo(logSystem()) << __func__ << QString("Received mode update for %0 (%1): %2 (%3) filter:%4 data:%5")
         .arg((receiver?"Sub":"Main")).arg(QString::number(m.mk)).arg(m.reg).arg(m.name).arg(m.filter).arg(m.data) ;
 
         /*
@@ -610,113 +678,26 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
         }
         */
 
-        if (m.mk != mode.mk) {
-            // We have changed mode so "may" need to change regular commands
+        if (modeValueChanged) {
+            // We have changed mode so "may" need to change regular commands.
+            updatePassbandModeParameters(confirmed);
 
-            updatePassbandModeParameters(m);
+            if (confirmed.bwMin <= 0 && confirmed.bwMax <= 0 && confirmed.pass > 0)
+                passbandWidth = double(confirmed.pass / 1000000.0);
 
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
-
-            // Make sure the filterWidth range is within limits.
-
-            // If new mode doesn't allow bandwidth control, disable filterwidth and pbt.
-            //if (scopeQuick) setSlider(scopeQuick->rootObject(),"filterWidth",m.bwMin, m.bwMax,10,m.bwMax);
-
-            if (m.bwMin > 0 || m.bwMax > 0) {
-                // Set config specific options)
-                if (rigCaps->manufacturer == manufKenwood)
-                {
-                    if (m.mk == modeCW || m.mk == modeCW_R || m.mk == modePSK || m.mk == modePSK_R) {
-                        queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
-                        queue->del(funcPBTInner,t.receiver);
-                        queue->del(funcPBTOuter,t.receiver);
-                        //setProperty(scopeQuick->rootObject(),"pbtInner","enabled",false);
-                        //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
-                        //setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
-                        //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
-                    }
-                    else if (m.mk == modeAM || m.mk == modeFM) {
-                        queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
-                        queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
-                        queue->del(funcFilterWidth,t.receiver);
-                        //setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true && rigCaps->commands.contains(funcPBTInner));
-                        //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true && rigCaps->commands.contains(funcPBTOuter));
-                        //setProperty(scopeQuick->rootObject(),"ifShift","enabled",true && (rigCaps->commands.contains(funcIFShift) || rigCaps->commands.contains(funcPBTInner)));
-                        //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
-                    } else {
-                        queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
-                        queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
-                        queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
-                        //setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true);
-                        //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true);
-                        //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",true);
-                    }
-                } else
-                {
-                    queue->addUnique(priorityHigh,funcPBTInner,true,t.receiver);
-                    queue->addUnique(priorityHigh,funcPBTOuter,true,t.receiver);
-                    queue->addUnique(priorityHigh,funcFilterWidth,true,t.receiver);
-                    //setProperty(scopeQuick->rootObject(),"pbtInner","enabled",true);
-                    //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",true);
-                    //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",true);
-                }
-            } else{
-                queue->del(funcPBTInner,t.receiver);
-                queue->del(funcPBTOuter,t.receiver);
-                queue->del(funcFilterWidth,t.receiver);
-                //setProperty(scopeQuick->rootObject(),"pbtInner","enabled",false);
-                //setProperty(scopeQuick->rootObject(),"pbtOuter","enabled",false);
-                //setProperty(scopeQuick->rootObject(),"ifShift","enabled",false);
-                //setProperty(scopeQuick->rootObject(),"filterWidth","enabled",false);
-                if (m.pass > 0)
-                    passbandWidth = double(m.pass/1000000.0);
-            }
-
-            if (m.mk == modeFM)
-            {
-                queue->addUnique(priorityMediumHigh,funcToneFreq,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcTSQLFreq,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcRepeaterTone,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcRepeaterTSQL,true,t.receiver);
-            }
-            else
-            {
-                queue->del(funcToneFreq,t.receiver);
-                queue->del(funcTSQLFreq,t.receiver);
-                queue->del(funcRepeaterTone,t.receiver);
-                queue->del(funcRepeaterTSQL,t.receiver);
-            }
-
-            if (m.mk == modeDD || m.mk == modeDV)
-            {
-                t = queue->getVfoCommand(vfoB,receiver,false);
-                queue->del(t.freqFunc,t.receiver);
-                queue->del(t.modeFunc,t.receiver);
-            } else if (queue->getState().vfoMode == vfoModeVfo) { // && !memMode) {
-                t = queue->getVfoCommand(vfoB,receiver,false);
-                queue->addUnique(priorityHigh,t.freqFunc,true,t.receiver);
-                queue->addUnique(priorityHigh,t.modeFunc,true,t.receiver);
-            }
-
-            if (m.mk == modeCW || m.mk == modeCW_R)
-            {
-                queue->addUnique(priorityMediumHigh,funcCwPitch,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcDashRatio,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcKeySpeed,true,t.receiver);
-                queue->addUnique(priorityMediumHigh,funcBreakIn,true,t.receiver);
-            } else {
-                queue->del(funcCwPitch,t.receiver);
-                queue->del(funcDashRatio,t.receiver);
-                queue->del(funcKeySpeed,t.receiver);
-                queue->del(funcBreakIn,t.receiver);
-            }
-
+            applyModeSpecificPeriodicCommands(confirmed);
         }
 
-        mode = m;
-        emit modeChanged();
-    } else if (m.mk != modeUnknown && m.pass > 0) {
-        mode.pass = m.pass;
+        mode = confirmed;
+        updateModeSensitiveUiSpecs();
+        if (modeValueChanged)
+            emit modeChanged();
+        if (filterValueChanged)
+            emit filterChanged();
+        if (dataValueChanged)
+            emit dataModeChanged();
+    } else if (confirmed.pass > 0) {
+        mode.pass = confirmed.pass;
         updatePassbandModeParameters(mode);
     }
 }
@@ -724,85 +705,59 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
 
 void ReceiverController::setMode(uchar m, bool u)
 {
-    if (mode.mk != m)
-    {
-        auto it = std::find_if(rigCaps->modes.begin(), rigCaps->modes.end(),
-                               [&](const modeInfo &md) {
-                                   return md.mk == m;
-                               });
+    if (!u || mode.mk == m)
+        return;
 
-        if (it != rigCaps->modes.end()) {
-            auto m = *it;
+    auto it = std::find_if(rigCaps->modes.begin(), rigCaps->modes.end(),
+                           [&](const modeInfo &md) {
+                               return md.mk == m;
+                           });
 
-            m.data = mode.data;
-            m.filter = mode.filter;
-            mode = m;
-            updatePassbandModeParameters(mode);
-            emit modeChanged();
-            emit dataModeChanged();
-            emit filterChanged();
-            if (u) {
-                vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+    if (it == rigCaps->modes.end())
+        return;
 
-                queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(mode),false,t.receiver));
-                if (t.modeFunc == funcModeSet) {
-                    queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(mode),false,t.receiver));
-                }
-                // Request current filtershape/roofing
-                if (rigCaps->manufacturer == manufIcom)
-                {
-                    queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-                    queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
-                }
-            }
-        }
-    }
+    modeInfo requested = *it;
+    requested.data = mode.data;
+    requested.filter = mode.filter;
+
+    vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+    queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(requested),false,t.receiver));
+    if (t.modeFunc == funcModeSet)
+        queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(requested),false,t.receiver));
+    if (rigCaps->manufacturer == manufIcom)
+        queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
 }
 
 
 void ReceiverController::setDataMode(uchar m, bool u)
 {
-    if (mode.data != m)
-    {
-        mode.data = m;
-        emit dataModeChanged();
-        if (u) {
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(mode),false,t.receiver));
-            if (t.modeFunc == funcModeSet) {
-                queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(mode),false,t.receiver));
-            }
-            // Request current filtershape/roofing
-            if (rigCaps->manufacturer == manufIcom)
-            {
-                queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-                queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
-            }
-        }
-    }
+    if (!u || mode.data == m)
+        return;
+
+    modeInfo requested = mode;
+    requested.data = m;
+    vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+    queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(requested),false,t.receiver));
+    if (t.modeFunc == funcModeSet)
+        queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(requested),false,t.receiver));
+    if (rigCaps->manufacturer == manufIcom)
+        queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
 }
 
 
 void ReceiverController::setFilter(uchar m, bool u)
 {
-    if (mode.filter != m)
-    {
-        mode.filter = m;
-        emit filterChanged();
-        if (u) {
-            vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(mode),false,t.receiver));
-            if (t.modeFunc == funcModeSet) {
-                queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(mode),false,t.receiver));
-            }
-            // Request current filtershape/roofing
-            if (rigCaps->manufacturer == manufIcom)
-            {
-                queue->addUnique(priorityHighest,funcFilterShape,false,t.receiver);
-                queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
-            }
-        }
-    }
+    if (!u || mode.filter == m)
+        return;
+
+    modeInfo requested = mode;
+    requested.filter = m;
+    vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
+    queue->addUnique(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(requested),false,t.receiver));
+    if (t.modeFunc == funcModeSet)
+        queue->addUnique(priorityImmediate,queueItem(funcDataModeWithFilter,QVariant::fromValue(requested),false,t.receiver));
+    if (rigCaps->manufacturer == manufIcom)
+        queue->addUnique(priorityHighest,funcRoofingFilter,false,t.receiver);
 }
 
 void ReceiverController::setFilterShape(uchar m, bool u)
@@ -812,6 +767,9 @@ void ReceiverController::setFilterShape(uchar m, bool u)
         filterShape = m;
         emit filterShapeChanged();
         if (u) {
+            if (!periodicCommandAllowedByMode(funcFilterShape, receiver, mode))
+                return;
+
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             uchar f = uchar(m + (mode.filter * 10));
             queue->addUnique(priorityImmediate,queueItem(funcFilterShape,QVariant::fromValue<uchar>(f),false,t.receiver));
@@ -1488,7 +1446,9 @@ void ReceiverController::buildUiSpecs()
         {"valueRole","value"},
         {"defaultIndex", -1},
         {"model", values},
-        {"visible",!values.empty()}
+        {"visible",!values.empty()},
+        {"command", int(funcFilterShape)},
+        {"enabled", periodicCommandAllowedByMode(funcFilterShape, receiver, mode)}
     };
 
     values.clear();
@@ -1826,16 +1786,12 @@ void ReceiverController::receiveBSR(bandStackType& b)
                    });
 
         if (it != rigCaps->modes.end()) {
-            const modeInfo &md = *it;
-            mode = md;
-            mode.filter=b.filter;
-            mode.data=b.data;
-            qDebug(logRig()) << __func__ << "Setting Mode/Data for new mode" << mode.name << "data" << mode.data << "filter" << mode.filter << "reg" << mode.reg;
-            queue->add(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(mode),false,receiver));
+            modeInfo requested = *it;
+            requested.filter = b.filter;
+            requested.data = b.data;
+            qDebug(logRig()) << __func__ << "Requesting Mode/Data for new mode" << requested.name << "data" << requested.data << "filter" << requested.filter << "reg" << requested.reg;
+            queue->add(priorityImmediate,queueItem(t.modeFunc,QVariant::fromValue<modeInfo>(requested),false,receiver));
             // We can also set CTCSS here if we want.
-            emit modeChanged();
-            emit filterChanged();
-            emit dataModeChanged();
         }
     }
 }

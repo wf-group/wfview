@@ -15,6 +15,8 @@ ApplicationWindow {
     width: 1200
     height: 880
     color: palette.window
+    property bool forceClose: false
+    property bool closeAfterSaveDialog: false
 
     palette {
         window: MainController.settings.options["Color.Window"]
@@ -35,9 +37,16 @@ ApplicationWindow {
 
     Component.onCompleted: {
         MainController.updateApplicationPalette()
-        rigCreator.closing.connect(function(event) {
-            rigCreator.destroy()
-        })
+    }
+
+    onClosing: function(event) {
+        if (forceClose)
+            return
+
+        if (rig.dirty) {
+            event.accepted = false
+            unsavedDialog.open()
+        }
     }
 
     // File dialog to open a file
@@ -66,9 +75,14 @@ ApplicationWindow {
         nameFilters: [qsTr("Rig Files (*.rig)")]
         fileMode: FileDialog.SaveFile
         onAccepted: {
-            rig.saveFile(selectedFile) // Pass selected file URL to the controller
+            if (rig.saveFile(selectedFile) && closeAfterSaveDialog) {
+                closeAfterSaveDialog = false
+                forceClose = true
+                rigCreator.close()
+            }
         }
         onRejected: {
+            closeAfterSaveDialog = false
             console.log("Save dialog was canceled")
         }
     }
@@ -110,6 +124,61 @@ ApplicationWindow {
 
     MessageDialog {
         id: msg;
+    }
+
+    Dialog {
+        id: unsavedDialog
+        title: qsTr("Unsaved Changes")
+        modal: true
+        x: Math.round((rigCreator.width - width) / 2)
+        y: Math.round((rigCreator.height - height) / 2)
+        width: Math.min(420, rigCreator.width - 48)
+        closePolicy: Popup.CloseOnEscape
+
+        background: Rectangle {
+            color: rigCreator.palette.window
+            border.color: rigCreator.palette.highlight
+            border.width: 1
+            radius: 3
+        }
+
+        contentItem: Label {
+            text: qsTr("This rig file has unsaved changes. Save before closing?")
+            wrapMode: Text.WordWrap
+            color: rigCreator.palette.windowText
+        }
+
+        footer: DialogButtonBox {
+            Button {
+                text: qsTr("Save")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            }
+            Button {
+                text: qsTr("Discard")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+            }
+            Button {
+                text: qsTr("Cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            }
+        }
+
+        onAccepted: {
+            if (rig.hasCurrentFile() && rig.saveCurrentFile()) {
+                forceClose = true
+                rigCreator.close()
+            } else {
+                closeAfterSaveDialog = true
+                saveRigDialog.open()
+            }
+        }
+
+        onDiscarded: {
+            forceClose = true
+            rigCreator.close()
+        }
+
+        onRejected: closeAfterSaveDialog = false
     }
 
     IniTableModel {
@@ -217,7 +286,7 @@ ApplicationWindow {
         id: periodicModel
         store: rig.store
         group: "Rig/Periodic"
-        columns: ["Priority", "Command", "VFO"]
+        columns: ["Priority", "Command", "VFO", "Modes"]
     }
 
     IniSortProxy {
@@ -379,6 +448,17 @@ ApplicationWindow {
         }
     }
 
+    function modeChoicesFromTable() {
+        var choices = []
+        var rows = modesModel.rowCount()
+        for (var row = 0; row < rows; ++row) {
+            var name = String(modesModel.cell(row, 4) ?? "").trim()
+            if (name.length > 0)
+                choices.push({ text: name, value: name })
+        }
+        return choices
+    }
+
     component PanelFrame : Item {
         id: root
 
@@ -449,6 +529,16 @@ ApplicationWindow {
         property color rowBgA: rigCreator.palette.base
         property color rowBgB: rigCreator.palette.alternateBase
         property color textColor: rigCreator.palette.text
+        readonly property int verticalScrollBarWidth: 14
+        readonly property int contentColumnsWidth: {
+            var total = 0
+            if (!columns)
+                return total
+            for (var i = 0; i < columns.length; ++i)
+                total += columns[i].width ?? 140
+            return total
+        }
+        implicitWidth: contentColumnsWidth + padding * 2 + verticalScrollBarWidth + 2
 
         // Context state
         property int ctxRow: -1
@@ -648,8 +738,24 @@ ApplicationWindow {
                         rowSpacing: 0
                         columnSpacing: 0
 
-                            ScrollBar.vertical: ScrollBar {}
-                            ScrollBar.horizontal: ScrollBar {}
+                            ScrollBar.vertical: ScrollBar {
+                                policy: ScrollBar.AlwaysOn
+                                interactive: true
+                                implicitWidth: panel.verticalScrollBarWidth
+                                contentItem: Rectangle {
+                                    implicitWidth: panel.verticalScrollBarWidth
+                                    radius: 3
+                                    color: parent.pressed ? rigCreator.palette.highlight : rigCreator.palette.mid
+                                }
+                                background: Rectangle {
+                                    color: rigCreator.palette.dark
+                                    border.color: rigCreator.palette.mid
+                                    border.width: 1
+                                }
+                            }
+                            ScrollBar.horizontal: ScrollBar {
+                                policy: ScrollBar.AlwaysOff
+                            }
 
                             columnWidthProvider: function(col) {
                                 if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
@@ -673,6 +779,14 @@ ApplicationWindow {
                             border.color: panel.gridColor
                             border.width: 1
 
+                            function closeEditorPopup() {
+                                if (editorLoader.item && editorLoader.item.closeModesPopup)
+                                    editorLoader.item.closeModesPopup()
+                            }
+
+                            TableView.onPooled: closeEditorPopup()
+                            TableView.onReused: closeEditorPopup()
+
                             Item {
                                 anchors.fill: parent
                                 anchors.margins: 2
@@ -688,6 +802,7 @@ ApplicationWindow {
                                     sourceComponent: {
                                         var ed = (colDef.editor || "").toLowerCase()
                                         if (ed === "combo" && colDef.choices) return comboEditor
+                                        if (ed === "modes") return modesEditor
                                         if (ed === "bool") return boolEditor
                                         if (ed === "color") return colorEditor
                                         return textEditor
@@ -861,6 +976,220 @@ ApplicationWindow {
                                 }
                             }
 
+                            Component {
+                                id: modesEditor
+                                Item {
+                                    id: modesEditorRoot
+                                    anchors.fill: parent
+
+                                    property var choicesRef: []
+                                    readonly property int popupMargin: 10
+                                    readonly property int popupMinHeight: 96
+                                    readonly property int popupMaxHeight: 320
+                                    readonly property int modeRowHeight: 30
+
+                                    function popupWidth() {
+                                        return width
+                                    }
+
+                                    function cellPoint() {
+                                        return mapToItem(rigCreator.contentItem, 0, 0)
+                                    }
+
+                                    function popupX() {
+                                        var p = cellPoint()
+                                        return Math.max(popupMargin, Math.min(p.x, rigCreator.contentItem.width - popupWidth() - popupMargin))
+                                    }
+
+                                    function spaceBelow() {
+                                        var p = cellPoint()
+                                        return rigCreator.contentItem.height - (p.y + height) - popupMargin
+                                    }
+
+                                    function spaceAbove() {
+                                        return Math.max(0, cellPoint().y - popupMargin)
+                                    }
+
+                                    function popupHeight() {
+                                        var available = Math.max(spaceBelow(), spaceAbove())
+                                        var wanted = 78 + Math.min(choicesRef.length * modeRowHeight, popupMaxHeight - 78)
+                                        return Math.max(popupMinHeight, Math.min(wanted, popupMaxHeight, available))
+                                    }
+
+                                    function popupY() {
+                                        var p = cellPoint()
+                                        if (spaceBelow() >= popupMinHeight || spaceBelow() >= spaceAbove())
+                                            return p.y + height
+                                        return Math.max(popupMargin, p.y - popupHeight())
+                                    }
+
+                                    function positionPopup() {
+                                        modesPopup.width = popupWidth()
+                                        modesPopup.height = popupHeight()
+                                        modesPopup.x = popupX()
+                                        modesPopup.y = popupY()
+                                    }
+
+                                    function openModesPopup() {
+                                        choicesRef = rigCreator.modeChoicesFromTable()
+                                        positionPopup()
+                                        modesPopup.open()
+                                    }
+
+                                    function closeModesPopup() {
+                                        if (modesPopup.opened)
+                                            modesPopup.close()
+                                    }
+
+                                    function selectedList() {
+                                        var parts = String(editorLoader.cellValueRef ?? "").split(",")
+                                        var out = []
+                                        for (var i = 0; i < parts.length; ++i) {
+                                            var part = parts[i].trim()
+                                            if (part.length > 0)
+                                                out.push(part)
+                                        }
+                                        return out
+                                    }
+
+                                    function containsMode(modeName) {
+                                        var list = selectedList()
+                                        for (var i = 0; i < list.length; ++i) {
+                                            if (list[i].toUpperCase() === String(modeName).toUpperCase())
+                                                return true
+                                        }
+                                        return false
+                                    }
+
+                                    function setMode(modeName, enabled) {
+                                        var list = selectedList()
+                                        var out = []
+                                        var found = false
+                                        for (var i = 0; i < list.length; ++i) {
+                                            if (list[i].toUpperCase() === String(modeName).toUpperCase()) {
+                                                found = true
+                                                if (enabled)
+                                                    out.push(list[i])
+                                            } else {
+                                                out.push(list[i])
+                                            }
+                                        }
+                                        if (enabled && !found)
+                                            out.push(modeName)
+                                        editorLoader.cellDataRef.display = out.join(",")
+                                    }
+
+                                    Text {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 6
+                                        anchors.rightMargin: 6
+                                        verticalAlignment: Text.AlignVCenter
+                                        text: String(editorLoader.cellValueRef ?? "").length > 0 ? String(editorLoader.cellValueRef ?? "") : qsTr("All modes")
+                                        color: String(editorLoader.cellValueRef ?? "").length > 0 ? panel.textColor : rigCreator.palette.placeholderText
+                                        elide: Text.ElideRight
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: openModesPopup()
+                                    }
+
+                                    Popup {
+                                        id: modesPopup
+                                        parent: rigCreator.contentItem
+                                        padding: 8
+                                        modal: false
+                                        dim: false
+                                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                                        background: Rectangle {
+                                            color: rigCreator.palette.window
+                                            border.color: rigCreator.palette.highlight
+                                            border.width: 1
+                                            radius: 3
+                                        }
+
+                                        contentItem: Column {
+                                            id: modesColumn
+                                            width: modesPopup.availableWidth
+                                            spacing: 6
+
+                                            Label {
+                                                id: modesPopupHeader
+                                                width: parent.width
+                                                text: qsTr("Empty means all modes")
+                                                color: rigCreator.palette.placeholderText
+                                                elide: Text.ElideRight
+                                            }
+
+                                            ListView {
+                                                id: modesList
+                                                width: parent.width
+                                                height: Math.max(1, modesPopup.availableHeight - modesPopupHeader.implicitHeight - modesPopupFooter.implicitHeight - parent.spacing * 2)
+                                                clip: true
+                                                model: choicesRef
+                                                delegate: CheckBox {
+                                                    width: modesList.width - (modesList.contentHeight > modesList.height ? panel.verticalScrollBarWidth : 0)
+                                                    height: modesEditorRoot.modeRowHeight
+                                                    text: modelData.text
+                                                    checked: containsMode(modelData.value)
+                                                    onClicked: setMode(modelData.value, checked)
+                                                }
+                                                boundsBehavior: Flickable.StopAtBounds
+                                                ScrollBar.vertical: ScrollBar {
+                                                    policy: modesList.contentHeight > modesList.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                                                    interactive: true
+                                                    implicitWidth: panel.verticalScrollBarWidth
+                                                    contentItem: Rectangle {
+                                                        implicitWidth: panel.verticalScrollBarWidth
+                                                        radius: 3
+                                                        color: parent.pressed ? rigCreator.palette.highlight : rigCreator.palette.mid
+                                                    }
+                                                    background: Rectangle {
+                                                        color: rigCreator.palette.dark
+                                                        border.color: rigCreator.palette.mid
+                                                        border.width: 1
+                                                    }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                id: modesPopupFooter
+                                                width: parent.width
+                                                spacing: 6
+
+                                                Button {
+                                                    text: qsTr("Clear")
+                                                    Layout.preferredWidth: 72
+                                                    onClicked: {
+                                                        editorLoader.cellDataRef.display = ""
+                                                    }
+                                                }
+
+                                                Item { Layout.fillWidth: true }
+
+                                                Button {
+                                                    text: qsTr("Done")
+                                                    Layout.preferredWidth: 72
+                                                    onClicked: modesPopup.close()
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Connections {
+                                        target: rigCreator
+                                        function onWidthChanged() { modesEditorRoot.closeModesPopup() }
+                                        function onHeightChanged() { modesEditorRoot.closeModesPopup() }
+                                    }
+
+                                    Connections {
+                                        target: flick
+                                        function onContentYChanged() { modesEditorRoot.closeModesPopup() }
+                                    }
+                                }
+                            }
+
                             // ---- COLOR EDITOR ----
                             Component {
                                 id: colorEditor
@@ -954,7 +1283,9 @@ ApplicationWindow {
         // The actual content goes here
         default property alias content: host.data
 
-        width: fullRow ? flow.width : Math.min(prefW, flow.width)
+        readonly property int contentImplicitWidth: host.children.length > 0 ? host.children[0].implicitWidth : prefW
+
+        width: fullRow ? flow.width : Math.min(Math.max(prefW, contentImplicitWidth), flow.width)
         height: prefH
         implicitHeight: prefH
 
@@ -1243,7 +1574,7 @@ ApplicationWindow {
                         }
                     }
 
-                    FlowPanel { prefW: 370; prefH: 260
+                    FlowPanel { prefW: 590; prefH: 260
                         Loader {
                             anchors.fill: parent
                             active: rigCreator.visible && !rig.loading
@@ -1261,8 +1592,9 @@ ApplicationWindow {
                                         { text: qsTr("Medium Low"), value: "Medium Low" },
                                         { text: qsTr("Low"), value: "Low" }
                                     ]},
-                                    { title: qsTr("Type"),    name: "Type",       width: 180, editor: "combo", choices: rig.commandTypeChoices, searchable: true },
-                                    { title: qsTr("VFO"),     name: "VFO",     width: 40 }
+                                    { title: qsTr("Command"), name: "Command", width: 180, editor: "combo", choices: rig.commandTypeChoices, searchable: true },
+                                    { title: qsTr("VFO"),     name: "VFO",     width: 40 },
+                                    { title: qsTr("Modes"),   name: "Modes",   width: 220, editor: "modes" }
                                 ]
                             }
                         }

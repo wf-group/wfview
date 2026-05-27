@@ -428,6 +428,9 @@ void servermain::getSettingsFilePath(QString settingsFile)
 
         qInfo(logSystem()) << "Loading settings from:" << path + file;
         settings = new QSettings(path + file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        settings->setIniCodec("UTF-8");
+#endif
     }
 }
 
@@ -570,7 +573,7 @@ void servermain::sendWfShareAudio(const audioPacket &packet)
                    .arg(wfShareTxFrames)
                    .arg(frame.payload.size());
     }
-    wfShareStation->sendPayload(radioTransportFrame::encode(frame));
+    wfShareStation->sendPayload(radioTransportFrame::encode(frame), false);
 }
 
 void servermain::startWfShareStation()
@@ -683,7 +686,8 @@ void servermain::startWfShareStation()
                                .arg(wfShareTxFrames)
                                .arg(frame.payload.size());
                 }
-                wfShareStation->sendPayload(radioTransportFrame::encode(frame));
+                wfShareStation->sendPayload(radioTransportFrame::encode(frame),
+                                            frame.channel == RadioTransportChannel::Civ);
             }
         });
 
@@ -746,7 +750,7 @@ void servermain::flushWfShareTxBuffer()
                    .arg(wfShareTxFrames)
                    .arg(frame.payload.size());
     }
-    wfShareStation->sendPayload(radioTransportFrame::encode(frame));
+    wfShareStation->sendPayload(radioTransportFrame::encode(frame), true);
 }
 
 

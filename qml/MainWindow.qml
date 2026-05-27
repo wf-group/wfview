@@ -13,6 +13,7 @@ ApplicationWindow {
     property int connStatus: Number(MainController.connStatus)
     property var txAudioProcessingWindow: null
     property var rxAudioProcessingWindow: null
+    property var rigCreatorWindows: []
     property bool quitConfirmed: false
     property var savedStartupGeometry: null
     property bool startupGeometryPending: false
@@ -1138,8 +1139,30 @@ ApplicationWindow {
                 Button {
                     text: qsTr("Rig Creator")
                     onClicked: {
-                        const w = rigCreatorComponent.createObject(null)
-                        if (w) w.show()
+                        const w = rigCreatorComponent.createObject(win)
+                        if (w) {
+                            const windows = rigCreatorWindows.slice()
+                            windows.push(w)
+                            rigCreatorWindows = windows
+
+                            const screenRect = win.screen ? win.screen.availableGeometry : null
+                            const margin = 24
+                            const offset = Math.min(40 + (windows.length - 1) * 24, 160)
+                            if (screenRect) {
+                                w.x = Math.max(screenRect.x + margin,
+                                               Math.min(win.x + offset,
+                                                        screenRect.x + screenRect.width - w.width - margin))
+                                w.y = Math.max(screenRect.y + margin,
+                                               Math.min(win.y + offset,
+                                                        screenRect.y + screenRect.height - w.height - margin))
+                            } else {
+                                w.x = Math.max(0, win.x + offset)
+                                w.y = Math.max(0, win.y + offset)
+                            }
+
+                            w.show()
+                            w.requestActivate()
+                        }
                     }
                 }
 

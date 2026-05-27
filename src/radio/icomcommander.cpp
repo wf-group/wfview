@@ -462,6 +462,69 @@ void icomCommander::prepDataAndSend(QByteArray data)
     emit dataForComm(data);
 }
 
+void icomCommander::dataFromServer(QByteArray data)
+{
+    recordLastExternalCommand(data);
+    rigCommander::dataFromServer(data);
+}
+
+void icomCommander::recordLastExternalCommand(const QByteArray &data)
+{
+    int frameStart = -1;
+    for (int i = 0; i + 3 < data.size(); ++i) {
+        if (quint8(data.at(i)) == 0xfe && quint8(data.at(i + 1)) == 0xfe) {
+            frameStart = i;
+            break;
+        }
+    }
+
+    if (frameStart < 0 || data.size() <= frameStart + 4) {
+        return;
+    }
+
+    QByteArray commandData = data.mid(frameStart + 4);
+    const int terminator = commandData.indexOf(char(0xfd));
+    if (terminator >= 0) {
+        commandData.truncate(terminator);
+    }
+
+    if (commandData.isEmpty()) {
+        return;
+    }
+
+    QByteArray lookupData = commandData;
+    if (rigCaps.hasCommand29 && lookupData.size() >= 3 && quint8(lookupData.at(0)) == 0x29) {
+        lookupData.remove(0, 2);
+    }
+
+    for (int len = qMin(lookupData.size(), 10); len > 0; --len) {
+        auto it = rigCaps.commandsReverse.find(lookupData.left(len));
+        if (it == rigCaps.commandsReverse.end()) {
+            continue;
+        }
+
+        const funcs func = it.value();
+        const auto cmdIt = rigCaps.commands.find(func);
+        if (cmdIt == rigCaps.commands.end()) {
+            continue;
+        }
+
+        const funcType cmd = cmdIt.value();
+        lastCommand.func = cmd.cmd;
+        lastCommand.data = commandData;
+        lastCommand.minValue = cmd.minVal;
+        lastCommand.maxValue = cmd.maxVal;
+        lastCommand.bytes = cmd.bytes;
+        return;
+    }
+
+    lastCommand.func = funcNone;
+    lastCommand.data = commandData;
+    lastCommand.minValue = 0;
+    lastCommand.maxValue = 0;
+    lastCommand.bytes = 0;
+}
+
 funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver)
 {
     funcType cmd;

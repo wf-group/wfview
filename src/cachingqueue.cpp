@@ -291,21 +291,29 @@ vfoCommandType cachingQueue::getVfoCommand(vfo_t vfo,uchar rx, bool set)
     return cmd;
 }
 
-queuePriority cachingQueue::del(funcs func, uchar receiver)
+queuePriority cachingQueue::del(funcs func, uchar receiver, bool includePending)
 {
     // This will immediately delete any matching commands.
     queuePriority prio = priorityNone;
     if (func != funcNone)
     {
         QMutexLocker locker(&mutex);
-        auto it = std::find_if(queue.begin(), queue.end(), [func,receiver](const queueItem& c) {  return (c.command == func && c.receiver == receiver && c.recurring == true); });
-        //auto it(queue.begin());
-        if (it != queue.end()) {
-            prio = it.key();
-            int count = queue.remove(it.key(),it.value());
-            if (count>0)
-                qDebug() << "cachingQueue()::del" << count << "entries from queue for" << funcString[func] << "on receiver" << receiver;
+        int count = 0;
+        auto it = queue.begin();
+        while (it != queue.end()) {
+            if (it.value().command == func && it.value().receiver == receiver &&
+                (it.value().recurring || includePending)) {
+                if (prio == priorityNone)
+                    prio = it.key();
+                it = queue.erase(it);
+                ++count;
+            } else {
+                ++it;
+            }
         }
+
+        if (count > 0)
+            qDebug() << "cachingQueue()::del" << count << "entries from queue for" << funcString[func] << "on receiver" << receiver;
     }
     return prio;
 }

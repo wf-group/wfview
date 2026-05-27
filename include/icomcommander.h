@@ -31,6 +31,7 @@ public slots:
     void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                           QString username, QString password, QString calledNumber,
                           audioSetup rxSetup, audioSetup txSetup) override;
+    void dataFromServer(QByteArray data) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
 
@@ -102,6 +103,7 @@ private:
     QByteArray getACCAddr(quint8 ab);
     void sendDataOut();
     void prepDataAndSend(QByteArray data);
+    void recordLastExternalCommand(const QByteArray &data);
     void debugMe();
     void closeWfShare();
 

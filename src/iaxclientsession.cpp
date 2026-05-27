@@ -338,7 +338,7 @@ void IaxClientSession::disconnectFromServer()
     emitStats();
 }
 
-void IaxClientSession::sendPayload(const QByteArray &payload)
+void IaxClientSession::sendPayload(const QByteArray &payload, bool reliable)
 {
     if (!active || destCall == 0) {
         emit errorOccurred(QStringLiteral("IAX session is not established"));
@@ -354,7 +354,7 @@ void IaxClientSession::sendPayload(const QByteArray &payload)
     frame.type = iax::FrameType::Text;
     frame.subclass = 0;
     frame.payload = encodeApplicationPayload(payload);
-    sendFullFrame(frame, false);
+    sendFullFrame(frame, reliable);
     stats.textFramesTx++;
 }
 
@@ -410,7 +410,9 @@ void IaxClientSession::readPendingDatagrams()
         }
 
         stats.fullFramesRx++;
-        if (isCallFrame(frame) && frame.type != iax::FrameType::Iax) {
+        const bool isAckFrame = frame.type == iax::FrameType::Iax &&
+                                frame.subclass == quint8(iax::IaxSubclass::Ack);
+        if (isCallFrame(frame) && !isAckFrame) {
             if (haveExpectedIncomingSeq && frame.outgoingSeq != expectedIncomingSeq) {
                 stats.oSeqnoGaps += quint8(frame.outgoingSeq - expectedIncomingSeq);
             }
@@ -418,11 +420,12 @@ void IaxClientSession::readPendingDatagrams()
             haveExpectedIncomingSeq = true;
         }
 
-        if (frame.type == iax::FrameType::Iax &&
-            frame.subclass == quint8(iax::IaxSubclass::Ack)) {
-            if (pendingFrames.remove(pendingFrameKey(frame.destCall, frame.incomingSeq)) > 0) {
-                stats.acksRx++;
-            }
+        const int ackedFrames = acknowledgePendingFrames(frame.destCall, frame.incomingSeq);
+        if (ackedFrames > 0) {
+            stats.acksRx += quint32(ackedFrames);
+        }
+
+        if (isAckFrame) {
             continue;
         }
 
@@ -784,7 +787,6 @@ void IaxClientSession::sendAck(const iax::Frame &frame, quint16 sourceCallOverri
     ack.type = iax::FrameType::Iax;
     ack.subclass = quint8(iax::IaxSubclass::Ack);
     sendFullFrame(ack, false);
-    pendingFrames.remove(pendingFrameKey(ack.sourceCall, frame.incomingSeq));
 }
 
 void IaxClientSession::sendRegistrationAck(const iax::Frame &frame)
@@ -798,7 +800,6 @@ void IaxClientSession::sendRegistrationAck(const iax::Frame &frame)
     ack.type = iax::FrameType::Iax;
     ack.subclass = quint8(iax::IaxSubclass::Ack);
     sendFullFrame(ack, false);
-    pendingFrames.remove(pendingFrameKey(ack.sourceCall, frame.incomingSeq));
 }
 
 void IaxClientSession::sendPokeReply(const iax::Frame &request)
@@ -1139,6 +1140,24 @@ bool IaxClientSession::isCallFrame(const iax::Frame &frame) const
         return frame.destCall == activeCallSourceCall;
     }
     return sourceCall != 0 && frame.destCall == sourceCall;
+}
+
+int IaxClientSession::acknowledgePendingFrames(quint16 sourceCallValue, quint8 incomingSeqValue)
+{
+    int removed = 0;
+    for (auto it = pendingFrames.begin(); it != pendingFrames.end();) {
+        const quint16 pendingSourceCall = quint16((it.key() >> 8) & 0x7fff);
+        const quint8 pendingOutgoingSeq = quint8(it.key() & 0xff);
+        const quint8 seqDistance = quint8(incomingSeqValue - pendingOutgoingSeq);
+
+        if (pendingSourceCall == (sourceCallValue & 0x7fff) && seqDistance > 0 && seqDistance <= 128) {
+            it = pendingFrames.erase(it);
+            removed++;
+        } else {
+            ++it;
+        }
+    }
+    return removed;
 }
 
 quint32 IaxClientSession::pendingFrameKey(quint16 sourceCallValue, quint8 outgoingSeqValue) const

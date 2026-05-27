@@ -142,7 +142,7 @@ public:
     void addUnique(queuePriority prio ,funcs func, bool recurring=false, uchar receiver=0);
     void addUnique(queuePriority prio, queueItem item);
 
-    queuePriority del(funcs func, uchar receiver=0);
+    queuePriority del(funcs func, uchar receiver=0, bool includePending=false);
     void clear();
     void clearCache();
 

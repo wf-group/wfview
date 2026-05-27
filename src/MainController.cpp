@@ -2125,6 +2125,11 @@ void MainController::getInitialRigState()
     queue->clear();
 
     foreach (auto cap, rigCaps->periodic) {
+        if (!cap.modes.isEmpty()) {
+            qDebug(logSystem()) << "Deferring mode-specific periodic command" << funcString[cap.func] << "until mode is known";
+            continue;
+        }
+
         if (cap.receiver == char(-1)) {
             for (uchar v=0;v<rigCaps->numReceiver;v++)
             {
@@ -3503,6 +3508,9 @@ void MainController::loadSettings(QString settingsFile)
             file = info.fileName();
         }
         settings = new QSettings(path + file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        settings->setIniCodec("UTF-8");
+#endif
     }
 
     qInfo(logSystem()) << "Loading settings from " << settings->fileName();

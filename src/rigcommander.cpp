@@ -5,6 +5,8 @@
 #include "logcategories.h"
 #include "printhex.h"
 
+#include <utility>
+
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
 
 // This is the master class for rigCommander, subclassed by each manufacturer
@@ -380,9 +382,24 @@ void rigCommander::determineRigCaps()
                 if (!rigCaps.commands.contains(func)) {
                     qWarning(logRig()) << "Cannot find periodic command" << settings->value("Command", "").toString() << "in rigcaps, ignoring";
                 } else {
+                    QStringList modes;
+                    const QVariant modesVariant = settings->value("Modes");
+                    QStringList modeValues = modesVariant.toStringList();
+                    if (modeValues.isEmpty() && modesVariant.isValid())
+                        modeValues = QStringList{modesVariant.toString()};
+
+                    for (const QString &modeValue : std::as_const(modeValues)) {
+                        for (const QString &mode : modeValue.split(',', Qt::SkipEmptyParts))
+                            modes.append(mode.trimmed().toUpper());
+                    }
+
                     rigCaps.periodic.append(periodicType(func,
                                                          settings->value("Priority","").toString(),priorityMap[settings->value("Priority","").toString()],
-                                                         settings->value("VFO",-1).toInt()));
+                                                         settings->value("VFO",-1).toInt(), modes));
+                    if (!modes.isEmpty()) {
+                        qInfo(logRig()) << "Loaded mode-specific periodic command" << funcString[func]
+                                        << "modes" << modes << "receiver" << settings->value("VFO",-1).toInt();
+                    }
                 }
             }
         }

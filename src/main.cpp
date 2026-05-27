@@ -357,6 +357,9 @@ int main(int argc, char *argv[])
                             file = info.fileName();
                         }
                         settings = new QSettings(path + file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+                        settings->setIniCodec("UTF-8");
+#endif
                     }
                     settings->clear();
                     delete settings;

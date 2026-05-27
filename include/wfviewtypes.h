@@ -4,6 +4,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QtGlobal>
 #include <QColor>
 #include <stdint.h>
@@ -735,10 +736,13 @@ struct periodicType {
     periodicType() {};
     periodicType(funcs func, QString priority, char receiver) : func(func), priority(priority), prioVal(0), receiver(receiver) {};
     periodicType(funcs func, QString priority, int prioVal, char receiver) : func(func), priority(priority), prioVal(prioVal), receiver(receiver) {};
+    periodicType(funcs func, QString priority, int prioVal, char receiver, QStringList modes) :
+        func(func), priority(priority), prioVal(prioVal), receiver(receiver), modes(modes) {};
     funcs func;
     QString priority;
     int prioVal;
     char receiver;
+    QStringList modes;
 };
 
 struct vfoCommandType {

@@ -374,6 +374,9 @@ private:
     void updatePbt();
     void suppressPbtOverlay(int milliseconds = 300);
     void updatePassbandModeParameters(const modeInfo &m);
+    void updateModeSensitiveUiSpecs();
+    void applyModeSpecificPeriodicCommands(const modeInfo &mode);
+    bool periodicCommandAllowedByMode(funcs func, uchar receiver, const modeInfo &mode) const;
     int pbtDefaultValue(const funcType &func) const;
     bool pbtLowerSideMode() const;
     double pbtNeutralOffsetMHz() const;

@@ -59,7 +59,7 @@ public slots:
     void spectrumTime(double tm) {specTime = tm; };
     void waterfallTime(double tm) { wfTime = tm; };
 
-    void dataFromServer(QByteArray data);
+    virtual void dataFromServer(QByteArray data);
     virtual void process();
     virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf);
     virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);

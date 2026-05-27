@@ -599,6 +599,7 @@ Control {
                                 textRole: spec ? spec.textRole : "text"
                                 valueRole: spec ? spec.valueRole : "value"
                                 visible: spec ? (spec.visible ?? true) : false
+                                enabled: spec ? (spec.enabled ?? true) : false
                                 currentIndex: controller ? indexFromValue(filterShapeCombo,controller.filterShape) : -1
                                 onActivated: controller.filterShape = currentValue
                                 Layout.preferredWidth: 65

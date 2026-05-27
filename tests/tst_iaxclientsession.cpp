@@ -12,6 +12,8 @@ private slots:
     void roundTripsInformationElements();
     void rejectsShortFrames();
     void directModeAuthenticatesAndConnects();
+    void directModeDoesNotCountLagRequestAsSequenceGap();
+    void directModeAcknowledgesReliablePayload();
 };
 
 void IaxClientSessionTest::roundTripsFullFrame()
@@ -97,6 +99,103 @@ void IaxClientSessionTest::directModeAuthenticatesAndConnects()
 
     QTRY_VERIFY_WITH_TIMEOUT(!clientConnected.isEmpty() && clientConnected.last().at(0).toBool(), 2000);
     QTRY_VERIFY_WITH_TIMEOUT(!serverConnected.isEmpty() && serverConnected.last().at(0).toBool(), 2000);
+
+    client.disconnectFromServer();
+    server.disconnectFromServer();
+}
+
+void IaxClientSessionTest::directModeDoesNotCountLagRequestAsSequenceGap()
+{
+    QUdpSocket probe;
+    QVERIFY(probe.bind(QHostAddress::LocalHost, 0));
+    const quint16 port = probe.localPort();
+    probe.close();
+
+    IaxClientSession server;
+    IaxClientSession client;
+    QSignalSpy serverConnected(&server, &IaxClientSession::connectedChanged);
+    QSignalSpy clientConnected(&client, &IaxClientSession::connectedChanged);
+    QSignalSpy serverPayload(&server, &IaxClientSession::payloadReceived);
+    QSignalSpy serverStats(&server, &IaxClientSession::statsChanged);
+    QVERIFY(serverConnected.isValid());
+    QVERIFY(clientConnected.isValid());
+    QVERIFY(serverPayload.isValid());
+    QVERIFY(serverStats.isValid());
+
+    server.listenForDirectCalls(port, [](const QString &username) {
+        return username == QStringLiteral("wfuser") ? QStringList{QStringLiteral("wfpass")} : QStringList();
+    });
+    serverConnected.clear();
+    clientConnected.clear();
+    serverStats.clear();
+
+    client.connectToServer(QStringLiteral("127.0.0.1"),
+                           port,
+                           QStringLiteral("wfuser"),
+                           QStringLiteral("wfpass"),
+                           QString());
+
+    QTRY_VERIFY_WITH_TIMEOUT(!clientConnected.isEmpty() && clientConnected.last().at(0).toBool(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!serverConnected.isEmpty() && serverConnected.last().at(0).toBool(), 2000);
+
+    client.sendPayload(QByteArrayLiteral("first"));
+    QTRY_COMPARE_WITH_TIMEOUT(serverPayload.size(), 1, 1000);
+
+    QTest::qWait(2500);
+
+    client.sendPayload(QByteArrayLiteral("second"));
+    QTRY_COMPARE_WITH_TIMEOUT(serverPayload.size(), 2, 1000);
+
+    IaxStats latest;
+    QTRY_VERIFY_WITH_TIMEOUT(!serverStats.isEmpty(), 1500);
+    latest = qvariant_cast<IaxStats>(serverStats.last().at(0));
+    QCOMPARE(latest.oSeqnoGaps, quint32(0));
+
+    client.disconnectFromServer();
+    server.disconnectFromServer();
+}
+
+void IaxClientSessionTest::directModeAcknowledgesReliablePayload()
+{
+    QUdpSocket probe;
+    QVERIFY(probe.bind(QHostAddress::LocalHost, 0));
+    const quint16 port = probe.localPort();
+    probe.close();
+
+    IaxClientSession server;
+    IaxClientSession client;
+    QSignalSpy serverConnected(&server, &IaxClientSession::connectedChanged);
+    QSignalSpy clientConnected(&client, &IaxClientSession::connectedChanged);
+    QSignalSpy serverPayload(&server, &IaxClientSession::payloadReceived);
+    QSignalSpy clientStats(&client, &IaxClientSession::statsChanged);
+    QVERIFY(serverConnected.isValid());
+    QVERIFY(clientConnected.isValid());
+    QVERIFY(serverPayload.isValid());
+    QVERIFY(clientStats.isValid());
+
+    server.listenForDirectCalls(port, [](const QString &username) {
+        return username == QStringLiteral("wfuser") ? QStringList{QStringLiteral("wfpass")} : QStringList();
+    });
+    serverConnected.clear();
+    clientConnected.clear();
+    clientStats.clear();
+
+    client.connectToServer(QStringLiteral("127.0.0.1"),
+                           port,
+                           QStringLiteral("wfuser"),
+                           QStringLiteral("wfpass"),
+                           QString());
+
+    QTRY_VERIFY_WITH_TIMEOUT(!clientConnected.isEmpty() && clientConnected.last().at(0).toBool(), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!serverConnected.isEmpty() && serverConnected.last().at(0).toBool(), 2000);
+
+    client.sendPayload(QByteArrayLiteral("reliable"), true);
+    QTRY_COMPARE_WITH_TIMEOUT(serverPayload.size(), 1, 1000);
+
+    QTRY_VERIFY_WITH_TIMEOUT(!clientStats.isEmpty(), 1500);
+    QTRY_VERIFY_WITH_TIMEOUT(qvariant_cast<IaxStats>(clientStats.last().at(0)).acksRx > 0 &&
+                             qvariant_cast<IaxStats>(clientStats.last().at(0)).pendingFullFrames == 0,
+                             1500);
 
     client.disconnectFromServer();
     server.disconnectFromServer();
