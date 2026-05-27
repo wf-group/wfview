@@ -52,6 +52,11 @@
 
 FreqCtrlQuick::FreqCtrlQuick()
 {
+#if defined(Q_OS_LINUX)
+    // Keep QPainter on the raster path on Linux/Mesa; this avoids known
+    // OpenGL paint-engine crashes in QQuickPaintedItem rendering.
+    setRenderTarget(QQuickPaintedItem::Image);
+#endif
     setAcceptedMouseButtons(Qt::AllButtons);
     setAcceptHoverEvents(true);
     setFlag(ItemHasContents, true);

@@ -8,7 +8,13 @@
 MeterItem::MeterItem(QQuickItem *parent) : QQuickPaintedItem(parent)
 {
     setAntialiasing(false);               // you were not using AA for crisp text
+#if defined(Q_OS_LINUX)
+    // Avoid the OpenGL QPainter path on Linux/Mesa. Qt regressions in that
+    // path can crash from the scenegraph render thread during fill operations.
+    setRenderTarget(QQuickPaintedItem::Image);
+#else
     setRenderTarget(QQuickPaintedItem::FramebufferObject); // good default
+#endif
     setAcceptedMouseButtons(Qt::LeftButton);
 
     qDebug(logSystem) << "Creating MeterItem";
