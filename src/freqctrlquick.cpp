@@ -79,8 +79,9 @@ FreqCtrlQuick::FreqCtrlQuick()
     m_ActiveEditDigit = -1;
     m_ResetLowerDigits = true;
     m_InvertScrolling = false;
-    int fontid = QFontDatabase::addApplicationFont(":/resources/frequency.ttf");
-    QString font = QFontDatabase::applicationFontFamilies(fontid).at(0);
+    const int fontid = QFontDatabase::addApplicationFont(":/resources/frequency.ttf");
+    const QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontid);
+    const QString font = fontFamilies.isEmpty() ? QStringLiteral("monospace") : fontFamilies.at(0);
 
     m_UnitsFont  = QFont(font,12,QFont::Normal);
     m_DigitFont  = QFont(font,12,QFont::Normal);
@@ -492,8 +493,9 @@ void FreqCtrlQuick::geometryChange(const QRectF &newGeometry,
     QQuickPaintedItem::geometryChange(newGeometry, oldGeometry);
 
     qreal dpr = window() ? window()->devicePixelRatio() : qreal(1.0);
-    m_Pixmap = QPixmap(int(newGeometry.width() * dpr),
-                       int(newGeometry.height() * dpr));
+    const int pixmapWidth = qMax(1, qRound(newGeometry.width() * dpr));
+    const int pixmapHeight = qMax(1, qRound(newGeometry.height() * dpr));
+    m_Pixmap = QPixmap(pixmapWidth, pixmapHeight);
     m_Pixmap.setDevicePixelRatio(dpr);
     m_Pixmap.fill(m_BkColor);
     m_UpdateAll = true;
@@ -506,8 +508,9 @@ void FreqCtrlQuick::geometryChanged(const QRectF &newGeometry,
     QQuickPaintedItem::geometryChanged(newGeometry, oldGeometry);
 
     qreal dpr = window() ? window()->devicePixelRatio() : qreal(1.0);
-    m_Pixmap = QPixmap(int(newGeometry.width() * dpr),
-                       int(newGeometry.height() * dpr));
+    const int pixmapWidth = qMax(1, qRound(newGeometry.width() * dpr));
+    const int pixmapHeight = qMax(1, qRound(newGeometry.height() * dpr));
+    m_Pixmap = QPixmap(pixmapWidth, pixmapHeight);
     m_Pixmap.setDevicePixelRatio(dpr);
     m_Pixmap.fill(m_BkColor);
     m_UpdateAll = true;
@@ -542,6 +545,16 @@ void FreqCtrlQuick::paint(QPainter *p)
 {
     if (!p)
         return;
+
+    const qreal dpr = window() ? window()->devicePixelRatio() : qreal(1.0);
+    const QSize requiredSize(qMax(1, qRound(width() * dpr)),
+                             qMax(1, qRound(height() * dpr)));
+    if (m_Pixmap.isNull() || m_Pixmap.size() != requiredSize) {
+        m_Pixmap = QPixmap(requiredSize);
+        m_Pixmap.setDevicePixelRatio(dpr);
+        m_Pixmap.fill(m_BkColor);
+        m_UpdateAll = true;
+    }
 
     // Draw into the offscreen pixmap as before
     QPainter painter(&m_Pixmap);

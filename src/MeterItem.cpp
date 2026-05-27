@@ -395,8 +395,10 @@ double MeterItem::getValueFromPixelScale(int p) const
 
 int MeterItem::getPixelScaleFromValue(double v) const
 {
-    if (m_scaleMax == m_scaleMin) return 0;
-    return int((v - m_scaleMin) * (double(m_scalePixelWidth) / (m_scaleMax - m_scaleMin)));
+    if (m_scaleMax == m_scaleMin || !qIsFinite(v))
+        return 0;
+    const int pixel = int((v - m_scaleMin) * (double(m_scalePixelWidth) / (m_scaleMax - m_scaleMin)));
+    return qBound(0, pixel, m_scalePixelWidth);
 }
 
 
@@ -408,9 +410,12 @@ void MeterItem::scaleLinearNumbersForDrawing()
 }
 
 void MeterItem::scaleLogNumbersForDrawing() {
-    m_currentRect = (int)((1-audiopot[255-(int)m_current])*255);
-    m_averageRect = (int)((1-audiopot[255-(int)m_average])*255);
-    m_peakRect = (int)((1-audiopot[255-(int)m_peak])*255);
+    const int currentIndex = qBound(0, 255 - int(m_current), 255);
+    const int averageIndex = qBound(0, 255 - int(m_average), 255);
+    const int peakIndex = qBound(0, 255 - int(m_peak), 255);
+    m_currentRect = qBound(0, int((1 - audiopot[currentIndex]) * m_scalePixelWidth), m_scalePixelWidth);
+    m_averageRect = qBound(0, int((1 - audiopot[averageIndex]) * m_scalePixelWidth), m_scalePixelWidth);
+    m_peakRect = qBound(0, int((1 - audiopot[peakIndex]) * m_scalePixelWidth), m_scalePixelWidth);
 }
 
 int MeterItem::nearestStep(double d, int stepSize) {

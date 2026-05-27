@@ -97,7 +97,7 @@ public:
         }
         emit freqDigitsChanged();
     }
-    qint64 getFreqMinStep() const { return m_MaxFreq; }
+    qint64 getFreqMinStep() const { return m_MinStep; }
 
     void setFreqMinStep(qint64 s)
     {
