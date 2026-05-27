@@ -617,6 +617,7 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
     Q_INVOKABLE void markDirty();
+    Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
     Q_INVOKABLE QVariantMap receiverSettings(int index) const;

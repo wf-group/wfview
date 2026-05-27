@@ -31,6 +31,7 @@ public slots:
     void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                           QString username, QString password, QString calledNumber,
                           audioSetup rxSetup, audioSetup txSetup) override;
+    void setLocalAudioVolume(quint8 level) override;
     void dataFromServer(QByteArray data) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
@@ -106,6 +107,7 @@ private:
     void recordLastExternalCommand(const QByteArray &data);
     void debugMe();
     void closeWfShare();
+    void startWfShareTxAudio();
 
     centerSpanData createScopeCenter(uchar s, QString name);
 
@@ -117,7 +119,11 @@ private:
     audioHandlerBase* wfShareRxAudio = nullptr;
     QThread* wfShareRxAudioThread = nullptr;
     audioSetup wfShareRxSetup;
+    audioHandlerBase* wfShareTxAudio = nullptr;
+    QThread* wfShareTxAudioThread = nullptr;
+    audioSetup wfShareTxSetup;
     quint32 wfShareAudioRxFrames = 0;
+    quint32 wfShareAudioTxFrames = 0;
     IaxStats wfShareStats;
     networkStatus wfShareStatus;
     QThread* udpHandlerThread = nullptr;
@@ -153,6 +159,8 @@ private:
 
     scopeData mainScopeData;
     scopeData subScopeData;
+    quint8 mainScopeNextSequence = 0;
+    quint8 subScopeNextSequence = 0;
 
     QString rigSerialPort;
     quint32 rigBaudRate;

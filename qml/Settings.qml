@@ -497,12 +497,101 @@ ApplicationWindow {
                                 Label {
                                     Layout.fillWidth: true
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: qsTr("Audio controls on this page are ONLY for network radios\n") +
+                                    text: qsTr("Local audio controls apply to network and USB audio paths.\n") +
                                           qsTr("Please use the \"Radio Server\" page to select server audio.\n") +
                                           qsTr("ONLY use Manual CI-V when Transceive mode is not supported\n\n")+
                                           qsTr("You MUST disconnect from the radio before making any changes.\n\n")+
                                           qsTr("Please use the Connect/Disconnect button below")
                                     wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                        GroupBox {
+                            id: groupLocalAudio
+                            title: qsTr("Local Audio")
+                            Layout.fillWidth: true
+                            enabled: controller && connStatus === 0
+
+                            ColumnLayout {
+                                spacing: 8
+
+                                RowLayout {
+                                    spacing: 8
+
+                                    Label { text: qsTr("Audio System") }
+                                    ComboBox {
+                                        id: audioSystemCombo
+                                        Accessible.name: "Audio System Selection Combo"
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: qsTr("Qt Audio"), value: 0 },
+                                            { text: qsTr("PortAudio"), value: 1 },
+                                            { text: qsTr("RT Audio"), value: 2 },
+                                            { text: qsTr("TCI Audio"), value: 3 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(audioSystemCombo,controller.options["Radio.AudioSystem"])
+                                                      : -1
+                                        onActivated: controller.setOption("Radio.AudioSystem",currentValue)
+                                    }
+
+                                    Item { Layout.fillWidth: true }
+                                }
+
+                                RowLayout {
+                                    spacing: 8
+
+                                    Label { text: qsTr("Audio Output") }
+                                    ComboBox {
+                                        id: audioOutputCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        visible: spec ? (spec.visible ?? true) : false
+                                        currentIndex: controller ? indexFromValue(audioOutputCombo,controller.options["UDP.RxAudio"]) : -1
+                                        onActivated: controller.setOption("UDP.RxAudio", currentValue)
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i)
+                                                max = Math.max(max, audioOutMetrics.advanceWidth(textAt(i)))
+                                            max = Math.max(max, audioOutMetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+                                        FontMetrics { id: audioOutMetrics; font: audioOutputCombo.font }
+                                        Accessible.name: "Audio Output Selector"
+                                    }
+
+                                    Label { text: qsTr("Audio Input") }
+                                    ComboBox {
+                                        id: audioInputCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        visible: spec ? (spec.visible ?? true) : false
+                                        currentIndex: controller ? indexFromValue(audioInputCombo,controller.options["UDP.TxAudio"]) : -1
+                                        onActivated: controller.setOption("UDP.TxAudio", currentValue)
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i)
+                                                max = Math.max(max, audioInMetrics.advanceWidth(textAt(i)))
+                                            max = Math.max(max, audioInMetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+                                        FontMetrics { id: audioInMetrics; font: audioInputCombo.font }
+                                        Accessible.name: "Audio Input Selector"
+                                    }
+
+                                    Item { Layout.fillWidth: true }
                                 }
                             }
                         }
@@ -515,69 +604,125 @@ ApplicationWindow {
                             enabled: controller
                                      && connStatus === 0
                                      && !Boolean(controller.options["LAN.EnableLAN"])
-                            RowLayout {
+                            ColumnLayout {
+                                anchors.fill: parent
                                 spacing: 8
 
-                                Label { text: qsTr("Serial Device:") }
-                                ComboBox {
-                                    id: serialDeviceListCombo
-                                    Layout.preferredWidth: 180
-                                    Layout.maximumWidth: 180
-                                    Accessible.name: "Serial (USB) Port Selection Combo"
-                                    readonly property var spec: controller ? controller.uiSpecs["SerialPorts"] : null
-                                    model: spec ? spec.model : []
-                                    textRole: spec ? spec.textRole : "text"
-                                    valueRole: spec ? spec.valueRole : "value"
-                                    visible: spec ? (spec.visible ?? true) : false
-                                    currentIndex: (controller && controller.options)
-                                                  ? indexFromValue(serialDeviceListCombo,controller.options["Radio.SerialPortRadio"])
-                                                  : -1
-                                    onActivated: controller.setOption("Radio.SerialPortRadio", currentValue)
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Label { text: qsTr("Serial Device:") }
+                                    ComboBox {
+                                        id: serialDeviceListCombo
+                                        Layout.preferredWidth: 180
+                                        Layout.maximumWidth: 180
+                                        Accessible.name: "Serial (USB) Port Selection Combo"
+                                        readonly property var spec: controller ? controller.uiSpecs["SerialPorts"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        visible: spec ? (spec.visible ?? true) : false
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(serialDeviceListCombo,controller.options["Radio.SerialPortRadio"])
+                                                      : -1
+                                        onActivated: controller.setOption("Radio.SerialPortRadio", currentValue)
+                                    }
+
+                                    Label { text: qsTr("Baud Rate") }
+                                    ComboBox {
+                                        id: baudRateCombo
+                                        Layout.preferredWidth: 120
+                                        Layout.maximumWidth: 120
+                                        Accessible.name: "Serial Baud Rate Combo"
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: "115,200", value: 115200 },
+                                            { text: "57,600", value: 57600 },
+                                            { text: "38,400", value: 38400 },
+                                            { text: "28,800", value: 28800 },
+                                            { text: "19,200", value: 19200 },
+                                            { text: "9,600", value: 9600 },
+                                            { text: "4,800", value: 4800 },
+                                            { text: "2,400", value: 2400 },
+                                            { text: "1,200", value: 1200 },
+                                            { text: "600", value: 600 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(baudRateCombo, controller.options["Radio.SerialPortBaud"])
+                                                      : -1
+                                        onActivated: if (controller) controller.setOption("Radio.SerialPortBaud", currentValue)
+                                    }
+
+                                    Label { id: pttTypeLabel; text: qsTr("PTT Type") }
+                                    ComboBox {
+                                        id: pttTypeCombo
+                                        Accessible.name: "PTT Type Combo"
+                                        model: [
+                                            { text: qsTr("CI-V"), value: 0 },
+                                            { text: qsTr("RTS"), value: 1 },
+                                            { text: qsTr("DTR"), value: 2 }
+                                        ]
+                                        textRole: "text"
+                                        valueRole: "value"
+
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(pttTypeCombo,controller.options["Radio.PTTType"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("Radio.PTTType",currentValue)
+                                    }
+
+                                    Item { Layout.fillWidth: true }
                                 }
 
-                                Label { text: qsTr("Baud Rate") }
-                                ComboBox {
-                                    id: baudRateCombo
-                                    Layout.preferredWidth: 120
-                                    Layout.maximumWidth: 120
-                                    Accessible.name: "Serial Baud Rate Combo"
-                                    textRole: "text"
-                                    valueRole: "value"
-                                    model: [
-                                        { text: "115,200", value: 115200 },
-                                        { text: "57,600", value: 57600 },
-                                        { text: "38,400", value: 38400 },
-                                        { text: "28,800", value: 28800 },
-                                        { text: "19,200", value: 19200 },
-                                        { text: "9,600", value: 9600 },
-                                        { text: "4,800", value: 4800 },
-                                        { text: "2,400", value: 2400 },
-                                        { text: "1,200", value: 1200 },
-                                        { text: "600", value: 600 }
-                                    ]
-                                    currentIndex: (controller && controller.options)
-                                                  ? indexFromValue(baudRateCombo, controller.options["Radio.SerialPortBaud"])
-                                                  : -1
-                                    onActivated: if (controller) controller.setOption("Radio.SerialPortBaud", currentValue)
-                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
 
-                                Label { id: pttTypeLabel; text: qsTr("PTT Type") }
-                                ComboBox {
-                                    id: pttTypeCombo
-                                    Accessible.name: "PTT Type Combo"
-                                    model: [
-                                        { text: qsTr("CI-V"), value: 0 },
-                                        { text: qsTr("RTS"), value: 1 },
-                                        { text: qsTr("DTR"), value: 2 }
-                                    ]
-                                    textRole: "text"
-                                    valueRole: "value"
+                                    CheckBox {
+                                        id: usbAudioCheck
+                                        text: qsTr("USB Audio")
+                                        checked: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        onClicked: if (controller) controller.setOption("Radio.EnableUSBAudio", checked)
+                                    }
 
-                                    currentIndex: (controller && controller.options)
-                                                  ? indexFromValue(pttTypeCombo,controller.options["Radio.PTTType"])
-                                                  : -1
+                                    Label { text: qsTr("Radio RX Audio") }
+                                    ComboBox {
+                                        id: usbRadioRxAudioCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        enabled: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        currentIndex: controller ? indexFromValue(usbRadioRxAudioCombo, controller.options["Radio.USBAudioRXInput"]) : -1
+                                        onActivated: if (controller) controller.setOption("Radio.USBAudioRXInput", currentValue)
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 160
+                                        ToolTip.visible: hovered && displayText.length > 0
+                                        ToolTip.text: displayText
+                                        ToolTip.delay: 300
+                                    }
 
-                                    onActivated: controller.setOption("Radio.PTTType",currentValue)
+                                    Label { text: qsTr("Radio TX Audio") }
+                                    ComboBox {
+                                        id: usbRadioTxAudioCombo
+                                        readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
+                                        model: spec ? spec.model : []
+                                        textRole: spec ? spec.textRole : "text"
+                                        valueRole: spec ? spec.valueRole : "value"
+                                        enabled: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        currentIndex: controller ? indexFromValue(usbRadioTxAudioCombo, controller.options["Radio.USBAudioTXOutput"]) : -1
+                                        onActivated: if (controller) controller.setOption("Radio.USBAudioTXOutput", currentValue)
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 160
+                                        ToolTip.visible: hovered && displayText.length > 0
+                                        ToolTip.text: displayText
+                                        ToolTip.delay: 300
+                                    }
                                 }
 
                                 Item { Layout.fillWidth: true }
@@ -598,7 +743,7 @@ ApplicationWindow {
                             ColumnLayout {
                                 spacing: 8
 
-                                // Row: host + ports + conn type
+                                // Row: host + ports
                                 RowLayout {
                                     spacing: 8
 
@@ -690,29 +835,10 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Label { text: qsTr("Connection Type"); visible: manufacturerCombo.currentValue === 1 }
-                                    ComboBox {
-                                        id: networkConnectionTypeCombo
-                                        visible: manufacturerCombo.currentValue === 1
-                                        Accessible.name: "Connection Type Combo"
-                                        textRole: "text"
-                                        valueRole: "value"
-                                        model: [
-                                            { text: qsTr("LAN"), value: 1 },
-                                            { text: qsTr("WiFi"), value: 2 },
-                                            { text: qsTr("WAN"), value: 3 }
-                                        ]
-                                        currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
-                                                      : -1
-
-                                        onActivated: controller.setOption("UDP.ConnectionType",currentValue)
-                                    }
-
                                     Item { Layout.fillWidth: true }
                                 }
 
-                                // Row: username/pass/admin
+                                // Row: username/pass
                                 RowLayout {
                                     spacing: 8
 
@@ -751,23 +877,31 @@ ApplicationWindow {
 
                                     }
 
-                                    CheckBox {
-                                        id: adminLoginChk
-                                        visible: manufacturerCombo.currentValue === 1;
-                                        text: qsTr("Admin Login")
-                                        Accessible.name: "Admin Login Checkbox"
-                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
-                                        onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
-
-                                        Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
-                                    }
-
                                     Item { Layout.fillWidth: true }
                                 }
 
-                                // Row: codecs
+                                // Row: connection and audio format combos
                                 RowLayout {
                                     spacing: 8
+
+                                    Label { text: qsTr("Connection Type"); visible: manufacturerCombo.currentValue === 1 }
+                                    ComboBox {
+                                        id: networkConnectionTypeCombo
+                                        visible: manufacturerCombo.currentValue === 1
+                                        Accessible.name: "Connection Type Combo"
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: qsTr("LAN"), value: 1 },
+                                            { text: qsTr("WiFi"), value: 2 },
+                                            { text: qsTr("WAN"), value: 3 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("UDP.ConnectionType",currentValue)
+                                    }
 
                                     Label { text: qsTr("RX Codec") }
                                     ComboBox {
@@ -814,12 +948,6 @@ ApplicationWindow {
                                         Accessible.name: "Transmit Audio Codec Selector"
                                     }
 
-                                    Item { Layout.fillWidth: true }
-                                }
-
-                                // Row: samplerate / duplex / audio system
-                                RowLayout {
-                                    spacing: 8
                                     Label { text: qsTr("Sample Rate") }
                                     ComboBox {
                                         id: audioSampleRateCombo
@@ -856,92 +984,15 @@ ApplicationWindow {
                                         onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
                                     }
 
-                                    Label { text: qsTr("Audio System") }
-                                    ComboBox {
-                                        id: audioSystemCombo
-                                        Accessible.name: "Audio System Selection Combo"
-                                        textRole: "text"
-                                        valueRole: "value"
-                                        model: [
-                                            { text: qsTr("Qt Audio"), value: 0 },
-                                            { text: qsTr("PortAudio"), value: 1 },
-                                            { text: qsTr("RT Audio"), value: 2 },
-                                            { text: qsTr("TCI Audio"), value: 3 }
-                                        ]
-                                        currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(audioSystemCombo,controller.options["Radio.AudioSystem"])
-                                                      : -1
-                                        onActivated: controller.setOption("Radio.AudioSystem",currentValue)
-                                    }
+                                    CheckBox {
+                                        id: adminLoginChk
+                                        visible: manufacturerCombo.currentValue === 1;
+                                        text: qsTr("Admin Login")
+                                        Accessible.name: "Admin Login Checkbox"
+                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
+                                        onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
 
-                                    Item { Layout.fillWidth: true }
-                                }
-
-                                // Row: audio output/input
-                                RowLayout {
-                                    spacing: 8
-                                    Label { text: qsTr("Audio Output") }
-                                    ComboBox {
-                                        id: audioOutputCombo
-                                        readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
-                                        model: spec ? spec.model : []
-                                        textRole: spec ? spec.textRole : "text"
-                                        valueRole: spec ? spec.valueRole : "value"
-                                        visible: spec ? (spec.visible ?? true) : false
-
-                                        currentIndex: controller ? indexFromValue(audioOutputCombo,controller.options["UDP.RxAudio"]) : -1
-                                        onActivated: controller.setOption("UDP.RxAudio", currentValue)
-
-                                        // --- Autosize to widest item ---
-                                        readonly property real widestText: {
-                                            let max = 0
-                                            for (let i = 0; i < count; ++i) {
-                                                max = Math.max(max, ipmetrics.advanceWidth(textAt(i)))
-                                            }
-                                            // also include current text in case model is empty/late
-                                            max = Math.max(max, ipmetrics.advanceWidth(displayText))
-                                            return max
-                                        }
-
-                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
-                                        Layout.preferredWidth: implicitWidth
-                                        Layout.maximumWidth: implicitWidth
-
-                                        FontMetrics { id: ipmetrics; font: audioOutputCombo.font }
-
-                                        Accessible.name: "Audio Output Selector"
-                                    }
-
-
-                                    Label { text: qsTr("Audio Input") }
-                                    ComboBox {
-                                        id: audioInputCombo
-                                        readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
-                                        model: spec ? spec.model : []
-                                        textRole: spec ? spec.textRole : "text"
-                                        valueRole: spec ? spec.valueRole : "value"
-                                        visible: spec ? (spec.visible ?? true) : false
-                                        currentIndex: controller ? indexFromValue(audioInputCombo,controller.options["UDP.TxAudio"]) : -1
-                                        onActivated: controller.setOption("UDP.TxAudio", currentValue)
-                                        // --- Autosize to widest item ---
-                                        readonly property real widestText: {
-                                            let max = 0
-                                            for (let i = 0; i < count; ++i) {
-                                                max = Math.max(max, opmetrics.advanceWidth(textAt(i)))
-                                            }
-                                            // also include current text in case model is empty/late
-                                            max = Math.max(max, opmetrics.advanceWidth(displayText))
-                                            return max
-                                        }
-
-                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
-                                        Layout.preferredWidth: implicitWidth
-                                        Layout.maximumWidth: implicitWidth
-
-                                        FontMetrics { id: opmetrics; font: audioOutputCombo.font }
-
-                                        // Autosize
-                                        Accessible.name: "Audio Input Selector"
+                                        Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
                                     }
 
                                     Item { Layout.fillWidth: true }

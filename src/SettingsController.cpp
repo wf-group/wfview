@@ -160,6 +160,21 @@ void SettingsController::saveMainWindowGeometry(int x, int y, int width, int hei
     settings->sync();
 }
 
+void SettingsController::saveLocalAFGain(int gain)
+{
+    if (!settings)
+        return;
+
+    const int clampedGain = qBound(0, gain, 255);
+    prefs.localAFgain = static_cast<quint8>(clampedGain);
+    prefs.rxSetup.localAFgain = prefs.localAFgain;
+
+    settings->beginGroup("Radio");
+    settings->setValue("localAFgain", clampedGain);
+    settings->endGroup();
+    settings->sync();
+}
+
 QVariantMap SettingsController::receiverSettings(int index) const
 {
     if (index < 0)
@@ -515,6 +530,9 @@ void SettingsController::load()
     prefs.txSetup.localAFgain = 255;
 
     prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
+    prefs.enableUsbAudio = settings->value("EnableUSBAudio", defPrefs.enableUsbAudio).toBool();
+    prefs.usbRxSetup.name = settings->value("USBAudioRXInput", defPrefs.usbRxSetup.name).toString();
+    prefs.usbTxSetup.name = settings->value("USBAudioTXOutput", defPrefs.usbTxSetup.name).toString();
 
     settings->endGroup();
 
@@ -522,6 +540,25 @@ void SettingsController::load()
     // Will need to work out a way to get the font size?, this will also need reloading when audioSystem changes.
     audioDev = std::make_unique<audioDevices>(prefs.audioSystem, QFontMetrics(QFont()));
     audioDev->enumerate();
+
+    const QString configuredUsbRxInput = prefs.usbRxSetup.name;
+    const QString configuredUsbTxOutput = prefs.usbTxSetup.name;
+    prefs.usbRxSetup = defPrefs.usbRxSetup;
+    prefs.usbTxSetup = defPrefs.usbTxSetup;
+    prefs.usbRxSetup.type = prefs.audioSystem;
+    prefs.usbTxSetup.type = prefs.audioSystem;
+    prefs.usbRxSetup.isinput = true;
+    prefs.usbTxSetup.isinput = false;
+    prefs.usbRxSetup.sampleRate = prefs.rxSetup.sampleRate;
+    prefs.usbTxSetup.sampleRate = prefs.txSetup.sampleRate;
+    prefs.usbRxSetup.codec = prefs.rxSetup.codec;
+    prefs.usbTxSetup.codec = prefs.txSetup.codec;
+    prefs.usbRxSetup.latency = prefs.rxSetup.latency;
+    prefs.usbTxSetup.latency = prefs.txSetup.latency;
+    prefs.usbRxSetup.resampleQuality = prefs.rxSetup.resampleQuality;
+    prefs.usbTxSetup.resampleQuality = prefs.txSetup.resampleQuality;
+    prefs.usbRxSetup.name = configuredUsbRxInput;
+    prefs.usbTxSetup.name = configuredUsbTxOutput;
 
     // Misc. user settings (enable PTT, draw peaks, etc)
     settings->beginGroup("Controls");
@@ -614,6 +651,48 @@ void SettingsController::load()
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
     prefs.txSetup.type = prefs.audioSystem;
     qInfo(logGui()) << "Got Audio Input from Settings: " << prefs.txSetup.name;
+
+    prefs.usbRxSetup.isinput = true;
+    prefs.usbRxSetup.type = prefs.audioSystem;
+    prefs.usbRxSetup.sampleRate = prefs.rxSetup.sampleRate;
+    prefs.usbRxSetup.codec = prefs.rxSetup.codec;
+    prefs.usbRxSetup.latency = prefs.rxSetup.latency;
+    prefs.usbRxSetup.resampleQuality = prefs.rxSetup.resampleQuality;
+    prefs.usbRxSetup.localAFgain = 255;
+    if (!prefs.usbRxSetup.name.isEmpty()) {
+        const int radioInput = audioDev->findInput(QStringLiteral("Radio"), prefs.usbRxSetup.name, false);
+        if (radioInput >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.usbRxSetup.port = audioDev->getInputDeviceInfo(radioInput);
+            else
+                prefs.usbRxSetup.portInt = audioDev->getInputDeviceInt(radioInput);
+            prefs.usbRxSetup.name = audioDev->getInputName(radioInput);
+        } else {
+            prefs.usbRxSetup.port = {};
+            prefs.usbRxSetup.portInt = -1;
+        }
+    }
+
+    prefs.usbTxSetup.isinput = false;
+    prefs.usbTxSetup.type = prefs.audioSystem;
+    prefs.usbTxSetup.sampleRate = prefs.txSetup.sampleRate;
+    prefs.usbTxSetup.codec = prefs.txSetup.codec;
+    prefs.usbTxSetup.latency = prefs.txSetup.latency;
+    prefs.usbTxSetup.resampleQuality = prefs.txSetup.resampleQuality;
+    prefs.usbTxSetup.localAFgain = 255;
+    if (!prefs.usbTxSetup.name.isEmpty()) {
+        const int radioOutput = audioDev->findOutput(QStringLiteral("Radio"), prefs.usbTxSetup.name, false);
+        if (radioOutput >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.usbTxSetup.port = audioDev->getOutputDeviceInfo(radioOutput);
+            else
+                prefs.usbTxSetup.portInt = audioDev->getOutputDeviceInt(radioOutput);
+            prefs.usbTxSetup.name = audioDev->getOutputName(radioOutput);
+        } else {
+            prefs.usbTxSetup.port = {};
+            prefs.usbTxSetup.portInt = -1;
+        }
+    }
 
     prefs.txAudioProc.bypass = settings->value("TxProcBypass", defPrefs.txAudioProc.bypass).toBool();
     prefs.txAudioProc.compEnabled = settings->value("TxProcCompEnabled", defPrefs.txAudioProc.compEnabled).toBool();
@@ -1114,6 +1193,11 @@ void SettingsController::save()
     settings->setValue("VirtualSerialPort", prefs.virtualSerialPort);
     settings->setValue("localAFgain", prefs.localAFgain);
     settings->setValue("AudioSystem", prefs.audioSystem);
+    settings->setValue("EnableUSBAudio", prefs.enableUsbAudio);
+    if (!prefs.usbRxSetup.name.isEmpty())
+        settings->setValue("USBAudioRXInput", prefs.usbRxSetup.name);
+    if (!prefs.usbTxSetup.name.isEmpty())
+        settings->setValue("USBAudioTXOutput", prefs.usbTxSetup.name);
 
     settings->endGroup();
 
@@ -1591,6 +1675,7 @@ void SettingsController::setDefPrefs()
     defPrefs.wfShareUsername.clear();
     defPrefs.wfSharePassword.clear();
     defPrefs.wfShareCalledNumber.clear();
+    defPrefs.enableUsbAudio = false;
     defPrefs.clusterUdpEnable = false;
     defPrefs.clusterTcpEnable = false;
     defPrefs.waterfallFormat = 0;
@@ -1612,9 +1697,14 @@ void SettingsController::setDefPrefs()
     defPrefs.rxSetup.isinput = false;
     defPrefs.txSetup.isinput = true;
     defPrefs.rxSetup.sampleRate = 48000;
+    defPrefs.txSetup.sampleRate = defPrefs.rxSetup.sampleRate;
     defPrefs.rxSetup.codec = 4;
     defPrefs.txSetup.codec = 4;
     defPrefs.rxSetup.resampleQuality = 4;
+    defPrefs.usbRxSetup = defPrefs.txSetup;
+    defPrefs.usbRxSetup.isinput = true;
+    defPrefs.usbTxSetup = defPrefs.rxSetup;
+    defPrefs.usbTxSetup.isinput = false;
 
     // Cluster
     defPrefs.clusterUdpEnable = false;
@@ -1865,6 +1955,8 @@ void SettingsController::refreshAudioDevices()
 
     prefs.rxSetup.type = prefs.audioSystem;
     prefs.txSetup.type = prefs.audioSystem;
+    prefs.usbRxSetup.type = prefs.audioSystem;
+    prefs.usbTxSetup.type = prefs.audioSystem;
 
     const int input = audioDev->findInput(QStringLiteral("Client"), prefs.txSetup.name, true);
     if (input >= 0) {
@@ -1897,6 +1989,32 @@ void SettingsController::refreshAudioDevices()
         updateOptionInMap(QStringLiteral("UDP.RxAudio"), prefs.rxSetup.name);
         qWarning(logAudio()) << "No valid audio output device found after audio system change";
     }
+
+    const int radioInput = audioDev->findInput(QStringLiteral("Radio"), prefs.usbRxSetup.name, false);
+    if (radioInput >= 0) {
+        if (prefs.audioSystem == qtAudio)
+            prefs.usbRxSetup.port = audioDev->getInputDeviceInfo(radioInput);
+        else
+            prefs.usbRxSetup.portInt = audioDev->getInputDeviceInt(radioInput);
+        prefs.usbRxSetup.name = audioDev->getInputName(radioInput);
+    } else {
+        prefs.usbRxSetup.port = {};
+        prefs.usbRxSetup.portInt = -1;
+    }
+    updateOptionInMap(QStringLiteral("Radio.USBAudioRXInput"), prefs.usbRxSetup.name);
+
+    const int radioOutput = audioDev->findOutput(QStringLiteral("Radio"), prefs.usbTxSetup.name, false);
+    if (radioOutput >= 0) {
+        if (prefs.audioSystem == qtAudio)
+            prefs.usbTxSetup.port = audioDev->getOutputDeviceInfo(radioOutput);
+        else
+            prefs.usbTxSetup.portInt = audioDev->getOutputDeviceInt(radioOutput);
+        prefs.usbTxSetup.name = audioDev->getOutputName(radioOutput);
+    } else {
+        prefs.usbTxSetup.port = {};
+        prefs.usbTxSetup.portInt = -1;
+    }
+    updateOptionInMap(QStringLiteral("Radio.USBAudioTXOutput"), prefs.usbTxSetup.name);
 
     buildUiSpecs();
 }
@@ -2239,6 +2357,47 @@ void SettingsController::buildBindings()
                     refreshAudioDevices();
                     emit raChanged(prefRaItems(prefRaItem::ra_audioSystem));
                 });
+
+    WF_BOOL("Radio.EnableUSBAudio", prefs.enableUsbAudio,
+            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_usbAudio)); });
+
+    WF_BIND("Radio.USBAudioRXInput", QVariant(prefs.usbRxSetup.name), {
+        const QString name = _v.toString();
+        if (prefs.usbRxSetup.name == name)
+            return false;
+        prefs.usbRxSetup.name = name;
+        const int index = audioDev ? audioDev->findInput(QStringLiteral("Radio"), name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.usbRxSetup.port = audioDev->getInputDeviceInfo(index);
+            else
+                prefs.usbRxSetup.portInt = audioDev->getInputDeviceInt(index);
+            prefs.usbRxSetup.name = audioDev->getInputName(index);
+        } else {
+            prefs.usbRxSetup.port = {};
+            prefs.usbRxSetup.portInt = -1;
+        }
+        return true;
+    }, [this](){ emit raChanged(prefRaItems(prefRaItem::ra_usbAudioRx)); });
+
+    WF_BIND("Radio.USBAudioTXOutput", QVariant(prefs.usbTxSetup.name), {
+        const QString name = _v.toString();
+        if (prefs.usbTxSetup.name == name)
+            return false;
+        prefs.usbTxSetup.name = name;
+        const int index = audioDev ? audioDev->findOutput(QStringLiteral("Radio"), name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.usbTxSetup.port = audioDev->getOutputDeviceInfo(index);
+            else
+                prefs.usbTxSetup.portInt = audioDev->getOutputDeviceInt(index);
+            prefs.usbTxSetup.name = audioDev->getOutputName(index);
+        } else {
+            prefs.usbTxSetup.port = {};
+            prefs.usbTxSetup.portInt = -1;
+        }
+        return true;
+    }, [this](){ emit raChanged(prefRaItems(prefRaItem::ra_usbAudioTx)); });
 
     // -------------------------
     // Interface group (IF) - common ones

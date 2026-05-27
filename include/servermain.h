@@ -207,6 +207,7 @@ private:
     void startWfShareStation();
     void flushWfShareTxBuffer();
     void ensureWfShareRxAudio(RIGCONFIG *radio);
+    void ensureWfShareTxAudio(RIGCONFIG *radio);
     void sendWfShareAudio(const audioPacket &packet);
     void setInitialTiming();
     void getSettingsFilePath(QString settingsFile);

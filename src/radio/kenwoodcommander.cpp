@@ -561,14 +561,7 @@ void kenwoodCommander::parseData(QByteArray data)
             value.setValue<bool>(d.at(0) - NUMTOASCII);
             break;
         case funcAfGain:
-            if (!usingNativeLAN)
-            {
-                value.setValue<uchar>(d.toUShort());
-            }
-            else
-            {
-                continue;
-            }
+            value.setValue<uchar>(d.toUShort());
             break;
         case funcBreakIn:
             value.setValue<uchar>(d.toUShort());
@@ -1081,12 +1074,6 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
         val = INT_MIN;
     }
 
-    if (func == funcAfGain && value.isValid() && usingNativeLAN) {
-        // Ignore the AF Gain command, just queue it for processing
-        emit haveSetVolume(static_cast<uchar>(value.toInt()));
-        queue->receiveValue(func,value,false);
-        return;
-    }
     if (value.isValid() && (func == funcRitFreq || func == funcXitFreq))
     {
         // There is no command to directly set the RIT, only up or down commands.

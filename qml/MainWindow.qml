@@ -856,15 +856,16 @@ ApplicationWindow {
                         spacing: 10
 
                         ColumnLayout {
+                            enabled: MainController.localAudioAvailable
                             Slider {
                                 id: volumeSlider
                                 from: 0
                                 to: 255
-                                value: firstReceiver ? firstReceiver.afGain : 0
-                                enabled: firstReceiver !== null
+                                value: MainController.localAfGain
+                                enabled: MainController.localAudioAvailable
                                 orientation: Qt.Vertical
                                 Layout.preferredHeight: 120
-                                onMoved: if (firstReceiver) firstReceiver.afGain = Math.round(value)
+                                onMoved: MainController.localAfGain = Math.round(value)
 
                                 HoverHandler { id: hoverVolume }
                                 ToolTip.visible: hoverVolume.hovered

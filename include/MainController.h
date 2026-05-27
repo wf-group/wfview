@@ -28,6 +28,7 @@
 #include "SettingsController.h"
 #include "txaudioprocessor.h"
 #include "rxaudioprocessor.h"
+#include "audiohandler.h"
 
 class MainController : public QObject {
     Q_OBJECT
@@ -64,6 +65,8 @@ public:
 
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)    
     Q_PROPERTY(int txPower READ txPower WRITE setTxPower NOTIFY txPowerChanged)
+    Q_PROPERTY(int localAfGain READ localAfGain WRITE setLocalAfGain NOTIFY localAfGainChanged)
+    Q_PROPERTY(bool localAudioAvailable READ localAudioAvailable NOTIFY localAudioAvailableChanged)
     Q_PROPERTY(int monitorGain READ monitorGain WRITE setMonitorGain NOTIFY monitorGainChanged)
     Q_PROPERTY(bool monitorEnabled READ monitorEnabled WRITE setMonitorEnabled NOTIFY monitorEnabledChanged)
     Q_PROPERTY(int micGain READ micGain WRITE setMicGain NOTIFY micGainChanged)
@@ -156,6 +159,7 @@ public:
         if (c != connStatus) {
             connStatus =c;
             emit connStatusChanged();
+            emit localAudioAvailableChanged();
         }
     }
 
@@ -163,6 +167,8 @@ public:
     void setStepSize(quint64 s);
     QVariantMap getUiSpecs() const { return uiSpecs; }
     int txPower() const { return m_txPower; }
+    int localAfGain() const { return prefs ? int(prefs->localAFgain) : 0; }
+    bool localAudioAvailable() const;
     int monitorGain() const { return m_monitorGain; }
     bool monitorEnabled() const { return m_monitorEnabled; }
     int micGain() const { return m_micGain; }
@@ -234,6 +240,7 @@ public:
 
 public slots:
     void setTxPower(int value);
+    void setLocalAfGain(int value);
     void setMonitorGain(int value);
     void setMonitorEnabled(bool enabled);
     void setMicGain(int value);
@@ -262,6 +269,7 @@ signals:
                               QString username, QString password, QString calledNumber,
                               audioSetup rxSetup, audioSetup txSetup);
     void sendCloseComm();
+    void sendLocalAudioVolume(quint8 level);
 
     void setCIVAddr(quint16 newRigCIVAddr);
     void setRigID(quint16 rigID);
@@ -288,6 +296,8 @@ signals:
     void audioProcessingBlocksChanged(quint64 txBlocks, quint64 rxBlocks);
     void audioProcessingSpectrumStateChanged(bool txEnabled, bool rxEnabled);
     void txPowerChanged();
+    void localAfGainChanged();
+    void localAudioAvailableChanged();
     void monitorGainChanged();
     void monitorEnabledChanged();
     void micGainChanged();
@@ -377,6 +387,10 @@ private:
     void stopRigCtlServer();
     void setupTciServer();
     void stopTciServer();
+    void setupUsbAudioBridge();
+    void stopUsbAudioBridge();
+    audioHandlerBase* createAudioHandler(const audioSetup& setup);
+    void disposeAudioHandler(audioHandlerBase*& handler, QThread*& thread);
 
 
     QString windowTitle = "wfview";
@@ -410,6 +424,14 @@ private:
     QThread* rigThread = nullptr;
     TxAudioProcessor* txProc = nullptr;
     RxAudioProcessor* rxProc = nullptr;
+    audioHandlerBase* usbRadioRxAudio = nullptr;
+    QThread* usbRadioRxThread = nullptr;
+    audioHandlerBase* usbRxOutputAudio = nullptr;
+    QThread* usbRxOutputThread = nullptr;
+    audioHandlerBase* usbTxInputAudio = nullptr;
+    QThread* usbTxInputThread = nullptr;
+    audioHandlerBase* usbRadioTxAudio = nullptr;
+    QThread* usbRadioTxThread = nullptr;
     double m_txAudioInputLevel = 0.0;
     double m_txAudioOutputLevel = 0.0;
     double m_txAudioGainReduction = 0.0;

@@ -66,6 +66,7 @@ public slots:
     virtual void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                                   QString username, QString password, QString calledNumber,
                                   audioSetup rxSetup, audioSetup txSetup);
+    virtual void setLocalAudioVolume(quint8 level) { emit haveSetVolume(level); }
     virtual void closeComm();
 
     virtual void setPTTType(pttType_t ptt);

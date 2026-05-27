@@ -216,7 +216,6 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
                                      quint16 port, QString username, QString password, QString calledNumber,
                                      audioSetup rxSetup, audioSetup txSetup)
 {
-    Q_UNUSED(txSetup)
     this->rigList = rigList;
     civAddr = rigCivAddr;
     usingNativeLAN = false;
@@ -224,6 +223,12 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     wfShareRxSetup.codec = 0x40;
     wfShareRxSetup.sampleRate = 16000;
     wfShareRxSetup.isinput = false;
+    wfShareTxSetup = txSetup;
+    wfShareTxSetup.codec = 0x40;
+    wfShareTxSetup.sampleRate = 16000;
+    wfShareTxSetup.isinput = true;
+    wfShareTxSetup.latency = txSetup.latency == 0 ? quint16(150) : txSetup.latency;
+    memcpy(wfShareTxSetup.guid, guid, GUIDLEN);
     wfShareStats = IaxStats();
     wfShareStatus = networkStatus();
 
@@ -243,6 +248,9 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     connect(wfShareTransport, &RadioTransport::streamReceived, this, [this](RadioTransportChannel channel, QByteArray data) {
         if (channel == RadioTransportChannel::Civ || channel == RadioTransportChannel::Scope) {
             handleNewData(data);
+            if (haveRigCaps && rigCaps.hasTransmit) {
+                startWfShareTxAudio();
+            }
         } else if (channel == RadioTransportChannel::AudioRx) {
             if (!haveRigCaps) {
                 return;
@@ -306,6 +314,9 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     connect(wfShareTransport, &RadioTransport::connectedChanged, this, [this](bool connected) {
         if (connected) {
             qInfo(logRig()) << "wfshare CI-V transport connected";
+            if (haveRigCaps && rigCaps.hasTransmit) {
+                startWfShareTxAudio();
+            }
             QMetaObject::invokeMethod(this, [this]() {
                 commonSetup();
             }, Qt::QueuedConnection);
@@ -327,6 +338,80 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     endpoint.password = password;
     endpoint.options.insert(QStringLiteral("calledNumber"), calledNumber);
     wfShareTransport->connectTransport(endpoint);
+}
+
+void icomCommander::setLocalAudioVolume(quint8 level)
+{
+    if (udp != nullptr) {
+        emit haveSetVolume(level);
+    }
+
+    if (wfShareTransport != nullptr) {
+        wfShareRxSetup.localAFgain = level;
+        if (wfShareRxAudio != nullptr) {
+            QMetaObject::invokeMethod(wfShareRxAudio, "setVolume",
+                                      Qt::QueuedConnection, Q_ARG(quint8, level));
+        }
+    }
+}
+
+void icomCommander::startWfShareTxAudio()
+{
+    if (wfShareTxAudio != nullptr || wfShareTxSetup.sampleRate == 0 ||
+        !haveRigCaps || !rigCaps.hasTransmit) {
+        return;
+    }
+
+    if (wfShareTxSetup.type == qtAudio) {
+        wfShareTxAudio = new audioHandlerQtInput();
+    } else if (wfShareTxSetup.type == portAudio) {
+        wfShareTxAudio = new audioHandlerPaInput();
+    } else if (wfShareTxSetup.type == rtAudio) {
+        wfShareTxAudio = new audioHandlerRtInput();
+    } else {
+        qCritical(logAudio()) << "Unsupported wfshare transmit audio handler selected" << wfShareTxSetup.type;
+        return;
+    }
+
+    wfShareTxAudioThread = new QThread(this);
+    wfShareTxAudioThread->setObjectName(QStringLiteral("wfshareTxAudio()"));
+    wfShareTxAudio->moveToThread(wfShareTxAudioThread);
+    wfShareTxAudioThread->start(QThread::TimeCriticalPriority);
+    connect(wfShareTxAudioThread, SIGNAL(finished()), wfShareTxAudio, SLOT(deleteLater()));
+    connect(wfShareTxAudio, &audioHandlerBase::haveAudioData, this, [this](const audioPacket &packet) {
+        if (wfShareTransport == nullptr || !wfShareTransport->isConnected()) {
+            return;
+        }
+
+        wfShareAudioTxFrames++;
+        if (wfShareAudioTxFrames <= 10 || wfShareAudioTxFrames % 250 == 0) {
+            qDebug(logRig()).noquote()
+                << QStringLiteral("wfshare sent TX audio frame %1 bytes %2")
+                       .arg(wfShareAudioTxFrames)
+                       .arg(packet.data.size());
+        }
+        wfShareTransport->sendStream(RadioTransportChannel::AudioTx, audioPacketCodec::encode(packet));
+    });
+    connect(wfShareTxAudio, &audioHandlerBase::haveLevels, this,
+            [this](quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current,
+                   bool under, bool over) {
+                Q_UNUSED(amplitudeRMS)
+                wfShareStatus.txAudioLevel = quint8(qMin<quint16>(amplitudePeak, 255));
+                wfShareStatus.txLatency = latency;
+                wfShareStatus.txCurrentLatency = qint16(current);
+                wfShareStatus.txUnderrun = under;
+                wfShareStatus.txOverrun = over;
+                applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
+                emit haveStatusUpdate(wfShareStatus);
+            });
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+    QMetaObject::invokeMethod(wfShareTxAudio, [this]() {
+        wfShareTxAudio->init(wfShareTxSetup);
+    }, Qt::QueuedConnection);
+#else
+    QMetaObject::invokeMethod(wfShareTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, wfShareTxSetup));
+#endif
 }
 
 void icomCommander::closeComm()
@@ -386,6 +471,28 @@ void icomCommander::closeWfShare()
         wfShareRxAudioThread = nullptr;
     }
     wfShareRxAudio = nullptr;
+
+    if (wfShareTxAudio != nullptr) {
+        disconnect(wfShareTxAudio, nullptr, this, nullptr);
+        if (wfShareTxAudioThread == nullptr ||
+            wfShareTxAudio->thread() == QThread::currentThread() ||
+            !wfShareTxAudioThread->isRunning()) {
+            wfShareTxAudio->dispose();
+        } else {
+            QMetaObject::invokeMethod(wfShareTxAudio, &audioHandlerBase::dispose,
+                                      Qt::BlockingQueuedConnection);
+        }
+    }
+
+    if (wfShareTxAudioThread != nullptr) {
+        wfShareTxAudioThread->quit();
+        wfShareTxAudioThread->wait();
+        delete wfShareTxAudioThread;
+        wfShareTxAudioThread = nullptr;
+    }
+    wfShareTxAudio = nullptr;
+    wfShareAudioRxFrames = 0;
+    wfShareAudioTxFrames = 0;
     wfShareStats = IaxStats();
     wfShareStatus = networkStatus();
 }
@@ -1148,15 +1255,8 @@ void icomCommander::parseCommand()
     // Register 13 (speech) has no get values
     // Register 14 (levels) starts here:
     }
-    case funcAfGain:        
-        if (udp == nullptr) {
-            value.setValue(bcdHexToUChar(payloadIn.at(0),payloadIn.at(1)));
-        }
-        else
-        {
-            // Network connected, so ignore!
-            return;
-        }
+    case funcAfGain:
+        value.setValue(bcdHexToUChar(payloadIn.at(0),payloadIn.at(1)));
         break;
     // The following group are 2 bytes converted to uchar (0-255) but require special processing
     case funcKeySpeed: {
@@ -1757,6 +1857,8 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
     else
         d = mainScopeData;
 
+    d.valid = false;
+
     // Here is what to expect:
     // payloadIn[00] = '\x27';
     // payloadIn[01] = '\x00';
@@ -1795,6 +1897,7 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
     d.receiver = receiver;
     quint8 sequence = bcdHexToUChar(payloadIn.at(0));
     quint8 sequenceMax = bcdHexToUChar(payloadIn.at(1));
+    quint8 &nextSequence = receiver ? subScopeNextSequence : mainScopeNextSequence;
 
     int freqLen = 5;
     // M0VSE THIS SHOULD BE FIXED, BUT NOT SURE HOW AS WE DON'T KNOW WHICH BAND WE ARE ON?
@@ -1834,6 +1937,7 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
 
         // clear wave information
         d.data.clear();
+        nextSequence = (sequence < sequenceMax) ? quint8(sequence + 1) : 0;
 
         // For Fixed, and both scroll modes, the following produces correct information:
         fStart = parseFreqData(payloadIn.mid(3,freqLen),receiver);
@@ -1858,26 +1962,65 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
     }
     else if ((sequence > 1) && (sequence < sequenceMax))
     {
+        if (d.startFreq <= 0.0 || d.endFreq <= d.startFreq || nextSequence != sequence) {
+            qDebug(logRig()) << "Ignoring Icom scope section without preceding wave information"
+                              << "receiver" << receiver
+                              << "sequence" << sequence
+                              << "of" << sequenceMax
+                              << "expected" << nextSequence;
+            d.data.clear();
+            nextSequence = 0;
+            return false;
+        }
+
         // spectrum from index 05 to index 54, length is 55 per segment. Length is 56 total. Pixel data is 50 pixels.
         // sequence numbers 2 through 10, 50 pixels each. Total after sequence 10 is 450 pixels.
         d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
+        nextSequence = quint8(sequence + 1);
         ret = false;
         //qInfo(logRig()) << "sequence: " << sequence << "spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
     } else if (sequence == sequenceMax)
     {
+        if (d.startFreq <= 0.0 || d.endFreq <= d.startFreq || nextSequence != sequence) {
+            qDebug(logRig()) << "Ignoring final Icom scope section without preceding wave information"
+                              << "receiver" << receiver
+                              << "sequence" << sequence
+                              << "of" << sequenceMax
+                              << "expected" << nextSequence;
+            d.data.clear();
+            nextSequence = 0;
+            return false;
+        }
+
         // last spectrum, a little bit different (last 25 pixels). Total at end is 475 pixels (7300).
         d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
         ret = true;
+        nextSequence = 0;
         //qInfo(logRig()) << "sequence: " << sequence << " spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
     }
+
+    if (ret && !d.oor && rigCaps.spectLenMax > 0 && d.data.size() != rigCaps.spectLenMax) {
+        qWarning(logRig()) << "Ignoring incomplete Icom scope frame"
+                           << "receiver" << receiver
+                           << "sequence" << sequence
+                           << "of" << sequenceMax
+                           << "bytes" << d.data.size()
+                           << "expected" << rigCaps.spectLenMax;
+        d.data.clear();
+        nextSequence = 0;
+        ret = false;
+    }
+
     d.valid=ret;
 
     if (!ret) {
         // We need to temporarilly store the scope data somewhere.
-        if (receiver)
-            subScopeData = d;
-        else
-            mainScopeData = d;
+        if (sequence < sequenceMax && (sequence == 1 || !d.data.isEmpty())) {
+            if (receiver)
+                subScopeData = d;
+            else
+                mainScopeData = d;
+        }
     }
     return ret;
 }
@@ -2670,22 +2813,6 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             qDebug(logRig()) << "Memory Command" << funcString[func] << "with valuetype "  << QString(value.typeName());
             val = val & 0xffff;
         }
-    }
-
-    if (func == funcAfGain && value.isValid() && (udp != nullptr || wfShareTransport != nullptr)) {
-        // Network audio uses local output gain rather than sending AF Gain to the radio.
-        const auto volume = static_cast<uchar>(value.toInt());
-        if (udp != nullptr) {
-            emit haveSetVolume(volume);
-        }
-        if (wfShareTransport != nullptr) {
-            wfShareRxSetup.localAFgain = volume;
-            if (wfShareRxAudio != nullptr) {
-                QMetaObject::invokeMethod(wfShareRxAudio, "setVolume", Qt::QueuedConnection, Q_ARG(quint8, volume));
-            }
-        }
-        queue->receiveValue(func,value,false);
-        return;
     }
 
     // Need to work out what to do with older dual-VFO rigs.

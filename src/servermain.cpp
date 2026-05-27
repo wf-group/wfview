@@ -576,6 +576,57 @@ void servermain::sendWfShareAudio(const audioPacket &packet)
     wfShareStation->sendPayload(radioTransportFrame::encode(frame), false);
 }
 
+void servermain::ensureWfShareTxAudio(RIGCONFIG *radio)
+{
+    if ((!prefs.wfShareEnabled && !prefs.wfShareDirectEnabled) || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (radio->rigCaps == Q_NULLPTR || !radio->rigCaps->hasTransmit) {
+        return;
+    }
+
+    if (radio->txaudio != Q_NULLPTR) {
+        return;
+    }
+
+    radio->txAudioSetup.codec = 0x40;
+    radio->txAudioSetup.sampleRate = 16000;
+    radio->txAudioSetup.latency = radio->txAudioSetup.latency == 0 ? quint16(150) : radio->txAudioSetup.latency;
+    radio->txAudioSetup.isinput = false;
+    memcpy(radio->txAudioSetup.guid, radio->guid, GUIDLEN);
+
+    qInfo(logAudio()) << "Starting wfshare TX audio output"
+                      << "device" << radio->txAudioSetup.name
+                      << "codec" << radio->txAudioSetup.codec
+                      << "sampleRate" << radio->txAudioSetup.sampleRate;
+
+    if (radio->txAudioSetup.type == qtAudio) {
+        radio->txaudio = new audioHandlerQtOutput();
+    } else if (radio->txAudioSetup.type == portAudio) {
+        radio->txaudio = new audioHandlerPaOutput();
+    } else if (radio->txAudioSetup.type == rtAudio) {
+        radio->txaudio = new audioHandlerRtOutput();
+    } else {
+        qCritical(logAudio()) << "Unsupported wfshare transmit audio handler selected" << radio->txAudioSetup.type;
+        return;
+    }
+
+    radio->txAudioThread = new QThread(this);
+    radio->txAudioThread->setObjectName(QStringLiteral("wfshareTxAudio()"));
+    radio->txaudio->moveToThread(radio->txAudioThread);
+    radio->txAudioThread->start(QThread::TimeCriticalPriority);
+    connect(radio->txAudioThread, SIGNAL(finished()), radio->txaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+    QMetaObject::invokeMethod(radio->txaudio, [radio]() {
+        radio->txaudio->init(radio->txAudioSetup);
+    }, Qt::QueuedConnection);
+#else
+    QMetaObject::invokeMethod(radio->txaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->txAudioSetup));
+#endif
+}
+
 void servermain::startWfShareStation()
 {
     if (wfShareStation != Q_NULLPTR) {
@@ -629,6 +680,34 @@ void servermain::startWfShareStation()
         radioTransportFrame::Frame frame;
         if (radioTransportFrame::decode(payload, &frame) != radioTransportFrame::DecodeOk) {
             qWarning(logSystem()) << "wfshare station received invalid transport frame";
+            return;
+        }
+
+        if (frame.channel == RadioTransportChannel::AudioTx) {
+            audioPacket packet;
+            if (!audioPacketCodec::decode(frame.payload, &packet)) {
+                qWarning(logSystem()) << "wfshare station received invalid TX audio packet";
+                return;
+            }
+
+            if (serverConfig.rigs.isEmpty()) {
+                qWarning(logSystem()) << "wfshare station received TX audio but no rig is available";
+                return;
+            }
+
+            RIGCONFIG *radio = serverConfig.rigs.first();
+            for (RIGCONFIG *candidate : serverConfig.rigs) {
+                if (candidate != Q_NULLPTR && !memcmp(candidate->guid, packet.guid, GUIDLEN)) {
+                    radio = candidate;
+                    break;
+                }
+            }
+
+            ensureWfShareTxAudio(radio);
+            if (radio->txaudio != Q_NULLPTR) {
+                QMetaObject::invokeMethod(radio->txaudio, "incomingAudio",
+                                          Qt::QueuedConnection, Q_ARG(audioPacket, packet));
+            }
             return;
         }
 

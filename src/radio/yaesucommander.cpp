@@ -819,14 +819,7 @@ void yaesuCommander::parseData(QByteArray data)
             value.setValue<bool>(d.mid(0,1).toUShort());
             break;
         case funcAfGain:
-            if (!usingNativeLAN)
-            {
-                value.setValue<uchar>(d.toUShort());
-            }
-            else
-            {
-                continue;
-            }
+            value.setValue<uchar>(d.toUShort());
             break;
         case funcBreakIn:
             value.setValue<uchar>(d.toUShort());
@@ -1294,18 +1287,6 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
     //qInfo() << "requested command:" << funcString[func];
 
     funcType cmd = getCommand(func,payload,val,receiver);
-
-    if (func == funcAfGain && value.isValid() && usingNativeLAN) {
-        // Ignore the AF Gain command, just queue it for processing
-        double val = value.toInt();
-        if (cmd.cmd != funcNone) {
-            val = (255.0/cmd.maxVal) * value.toInt();
-        }
-        qDebug(logRig()) << "Setting volume level (0-255):" << static_cast<uchar>(val);
-        emit haveSetVolume(static_cast<uchar>(val));
-        queue->receiveValue(func,value,false);
-        return;
-    }
 
     if (cmd.cmd != funcNone) {
         if (value.isValid())

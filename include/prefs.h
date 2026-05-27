@@ -124,6 +124,9 @@ enum prefRaItem {
     ra_localAFgain = 1 << 8,
     ra_audioSystem = 1 << 9,
     ra_manufacturer = 1 << 10,
+    ra_usbAudio = 1 << 11,
+    ra_usbAudioRx = 1 << 12,
+    ra_usbAudioTx = 1 << 13,
     ra_all = ~0
 };
 
@@ -306,6 +309,9 @@ struct preferences {
     QString virtualSerialPort;
     quint8 localAFgain;
     audioType audioSystem;
+    bool enableUsbAudio = false;
+    audioSetup usbRxSetup;
+    audioSetup usbTxSetup;
 
     // Controls:
     bool enablePTT;

@@ -974,6 +974,45 @@ void MainController::setTxPower(int value)
     }
 }
 
+bool MainController::localAudioAvailable() const
+{
+    if (!prefs)
+        return false;
+
+    if (connStatus != connectionStatus_t::connConnected)
+        return false;
+
+    if (prefs->enableLAN || prefs->wfShareEnabled)
+        return !prefs->rxSetup.name.isEmpty();
+
+    if (prefs->enableUsbAudio)
+        return !prefs->usbRxSetup.name.isEmpty() && !prefs->rxSetup.name.isEmpty() &&
+               prefs->audioSystem != tciAudio;
+
+    return false;
+}
+
+void MainController::setLocalAfGain(int value)
+{
+    const quint8 gain = static_cast<quint8>(qBound(0, value, 255));
+
+    if (prefs && (prefs->localAFgain != gain || prefs->rxSetup.localAFgain != gain)) {
+        prefs->localAFgain = gain;
+        prefs->rxSetup.localAFgain = gain;
+        emit localAfGainChanged();
+        if (m_settings) {
+            m_settings->saveLocalAFGain(gain);
+        }
+    }
+
+    if (usbRxOutputAudio) {
+        QMetaObject::invokeMethod(usbRxOutputAudio, "setVolume",
+                                  Qt::QueuedConnection, Q_ARG(quint8, gain));
+    }
+
+    emit sendLocalAudioVolume(gain);
+}
+
 void MainController::setMonitorGain(int value)
 {
     if (rigCaps && rigCaps->commands.contains(funcMonitorGain)) {
@@ -1118,12 +1157,146 @@ void MainController::setVoxEnabled(bool enabled)
     }
 }
 
+audioHandlerBase* MainController::createAudioHandler(const audioSetup& setup)
+{
+    switch (setup.type) {
+    case qtAudio:
+        return setup.isinput ? static_cast<audioHandlerBase*>(new audioHandlerQtInput())
+                             : static_cast<audioHandlerBase*>(new audioHandlerQtOutput());
+    case portAudio:
+        return setup.isinput ? static_cast<audioHandlerBase*>(new audioHandlerPaInput())
+                             : static_cast<audioHandlerBase*>(new audioHandlerPaOutput());
+    case rtAudio:
+        return setup.isinput ? static_cast<audioHandlerBase*>(new audioHandlerRtInput())
+                             : static_cast<audioHandlerBase*>(new audioHandlerRtOutput());
+    case tciAudio:
+        qWarning(logAudio()) << "TCI audio cannot be used for local USB audio bridge devices";
+        return nullptr;
+    default:
+        qWarning(logAudio()) << "Unsupported audio system for USB audio bridge" << setup.type;
+        return nullptr;
+    }
+}
+
+void MainController::disposeAudioHandler(audioHandlerBase*& handler, QThread*& thread)
+{
+    if (handler) {
+        QMetaObject::invokeMethod(handler, &audioHandlerBase::dispose,
+                                  handler->thread() == QThread::currentThread()
+                                      ? Qt::DirectConnection
+                                      : Qt::BlockingQueuedConnection);
+    }
+
+    if (thread) {
+        thread->quit();
+        thread->wait();
+    }
+
+    handler = nullptr;
+    thread = nullptr;
+}
+
+void MainController::setupUsbAudioBridge()
+{
+    stopUsbAudioBridge();
+
+    if (!prefs || prefs->enableLAN || prefs->wfShareEnabled || !prefs->enableUsbAudio)
+        return;
+
+    if (prefs->usbRxSetup.name.isEmpty() && prefs->usbTxSetup.name.isEmpty()) {
+        qWarning(logAudio()) << "USB audio enabled but no radio USB audio devices are configured";
+        return;
+    }
+
+    auto startHandler = [this](audioHandlerBase*& handler, QThread*& thread, const audioSetup& setup, const QString& name) {
+        handler = createAudioHandler(setup);
+        if (!handler)
+            return false;
+
+        thread = new QThread(this);
+        thread->setObjectName(name);
+        handler->moveToThread(thread);
+        connect(thread, &QThread::finished, handler, &QObject::deleteLater);
+        thread->start(QThread::TimeCriticalPriority);
+        QMetaObject::invokeMethod(handler, "init", Qt::QueuedConnection, Q_ARG(audioSetup, setup));
+        return true;
+    };
+
+    const bool haveRx = !prefs->usbRxSetup.name.isEmpty() && !prefs->rxSetup.name.isEmpty();
+    if (haveRx) {
+        audioSetup radioRx = prefs->usbRxSetup;
+        audioSetup localRx = prefs->rxSetup;
+        radioRx.type = prefs->audioSystem;
+        localRx.type = prefs->audioSystem;
+        radioRx.isinput = true;
+        localRx.isinput = false;
+        radioRx.codec = localRx.codec;
+        radioRx.sampleRate = localRx.sampleRate;
+        radioRx.latency = localRx.latency;
+        radioRx.blockSize = localRx.blockSize;
+        radioRx.resampleQuality = localRx.resampleQuality;
+        localRx.rxProc = prefs->rxSetup.rxProc;
+
+        if (startHandler(usbRadioRxAudio, usbRadioRxThread, radioRx, QStringLiteral("usbRadioRxAudio()")) &&
+            startHandler(usbRxOutputAudio, usbRxOutputThread, localRx, QStringLiteral("usbRxOutputAudio()"))) {
+            connect(usbRadioRxAudio, SIGNAL(haveAudioData(audioPacket)),
+                    usbRxOutputAudio, SLOT(incomingAudio(audioPacket)),
+                    Qt::QueuedConnection);
+            QMetaObject::invokeMethod(usbRxOutputAudio, "setVolume",
+                                      Qt::QueuedConnection, Q_ARG(quint8, prefs->localAFgain));
+            qInfo(logAudio()) << "USB radio RX audio bridge enabled:" << radioRx.name << "->" << localRx.name;
+        } else {
+            disposeAudioHandler(usbRadioRxAudio, usbRadioRxThread);
+            disposeAudioHandler(usbRxOutputAudio, usbRxOutputThread);
+        }
+    }
+
+    const bool rigCanTransmit = rigCaps && rigCaps->hasTransmit;
+    const bool haveTx = rigCanTransmit && !prefs->usbTxSetup.name.isEmpty() && !prefs->txSetup.name.isEmpty();
+    if (haveTx) {
+        audioSetup localTx = prefs->txSetup;
+        audioSetup radioTx = prefs->usbTxSetup;
+        localTx.type = prefs->audioSystem;
+        radioTx.type = prefs->audioSystem;
+        localTx.isinput = true;
+        radioTx.isinput = false;
+        radioTx.codec = localTx.codec;
+        radioTx.sampleRate = localTx.sampleRate;
+        radioTx.latency = localTx.latency;
+        radioTx.blockSize = localTx.blockSize;
+        radioTx.resampleQuality = localTx.resampleQuality;
+        localTx.txProc = prefs->txSetup.txProc;
+
+        if (startHandler(usbTxInputAudio, usbTxInputThread, localTx, QStringLiteral("usbTxInputAudio()")) &&
+            startHandler(usbRadioTxAudio, usbRadioTxThread, radioTx, QStringLiteral("usbRadioTxAudio()"))) {
+            connect(usbTxInputAudio, SIGNAL(haveAudioData(audioPacket)),
+                    usbRadioTxAudio, SLOT(incomingAudio(audioPacket)),
+                    Qt::QueuedConnection);
+            qInfo(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
+        } else {
+            disposeAudioHandler(usbTxInputAudio, usbTxInputThread);
+            disposeAudioHandler(usbRadioTxAudio, usbRadioTxThread);
+        }
+    }
+}
+
+void MainController::stopUsbAudioBridge()
+{
+    disposeAudioHandler(usbRadioRxAudio, usbRadioRxThread);
+    disposeAudioHandler(usbRxOutputAudio, usbRxOutputThread);
+    disposeAudioHandler(usbTxInputAudio, usbTxInputThread);
+    disposeAudioHandler(usbRadioTxAudio, usbRadioTxThread);
+    emit localAudioAvailableChanged();
+}
+
 
 
 void MainController::shutdown()
 {
     if (shuttingDown) return;
     shuttingDown = true;
+
+    stopUsbAudioBridge();
 
 #if defined(USB_CONTROLLER)
     stopUsbControllerDevice();
@@ -1140,6 +1313,7 @@ void MainController::shutdown()
     if (rigThread)
     {
         if (rig) {
+            stopUsbAudioBridge();
             QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
                                       rig->thread() == QThread::currentThread()
                                           ? Qt::DirectConnection
@@ -1247,6 +1421,8 @@ void MainController::raChanged(prefRaItems items)
     if (items.testFlag(prefRaItem::ra_audioSystem)) {
         prefs->rxSetup.type = prefs->audioSystem;
         prefs->txSetup.type = prefs->audioSystem;
+        prefs->usbRxSetup.type = prefs->audioSystem;
+        prefs->usbTxSetup.type = prefs->audioSystem;
 
         if (prefs->audioSystem == tciAudio) {
             setupTciServer();
@@ -1258,6 +1434,15 @@ void MainController::raChanged(prefRaItems items)
             prefs->rxSetup.tci = nullptr;
             prefs->txSetup.tci = nullptr;
         }
+    }
+
+    if (items.testFlag(prefRaItem::ra_usbAudio) ||
+        items.testFlag(prefRaItem::ra_usbAudioRx) ||
+        items.testFlag(prefRaItem::ra_usbAudioTx) ||
+        items.testFlag(prefRaItem::ra_audioSystem)) {
+        emit localAudioAvailableChanged();
+        if (connStatus == connectionStatus_t::connConnected && !prefs->enableLAN && !prefs->wfShareEnabled)
+            setupUsbAudioBridge();
     }
 }
 
@@ -1764,6 +1949,8 @@ void MainController::connectionHandler()
         openRigConnection();
     } else {
         // disconnect and delete
+        stopUsbAudioBridge();
+
         // Might as well empty both queue and cache, as both are now invalid.
         queue->clear();
         queue->clearCache();
@@ -1883,6 +2070,7 @@ void MainController::startRigConnection()
         connect(this, &MainController::sendNetworkCommSetup,rig,&rigCommander::networkCommSetup);
         connect(this, &MainController::sendSerialCommSetup,rig,&rigCommander::serialCommSetup);
         connect(this, &MainController::sendWfShareCommSetup, rig, &rigCommander::wfShareCommSetup);
+        connect(this, &MainController::sendLocalAudioVolume, rig, &rigCommander::setLocalAudioVolume);
 
         // This is the signal from rigCommander that we are connected and ready to start model detection.
         connect(rig, &rigCommander::commReady, this, &MainController::receiveCommReady);
@@ -2244,10 +2432,6 @@ void MainController::getInitialRigState()
     queue->add(priorityHigh,queueItem(funcFilterControlSSB,QVariant::fromValue<bool>(true),false,0));
     queue->add(priorityHigh,queueItem(funcFilterControlData,QVariant::fromValue<bool>(true),false,0));
 
-
-    // temporary, set AFGain.
-    queue->addUnique(priorityImmediate,queueItem(funcAfGain,QVariant::fromValue<ushort>(prefs->localAFgain),false,0));
-
 }
 
 void MainController::setAppTheme(bool isCustom)
@@ -2384,6 +2568,15 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
 
     emit receiverCountChanged();
     emit detachedChanged();
+
+    if (rigCaps && !prefs->enableLAN && !prefs->wfShareEnabled && prefs->enableUsbAudio) {
+        QTimer::singleShot(500, this, [this]() {
+            if (rigCaps && prefs && connStatus == connectionStatus_t::connConnected &&
+                !prefs->enableLAN && !prefs->wfShareEnabled && prefs->enableUsbAudio) {
+                setupUsbAudioBridge();
+            }
+        });
+    }
 
 
     /*
@@ -2613,8 +2806,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
 
         if(prefs->enableLAN || prefs->wfShareEnabled)
         {
-            ui->afGainSlider->setValue(prefs->localAFgain);
-            queue->receiveValue(funcAfGain,quint8(prefs->localAFgain),currentReceiver);
+            setLocalAfGain(prefs->localAFgain);
         } else {
             // If not network connected, select the requested PTT type.
             emit setPTTType(prefs->pttType);

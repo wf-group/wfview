@@ -403,6 +403,17 @@ void rigCommander::determineRigCaps()
                 }
             }
         }
+        if (rigCaps.commands.contains(funcAfGain)) {
+            rigCaps.periodic.erase(std::remove_if(rigCaps.periodic.begin(), rigCaps.periodic.end(),
+                                                  [](const periodicType &periodic) {
+                                                      return periodic.func == funcAfGain;
+                                                  }),
+                                   rigCaps.periodic.end());
+            rigCaps.periodic.append(periodicType(funcAfGain,
+                                                 QStringLiteral("Medium High"),
+                                                 priorityMap[QStringLiteral("Medium High")],
+                                                 -1));
+        }
         // Sort into a meaningful order
         std::sort(rigCaps.periodic.begin(), rigCaps.periodic.end(),
                   [](const periodicType &a, const periodicType &b) {

@@ -626,6 +626,7 @@ private:
         {funcDATA2Mod,"Medium High",0},
         {funcDATA3Mod,"Medium High",0},
         {funcRFPower,"Medium",0},
+        {funcAfGain,"Medium High",-1},
         {funcMonitorGain,"Medium Low",0},
         {funcMonitor,"Medium Low",0},
         {funcRfGain,"Medium",0},
