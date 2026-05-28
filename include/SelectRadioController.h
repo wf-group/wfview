@@ -54,6 +54,8 @@ class SelectRadioController : public QObject
     Q_OBJECT
     Q_PROPERTY(RadioTableModel* tableModel READ tableModel CONSTANT)
     Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
+    Q_PROPERTY(QString txAudioOwner READ txAudioOwner NOTIFY txAudioStateChanged)
+    Q_PROPERTY(QString txAudioSource READ txAudioSource NOTIFY txAudioStateChanged)
 
 public:
     explicit SelectRadioController(QObject* parent = nullptr);
@@ -61,9 +63,12 @@ public:
 
     RadioTableModel* tableModel() const { return m_tableModel; }
     bool visible() const { return m_visible; }
+    QString txAudioOwner() const { return m_txAudioOwner; }
+    QString txAudioSource() const { return m_txAudioSource; }
     void setVisible(bool visible);
 
     void populate(QList<radio_cap_packet> radios);
+    void setTxAudioState(const QString& owner, const QString& source);
 
     Q_INVOKABLE void audioOutputLevel(quint16 level);
     Q_INVOKABLE void audioInputLevel(quint16 level);
@@ -83,6 +88,7 @@ signals:
     void timeDifferencePointAdded(int counter, double time);
     void waterfallPointAdded(int counter, double time);
     void spectrumPointAdded(int counter, double time);
+    void txAudioStateChanged();
 
 private:
     RadioTableModel* m_tableModel;
@@ -91,6 +97,8 @@ private:
     int m_timeDifferenceCounter;
     int m_waterfallCounter;
     int m_spectrumCounter;
+    QString m_txAudioOwner;
+    QString m_txAudioSource;
 };
 
 #endif // SELECTRADIOCONTROLLER_H

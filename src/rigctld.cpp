@@ -1389,8 +1389,11 @@ int rigCtlClient::getCommand(QStringList& response, bool extended, const command
             return -RIG_EINVAL;
         }
 
-        if (rigCaps->commands.contains(func))
+        if (rigCaps->commands.contains(func)) {
             queue->add(priorityImmediate, queueItem(func, val,false,state.receiver));
+            if (func == funcTransceiverStatus)
+                emit parent->setPTT(val.toBool());
+        }
 
     } else {
         // Simple get command

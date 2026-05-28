@@ -39,10 +39,14 @@ void audioHandlerTciOutput::onConverted(audioPacket pkt)
     arrayBuffer.append(pkt.data);
     amplitude = pkt.amplitudePeak;
     currentLatency = 0;
-    if (arrayBuffer.length() >= qsizetype(TCI_AUDIO_LENGTH * sizeof(float))) {
+    const qsizetype packetBytes = qsizetype(TCI_AUDIO_SAMPLES * nativeFormat.channelCount() * sizeof(float));
+    if (arrayBuffer.length() >= packetBytes) {
         pkt.data.clear();
-        pkt.data = arrayBuffer.mid(0, qsizetype(TCI_AUDIO_LENGTH * sizeof(float)));
-        arrayBuffer.remove(0, qsizetype(TCI_AUDIO_LENGTH * sizeof(float)));
+        pkt.data = arrayBuffer.mid(0, packetBytes);
+        arrayBuffer.remove(0, packetBytes);
+        pkt.sampleRate = quint32(nativeFormat.sampleRate());
+        pkt.channels = quint8(nativeFormat.channelCount());
+        pkt.codec = 0;
         emit sendTCIAudio(pkt);
         emit haveLevels(pkt.amplitudePeak, quint16(pkt.amplitudeRMS*255.0f), setupData.latency, currentLatency.load(), isUnderrun.load(), isOverrun.load());
 

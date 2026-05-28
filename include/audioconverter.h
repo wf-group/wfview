@@ -49,9 +49,12 @@ struct audioPacket {
     quint16 sent;
     QByteArray data;
     quint8 guid[GUIDLEN];
-    float amplitudePeak;
-    float amplitudeRMS;
+    float amplitudePeak = 0.0f;
+    float amplitudeRMS = 0.0f;
     qreal volume = 1.0;
+    quint32 sampleRate = 0;
+    quint8 channels = 0;
+    quint8 codec = 0;
 };
 
 // Forward declarations

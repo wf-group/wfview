@@ -1,5 +1,7 @@
 #include "MainController.h"
 
+#include "audiohandlertciinput.h"
+#include "audiohandlertcioutput.h"
 #include "iaxclientsession.h"
 #include "logcategories.h"
 #include <QCoreApplication>
@@ -20,6 +22,40 @@ static QVariantList spectrumToVariantList(const QVector<double>& bins)
     for (double v : bins)
         out.append(v);
     return out;
+}
+
+static QString txAudioInputName(TxAudioInput input)
+{
+    switch (input) {
+    case TxAudioInput::None:
+        return QStringLiteral("none");
+    case TxAudioInput::LocalInput:
+        return QStringLiteral("local-input");
+    case TxAudioInput::WfShare:
+        return QStringLiteral("wfshare");
+    case TxAudioInput::Tci:
+        return QStringLiteral("tci");
+    }
+    return QStringLiteral("unknown");
+}
+
+static QString pttOriginName(PttOrigin origin)
+{
+    switch (origin) {
+    case PttOrigin::None:
+        return QStringLiteral("none");
+    case PttOrigin::Radio:
+        return QStringLiteral("radio");
+    case PttOrigin::Wfview:
+        return QStringLiteral("wfview");
+    case PttOrigin::ExternalCiv:
+        return QStringLiteral("external-civ");
+    case PttOrigin::RigCtl:
+        return QStringLiteral("rigctl");
+    case PttOrigin::Tci:
+        return QStringLiteral("tci");
+    }
+    return QStringLiteral("unknown");
 }
 
 MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
@@ -883,6 +919,20 @@ void MainController::setTransmit(bool enabled)
         return;
     }
 
+    if (enabled) {
+        const TxAudioInput source = txSourceForPttOrigin(PttOrigin::Wfview, currentAudioRoute());
+        if (source != TxAudioInput::None && !requestTxAudioOwnership(PttOrigin::Wfview, source)) {
+            qWarning(logAudio()) << "Ignoring wfview transmit request because another source owns TX audio";
+            return;
+        }
+        if (source == TxAudioInput::LocalInput)
+            setTxAudioSource(TxAudioInput::LocalInput);
+    } else {
+        if (releaseTxAudioOwnership(PttOrigin::Wfview) &&
+            currentAudioRoute().rxSource == RadioRxAudioSource::WfShare)
+            setTxAudioSource(TxAudioInput::None);
+    }
+
     if (m_transmitting != enabled) {
         m_transmitting = enabled;
         emit transmittingChanged();
@@ -976,20 +1026,7 @@ void MainController::setTxPower(int value)
 
 bool MainController::localAudioAvailable() const
 {
-    if (!prefs)
-        return false;
-
-    if (connStatus != connectionStatus_t::connConnected)
-        return false;
-
-    if (prefs->enableLAN || prefs->wfShareEnabled)
-        return !prefs->rxSetup.name.isEmpty();
-
-    if (prefs->enableUsbAudio)
-        return !prefs->usbRxSetup.name.isEmpty() && !prefs->rxSetup.name.isEmpty() &&
-               prefs->audioSystem != tciAudio;
-
-    return false;
+    return currentAudioRoute().localOutputEnabled;
 }
 
 void MainController::setLocalAfGain(int value)
@@ -1157,6 +1194,272 @@ void MainController::setVoxEnabled(bool enabled)
     }
 }
 
+AudioRouteState MainController::currentAudioRoute() const
+{
+    if (!prefs)
+        return AudioRouteState();
+
+    AudioRouteInputs inputs;
+    inputs.connected = connStatus == connectionStatus_t::connConnected;
+    inputs.rigCanTransmit = rigCaps && rigCaps->hasTransmit;
+    inputs.enableNetwork = prefs->enableLAN;
+    inputs.enableWfShare = prefs->wfShareEnabled;
+    inputs.wfShareDirectMode = prefs->wfShareDirectMode;
+    inputs.enableUsbAudio = prefs->enableUsbAudio;
+    inputs.hasLocalRxOutput = !prefs->rxSetup.name.isEmpty();
+    inputs.hasLocalTxInput = !prefs->txSetup.name.isEmpty();
+    inputs.hasUsbRadioRxInput = !prefs->usbRxSetup.name.isEmpty();
+    inputs.hasUsbRadioTxOutput = !prefs->usbTxSetup.name.isEmpty();
+    inputs.hasTciServer = tci != nullptr;
+    inputs.audioSystem = prefs->audioSystem;
+    return computeAudioRoute(inputs);
+}
+
+void MainController::updateAudioRouteState()
+{
+    const AudioRouteState route = currentAudioRoute();
+    if (route == m_audioRoute)
+        return;
+
+    m_audioRoute = route;
+    qDebug(logAudio()) << "Audio route changed:" << audioRouteDebugString(m_audioRoute);
+    emit localAudioAvailableChanged();
+}
+
+bool MainController::requestTxAudioOwnership(PttOrigin origin, TxAudioInput source)
+{
+    qDebug(logAudio()) << "TX audio ownership request origin"
+                       << pttOriginName(origin) << "source" << txAudioInputName(source)
+                       << "activeOrigin" << pttOriginName(m_txAudioArbiter.activeOrigin())
+                       << "activeSource" << txAudioInputName(m_txAudioArbiter.activeSource());
+
+    const bool accepted = m_txAudioArbiter.request(origin, source);
+    qDebug(logAudio()) << "TX audio ownership" << (accepted ? "granted" : "rejected")
+                       << "origin" << pttOriginName(origin)
+                       << "source" << txAudioInputName(source);
+    if (accepted) {
+        clearTxAudioInterlockError();
+    } else {
+        setTxAudioInterlockError(origin, source);
+    }
+    if (accepted && m_selRad)
+        m_selRad->setTxAudioState(pttOriginName(origin), txAudioInputName(source));
+    return accepted;
+}
+
+bool MainController::releaseTxAudioOwnership(PttOrigin origin)
+{
+    const TxAudioInput activeSource = m_txAudioArbiter.activeSource();
+    const bool released = m_txAudioArbiter.release(origin);
+    qDebug(logAudio()) << "TX audio ownership release"
+                       << (released ? "accepted" : "ignored")
+                       << "origin" << pttOriginName(origin)
+                       << "source" << txAudioInputName(activeSource);
+    if (released) {
+        clearTxAudioInterlockError();
+        if (m_selRad)
+            m_selRad->setTxAudioState("none", "none");
+    }
+    return released;
+}
+
+void MainController::resetTxAudioOwnership()
+{
+    if (m_txAudioArbiter.isActive()) {
+        qDebug(logAudio()) << "TX audio ownership reset origin"
+                           << pttOriginName(m_txAudioArbiter.activeOrigin())
+                           << "source" << txAudioInputName(m_txAudioArbiter.activeSource());
+    }
+    m_txAudioArbiter.reset();
+    setTxAudioSource(TxAudioInput::None);
+    clearTxAudioInterlockError();
+    if (m_selRad)
+        m_selRad->setTxAudioState("none", "none");
+}
+
+void MainController::setTxAudioInterlockError(PttOrigin requestedOrigin, TxAudioInput requestedSource)
+{
+    const QString message = QStringLiteral("ERROR: TX audio interlock: %1/%2 blocked by active %3/%4")
+                                .arg(pttOriginName(requestedOrigin),
+                                     txAudioInputName(requestedSource),
+                                     pttOriginName(m_txAudioArbiter.activeOrigin()),
+                                     txAudioInputName(m_txAudioArbiter.activeSource()));
+    qWarning(logAudio()) << message;
+    setFooterMessageText(message);
+}
+
+void MainController::clearTxAudioInterlockError()
+{
+    if (m_footerMessageText.startsWith(QStringLiteral("ERROR: TX audio interlock:")))
+        setFooterMessageText(QString());
+}
+
+void MainController::setRxAudioLevel(int level)
+{
+    const int bounded = qBound(0, level, 255);
+    if (m_rxAudioLevel == bounded)
+        return;
+
+    m_rxAudioLevel = bounded;
+    emit audioLevelsChanged();
+}
+
+void MainController::setTxAudioLevel(int level)
+{
+    const int bounded = qBound(0, level, 255);
+    if (m_txAudioLevel == bounded)
+        return;
+
+    m_txAudioLevel = bounded;
+    emit audioLevelsChanged();
+}
+
+void MainController::publishTxAudioDiagnosticLevel(const audioPacket& packet, TxAudioInput source)
+{
+    if (m_txAudioArbiter.isActive() && m_txAudioArbiter.activeSource() != source)
+        return;
+
+    const int level = qBound(0, qRound(packet.amplitudePeak * 255.0f), 255);
+    setTxAudioLevel(level);
+    if (m_selRad)
+        m_selRad->audioInputLevel(quint16(level));
+}
+
+void MainController::routeRxAudioToSinks(const audioPacket &packet)
+{
+    if (!tciRxOutputAudio)
+        return;
+
+    QMetaObject::invokeMethod(tciRxOutputAudio, "incomingAudio",
+                              Qt::QueuedConnection,
+                              Q_ARG(audioPacket, packet));
+}
+
+void MainController::routeLocalTxAudioToRadio(const audioPacket &packet)
+{
+    publishTxAudioDiagnosticLevel(packet, TxAudioInput::LocalInput);
+
+    const AudioRouteState route = currentAudioRoute();
+    if (!usbRadioTxAudio || !m_txAudioArbiter.accepts(TxAudioInput::LocalInput)) {
+        if ((route.rxSource != RadioRxAudioSource::WfShare &&
+             route.rxSource != RadioRxAudioSource::NativeNetwork) ||
+            m_txAudioArbiter.activeSource() != TxAudioInput::LocalInput)
+            return;
+    }
+
+    if (usbRadioTxAudio) {
+        QMetaObject::invokeMethod(usbRadioTxAudio, "incomingAudio",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(audioPacket, packet));
+    }
+
+    if ((route.rxSource == RadioRxAudioSource::WfShare ||
+         route.rxSource == RadioRxAudioSource::NativeNetwork) &&
+        m_txAudioArbiter.activeSource() == TxAudioInput::LocalInput) {
+        emit sendTxAudioToRig(packet);
+    }
+}
+
+void MainController::routeTciTxAudioToRadio(const audioPacket &packet)
+{
+    if (m_txAudioArbiter.activeSource() != TxAudioInput::Tci)
+        return;
+
+    publishTxAudioDiagnosticLevel(packet, TxAudioInput::Tci);
+
+    if (usbRadioTxAudio) {
+        QMetaObject::invokeMethod(usbRadioTxAudio, "incomingAudio",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(audioPacket, packet));
+    }
+
+    const AudioRouteState route = currentAudioRoute();
+    if (route.rxSource == RadioRxAudioSource::WfShare ||
+        route.rxSource == RadioRxAudioSource::NativeNetwork) {
+        emit sendTxAudioToRig(packet);
+    }
+}
+
+void MainController::handleTciTransmitRequested(bool transmit)
+{
+    if (transmit) {
+        if (!rigCaps || !rigCaps->hasTransmit) {
+            qWarning(logAudio()) << "Ignoring TCI transmit request because the current rig has no TX capability";
+            return;
+        }
+
+        if (!requestTxAudioOwnership(PttOrigin::Tci, TxAudioInput::Tci)) {
+            qWarning(logAudio()) << "Ignoring TCI transmit audio because another source owns TX audio";
+            return;
+        }
+
+        qInfo(logAudio()) << "TCI owns transmit audio source";
+        setTxAudioSource(TxAudioInput::Tci);
+        if (m_activeTxAudioSource != TxAudioInput::Tci) {
+            qWarning(logAudio()) << "TCI transmit audio source could not be started";
+            releaseTxAudioOwnership(PttOrigin::Tci);
+        }
+        return;
+    }
+
+    if (releaseTxAudioOwnership(PttOrigin::Tci)) {
+        qInfo(logAudio()) << "TCI released transmit audio source";
+        setTxAudioSource(currentAudioRoute().txInput == TxAudioInput::LocalInput
+                         ? TxAudioInput::LocalInput
+                         : TxAudioInput::None);
+    }
+}
+
+void MainController::handleRigCtlTransmitRequested(bool transmit)
+{
+    if (transmit) {
+        if (!rigCaps || !rigCaps->hasTransmit)
+            return;
+
+        const TxAudioInput source = txSourceForPttOrigin(PttOrigin::RigCtl, currentAudioRoute());
+        if (source == TxAudioInput::None)
+            return;
+
+        if (!requestTxAudioOwnership(PttOrigin::RigCtl, source)) {
+            qWarning(logAudio()) << "Ignoring rigctld transmit audio because another source owns TX audio";
+            return;
+        }
+
+        if (source == TxAudioInput::LocalInput)
+            setTxAudioSource(TxAudioInput::LocalInput);
+        return;
+    }
+
+    if (releaseTxAudioOwnership(PttOrigin::RigCtl) &&
+        currentAudioRoute().rxSource == RadioRxAudioSource::WfShare)
+        setTxAudioSource(TxAudioInput::None);
+}
+
+void MainController::handleExternalTransmitRequested(bool transmit)
+{
+    if (transmit) {
+        if (!rigCaps || !rigCaps->hasTransmit)
+            return;
+
+        const TxAudioInput source = txSourceForPttOrigin(PttOrigin::ExternalCiv, currentAudioRoute());
+        if (source == TxAudioInput::None)
+            return;
+
+        if (!requestTxAudioOwnership(PttOrigin::ExternalCiv, source)) {
+            qDebug(logAudio()) << "External PTT did not take TX audio ownership because another origin is active";
+            return;
+        }
+
+        if (source == TxAudioInput::LocalInput)
+            setTxAudioSource(TxAudioInput::LocalInput);
+        return;
+    }
+
+    if (releaseTxAudioOwnership(PttOrigin::ExternalCiv) &&
+        currentAudioRoute().rxSource == RadioRxAudioSource::WfShare)
+        setTxAudioSource(TxAudioInput::None);
+}
+
 audioHandlerBase* MainController::createAudioHandler(const audioSetup& setup)
 {
     switch (setup.type) {
@@ -1169,9 +1472,6 @@ audioHandlerBase* MainController::createAudioHandler(const audioSetup& setup)
     case rtAudio:
         return setup.isinput ? static_cast<audioHandlerBase*>(new audioHandlerRtInput())
                              : static_cast<audioHandlerBase*>(new audioHandlerRtOutput());
-    case tciAudio:
-        qWarning(logAudio()) << "TCI audio cannot be used for local USB audio bridge devices";
-        return nullptr;
     default:
         qWarning(logAudio()) << "Unsupported audio system for USB audio bridge" << setup.type;
         return nullptr;
@@ -1200,10 +1500,11 @@ void MainController::setupUsbAudioBridge()
 {
     stopUsbAudioBridge();
 
-    if (!prefs || prefs->enableLAN || prefs->wfShareEnabled || !prefs->enableUsbAudio)
+    const AudioRouteState route = currentAudioRoute();
+    if (!prefs || route.rxSource != RadioRxAudioSource::LocalUsb)
         return;
 
-    if (prefs->usbRxSetup.name.isEmpty() && prefs->usbTxSetup.name.isEmpty()) {
+    if (!route.usbRadioRxInputEnabled && !route.usbRadioTxOutputEnabled) {
         qWarning(logAudio()) << "USB audio enabled but no radio USB audio devices are configured";
         return;
     }
@@ -1222,7 +1523,7 @@ void MainController::setupUsbAudioBridge()
         return true;
     };
 
-    const bool haveRx = !prefs->usbRxSetup.name.isEmpty() && !prefs->rxSetup.name.isEmpty();
+    const bool haveRx = route.usbRadioRxInputEnabled && route.localOutputEnabled;
     if (haveRx) {
         audioSetup radioRx = prefs->usbRxSetup;
         audioSetup localRx = prefs->rxSetup;
@@ -1242,6 +1543,9 @@ void MainController::setupUsbAudioBridge()
             connect(usbRadioRxAudio, SIGNAL(haveAudioData(audioPacket)),
                     usbRxOutputAudio, SLOT(incomingAudio(audioPacket)),
                     Qt::QueuedConnection);
+            connect(usbRadioRxAudio, &audioHandlerBase::haveAudioData,
+                    this, &MainController::routeRxAudioToSinks,
+                    Qt::QueuedConnection);
             QMetaObject::invokeMethod(usbRxOutputAudio, "setVolume",
                                       Qt::QueuedConnection, Q_ARG(quint8, prefs->localAFgain));
             qInfo(logAudio()) << "USB radio RX audio bridge enabled:" << radioRx.name << "->" << localRx.name;
@@ -1251,42 +1555,182 @@ void MainController::setupUsbAudioBridge()
         }
     }
 
-    const bool rigCanTransmit = rigCaps && rigCaps->hasTransmit;
-    const bool haveTx = rigCanTransmit && !prefs->usbTxSetup.name.isEmpty() && !prefs->txSetup.name.isEmpty();
-    if (haveTx) {
-        audioSetup localTx = prefs->txSetup;
-        audioSetup radioTx = prefs->usbTxSetup;
-        localTx.type = prefs->audioSystem;
-        radioTx.type = prefs->audioSystem;
-        localTx.isinput = true;
-        radioTx.isinput = false;
-        radioTx.codec = localTx.codec;
-        radioTx.sampleRate = localTx.sampleRate;
-        radioTx.latency = localTx.latency;
-        radioTx.blockSize = localTx.blockSize;
-        radioTx.resampleQuality = localTx.resampleQuality;
-        localTx.txProc = prefs->txSetup.txProc;
-
-        if (startHandler(usbTxInputAudio, usbTxInputThread, localTx, QStringLiteral("usbTxInputAudio()")) &&
-            startHandler(usbRadioTxAudio, usbRadioTxThread, radioTx, QStringLiteral("usbRadioTxAudio()"))) {
-            connect(usbTxInputAudio, SIGNAL(haveAudioData(audioPacket)),
-                    usbRadioTxAudio, SLOT(incomingAudio(audioPacket)),
-                    Qt::QueuedConnection);
-            qInfo(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
-        } else {
-            disposeAudioHandler(usbTxInputAudio, usbTxInputThread);
-            disposeAudioHandler(usbRadioTxAudio, usbRadioTxThread);
-        }
-    }
+    if (m_activeTxAudioSource == TxAudioInput::Tci)
+        setupTciUsbTxBridge();
+    else
+        setupLocalTxBridge();
 }
 
 void MainController::stopUsbAudioBridge()
 {
     disposeAudioHandler(usbRadioRxAudio, usbRadioRxThread);
     disposeAudioHandler(usbRxOutputAudio, usbRxOutputThread);
+    stopLocalTxBridge();
+    updateAudioRouteState();
+}
+
+void MainController::setupLocalTxBridge()
+{
+    stopLocalTxBridge();
+
+    const AudioRouteState route = currentAudioRoute();
+    const bool haveUsbTxOutput = route.usbRadioTxOutputEnabled;
+    const bool haveNativeNetworkTxOutput = route.rxSource == RadioRxAudioSource::NativeNetwork &&
+                                           route.txInput == TxAudioInput::LocalInput;
+    const bool haveWfShareTxOutput = route.rxSource == RadioRxAudioSource::WfShare &&
+                                     route.txInput == TxAudioInput::LocalInput;
+    if (!prefs || route.txInput != TxAudioInput::LocalInput ||
+        (!haveUsbTxOutput && !haveNativeNetworkTxOutput && !haveWfShareTxOutput))
+        return;
+
+    audioSetup localTx = prefs->txSetup;
+    localTx.type = prefs->audioSystem;
+    localTx.isinput = true;
+    localTx.txProc = prefs->txSetup.txProc;
+
+    usbTxInputAudio = createAudioHandler(localTx);
+    if (!usbTxInputAudio) {
+        stopLocalTxBridge();
+        return;
+    }
+
+    audioSetup radioTx = prefs->usbTxSetup;
+    if (haveUsbTxOutput) {
+        radioTx.type = prefs->audioSystem;
+        radioTx.isinput = false;
+        radioTx.codec = localTx.codec;
+        radioTx.sampleRate = localTx.sampleRate;
+        radioTx.latency = localTx.latency;
+        radioTx.blockSize = localTx.blockSize;
+        radioTx.resampleQuality = localTx.resampleQuality;
+        usbRadioTxAudio = createAudioHandler(radioTx);
+        if (!usbRadioTxAudio) {
+            stopLocalTxBridge();
+            return;
+        }
+    }
+
+    usbTxInputThread = new QThread(this);
+    usbTxInputThread->setObjectName(QStringLiteral("usbTxInputAudio()"));
+    usbTxInputAudio->moveToThread(usbTxInputThread);
+    connect(usbTxInputThread, &QThread::finished, usbTxInputAudio, &QObject::deleteLater);
+    connect(usbTxInputAudio, &audioHandlerBase::haveAudioData,
+            this, &MainController::routeLocalTxAudioToRadio,
+            Qt::QueuedConnection);
+    usbTxInputThread->start(QThread::TimeCriticalPriority);
+    QMetaObject::invokeMethod(usbTxInputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, localTx));
+
+    if (usbRadioTxAudio) {
+        usbRadioTxThread = new QThread(this);
+        usbRadioTxThread->setObjectName(QStringLiteral("usbRadioTxAudio()"));
+        usbRadioTxAudio->moveToThread(usbRadioTxThread);
+        connect(usbRadioTxThread, &QThread::finished, usbRadioTxAudio, &QObject::deleteLater);
+        usbRadioTxThread->start(QThread::TimeCriticalPriority);
+        QMetaObject::invokeMethod(usbRadioTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radioTx));
+    }
+
+    m_activeTxAudioSource = TxAudioInput::LocalInput;
+    if (haveUsbTxOutput)
+        qInfo(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
+    else if (haveNativeNetworkTxOutput)
+        qInfo(logAudio()) << "native network TX audio bridge enabled:" << localTx.name << "-> radio";
+    else
+        qInfo(logAudio()) << "wfshare TX audio bridge enabled:" << localTx.name << "-> wfshare";
+}
+
+void MainController::stopLocalTxBridge()
+{
+    disposeAudioHandler(tciTxInputAudio, tciTxInputThread);
     disposeAudioHandler(usbTxInputAudio, usbTxInputThread);
     disposeAudioHandler(usbRadioTxAudio, usbRadioTxThread);
-    emit localAudioAvailableChanged();
+    m_activeTxAudioSource = TxAudioInput::None;
+}
+
+void MainController::setupTciUsbTxBridge()
+{
+    stopLocalTxBridge();
+
+    const AudioRouteState route = currentAudioRoute();
+    if (!prefs || !tci)
+        return;
+
+    const bool haveUsbTxOutput = connStatus == connectionStatus_t::connConnected &&
+                                 rigCaps && rigCaps->hasTransmit &&
+                                 route.validLocalBackend &&
+                                 route.rxSource == RadioRxAudioSource::LocalUsb &&
+                                 !prefs->usbTxSetup.name.isEmpty();
+    const bool haveNetworkTxOutput = connStatus == connectionStatus_t::connConnected &&
+                                     rigCaps && rigCaps->hasTransmit &&
+                                     (route.rxSource == RadioRxAudioSource::NativeNetwork ||
+                                      route.rxSource == RadioRxAudioSource::WfShare);
+    if (!haveUsbTxOutput && !haveNetworkTxOutput)
+        return;
+
+    audioSetup tciTx = prefs->txSetup;
+    audioSetup radioTx = prefs->usbTxSetup;
+    tciTx.type = prefs->audioSystem;
+    tciTx.isinput = true;
+    tciTx.tci = tci;
+    tciTx.portInt = 0;
+    tciTx.txProc = prefs->txSetup.txProc;
+    radioTx.type = prefs->audioSystem;
+    radioTx.isinput = false;
+    radioTx.codec = tciTx.codec;
+    radioTx.sampleRate = tciTx.sampleRate;
+    radioTx.latency = tciTx.latency;
+    radioTx.blockSize = tciTx.blockSize;
+    radioTx.resampleQuality = tciTx.resampleQuality;
+
+    tciTxInputAudio = new audioHandlerTciInput();
+    if (haveUsbTxOutput)
+        usbRadioTxAudio = createAudioHandler(radioTx);
+    if (!tciTxInputAudio || (haveUsbTxOutput && !usbRadioTxAudio)) {
+        stopLocalTxBridge();
+        return;
+    }
+
+    tciTxInputThread = new QThread(this);
+    tciTxInputThread->setObjectName(QStringLiteral("tciTxInputAudio()"));
+    tciTxInputAudio->moveToThread(tciTxInputThread);
+    connect(tciTxInputThread, &QThread::finished, tciTxInputAudio, &QObject::deleteLater);
+    connect(tciTxInputAudio, &audioHandlerBase::haveAudioData,
+            this, &MainController::routeTciTxAudioToRadio,
+            Qt::QueuedConnection);
+    tciTxInputThread->start(QThread::TimeCriticalPriority);
+    QMetaObject::invokeMethod(tciTxInputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, tciTx));
+
+    if (usbRadioTxAudio) {
+        usbRadioTxThread = new QThread(this);
+        usbRadioTxThread->setObjectName(QStringLiteral("usbRadioTxAudio()"));
+        usbRadioTxAudio->moveToThread(usbRadioTxThread);
+        connect(usbRadioTxThread, &QThread::finished, usbRadioTxAudio, &QObject::deleteLater);
+        usbRadioTxThread->start(QThread::TimeCriticalPriority);
+        QMetaObject::invokeMethod(usbRadioTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radioTx));
+    }
+    m_activeTxAudioSource = TxAudioInput::Tci;
+    if (haveUsbTxOutput)
+        qInfo(logAudio()) << "TCI TX audio bridge enabled: TCI ->" << radioTx.name;
+    else
+        qInfo(logAudio()) << "TCI TX audio bridge enabled: TCI -> radio transport";
+}
+
+void MainController::setTxAudioSource(TxAudioInput source)
+{
+    if (m_activeTxAudioSource == source)
+        return;
+
+    if (source == TxAudioInput::Tci) {
+        if (!m_txAudioArbiter.accepts(TxAudioInput::Tci)) {
+            qWarning(logAudio()) << "TCI TX audio bridge refused because another source owns TX audio";
+            return;
+        }
+        setupTciUsbTxBridge();
+        return;
+    }
+
+    stopLocalTxBridge();
+    if (source == TxAudioInput::LocalInput)
+        setupLocalTxBridge();
 }
 
 
@@ -1358,6 +1802,7 @@ void MainController::ctChanged(SettingsController::prefCtItems items)
 void MainController::lanChanged(SettingsController::prefLanItems items)
 {
     if (items.testFlag(prefLanItem::l_enableLAN)) {
+        updateAudioRouteState();
         if (connStatus == connectionStatus_t::connDisconnected) {
             if (rig) {
                 QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
@@ -1424,24 +1869,17 @@ void MainController::raChanged(prefRaItems items)
         prefs->usbRxSetup.type = prefs->audioSystem;
         prefs->usbTxSetup.type = prefs->audioSystem;
 
-        if (prefs->audioSystem == tciAudio) {
-            setupTciServer();
-            prefs->rxSetup.tci = tci;
-            prefs->txSetup.tci = tci;
-            if (!tci)
-                qWarning(logAudio()) << "TCI Audio selected but the TCI server is disabled";
-        } else {
-            prefs->rxSetup.tci = nullptr;
-            prefs->txSetup.tci = nullptr;
-        }
+        prefs->rxSetup.tci = nullptr;
+        prefs->txSetup.tci = nullptr;
     }
 
     if (items.testFlag(prefRaItem::ra_usbAudio) ||
         items.testFlag(prefRaItem::ra_usbAudioRx) ||
         items.testFlag(prefRaItem::ra_usbAudioTx) ||
         items.testFlag(prefRaItem::ra_audioSystem)) {
-        emit localAudioAvailableChanged();
-        if (connStatus == connectionStatus_t::connConnected && !prefs->enableLAN && !prefs->wfShareEnabled)
+        updateAudioRouteState();
+        if (connStatus == connectionStatus_t::connConnected &&
+            currentAudioRoute().rxSource == RadioRxAudioSource::LocalUsb)
             setupUsbAudioBridge();
     }
 }
@@ -1455,14 +1893,13 @@ void MainController::setupTciServer()
         stopTciServer();
         prefs->rxSetup.tci = nullptr;
         prefs->txSetup.tci = nullptr;
+        updateAudioRouteState();
         return;
     }
 
     if (tci != nullptr) {
-        if (prefs->audioSystem == tciAudio) {
-            prefs->rxSetup.tci = tci;
-            prefs->txSetup.tci = tci;
-        }
+        setupTciRxBridge();
+        updateAudioRouteState();
         return;
     }
 
@@ -1471,14 +1908,13 @@ void MainController::setupTciServer()
     tciThread->setObjectName("TCIServer()");
     tci->moveToThread(tciThread);
     connect(queue, &cachingQueue::rigCapsUpdated, tci, &tciServer::receiveRigCaps);
+    connect(tci, &tciServer::transmitRequested, this, &MainController::handleTciTransmitRequested);
     connect(tciThread, &QThread::finished, tci, &QObject::deleteLater);
     tciThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(tci, "init", Qt::QueuedConnection, Q_ARG(quint16, prefs->tciPort));
 
-    if (prefs->audioSystem == tciAudio) {
-        prefs->rxSetup.tci = tci;
-        prefs->txSetup.tci = tci;
-    }
+    setupTciRxBridge();
+    updateAudioRouteState();
 }
 
 void MainController::stopTciServer()
@@ -1486,10 +1922,45 @@ void MainController::stopTciServer()
     if (!tciThread)
         return;
 
+    if (releaseTxAudioOwnership(PttOrigin::Tci) ||
+        m_activeTxAudioSource == TxAudioInput::Tci)
+        setTxAudioSource(TxAudioInput::LocalInput);
+
+    stopTciRxBridge();
+
     tciThread->quit();
     tciThread->wait();
     tci = nullptr;
     tciThread = nullptr;
+    updateAudioRouteState();
+}
+
+void MainController::setupTciRxBridge()
+{
+    stopTciRxBridge();
+
+    if (!prefs || !tci)
+        return;
+
+    audioSetup tciRx = prefs->rxSetup;
+    tciRx.isinput = false;
+    tciRx.tci = tci;
+    tciRx.portInt = 0;
+    tciRx.rxProc = nullptr;
+
+    tciRxOutputAudio = new audioHandlerTciOutput();
+    tciRxOutputThread = new QThread(this);
+    tciRxOutputThread->setObjectName(QStringLiteral("tciRxOutputAudio()"));
+    tciRxOutputAudio->moveToThread(tciRxOutputThread);
+    connect(tciRxOutputThread, &QThread::finished, tciRxOutputAudio, &QObject::deleteLater);
+    tciRxOutputThread->start(QThread::TimeCriticalPriority);
+    QMetaObject::invokeMethod(tciRxOutputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, tciRx));
+    qInfo(logAudio()) << "TCI RX audio bridge enabled";
+}
+
+void MainController::stopTciRxBridge()
+{
+    disposeAudioHandler(tciRxOutputAudio, tciRxOutputThread);
 }
 
 void MainController::setupRigCtlServer()
@@ -1503,6 +1974,7 @@ void MainController::setupRigCtlServer()
         return;
 
     rigCtl = new rigCtlD(this);
+    connect(rigCtl, &rigCtlD::setPTT, this, &MainController::handleRigCtlTransmitRequested);
     if (rigCtl->startServer(prefs->rigCtlPort) < 0) {
         rigCtl->deleteLater();
         rigCtl = nullptr;
@@ -1949,6 +2421,7 @@ void MainController::connectionHandler()
         openRigConnection();
     } else {
         // disconnect and delete
+        resetTxAudioOwnership();
         stopUsbAudioBridge();
 
         // Might as well empty both queue and cache, as both are now invalid.
@@ -1986,6 +2459,7 @@ void MainController::connectionHandler()
         setRadioStatusText(QString());
         setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
+        updateAudioRouteState();
     }
 
     emit connStatusChanged();
@@ -1996,13 +2470,10 @@ void MainController::openRigConnection()
     if (!prefs)
         return;
 
+    resetTxAudioOwnership();
     connStatus = connectionStatus_t::connConnecting;
     emit connStatusChanged();
-
-    if (prefs->audioSystem == tciAudio) {
-        prefs->rxSetup.tci = tci;
-        prefs->txSetup.tci = tci;
-    }
+    updateAudioRouteState();
 
     startRigConnection();
 
@@ -2071,6 +2542,7 @@ void MainController::startRigConnection()
         connect(this, &MainController::sendSerialCommSetup,rig,&rigCommander::serialCommSetup);
         connect(this, &MainController::sendWfShareCommSetup, rig, &rigCommander::wfShareCommSetup);
         connect(this, &MainController::sendLocalAudioVolume, rig, &rigCommander::setLocalAudioVolume);
+        connect(this, &MainController::sendTxAudioToRig, rig, &rigCommander::receiveTxAudioData);
 
         // This is the signal from rigCommander that we are connected and ready to start model detection.
         connect(rig, &rigCommander::commReady, this, &MainController::receiveCommReady);
@@ -2088,6 +2560,8 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
         connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
         connect(rig, &rigCommander::havePortError, this, &MainController::receivePortError);
+        connect(rig, &rigCommander::haveAudioData, this, &MainController::routeRxAudioToSinks);
+        connect(rig, &rigCommander::externalPttChanged, this, &MainController::handleExternalTransmitRequested);
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
 
         /*
@@ -2110,6 +2584,10 @@ void MainController::startRigConnection()
 
 void MainController::receiveStatusUpdate(networkStatus status)
 {
+    setRxAudioLevel(status.rxAudioLevel);
+    if (m_activeTxAudioSource == TxAudioInput::None)
+        setTxAudioLevel(status.txAudioLevel);
+
     if (!m_selRad)
         return;
 
@@ -2143,6 +2621,7 @@ void MainController::receivePortError(errorType err)
 
     queue->clear();
     queue->clearCache();
+    resetTxAudioOwnership();
 
     if (rig) {
         QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
@@ -2547,6 +3026,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < detached.size(); ++i)
             detached[i] = m_settings->receiverSetting(i, QStringLiteral("Detached"), false).toBool();
         connStatus = connectionStatus_t::connConnected;
+        updateAudioRouteState();
         setRigModelName(rigCaps->modelName);
         setWindowTitle(rigCaps->modelName);
         updateCurrentModSource(false);
@@ -2558,10 +3038,12 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
     }
     else
     {
+        resetTxAudioOwnership();
         setFooterMessageText(QString());
         setRadioStatusText(QString());
         setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
+        updateAudioRouteState();
     }
 
     emit connStatusChanged();
@@ -2569,13 +3051,15 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
     emit receiverCountChanged();
     emit detachedChanged();
 
-    if (rigCaps && !prefs->enableLAN && !prefs->wfShareEnabled && prefs->enableUsbAudio) {
+    if (rigCaps && currentAudioRoute().rxSource == RadioRxAudioSource::LocalUsb) {
         QTimer::singleShot(500, this, [this]() {
             if (rigCaps && prefs && connStatus == connectionStatus_t::connConnected &&
-                !prefs->enableLAN && !prefs->wfShareEnabled && prefs->enableUsbAudio) {
+                currentAudioRoute().rxSource == RadioRxAudioSource::LocalUsb) {
                 setupUsbAudioBridge();
             }
         });
+    } else if (rigCaps && currentAudioRoute().txInput == TxAudioInput::LocalInput) {
+        setupLocalTxBridge();
     }
 
 
@@ -3884,7 +4368,7 @@ void MainController::loadSettings(QString settingsFile)
     prefs->rxSetup.localAFgain = prefs->localAFgain;
     prefs->txSetup.localAFgain = 255;
 
-    prefs->audioSystem = static_cast<audioType>(settings->value("AudioSystem", defprefs->audioSystem).toInt());
+    prefs->audioSystem = normalizeAudioType(settings->value("AudioSystem", defprefs->audioSystem).toInt());
 
     settings->endGroup();
 
@@ -3966,13 +4450,6 @@ void MainController::loadSettings(QString settingsFile)
         tciThread->start(QThread::TimeCriticalPriority);
         emit tciInit(prefs->tciPort);
     }
-
-    if (prefs->audioSystem == tciAudio)
-    {
-        prefs->rxSetup.tci = tci;
-        prefs->txSetup.tci = tci;
-    }
-
 
     udpprefs->connectionType = settings->value("ConnectionType", udpDefprefs->connectionType).value<connectionType_t>();
     udpprefs->clientName = settings->value("ClientName", udpDefprefs->clientName).toString();

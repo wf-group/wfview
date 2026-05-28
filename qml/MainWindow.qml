@@ -120,6 +120,59 @@ ApplicationWindow {
         }
     }
 
+    component AudioLevelBar: Item {
+        id: audioLevelBar
+
+        property int value: 0
+        property string label: ""
+        property bool active: true
+        readonly property real normalizedValue: Math.max(0, Math.min(255, value)) / 255
+
+        Layout.preferredWidth: 14
+        Layout.preferredHeight: 120
+        opacity: active ? 1.0 : 0.35
+
+        Rectangle {
+            anchors.fill: parent
+            color: win.palette.base
+            border.color: win.palette.mid
+            radius: 2
+
+            Rectangle {
+                id: levelClip
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: 2
+                height: Math.max(0, parent.height - 4) * audioLevelBar.normalizedValue
+                radius: 1
+                color: "transparent"
+                clip: true
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: Math.max(0, audioLevelBar.height - 4)
+                    radius: 1
+                    gradient: Gradient {
+                        orientation: Gradient.Vertical
+                        GradientStop { position: 0.0; color: "#d32f2f" }
+                        GradientStop { position: 0.05; color: "#d32f2f" }
+                        GradientStop { position: 0.20; color: "#fbc02d" }
+                        GradientStop { position: 0.80; color: "#2e7d32" }
+                        GradientStop { position: 1.0; color: "#2e7d32" }
+                    }
+                }
+            }
+        }
+
+        HoverHandler { id: audioLevelHover }
+        ToolTip.visible: audioLevelHover.hovered
+        ToolTip.text: audioLevelBar.label + ": " + audioLevelBar.value
+        ToolTip.delay: 300
+    }
+
     LoggingWindow {
         id: loggingWindow
     }
@@ -857,20 +910,31 @@ ApplicationWindow {
 
                         ColumnLayout {
                             enabled: MainController.localAudioAvailable
-                            Slider {
-                                id: volumeSlider
-                                from: 0
-                                to: 255
-                                value: MainController.localAfGain
-                                enabled: MainController.localAudioAvailable
-                                orientation: Qt.Vertical
+                            RowLayout {
                                 Layout.preferredHeight: 120
-                                onMoved: MainController.localAfGain = Math.round(value)
+                                spacing: 4
 
-                                HoverHandler { id: hoverVolume }
-                                ToolTip.visible: hoverVolume.hovered
-                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
-                                ToolTip.delay: 300
+                                Slider {
+                                    id: volumeSlider
+                                    from: 0
+                                    to: 255
+                                    value: MainController.localAfGain
+                                    enabled: MainController.localAudioAvailable
+                                    orientation: Qt.Vertical
+                                    Layout.preferredHeight: 120
+                                    onMoved: MainController.localAfGain = Math.round(value)
+
+                                    HoverHandler { id: hoverVolume }
+                                    ToolTip.visible: hoverVolume.hovered
+                                    ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                    ToolTip.delay: 300
+                                }
+
+                                AudioLevelBar {
+                                    value: MainController.rxAudioLevel
+                                    label: qsTr("RX audio")
+                                    active: MainController.localAudioAvailable
+                                }
                             }
                             Label { text: qsTr("Vol"); horizontalAlignment: Text.AlignHCenter }
                         }
@@ -931,21 +995,32 @@ ApplicationWindow {
                         }
                         ColumnLayout {
                             visible: rangeControlVisible("micGain")
-                            Slider {
-                                id: micGainSlider
-                                readonly property var spec: controlSpec("micGain", 0, 255)
-                                from: MainController.modGainMin
-                                to: MainController.modGainMax
-                                value: MainController.micGain
-                                enabled: spec.available ?? false
-                                orientation: Qt.Vertical
+                            RowLayout {
                                 Layout.preferredHeight: 120
-                                onMoved: MainController.micGain = Math.round(value)
+                                spacing: 4
 
-                                HoverHandler { id: hoverMicGain }
-                                ToolTip.visible: hoverMicGain.hovered
-                                ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
-                                ToolTip.delay: 300
+                                Slider {
+                                    id: micGainSlider
+                                    readonly property var spec: controlSpec("micGain", 0, 255)
+                                    from: MainController.modGainMin
+                                    to: MainController.modGainMax
+                                    value: MainController.micGain
+                                    enabled: spec.available ?? false
+                                    orientation: Qt.Vertical
+                                    Layout.preferredHeight: 120
+                                    onMoved: MainController.micGain = Math.round(value)
+
+                                    HoverHandler { id: hoverMicGain }
+                                    ToolTip.visible: hoverMicGain.hovered
+                                    ToolTip.text: Math.round((value - from) / Math.max(1, to - from) * 100).toString() + " %"
+                                    ToolTip.delay: 300
+                                }
+
+                                AudioLevelBar {
+                                    value: MainController.txAudioLevel
+                                    label: qsTr("TX audio")
+                                    active: micGainSlider.enabled
+                                }
                             }
                             Label { text: MainController.modGainLabel; horizontalAlignment: Text.AlignHCenter }
                         }

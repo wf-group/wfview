@@ -29,6 +29,7 @@
 #include "txaudioprocessor.h"
 #include "rxaudioprocessor.h"
 #include "audiohandler.h"
+#include "audiorouting.h"
 
 class MainController : public QObject {
     Q_OBJECT
@@ -67,6 +68,8 @@ public:
     Q_PROPERTY(int txPower READ txPower WRITE setTxPower NOTIFY txPowerChanged)
     Q_PROPERTY(int localAfGain READ localAfGain WRITE setLocalAfGain NOTIFY localAfGainChanged)
     Q_PROPERTY(bool localAudioAvailable READ localAudioAvailable NOTIFY localAudioAvailableChanged)
+    Q_PROPERTY(int rxAudioLevel READ rxAudioLevel NOTIFY audioLevelsChanged)
+    Q_PROPERTY(int txAudioLevel READ txAudioLevel NOTIFY audioLevelsChanged)
     Q_PROPERTY(int monitorGain READ monitorGain WRITE setMonitorGain NOTIFY monitorGainChanged)
     Q_PROPERTY(bool monitorEnabled READ monitorEnabled WRITE setMonitorEnabled NOTIFY monitorEnabledChanged)
     Q_PROPERTY(int micGain READ micGain WRITE setMicGain NOTIFY micGainChanged)
@@ -157,9 +160,11 @@ public:
 
     void setConnStatus(connectionStatus_t c) {
         if (c != connStatus) {
+            if (c == connDisconnected)
+                resetTxAudioOwnership();
             connStatus =c;
             emit connStatusChanged();
-            emit localAudioAvailableChanged();
+            updateAudioRouteState();
         }
     }
 
@@ -169,6 +174,8 @@ public:
     int txPower() const { return m_txPower; }
     int localAfGain() const { return prefs ? int(prefs->localAFgain) : 0; }
     bool localAudioAvailable() const;
+    int rxAudioLevel() const { return m_rxAudioLevel; }
+    int txAudioLevel() const { return m_txAudioLevel; }
     int monitorGain() const { return m_monitorGain; }
     bool monitorEnabled() const { return m_monitorEnabled; }
     int micGain() const { return m_micGain; }
@@ -270,6 +277,7 @@ signals:
                               audioSetup rxSetup, audioSetup txSetup);
     void sendCloseComm();
     void sendLocalAudioVolume(quint8 level);
+    void sendTxAudioToRig(const audioPacket &packet);
 
     void setCIVAddr(quint16 newRigCIVAddr);
     void setRigID(quint16 rigID);
@@ -298,6 +306,7 @@ signals:
     void txPowerChanged();
     void localAfGainChanged();
     void localAudioAvailableChanged();
+    void audioLevelsChanged();
     void monitorGainChanged();
     void monitorEnabledChanged();
     void micGainChanged();
@@ -325,6 +334,12 @@ private slots:
     void receiveValueFromQueue(cacheItem c);
     void receiveRigCaps(rigCapabilities* caps);
     void receiveStatusUpdate(networkStatus status);
+    void routeRxAudioToSinks(const audioPacket &packet);
+    void routeLocalTxAudioToRadio(const audioPacket &packet);
+    void routeTciTxAudioToRadio(const audioPacket &packet);
+    void handleTciTransmitRequested(bool transmit);
+    void handleRigCtlTransmitRequested(bool transmit);
+    void handleExternalTransmitRequested(bool transmit);
     void receiveCommReady();
     void receivePortError(errorType err);
     void ctChanged(SettingsController::prefCtItems items);
@@ -387,10 +402,26 @@ private:
     void stopRigCtlServer();
     void setupTciServer();
     void stopTciServer();
+    void setupTciRxBridge();
+    void stopTciRxBridge();
     void setupUsbAudioBridge();
     void stopUsbAudioBridge();
+    void setupLocalTxBridge();
+    void stopLocalTxBridge();
+    void setupTciUsbTxBridge();
+    void setTxAudioSource(TxAudioInput source);
+    bool requestTxAudioOwnership(PttOrigin origin, TxAudioInput source);
+    bool releaseTxAudioOwnership(PttOrigin origin);
+    void resetTxAudioOwnership();
+    void setTxAudioInterlockError(PttOrigin requestedOrigin, TxAudioInput requestedSource);
+    void clearTxAudioInterlockError();
+    void setRxAudioLevel(int level);
+    void setTxAudioLevel(int level);
+    void publishTxAudioDiagnosticLevel(const audioPacket& packet, TxAudioInput source);
     audioHandlerBase* createAudioHandler(const audioSetup& setup);
     void disposeAudioHandler(audioHandlerBase*& handler, QThread*& thread);
+    AudioRouteState currentAudioRoute() const;
+    void updateAudioRouteState();
 
 
     QString windowTitle = "wfview";
@@ -428,10 +459,19 @@ private:
     QThread* usbRadioRxThread = nullptr;
     audioHandlerBase* usbRxOutputAudio = nullptr;
     QThread* usbRxOutputThread = nullptr;
+    audioHandlerBase* tciRxOutputAudio = nullptr;
+    QThread* tciRxOutputThread = nullptr;
     audioHandlerBase* usbTxInputAudio = nullptr;
     QThread* usbTxInputThread = nullptr;
     audioHandlerBase* usbRadioTxAudio = nullptr;
     QThread* usbRadioTxThread = nullptr;
+    audioHandlerBase* tciTxInputAudio = nullptr;
+    QThread* tciTxInputThread = nullptr;
+    AudioRouteState m_audioRoute;
+    TxAudioSourceArbiter m_txAudioArbiter;
+    TxAudioInput m_activeTxAudioSource = TxAudioInput::None;
+    int m_rxAudioLevel = 0;
+    int m_txAudioLevel = 0;
     double m_txAudioInputLevel = 0.0;
     double m_txAudioOutputLevel = 0.0;
     double m_txAudioGainReduction = 0.0;

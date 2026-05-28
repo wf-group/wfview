@@ -169,11 +169,7 @@ protected:
     bool    haveSync = false;
     quint32 radioBase = 0;     // radio uptime ms at sync
     qint64  localBase = 0;     // local monotonic ms at sync
-    int     pingDriftMs = 0;   // signed drift estimate (radio ahead/behind prediction)
-    int     badSyncCount = 0;
-
-    int pingLatenessMs = 0;   // +ve = path delay vs prediction
-    int pingBaselineMs = 0;   // learned steady-state delay
+    int     pingLatenessMs = 0; // +ve = radio ping timestamp is behind initial baseline prediction
 
 
 

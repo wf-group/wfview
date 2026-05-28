@@ -99,20 +99,7 @@ bool ReceiverController::periodicCommandAllowedByMode(funcs func, uchar receiver
     if (!rigCaps)
         return true;
 
-    const QString modeName = mode.name.trimmed().toUpper();
-    bool restricted = false;
-    for (const auto &periodic : std::as_const(rigCaps->periodic)) {
-        const bool allReceivers = periodic.receiver == char(-1);
-        const bool receiverMatches = allReceivers || uchar(periodic.receiver) == receiver;
-        if (periodic.func != func || !receiverMatches || periodic.modes.isEmpty())
-            continue;
-
-        restricted = true;
-        if (periodic.modes.contains(modeName))
-            return true;
-    }
-
-    return !restricted;
+    return periodicCommandAllowedForMode(rigCaps->periodic, func, receiver, mode.name);
 }
 
 void ReceiverController::updateModeSensitiveUiSpecs()
@@ -1377,15 +1364,19 @@ void ReceiverController::buildUiSpecs()
     auto addDataMode = [&](QString text, int value) {
         values.append(QVariantMap{{"text", text}, {"value", value}});
     };
-    addDataMode("Data Off", 0);
-    if (rigCaps->commands.contains(funcDATA2Mod)) {
-        addDataMode("Data 1", 1);
-        addDataMode("Data 2", 2);
-    } else if (rigCaps->commands.contains(funcDATA1Mod)) {
-        addDataMode("Data On", 1);
-    }
-    if (rigCaps->commands.contains(funcDATA3Mod)) {
-        addDataMode("Data 3", 3);
+    const bool hasDataModes = rigCaps->commands.contains(funcDataModeWithFilter) ||
+                              rigCaps->commands.contains(funcDataMode);
+    if (hasDataModes) {
+        addDataMode("Data Off", 0);
+        if (rigCaps->commands.contains(funcDATA2Mod)) {
+            addDataMode("Data 1", 1);
+            addDataMode("Data 2", 2);
+        } else if (rigCaps->commands.contains(funcDATA1Mod)) {
+            addDataMode("Data On", 1);
+        }
+        if (rigCaps->commands.contains(funcDATA3Mod)) {
+            addDataMode("Data 3", 3);
+        }
     }
     uiSpecs["dataModes"] = QVariantMap{
         {"textRole","text"},

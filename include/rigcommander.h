@@ -83,6 +83,7 @@ public slots:
     // UDP:
     virtual void handleNewData(const QByteArray& data);
     virtual void receiveBaudRate(quint32 baudrate);
+    virtual void receiveTxAudioData(const audioPacket &packet);
 
     // Housekeeping:
     virtual void receiveCommand(funcs func, QVariant value, uchar receiver);
@@ -136,6 +137,7 @@ signals:
     void getMoreDebug();
     void finished();
     void haveReceivedValue(funcs func, QVariant value);
+    void externalPttChanged(bool state);
     void sidetone(QString text);
     void stopsidetone();
 

@@ -211,13 +211,15 @@ void tciServer::sendInitialState(QWebSocket *socket)
     sendTciText(QStringLiteral("vfo_limits:%1,%2;").arg(start).arg(end));
     sendTciText(QStringLiteral("if_limits:-19531,19531;"));
 
+    const bool hasDataModes = rigCaps->commands.contains(funcDataModeWithFilter) ||
+                              rigCaps->commands.contains(funcDataMode);
     QString mods = "modulations_list:";
     for (modeInfo &mi: rigCaps->modes)
     {
 
         mods+=mi.name.toUpper();
         mods+=",";
-        if (mi.reg == modeUSB || mi.reg == modeLSB)
+        if (hasDataModes && (mi.reg == modeUSB || mi.reg == modeLSB))
         {
             mods+=QString("DIG%0").arg(mi.name.at(0));
             mods+=",";
@@ -240,7 +242,7 @@ void tciServer::sendInitialState(QWebSocket *socket)
     sendTciText(QStringLiteral("audio_samplerate:48000;"));
     sendTciText(QStringLiteral("audio_stream_sample_type:float32;"));
     sendTciText(QStringLiteral("audio_stream_channels:2;"));
-    sendTciText(QStringLiteral("audio_stream_samples:2048;"));
+    sendTciText(QStringLiteral("audio_stream_samples:%1;").arg(TCI_AUDIO_SAMPLES));
     sendTciText(QStringLiteral("tx_stream_audio_buffering:50;"));
     sendTciText(QStringLiteral("volume:%1;").arg(toTciRange(funcAfGain, -60, 0, 0)));
     sendTciText(QStringLiteral("mute:%1;").arg(cacheBool(funcAFMute, 0) ? "true" : "false"));
@@ -374,6 +376,11 @@ void tciServer::processCommand(QWebSocket *client, const QString &rawCommand)
         arg = arg.trimmed();
 
     updateClientState(client, command, args);
+    if (command == QLatin1String("trx") && args.size() >= 2) {
+        auto it = clients.find(client);
+        if (it != clients.end())
+            it.value().txaudio = args[1].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
+    }
 
     const bool changed = setCommandValue(command, args);
     if (changed)
@@ -454,11 +461,21 @@ bool tciServer::setCommandValue(const QString &command, const QStringList &args)
         return true;
     }
     if (command == QLatin1String("modulation") && args.size() >= 2) {
-        queueIfSupported(vfoSet.modeFunc, QVariant::fromValue<modeInfo>(rigMode(args[1])), vfoSet.receiver);
+        const modeInfo requested = rigMode(args[1], vfoSet.modeFunc, vfoSet.receiver);
+        if (requested.mk == modeUnknown)
+            return false;
+
+        queueIfSupported(vfoSet.modeFunc, QVariant::fromValue<modeInfo>(requested), vfoSet.receiver);
+        if (vfoSet.modeFunc == funcModeSet && rigCaps->commands.contains(funcDataModeWithFilter))
+            queueIfSupported(funcDataModeWithFilter, QVariant::fromValue<modeInfo>(requested), vfoSet.receiver);
+        if (rigCaps->manufacturer == manufIcom && rigCaps->commands.contains(funcRoofingFilter))
+            queue->addUnique(priorityHighest, funcRoofingFilter, false, vfoSet.receiver);
         return true;
     }
     if (command == QLatin1String("trx") && args.size() >= 2) {
-        queueIfSupported(funcTransceiverStatus, QVariant::fromValue(boolValue(args[1])), rx);
+        const bool transmitting = boolValue(args[1]);
+        emit transmitRequested(transmitting);
+        queueIfSupported(funcTransceiverStatus, QVariant::fromValue(transmitting), rx);
         return true;
     }
     if (command == QLatin1String("tune") && args.size() >= 2) {
@@ -656,9 +673,29 @@ void tciServer::processIncomingBinaryMessage(QByteArray message)
         if (message.size() >= headerSize && pStream->type == TxAudioStream && pStream->length > 0 &&
             message.size() >= headerSize + payloadSize)
         {
-            QByteArray tempData(payloadSize,0x0);
-            memcpy(tempData.data(),pStream->data,tempData.size());
-            //qInfo() << QString("Received audio from client: %0 Sample: %1 Format: %2 Length: %3(%4 bytes) Type: %5").arg(pStream->receiver).arg(pStream->sampleRate).arg(pStream->format).arg(pStream->length).arg(tempData.size()).arg(pStream->type);
+            if (!clients[pClient].txaudio) {
+                clients[pClient].txaudio = true;
+                emit transmitRequested(true);
+            }
+
+            QByteArray tempData(payloadSize, 0x0);
+            memcpy(tempData.data(), pStream->data, tempData.size());
+            ++txAudioFrameCount;
+            if (!loggedFirstTxAudioFrame || lastTxAudioSampleRate != pStream->sampleRate ||
+                lastTxAudioChannels != pStream->channels || lastTxAudioPayloadSize != tempData.size() ||
+                (txAudioFrameCount % 100u) == 0u) {
+                qDebug(logAudio()) << "TCI TX audio frame"
+                                   << pStream->sampleRate << "Hz"
+                                   << pStream->channels << "header channels"
+                                   << tempData.size() << "bytes"
+                                   << "source header channels" << pStream->channels
+                                   << "source header length" << pStream->length
+                                   << "frames" << txAudioFrameCount;
+                loggedFirstTxAudioFrame = true;
+                lastTxAudioSampleRate = pStream->sampleRate;
+                lastTxAudioChannels = quint8(pStream->channels);
+                lastTxAudioPayloadSize = tempData.size();
+            }
             emit sendTCIAudio(tempData);
         }
     }
@@ -672,9 +709,22 @@ void tciServer::socketDisconnected()
             << "closeReason:" << (pClient ? pClient->closeReason() : QString())
             << "error:" << (pClient ? pClient->errorString() : QString());
     if (pClient) {
+        const bool wasTxAudioClient = clients.contains(pClient) && clients.value(pClient).txaudio;
         clients.remove(pClient);
         pClient->deleteLater();
+        if (wasTxAudioClient)
+            emit transmitRequested(false);
     }
+
+    bool haveConnectedClient = false;
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        if (it.value().connected) {
+            haveConnectedClient = true;
+            break;
+        }
+    }
+    if (!haveConnectedClient)
+        emit transmitRequested(false);
 }
 
 void tciServer::receiveTCIAudio(audioPacket audio){
@@ -692,10 +742,21 @@ void tciServer::receiveTCIAudio(audioPacket audio){
 
     //dataStream *pStream = reinterpret_cast<dataStream*>(audio.data());
 
+    bool haveRxAudioClient = false;
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        if (it.value().connected && it.value().rxaudio) {
+            haveRxAudioClient = true;
+            break;
+        }
+    }
+
+    if (!haveRxAudioClient)
+        return;
+
     rxAudioData.resize(iqHeaderSize + audio.data.size());
     dataStream *pStream = reinterpret_cast<dataStream*>(rxAudioData.data());
     pStream->receiver = 0;
-    pStream->sampleRate = 48000;
+    pStream->sampleRate = audio.sampleRate == 0 ? 48000 : audio.sampleRate;
     pStream->format = IqFloat32;
     pStream->codec = 0u;
     pStream->type = RxAudioStream;
@@ -704,6 +765,22 @@ void tciServer::receiveTCIAudio(audioPacket audio){
     pStream->channels = 1u;
 
     memcpy(pStream->data,audio.data.data(),audio.data.size());
+    ++rxAudioFrameCount;
+    if (!loggedFirstRxAudioFrame || lastRxAudioSampleRate != pStream->sampleRate ||
+        lastRxAudioChannels != pStream->channels || lastRxAudioPayloadSize != audio.data.size() ||
+        (rxAudioFrameCount % 500u) == 0u)
+    {
+        qDebug(logAudio()) << "TCI RX audio frame"
+                           << pStream->sampleRate << "Hz"
+                           << pStream->channels << "channels"
+                           << audio.data.size() << "bytes"
+                           << "length" << pStream->length
+                           << "frames" << rxAudioFrameCount;
+        loggedFirstRxAudioFrame = true;
+        lastRxAudioSampleRate = pStream->sampleRate;
+        lastRxAudioChannels = quint8(pStream->channels);
+        lastRxAudioPayloadSize = audio.data.size();
+    }
 
     auto it = clients.begin();
     while (it != clients.end())
@@ -830,7 +907,7 @@ QString tciServer::tciMode(modeInfo m) const
     QString ret="";
     if (m.mk == modeUSB && m.data && m.data != 0xff)
         ret="digu";
-    else if (m.mk == modeLSB && m.data != 0xff)
+    else if (m.mk == modeLSB && m.data && m.data != 0xff)
         ret="digl";
     else if (m.mk == modeFM)
         ret="nfm";
@@ -839,32 +916,48 @@ QString tciServer::tciMode(modeInfo m) const
     return ret;
 }
 
-modeInfo tciServer::rigMode(QString mode)
+modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver) const
 {
-    modeInfo m;
-    m.mk=modeUnknown;
-    qInfo() << "Searching for mode" << mode;
-    for (modeInfo &mi: rigCaps->modes)
-    {
-        if (mode.toLower() =="digl" && mi.mk == modeLSB)
-        {
-            m = modeInfo(mi);
-            m.data = true;
+    modeInfo requested;
+    const modeInfo current = cacheMode(modeFunc, receiver);
+    const QString requestedMode = mode.toLower();
+    const bool hasDataModes = rigCaps->commands.contains(funcDataModeWithFilter) ||
+                              rigCaps->commands.contains(funcDataMode);
+
+    for (const modeInfo &candidate: rigCaps->modes) {
+        if (requestedMode == QLatin1String("digl") && candidate.mk == modeLSB) {
+            if (!hasDataModes)
+                return requested;
+            requested = candidate;
+            requested.data = 1;
             break;
-        }
-        else if (mode.toLower() == "digu" && mi.mk == modeUSB)
-        {
-            m = modeInfo(mi);
-            m.data = true;
+        } else if (requestedMode == QLatin1String("digu") && candidate.mk == modeUSB) {
+            if (!hasDataModes)
+                return requested;
+            requested = candidate;
+            requested.data = 1;
             break;
-        } else if ((mode.toLower() == "nfm" && mi.mk == modeFM) || (mode.toLower() == mi.name.toLower()))
-        {
-            m = modeInfo(mi);
-            m.data = false;
+        } else if ((requestedMode == QLatin1String("nfm") && candidate.mk == modeFM) ||
+                   requestedMode == candidate.name.toLower()) {
+            requested = candidate;
+            requested.data = 0;
             break;
         }
     }
-    m.filter = 1;
-    qInfo(logTCIServer()) << "Got Mode:" << m.name << "data:" << m.data;
-    return m;
+
+    if (requested.mk == modeUnknown)
+        return requested;
+
+    if (current.mk == requested.mk && current.data != 0xff)
+        requested.data = requested.data ? 1 : 0;
+
+    if (current.filter != 0xff)
+        requested.filter = current.filter;
+    else if (requested.filter == 0xff)
+        requested.filter = 1;
+
+    qDebug(logTCIServer()) << "TCI mode request" << mode << "->" << requested.name
+                           << "data" << requested.data << "filter" << requested.filter
+                           << "receiver" << receiver;
+    return requested;
 }

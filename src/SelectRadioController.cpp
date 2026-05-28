@@ -110,6 +110,8 @@ SelectRadioController::SelectRadioController(QObject* parent)
     , m_timeDifferenceCounter(0)
     , m_waterfallCounter(0)
     , m_spectrumCounter(0)
+    , m_txAudioOwner("none")
+    , m_txAudioSource("none")
 {
 }
 
@@ -132,6 +134,16 @@ void SelectRadioController::populate(QList<radio_cap_packet> radios)
     if (radios.count() > 1) {
         setVisible(true);
     }
+}
+
+void SelectRadioController::setTxAudioState(const QString& owner, const QString& source)
+{
+    if (m_txAudioOwner == owner && m_txAudioSource == source)
+        return;
+
+    m_txAudioOwner = owner;
+    m_txAudioSource = source;
+    emit txAudioStateChanged();
 }
 
 void SelectRadioController::setInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip)

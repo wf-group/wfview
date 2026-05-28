@@ -711,8 +711,20 @@ struct commandErrorType{
     uchar bytes;
 };
 
-enum audioType {qtAudio,portAudio,rtAudio,tciAudio};
+enum audioType {qtAudio,portAudio,rtAudio};
 Q_DECLARE_METATYPE(audioType)
+
+inline audioType normalizeAudioType(int value)
+{
+    switch (value) {
+    case qtAudio:
+    case portAudio:
+    case rtAudio:
+        return static_cast<audioType>(value);
+    default:
+        return qtAudio;
+    }
+}
 
 enum codecType { LPCM, PCMU, OPUS, ADPCM };
 Q_DECLARE_METATYPE(codecType)
@@ -744,6 +756,28 @@ struct periodicType {
     char receiver;
     QStringList modes;
 };
+
+inline bool periodicCommandAllowedForMode(const QVector<periodicType> &periodicCommands,
+                                          funcs func,
+                                          uchar receiver,
+                                          const QString &modeName)
+{
+    const QString normalizedMode = modeName.trimmed().toUpper();
+    bool restricted = false;
+
+    for (const auto &periodic : periodicCommands) {
+        const bool allReceivers = periodic.receiver == char(-1);
+        const bool receiverMatches = allReceivers || uchar(periodic.receiver) == receiver;
+        if (periodic.func != func || !receiverMatches || periodic.modes.isEmpty())
+            continue;
+
+        restricted = true;
+        if (periodic.modes.contains(normalizedMode))
+            return true;
+    }
+
+    return !restricted;
+}
 
 struct vfoCommandType {
     vfoCommandType (): freqFunc(funcNone), modeFunc(funcNone), vfo(vfoUnknown), receiver(0) {};

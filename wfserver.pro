@@ -200,6 +200,7 @@ SOURCES += \
     src/audio/resampler/resample.c \
     src/radio/icomcommander.cpp \
     src/radio/icomcivradiotransport.cpp \
+    src/radio/icomscopeframeassembler.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
     src/radio/icomudpbase.cpp \
@@ -263,6 +264,7 @@ HEADERS  += \
     include/rigcommander.h \
     include/icomcommander.h \
     include/icomcivradiotransport.h \
+    include/icomscopeframeassembler.h \
     include/icomserver.h \
     include/iaxclientsession.h \
     include/iaxradiotransport.h \

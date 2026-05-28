@@ -867,7 +867,7 @@ void servermain::setDefPrefs()
 void servermain::loadSettings()
 {
     qInfo(logSystem()) << "Loading settings from " << settings->fileName();
-    prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
+    prefs.audioSystem = normalizeAudioType(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
     prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer",defPrefs.manufacturer).toInt());
 
     int numRadios = settings->beginReadArray("Radios");

@@ -17,6 +17,7 @@
 #include <eigen3/Eigen/Eigen>
 #endif
 
+#define TCI_AUDIO_SAMPLES 2048
 #define TCI_AUDIO_LENGTH 4096
 struct tciCommandStruct
 {
@@ -89,6 +90,7 @@ public:
 signals:
     void closed();
     void sendTCIAudio(QByteArray audio);
+    void transmitRequested(bool transmit);
 
 public slots:
     void receiveTCIAudio(audioPacket audio);
@@ -128,9 +130,19 @@ private:
     QByteArray rxAudioData;
     QByteArray txAudioData;
     QByteArray txChrono;
+    quint32 lastTxAudioSampleRate = 0;
+    quint8 lastTxAudioChannels = 0;
+    qsizetype lastTxAudioPayloadSize = 0;
+    quint64 txAudioFrameCount = 0;
+    bool loggedFirstTxAudioFrame = false;
+    quint32 lastRxAudioSampleRate = 0;
+    quint8 lastRxAudioChannels = 0;
+    qsizetype lastRxAudioPayloadSize = 0;
+    quint64 rxAudioFrameCount = 0;
+    bool loggedFirstRxAudioFrame = false;
     rigCapabilities* rigCaps = nullptr;
     QString tciMode(modeInfo m) const;
-    modeInfo rigMode(QString);
+    modeInfo rigMode(const QString &mode, funcs modeFunc, uchar receiver) const;
     int dBmConversion = 73;
 };
 

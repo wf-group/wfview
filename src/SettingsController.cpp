@@ -529,7 +529,7 @@ void SettingsController::load()
     prefs.rxSetup.localAFgain = prefs.localAFgain;
     prefs.txSetup.localAFgain = 255;
 
-    prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
+    prefs.audioSystem = normalizeAudioType(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
     prefs.enableUsbAudio = settings->value("EnableUSBAudio", defPrefs.enableUsbAudio).toBool();
     prefs.usbRxSetup.name = settings->value("USBAudioRXInput", defPrefs.usbRxSetup.name).toString();
     prefs.usbTxSetup.name = settings->value("USBAudioTXOutput", defPrefs.usbTxSetup.name).toString();
@@ -768,11 +768,6 @@ void SettingsController::load()
         emit tciInit(prefs.tciPort);
     }
 
-    if (prefs.audioSystem == tciAudio)
-    {
-        prefs.rxSetup.tci = tci;
-        prefs.txSetup.tci = tci;
-    }
     */
 
     udpPrefs.connectionType = settings->value("ConnectionType", udpDefPrefs.connectionType).value<connectionType_t>();
@@ -2352,8 +2347,13 @@ void SettingsController::buildBindings()
     WF_U8("Radio.LocalAFGain", prefs.localAFgain,
           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_localAFgain)); });
 
-    WF_ENUM_I32("Radio.AudioSystem", prefs.audioSystem, audioType,
-                [this](){
+    WF_BIND("Radio.AudioSystem", QVariant(int(prefs.audioSystem)), {
+            const audioType newSystem = normalizeAudioType(_v.toInt());
+            if (prefs.audioSystem == newSystem)
+                return false;
+            prefs.audioSystem = newSystem;
+            return true;
+    }, [this](){
                     refreshAudioDevices();
                     emit raChanged(prefRaItems(prefRaItem::ra_audioSystem));
                 });

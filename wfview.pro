@@ -307,6 +307,7 @@ SOURCES += \
     src/audio/speexdspmini/src/filterbank.c \
     src/audio/speexdspmini/src/kiss_fft.c \
     src/audio/speexdspmini/src/kiss_fftr.c \
+    src/audiorouting.cpp \
     src/cachingqueue.cpp \
     src/cluster.cpp \
     src/commhandler.cpp \
@@ -325,6 +326,7 @@ SOURCES += \
     src/radiotransportframe.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomcivradiotransport.cpp \
+    src/radio/icomscopeframeassembler.cpp \
     src/radio/icomserver.cpp \
     src/radio/icomudpaudio.cpp \
     src/radio/icomudpbase.cpp \
@@ -386,6 +388,7 @@ HEADERS  += \
     include/audiohandlerrtoutput.h \
     include/audiohandlertciinput.h \
     include/audiohandlertcioutput.h \
+    include/audiorouting.h \
     include/audiotaper.h \
     include/bytering.h \
     include/cachingqueue.h \
@@ -399,6 +402,7 @@ HEADERS  += \
     include/ft4222handler.h \
     include/icomcommander.h \
     include/icomcivradiotransport.h \
+    include/icomscopeframeassembler.h \
     include/icomserver.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \

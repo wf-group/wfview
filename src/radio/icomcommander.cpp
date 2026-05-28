@@ -3,6 +3,7 @@
 
 #include "audiohandler.h"
 #include "audiopacketcodec.h"
+#include "icomscopeframeassembler.h"
 #include "iaxradiotransport.h"
 #include "rigidentities.h"
 #include "logcategories.h"
@@ -123,7 +124,7 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
         qInfo(logRig()) << "Attempting to connect to vsp/pty:" << vsp;
         ptty = new pttyHandler(vsp,this);
         // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), comm, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         // data from the rig to the ptty:
         connect(comm, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
         connect(ptty, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
@@ -134,7 +135,7 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
         tcp = new tcpServer(this);
         tcp->startServer(tcpPort);
         // data from the tcp port to the rig:
-        connect(tcp, SIGNAL(receiveData(QByteArray)), comm, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(tcp, SIGNAL(receiveData(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         connect(comm, SIGNAL(haveDataFromPort(QByteArray)), tcp, SLOT(sendData(QByteArray)));
     }
 
@@ -191,7 +192,7 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     if (vsp != "None") {
         ptty = new pttyHandler(vsp,this);
         // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), udp, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         // data from the rig to the ptty:
         connect(udp, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
 
@@ -203,7 +204,7 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
         tcp = new tcpServer(this);
         tcp->startServer(tcpPort);
         // data from the tcp port to the rig:
-        connect(tcp, SIGNAL(receiveData(QByteArray)), udp, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(tcp, SIGNAL(receiveData(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         // data from the rig to the tcp port:
         connect(udp, SIGNAL(haveDataFromPort(QByteArray)), tcp, SLOT(sendData(QByteArray)));
     }
@@ -248,9 +249,6 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     connect(wfShareTransport, &RadioTransport::streamReceived, this, [this](RadioTransportChannel channel, QByteArray data) {
         if (channel == RadioTransportChannel::Civ || channel == RadioTransportChannel::Scope) {
             handleNewData(data);
-            if (haveRigCaps && rigCaps.hasTransmit) {
-                startWfShareTxAudio();
-            }
         } else if (channel == RadioTransportChannel::AudioRx) {
             if (!haveRigCaps) {
                 return;
@@ -314,9 +312,6 @@ void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     connect(wfShareTransport, &RadioTransport::connectedChanged, this, [this](bool connected) {
         if (connected) {
             qInfo(logRig()) << "wfshare CI-V transport connected";
-            if (haveRigCaps && rigCaps.hasTransmit) {
-                startWfShareTxAudio();
-            }
             QMetaObject::invokeMethod(this, [this]() {
                 commonSetup();
             }, Qt::QueuedConnection);
@@ -355,63 +350,28 @@ void icomCommander::setLocalAudioVolume(quint8 level)
     }
 }
 
-void icomCommander::startWfShareTxAudio()
+void icomCommander::receiveTxAudioData(const audioPacket &packet)
 {
-    if (wfShareTxAudio != nullptr || wfShareTxSetup.sampleRate == 0 ||
+    if (udp != nullptr) {
+        QMetaObject::invokeMethod(udp, "sendTxAudioData",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(audioPacket, packet));
+        return;
+    }
+
+    if (wfShareTransport == nullptr || !wfShareTransport->isConnected() ||
         !haveRigCaps || !rigCaps.hasTransmit) {
         return;
     }
 
-    if (wfShareTxSetup.type == qtAudio) {
-        wfShareTxAudio = new audioHandlerQtInput();
-    } else if (wfShareTxSetup.type == portAudio) {
-        wfShareTxAudio = new audioHandlerPaInput();
-    } else if (wfShareTxSetup.type == rtAudio) {
-        wfShareTxAudio = new audioHandlerRtInput();
-    } else {
-        qCritical(logAudio()) << "Unsupported wfshare transmit audio handler selected" << wfShareTxSetup.type;
-        return;
+    wfShareAudioTxFrames++;
+    if (wfShareAudioTxFrames <= 10 || wfShareAudioTxFrames % 250 == 0) {
+        qDebug(logRig()).noquote()
+            << QStringLiteral("wfshare sent TX audio frame %1 bytes %2")
+                   .arg(wfShareAudioTxFrames)
+                   .arg(packet.data.size());
     }
-
-    wfShareTxAudioThread = new QThread(this);
-    wfShareTxAudioThread->setObjectName(QStringLiteral("wfshareTxAudio()"));
-    wfShareTxAudio->moveToThread(wfShareTxAudioThread);
-    wfShareTxAudioThread->start(QThread::TimeCriticalPriority);
-    connect(wfShareTxAudioThread, SIGNAL(finished()), wfShareTxAudio, SLOT(deleteLater()));
-    connect(wfShareTxAudio, &audioHandlerBase::haveAudioData, this, [this](const audioPacket &packet) {
-        if (wfShareTransport == nullptr || !wfShareTransport->isConnected()) {
-            return;
-        }
-
-        wfShareAudioTxFrames++;
-        if (wfShareAudioTxFrames <= 10 || wfShareAudioTxFrames % 250 == 0) {
-            qDebug(logRig()).noquote()
-                << QStringLiteral("wfshare sent TX audio frame %1 bytes %2")
-                       .arg(wfShareAudioTxFrames)
-                       .arg(packet.data.size());
-        }
-        wfShareTransport->sendStream(RadioTransportChannel::AudioTx, audioPacketCodec::encode(packet));
-    });
-    connect(wfShareTxAudio, &audioHandlerBase::haveLevels, this,
-            [this](quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current,
-                   bool under, bool over) {
-                Q_UNUSED(amplitudeRMS)
-                wfShareStatus.txAudioLevel = quint8(qMin<quint16>(amplitudePeak, 255));
-                wfShareStatus.txLatency = latency;
-                wfShareStatus.txCurrentLatency = qint16(current);
-                wfShareStatus.txUnderrun = under;
-                wfShareStatus.txOverrun = over;
-                applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
-                emit haveStatusUpdate(wfShareStatus);
-            });
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
-    QMetaObject::invokeMethod(wfShareTxAudio, [this]() {
-        wfShareTxAudio->init(wfShareTxSetup);
-    }, Qt::QueuedConnection);
-#else
-    QMetaObject::invokeMethod(wfShareTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, wfShareTxSetup));
-#endif
+    wfShareTransport->sendStream(RadioTransportChannel::AudioTx, audioPacketCodec::encode(packet));
 }
 
 void icomCommander::closeComm()
@@ -472,25 +432,6 @@ void icomCommander::closeWfShare()
     }
     wfShareRxAudio = nullptr;
 
-    if (wfShareTxAudio != nullptr) {
-        disconnect(wfShareTxAudio, nullptr, this, nullptr);
-        if (wfShareTxAudioThread == nullptr ||
-            wfShareTxAudio->thread() == QThread::currentThread() ||
-            !wfShareTxAudioThread->isRunning()) {
-            wfShareTxAudio->dispose();
-        } else {
-            QMetaObject::invokeMethod(wfShareTxAudio, &audioHandlerBase::dispose,
-                                      Qt::BlockingQueuedConnection);
-        }
-    }
-
-    if (wfShareTxAudioThread != nullptr) {
-        wfShareTxAudioThread->quit();
-        wfShareTxAudioThread->wait();
-        delete wfShareTxAudioThread;
-        wfShareTxAudioThread = nullptr;
-    }
-    wfShareTxAudio = nullptr;
     wfShareAudioRxFrames = 0;
     wfShareAudioTxFrames = 0;
     wfShareStats = IaxStats();
@@ -575,8 +516,26 @@ void icomCommander::dataFromServer(QByteArray data)
     rigCommander::dataFromServer(data);
 }
 
-void icomCommander::recordLastExternalCommand(const QByteArray &data)
+void icomCommander::dataFromExternalClient(QByteArray data)
 {
+    bool transmit = false;
+    if (detectExternalTransmitStatus(data, &transmit))
+        emit externalPttChanged(transmit);
+
+    recordLastExternalCommand(data);
+    emit dataForComm(data);
+}
+
+funcs icomCommander::lookupExternalCommand(const QByteArray &data, QByteArray *commandData,
+                                           QByteArray *lookupData, int *matchedLength) const
+{
+    if (commandData)
+        commandData->clear();
+    if (lookupData)
+        lookupData->clear();
+    if (matchedLength)
+        *matchedLength = 0;
+
     int frameStart = -1;
     for (int i = 0; i + 3 < data.size(); ++i) {
         if (quint8(data.at(i)) == 0xfe && quint8(data.at(i + 1)) == 0xfe) {
@@ -586,36 +545,49 @@ void icomCommander::recordLastExternalCommand(const QByteArray &data)
     }
 
     if (frameStart < 0 || data.size() <= frameStart + 4) {
-        return;
+        return funcNone;
     }
 
-    QByteArray commandData = data.mid(frameStart + 4);
-    const int terminator = commandData.indexOf(char(0xfd));
+    QByteArray command = data.mid(frameStart + 4);
+    const int terminator = command.indexOf(char(0xfd));
     if (terminator >= 0) {
-        commandData.truncate(terminator);
+        command.truncate(terminator);
     }
 
-    if (commandData.isEmpty()) {
-        return;
+    if (command.isEmpty()) {
+        return funcNone;
     }
 
-    QByteArray lookupData = commandData;
-    if (rigCaps.hasCommand29 && lookupData.size() >= 3 && quint8(lookupData.at(0)) == 0x29) {
-        lookupData.remove(0, 2);
+    QByteArray lookup = command;
+    if (rigCaps.hasCommand29 && lookup.size() >= 3 && quint8(lookup.at(0)) == 0x29) {
+        lookup.remove(0, 2);
     }
 
-    for (int len = qMin(lookupData.size(), 10); len > 0; --len) {
-        auto it = rigCaps.commandsReverse.find(lookupData.left(len));
-        if (it == rigCaps.commandsReverse.end()) {
+    if (commandData)
+        *commandData = command;
+    if (lookupData)
+        *lookupData = lookup;
+
+    for (int len = qMin(lookup.size(), 10); len > 0; --len) {
+        auto it = rigCaps.commandsReverse.constFind(lookup.left(len));
+        if (it == rigCaps.commandsReverse.constEnd()) {
             continue;
         }
 
-        const funcs func = it.value();
-        const auto cmdIt = rigCaps.commands.find(func);
-        if (cmdIt == rigCaps.commands.end()) {
-            continue;
-        }
+        if (matchedLength)
+            *matchedLength = len;
+        return it.value();
+    }
 
+    return funcNone;
+}
+
+void icomCommander::recordLastExternalCommand(const QByteArray &data)
+{
+    QByteArray commandData;
+    const funcs func = lookupExternalCommand(data, &commandData);
+    const auto cmdIt = rigCaps.commands.find(func);
+    if (func != funcNone && cmdIt != rigCaps.commands.end()) {
         const funcType cmd = cmdIt.value();
         lastCommand.func = cmd.cmd;
         lastCommand.data = commandData;
@@ -630,6 +602,19 @@ void icomCommander::recordLastExternalCommand(const QByteArray &data)
     lastCommand.minValue = 0;
     lastCommand.maxValue = 0;
     lastCommand.bytes = 0;
+}
+
+bool icomCommander::detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const
+{
+    QByteArray lookupData;
+    int matchedLength = 0;
+    const funcs func = lookupExternalCommand(data, nullptr, &lookupData, &matchedLength);
+    if (func != funcTransceiverStatus || matchedLength <= 0 || lookupData.size() <= matchedLength)
+        return false;
+
+    if (transmit)
+        *transmit = quint8(lookupData.at(matchedLength)) != 0;
+    return true;
 }
 
 funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver)
@@ -1852,175 +1837,22 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
         return ret;
     }
 
-    if (receiver)
-        d = subScopeData;
-    else
-        d = mainScopeData;
-
-    d.valid = false;
-
-    // Here is what to expect:
-    // payloadIn[00] = '\x27';
-    // payloadIn[01] = '\x00';
-    // payloadIn[02] = '\x00';
-    //
-    // Example long: (sequences 2-10, 50 pixels)
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 "
-    // "DATA:  27 00 00 07 11 27 13 15 01 00 22 21 09 08 06 19 0e 20 23 25 2c 2d 17 27 29 16 14 1b 1b 21 27 1a 18 17 1e 21 1b 24 21 22 23 13 19 23 2f 2d 25 25 0a 0e 1e 20 1f 1a 0c fd "
-    //                  ^--^--(seq 7/11)
-    //                        ^-- start waveform data 0x00 to 0xA0, index 05 to 54
-    //
-
-    // Example medium: (sequence #11)
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 "
-    // "DATA:  27 00 00 11 11 0b 13 21 23 1a 1b 22 1e 1a 1d 13 21 1d 26 28 1f 19 1a 18 09 2c 2c 2c 1a 1b fd "
-
-    // Example short: (sequence #1) includes center/fixed mode at [05]. No pixels.
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 "
-    // "DATA:  27 00 00 01 11 01 00 00 00 14 00 00 00 35 14 00 00 fd "
-    //                        ^-- mode 00 (center) or 01 (fixed)
-    //                                     ^--14.00 MHz lower edge
-    //                                                    ^-- 14.350 MHz upper edge
-    //                                                          ^-- possibly 00=in range 01 = out of range
-
-    // Note, the index used here, -1, matches the ICD in the owner's manual.
-    // Owner's manual + 1 = our index.
-
-    // divs: Mode: Waveinfo: Len:   Comment:
-    // 2-10  var   var       56     Minimum wave information w/waveform data
-    // 11    10    26        31     Minimum wave information w/waveform data
-    // 1     1     0         18     Only Wave Information without waveform data
-
-    freqt fStart;
-    freqt fEnd;
-
-    d.receiver = receiver;
-    quint8 sequence = bcdHexToUChar(payloadIn.at(0));
-    quint8 sequenceMax = bcdHexToUChar(payloadIn.at(1));
+    d = receiver ? subScopeData : mainScopeData;
     quint8 &nextSequence = receiver ? subScopeNextSequence : mainScopeNextSequence;
 
-    int freqLen = 5;
-    // M0VSE THIS SHOULD BE FIXED, BUT NOT SURE HOW AS WE DON'T KNOW WHICH BAND WE ARE ON?
-    // On the IC-905 10GHz+ uses 6 bytes for freq!
-    if (rigCaps.modelID == 0xAC && (payloadIn.size()==491 || payloadIn.size() == 16)) {
-        freqLen = 6;
-    }
+    ret = IcomScopeFrameAssembler::parsePayload(d,
+                                                payloadIn,
+                                                receiver,
+                                                rigCaps.modelID,
+                                                rigCaps.spectLenMax,
+                                                oldScopeMode,
+                                                nextSequence);
 
-    // Sequnce 2, index 05 is the start of data
-    // Sequence 11. index 05, is the last chunk
-    // Sequence 11, index 29, is the actual last pixel (it seems)
-
-    // It looks like the data length may be variable, so we need to detect it each time.
-    // start at payloadIn.length()-1 (to override the FD). Never mind, index -1 bad.
-    // chop off FD.
-    if (sequence == 1)
-    {
-        // This should work on Qt5, but I need to test, use the switch below instead for now.
-        d.mode = static_cast<uchar>(payloadIn.at(2));
-
-        if(d.mode != oldScopeMode)
-        {
-            // Modes:
-            // 0x00 Center
-            // 0x01 Fixed
-            // 0x02 Scroll-C
-            // 0x03 Scroll-F
-            oldScopeMode = d.mode;
-        }
-
-        d.oor=(bool)payloadIn[3+(freqLen*2)];
-        if (d.oor) {
-            d.data = QByteArray(rigCaps.spectLenMax,'\0');
-            d.valid=true;
-            return true;
-        }
-
-        // clear wave information
-        d.data.clear();
-        nextSequence = (sequence < sequenceMax) ? quint8(sequence + 1) : 0;
-
-        // For Fixed, and both scroll modes, the following produces correct information:
-        fStart = parseFreqData(payloadIn.mid(3,freqLen),receiver);
-        d.startFreq = fStart.MHzDouble;
-        fEnd = parseFreqData(payloadIn.mid(3+freqLen,freqLen),receiver);
-        d.endFreq = fEnd.MHzDouble;
-
-        if(d.mode == 0)
-        {
-            // "center" mode, start is actual center, end is bandwidth.
-            d.startFreq -= d.endFreq;
-            d.endFreq = d.startFreq + 2*(d.endFreq);
-        }
-
-        if (sequence == sequenceMax) // Must be a LAN packet.
-        {
-            d.data.append(payloadIn.right(payloadIn.length()-4-(freqLen*2)));
-            ret = true;
-        }
-
-        //qInfo(logRig()) << "Spectrum Data received start:" << d.startFreq << "end:" << d.endFreq << "seq:" << sequence << "/" << sequenceMax << "mode:" << d.mode << "oor" << d.oor << "scopelen:" << d.data.size() << "length:" << payloadIn.length();
-    }
-    else if ((sequence > 1) && (sequence < sequenceMax))
-    {
-        if (d.startFreq <= 0.0 || d.endFreq <= d.startFreq || nextSequence != sequence) {
-            qDebug(logRig()) << "Ignoring Icom scope section without preceding wave information"
-                              << "receiver" << receiver
-                              << "sequence" << sequence
-                              << "of" << sequenceMax
-                              << "expected" << nextSequence;
-            d.data.clear();
-            nextSequence = 0;
-            return false;
-        }
-
-        // spectrum from index 05 to index 54, length is 55 per segment. Length is 56 total. Pixel data is 50 pixels.
-        // sequence numbers 2 through 10, 50 pixels each. Total after sequence 10 is 450 pixels.
-        d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
-        nextSequence = quint8(sequence + 1);
-        ret = false;
-        //qInfo(logRig()) << "sequence: " << sequence << "spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
-    } else if (sequence == sequenceMax)
-    {
-        if (d.startFreq <= 0.0 || d.endFreq <= d.startFreq || nextSequence != sequence) {
-            qDebug(logRig()) << "Ignoring final Icom scope section without preceding wave information"
-                              << "receiver" << receiver
-                              << "sequence" << sequence
-                              << "of" << sequenceMax
-                              << "expected" << nextSequence;
-            d.data.clear();
-            nextSequence = 0;
-            return false;
-        }
-
-        // last spectrum, a little bit different (last 25 pixels). Total at end is 475 pixels (7300).
-        d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
-        ret = true;
-        nextSequence = 0;
-        //qInfo(logRig()) << "sequence: " << sequence << " spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
-    }
-
-    if (ret && !d.oor && rigCaps.spectLenMax > 0 && d.data.size() != rigCaps.spectLenMax) {
-        qWarning(logRig()) << "Ignoring incomplete Icom scope frame"
-                           << "receiver" << receiver
-                           << "sequence" << sequence
-                           << "of" << sequenceMax
-                           << "bytes" << d.data.size()
-                           << "expected" << rigCaps.spectLenMax;
-        d.data.clear();
-        nextSequence = 0;
-        ret = false;
-    }
-
-    d.valid=ret;
-
-    if (!ret) {
-        // We need to temporarilly store the scope data somewhere.
-        if (sequence < sequenceMax && (sequence == 1 || !d.data.isEmpty())) {
-            if (receiver)
-                subScopeData = d;
-            else
-                mainScopeData = d;
-        }
+    if (!ret && (nextSequence != 0 || !d.data.isEmpty())) {
+        if (receiver)
+            subScopeData = d;
+        else
+            mainScopeData = d;
     }
     return ret;
 }

@@ -174,41 +174,6 @@ ApplicationWindow {
         onHeightChanged: canvas.requestPaint()
     }
 
-    component LevelMeter: RowLayout {
-        id: meter
-        property string label: ""
-        property int value: 0
-        property color fillColor: "#4CAF50"
-
-        spacing: 6
-
-        Label {
-            text: meter.label
-            Layout.preferredWidth: 34
-            horizontalAlignment: Text.AlignRight
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 16
-            color: selectRadioWindow.palette.base
-            border.color: selectRadioWindow.palette.mid
-
-            Rectangle {
-                width: parent.width * Math.max(0, Math.min(255, meter.value)) / 255
-                height: parent.height
-                color: meter.fillColor
-            }
-        }
-
-        Label {
-            text: meter.value
-            Layout.preferredWidth: 34
-            horizontalAlignment: Text.AlignRight
-            font.pixelSize: 11
-        }
-    }
-
     // Close handler
     Component.onCompleted: {
         closing.connect(function(close) {
@@ -222,14 +187,6 @@ ApplicationWindow {
     // Connect to controller signals
     Connections {
         target: selectRadioController
-
-        function onAudioOutputLevelChanged(level) {
-            afLevel.value = level
-        }
-
-        function onAudioInputLevelChanged(level) {
-            modLevel.value = level
-        }
 
         function onTimeDifferencePointAdded(counter, time) {
             timeDifferenceSeries.append(counter, time)
@@ -314,6 +271,26 @@ ApplicationWindow {
         }
     }
 
+    function displayTxState(value) {
+        if (!value || value === "none")
+            return qsTr("Idle")
+        if (value === "local-input")
+            return qsTr("Local input")
+        if (value === "external-civ")
+            return qsTr("External CI-V")
+        if (value === "wfview")
+            return qsTr("wfview")
+        if (value === "wfshare")
+            return qsTr("wfshare")
+        if (value === "rigctl")
+            return qsTr("rigctl")
+        if (value === "tci")
+            return qsTr("TCI")
+        if (value === "radio")
+            return qsTr("Radio")
+        return value
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 8
@@ -394,6 +371,31 @@ ApplicationWindow {
             }
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Label {
+                text: qsTr("TX audio owner:")
+                font.bold: true
+            }
+
+            Label {
+                text: displayTxState(selectRadioController ? selectRadioController.txAudioOwner : "none")
+                Layout.preferredWidth: 92
+            }
+
+            Label {
+                text: qsTr("TX audio source:")
+                font.bold: true
+            }
+
+            Label {
+                text: displayTxState(selectRadioController ? selectRadioController.txAudioSource : "none")
+                Layout.fillWidth: true
+            }
+        }
+
         // Charts in a row
         RowLayout {
             Layout.fillWidth: true
@@ -406,7 +408,7 @@ ApplicationWindow {
                 id: timeDifferenceChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: qsTr("UDP time difference")
+                title: qsTr("Network time delta")
                 unit: qsTr("ms")
                 xAxis: timeXAxis
                 yAxis: timeYAxis
@@ -436,7 +438,7 @@ ApplicationWindow {
                 id: waterfallChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: qsTr("Waterfall plot time")
+                title: qsTr("Waterfall render time")
                 unit: qsTr("ms")
                 xAxis: waterfallXAxis
                 yAxis: waterfallYAxis
@@ -466,7 +468,7 @@ ApplicationWindow {
                 id: spectrumChart
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                title: qsTr("Spectrum plot time")
+                title: qsTr("Spectrum render time")
                 unit: qsTr("ms")
                 xAxis: spectrumXAxis
                 yAxis: spectrumYAxis
@@ -489,26 +491,6 @@ ApplicationWindow {
                     id: spectrumSeries
                     color: "#FF9800"
                 }
-            }
-        }
-
-        // Audio level meters
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 14
-
-            LevelMeter {
-                id: afLevel
-                label: qsTr("AF")
-                fillColor: "#4CAF50"
-                Layout.fillWidth: true
-            }
-
-            LevelMeter {
-                id: modLevel
-                label: qsTr("MOD")
-                fillColor: "#FF9800"
-                Layout.fillWidth: true
             }
         }
 

@@ -164,6 +164,14 @@ void icomUdpHandler::receiveAudioData(const audioPacket &data)
     emit haveAudioData(data);
 }
 
+void icomUdpHandler::sendTxAudioData(const audioPacket &data)
+{
+    if (audio == nullptr)
+        return;
+
+    audio->receiveAudioData(data);
+}
+
 void icomUdpHandler::receiveDataFromUserToRig(QByteArray data)
 {
     if (civ != nullptr)
@@ -392,7 +400,7 @@ void icomUdpHandler::dataReceived()
                             streamOpened = true;
                         }
                         if (audio == nullptr) {
-                            audio = new icomUdpAudio(localIP, radioIP, audioPort, audioLocalPort, rxSetup, txSetup);
+                            audio = new icomUdpAudio(localIP, radioIP, audioPort, audioLocalPort, rxSetup, txSetup, false);
 
                             QObject::connect(audio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
                             QObject::connect(this, SIGNAL(haveChangeLatency(quint16)), audio, SLOT(changeLatency(quint16)));

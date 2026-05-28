@@ -120,11 +120,6 @@ void icomUdpBase::dataReceived(QByteArray r)
                 const qint64 localNow = mono.elapsed();          // monotonic ms
                 const int    radioNow = normDay(int(in->time));  // ms since startup, wrapped daily
 
-                // Maintain a prediction of radioNow from monotonic time (one-time sync / occasional rebase)
-                static bool  haveSync = false;
-                static int   radioBase = 0;
-                static qint64 localBase = 0;
-
                 if (!haveSync) {
                     haveSync = true;
                     radioBase = radioNow;
@@ -138,23 +133,6 @@ void icomUdpBase::dataReceived(QByteArray r)
                 // Positive means the ping timestamp is behind where it "should" be now => latency/queuing.
                 // Negative means it appears ahead (usually reorder/clock wobble).
                 pingLatenessMs = signedDeltaDay(predictedRadioNow, radioNow);
-
-                static bool baselineValid = false;
-                static int  baselineMs = 0;
-                constexpr int MaxBaselineClamp = 2000; // safety clamp
-
-                // Initialise / update baseline slowly (tracks pipeline delay but not spikes)
-                if (!baselineValid) {
-                    baselineMs = pingLatenessMs;
-                    baselineValid = true;
-                } else {
-                    // Only learn baseline when we're not in a big spike
-                    int dev = pingLatenessMs - baselineMs;
-                    if (std::abs(dev) < 200) { // don't "learn" huge spikes into baseline
-                        baselineMs = (baselineMs * 31 + pingLatenessMs) / 32;
-                        baselineMs = qBound(0, baselineMs, MaxBaselineClamp);
-                    }
-                }
 
                 ping_packet p;
                 memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
@@ -581,5 +559,3 @@ void icomUdpBase::printHex(const QByteArray& pdata, bool printVert, bool printHo
     }
     qDebug(logUdp()) << "----- End hex dump -----";
 }
-
-

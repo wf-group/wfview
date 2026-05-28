@@ -68,11 +68,6 @@ void rtpAudio::init()
         else if (outSetup.type == rtAudio) {
             outaudio = new audioHandlerRtOutput();
         }
-#ifndef BUILD_WFSERVER
-        else if (outSetup.type == tciAudio) {
-            outaudio = new audioHandlerTciOutput();
-        }
-#endif
         else
         {
             qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
@@ -107,11 +102,6 @@ void rtpAudio::init()
         else if (inSetup.type == rtAudio) {
             inaudio = new audioHandlerRtInput();
         }
-#ifndef BUILD_WFSERVER
-        else if (inSetup.type == tciAudio) {
-            inaudio = new audioHandlerTciInput();
-        }
-#endif
         else
         {
             qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";

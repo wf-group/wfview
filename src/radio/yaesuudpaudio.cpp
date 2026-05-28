@@ -73,11 +73,6 @@ void yaesuUdpAudio::init()
     else if (rxSetup.type == rtAudio) {
         rxaudio = new audioHandlerRtOutput();
     }
-#ifndef BUILD_WFSERVER
-    else if (rxSetup.type == tciAudio) {
-        rxaudio = new audioHandlerTciOutput();
-    }
-#endif
     else
     {
         qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!" << rxSetup.type;
@@ -108,12 +103,7 @@ void yaesuUdpAudio::init()
     else if (txSetup.type == rtAudio) {
         txaudio = new audioHandlerRtInput();
     }
-#ifndef BUILD_WFSERVER
-    else if (txSetup.type == tciAudio) {
-        txaudio = new audioHandlerTciInput();
-    }
-#endif
-    else
+        else
     {
         qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
         return;

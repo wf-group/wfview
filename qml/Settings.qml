@@ -528,8 +528,7 @@ ApplicationWindow {
                                         model: [
                                             { text: qsTr("Qt Audio"), value: 0 },
                                             { text: qsTr("PortAudio"), value: 1 },
-                                            { text: qsTr("RT Audio"), value: 2 },
-                                            { text: qsTr("TCI Audio"), value: 3 }
+                                            { text: qsTr("RT Audio"), value: 2 }
                                         ]
                                         currentIndex: (controller && controller.options)
                                                       ? indexFromValue(audioSystemCombo,controller.options["Radio.AudioSystem"])

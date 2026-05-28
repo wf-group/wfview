@@ -227,6 +227,11 @@ void rigCommander::dataFromServer(QByteArray data)
     emit dataForComm(data);
 }
 
+void rigCommander::receiveTxAudioData(const audioPacket &packet)
+{
+    Q_UNUSED(packet)
+}
+
 bool rigCommander::usingLAN()
 {
     return usingNativeLAN;

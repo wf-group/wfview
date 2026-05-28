@@ -35,7 +35,8 @@ class icomUdpAudio : public icomUdpBase
 	Q_OBJECT
 
 public:
-	icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 aport, quint16 lport, audioSetup rxSetup, audioSetup txSetup);
+    icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 aport, quint16 lport, audioSetup rxSetup,
+                 audioSetup txSetup, bool localTxInputEnabled = true);
 	~icomUdpAudio();
 
 	int audioLatency = 0;
@@ -66,8 +67,9 @@ private:
 	void dataReceived();
 	void watchdog();
 	void startAudio();
-	audioSetup rxSetup;
-	audioSetup txSetup;
+    audioSetup rxSetup;
+    audioSetup txSetup;
+    bool localTxInputEnabled = true;
 
 	uint16_t sendAudioSeq = 0;
 
@@ -88,6 +90,8 @@ private:
     qint64  audioBaseNs  = 0;       // base arrival time (monotonic)
     int     audioPktMs   = 20;      // TODO set to your actual framing (10/20/40ms etc)
     int     latencyCounter = 0;
+    int     droppedLatencyPackets = 0;
+    QElapsedTimer lastLatencyDropLog;
 
 
 };

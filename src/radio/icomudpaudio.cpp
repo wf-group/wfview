@@ -6,7 +6,8 @@ static inline quint32 makeExtendedSeq(quint32 prefix, quint16 seq16) {
 }
 
 // Audio stream
-icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPort, quint16 lport, audioSetup rxSetup, audioSetup txSetup)
+icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPort, quint16 lport,
+                           audioSetup rxSetup, audioSetup txSetup, bool localTxInputEnabled)
 {
     qInfo(logUdp()) << "Starting icomUdpAudio";
     this->localIP = local;
@@ -14,6 +15,7 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
     this->radioIP = ip;
     this->rxSetup = rxSetup;
     this->txSetup = txSetup;
+    this->localTxInputEnabled = localTxInputEnabled;
 
     if (txSetup.sampleRate == 0) {
         enableTx = false;
@@ -94,11 +96,18 @@ void icomUdpAudio::sendTxAudio()
 }
 
 void icomUdpAudio::receiveAudioData(audioPacket audio) {
-    // I really can't see how this could be possible but a quick sanity check!
-    if (txaudio == nullptr) {
+    if (!enableTx) {
+        return;
+    }
+    if (audio.channels > 1) {
+        qWarning(logUdp()) << "Icom LAN TX audio expected mono, got" << audio.channels << "channels";
         return;
     }
     if (audio.data.length() > 0) {
+        const auto peak = quint16(qBound(0, qRound(audio.amplitudePeak * 255.0f), 255));
+        const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
+        emit haveTxLevels(peak, rms, txSetup.latency, 0, false, false);
+
         int len = 0;
 
         while (len < audio.data.length()) {
@@ -180,26 +189,35 @@ void icomUdpAudio::dataReceived()
                 if (rxAudioThread == nullptr)
                     startAudio();
 
-                const int excess = pingLatenessMs - (pingBaselineMs + rxSetup.latency);
+                const int timeDriftMs = qMax(0, pingLatenessMs);
+                const int dropThresholdMs = qMax<int>(rxSetup.latency + audioPktMs,
+                                                       int(rxSetup.latency * 1.5));
+                bool dropForLatency = false;
 
-                if (excess > 0) {
-                    qDebug(logUdp()) << "Audio latency high:"
-                                     << "lateness" << pingLatenessMs
-                                     << "baseline" << pingBaselineMs
-                                     << "excess" << excess;
-
-                    if (++latencyCounter > 5) {
-                        qInfo(logUdp()) << "Latency sustained -> flushing audio";
+                if (timeDriftMs > dropThresholdMs) {
+                    dropForLatency = ++latencyCounter >= 3;
+                    if (dropForLatency)
                         latencyCounter = 0;
-                        //flushAudio();   // clear queue / reset decoder
-                        break;
-                    }
                 } else {
                     latencyCounter = 0;
                 }
+
+                if (dropForLatency) {
+                    ++droppedLatencyPackets;
+                    if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
+                        qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
+                                        << "timeDrift" << timeDriftMs
+                                        << "configuredLatency" << rxSetup.latency
+                                        << "threshold" << dropThresholdMs
+                                        << "dropped" << droppedLatencyPackets;
+                        lastLatencyDropLog.restart();
+                    }
+                    break;
+                }
+
                 audioPacket tempAudio;
                 tempAudio.seq  = quint32(seqPrefix << 16) | quint32(in->seq) ;
-                tempAudio.time = QTime::currentTime();
+                tempAudio.time = QTime::currentTime().addMSecs(-timeDriftMs);
                 tempAudio.sent = 0;
                 tempAudio.data = r.mid(0x18);
                 emit haveAudioData(tempAudio);
@@ -226,11 +244,6 @@ void icomUdpAudio::startAudio() {
     else if (rxSetup.type == rtAudio) {
         rxaudio = new audioHandlerRtOutput();
     }
-#ifndef BUILD_WFSERVER
-    else if (rxSetup.type == tciAudio) {
-        rxaudio = new audioHandlerTciOutput();
-    }
-#endif
     else
     {
         qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!" << rxSetup.type;
@@ -261,7 +274,7 @@ void icomUdpAudio::startAudio() {
     connect(pingTimer, &QTimer::timeout, this, &icomUdpBase::sendPing);
     pingTimer->start(PING_PERIOD); // send ping packets every 100ms
 
-    if (enableTx) {
+    if (enableTx && localTxInputEnabled) {
         if (txSetup.type == qtAudio) {
             txaudio = new audioHandlerQtInput();
         }
@@ -271,11 +284,6 @@ void icomUdpAudio::startAudio() {
         else if (txSetup.type == rtAudio) {
             txaudio = new audioHandlerRtInput();
         }
-#ifndef BUILD_WFSERVER
-        else if (txSetup.type == tciAudio) {
-            txaudio = new audioHandlerTciInput();
-        }
-#endif
         else
         {
             qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
@@ -300,4 +308,3 @@ void icomUdpAudio::startAudio() {
     emit setupRxAudio(rxSetup);
 
 }
-

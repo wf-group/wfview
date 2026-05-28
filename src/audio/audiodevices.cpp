@@ -338,13 +338,6 @@ void audioDevices::enumerate()
             delete audio;
             break;
         }
-        case tciAudio:
-        {
-            inputs.append(new audioDevice("<TCI Audio>",0,1));
-            outputs.append(new audioDevice("<TCI Audio>",0,1));
-            break;
-        }
-
     }
     emit updated();
 
@@ -380,11 +373,6 @@ QStringList audioDevices::getOutputs()
 
 int audioDevices::findInput(QString type, QString name, bool ignoreDefault)
 {
-    if (type != "Server" && system == tciAudio)
-    {
-        return 0;
-    }
-
     int ret = -1;
     int def = -1;
     int usb = -1;
@@ -442,11 +430,6 @@ int audioDevices::findInput(QString type, QString name, bool ignoreDefault)
 
 int audioDevices::findOutput(QString type, QString name, bool ignoreDefault)
 {
-    if (type != "Server" && system == tciAudio)
-    {
-        return 0;
-    }
-
     int ret = -1;
     int def = -1;
     int usb = -1;

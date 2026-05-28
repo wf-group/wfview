@@ -372,7 +372,7 @@ int run(const QString& settingsFile)
 
     // --- Audio backend + devices (loopable) ---
     // Menu values match the audioType enum (qtAudio=0, portAudio=1, rtAudio=2).
-    audioType audioSystem = replaceAll ? qtAudio : static_cast<audioType>(existingAudioSystem);
+    audioType audioSystem = replaceAll ? qtAudio : normalizeAudioType(existingAudioSystem);
     QString rxName, txName;
 
     while (true) {

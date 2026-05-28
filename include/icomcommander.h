@@ -33,6 +33,8 @@ public slots:
                           audioSetup rxSetup, audioSetup txSetup) override;
     void setLocalAudioVolume(quint8 level) override;
     void dataFromServer(QByteArray data) override;
+    void dataFromExternalClient(QByteArray data);
+    void receiveTxAudioData(const audioPacket &packet) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
 
@@ -104,10 +106,12 @@ private:
     QByteArray getACCAddr(quint8 ab);
     void sendDataOut();
     void prepDataAndSend(QByteArray data);
+    funcs lookupExternalCommand(const QByteArray &data, QByteArray *commandData = nullptr,
+                                QByteArray *lookupData = nullptr, int *matchedLength = nullptr) const;
     void recordLastExternalCommand(const QByteArray &data);
+    bool detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const;
     void debugMe();
     void closeWfShare();
-    void startWfShareTxAudio();
 
     centerSpanData createScopeCenter(uchar s, QString name);
 
@@ -119,8 +123,6 @@ private:
     audioHandlerBase* wfShareRxAudio = nullptr;
     QThread* wfShareRxAudioThread = nullptr;
     audioSetup wfShareRxSetup;
-    audioHandlerBase* wfShareTxAudio = nullptr;
-    QThread* wfShareTxAudioThread = nullptr;
     audioSetup wfShareTxSetup;
     quint32 wfShareAudioRxFrames = 0;
     quint32 wfShareAudioTxFrames = 0;
