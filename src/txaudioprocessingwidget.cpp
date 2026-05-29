@@ -56,8 +56,8 @@ txAudioProcessingPrefs TxAudioProcessingWidget::getPrefs() const
 
     p.compPeakLimit = compPeakLimit->value() * 0.1f;
     p.compRelease   = compRelease->value()   * 0.01f;
-    p.compFastRatio = (100-compFastRatio->value()) * 0.01f;
-    p.compSlowRatio = (100-compSlowRatio->value()) * 0.01f;
+    p.compFastRatio = compFastRatio->value() * 0.01f;  // slider 0..100 → DSP 0.0..1.0
+    p.compSlowRatio = compSlowRatio->value() * 0.01f;
 
     p.inputGainDB   = inputGain->value()  * 0.1f;
     p.outputGainDB  = outputGain->value() * 0.1f;
@@ -134,8 +134,8 @@ void TxAudioProcessingWidget::onAnyControlChanged()
     }
     lblPeak->setText(QString::number(compPeakLimit->value() * 0.1f, 'f', 1) + " dB");
     lblRelease->setText(QString::number(compRelease->value() * 0.01f, 'f', 2) + " s");
-    lblFast->setText(QString("%1:1").arg(1 + compFastRatio->value() * 99 / 100, 3));
-    lblSlow->setText(QString("%1:1").arg(1 + compSlowRatio->value() * 99 / 100, 3));
+    lblFast->setText(QString::number(compFastRatio->value() * 0.1, 'f', 1) + ":1");
+    lblSlow->setText(QString::number(compSlowRatio->value() * 0.1, 'f', 1) + ":1");
     lblInputGain->setText(QString::number(inputGain->value() * 0.1f, 'f', 1) + " dB");
     lblOutputGain->setText(QString::number(outputGain->value() * 0.1f, 'f', 1) + " dB");
     lblSidetone->setText(QString::number(sidetoneLevel->value()) + "%");
@@ -486,15 +486,15 @@ void TxAudioProcessingWidget::buildUi()
             return s;
         };
 
-        // Peak limit: -30..0 dB, stored ×10, so range -300..0
+        // Threshold: -30..0 dB, stored ×10, so range -300..0
         compPeakLimit = makeSlider(-300, 0, -100);
-        compPeakLimit->setAccessibleName(tr("Compressor peak limit"));
+        compPeakLimit->setAccessibleName(tr("Compressor threshold"));
         lblPeak       = new QLabel("-10.0 dB");
         {
             auto* row = new QHBoxLayout;
             row->addWidget(compPeakLimit);
             row->addWidget(lblPeak);
-            form->addRow(tr("Peak limit:"), row);
+            form->addRow(tr("Threshold:"), row);
         }
 
         // Release: 0.01..1.0 s → stored ×100, range 1..100
@@ -508,10 +508,10 @@ void TxAudioProcessingWidget::buildUi()
             form->addRow(tr("Release time:"), row);
         }
 
-        // Fast ratio: DSP 0.0=1:1 (no compression) … 1.0=100:1 (max), stored ×100
-        compFastRatio = makeSlider(0, 100, 50);
+        // Fast ratio: slider 0..100 → DSP param 0.0..1.0 (value/100); shown as param×10 (0.0:1 … 10.0:1)
+        compFastRatio = makeSlider(0, 100, 50);   // 50 → param 0.5 → 5.0:1 (DSP default)
         compFastRatio->setAccessibleName(tr("Compressor fast ratio"));
-        lblFast       = new QLabel(" 50:1");
+        lblFast       = new QLabel("5.0:1");
         lblFast->setMinimumWidth(55);
         {
             auto* row = new QHBoxLayout;
@@ -520,10 +520,10 @@ void TxAudioProcessingWidget::buildUi()
             form->addRow(tr("Fast ratio:"), row);
         }
 
-        // Slow ratio: DSP 0.0=1:1 (no compression) … 1.0=100:1 (max), stored ×100
-        compSlowRatio = makeSlider(0, 100, 30);
+        // Slow ratio: slider 0..100 → DSP param 0.0..1.0 (value/100); shown as param×10 (0.0:1 … 10.0:1)
+        compSlowRatio = makeSlider(0, 100, 30);   // 30 → param 0.3 → 3.0:1 (DSP default)
         compSlowRatio->setAccessibleName(tr("Compressor slow ratio"));
-        lblSlow       = new QLabel(" 30:1");
+        lblSlow       = new QLabel("3.0:1");
         lblSlow->setMinimumWidth(55);
         {
             auto* row = new QHBoxLayout;
@@ -835,8 +835,8 @@ void TxAudioProcessingWidget::populateFromPrefs(const txAudioProcessingPrefs& p)
 
     compPeakLimit->setValue(static_cast<int>(std::round(p.compPeakLimit * 10.0f)));
     compRelease->setValue(static_cast<int>(std::round(p.compRelease * 100.0f)));
-    compFastRatio->setValue(static_cast<int>(std::round((1-p.compFastRatio) * (100.0f))));
-    compSlowRatio->setValue(static_cast<int>(std::round((1-p.compSlowRatio) * (100.0f))));
+    compFastRatio->setValue(static_cast<int>(std::round(p.compFastRatio * 100.0f)));
+    compSlowRatio->setValue(static_cast<int>(std::round(p.compSlowRatio * 100.0f)));
 
     inputGain->setValue(static_cast<int>(std::round(p.inputGainDB * 10.0f)));
     outputGain->setValue(static_cast<int>(std::round(p.outputGainDB * 10.0f)));
@@ -855,8 +855,8 @@ void TxAudioProcessingWidget::populateFromPrefs(const txAudioProcessingPrefs& p)
     // Update labels
     lblPeak->setText(QString::number(p.compPeakLimit, 'f', 1) + " dB");
     lblRelease->setText(QString::number(p.compRelease, 'f', 2) + " s");
-    { int s = qRound((1-p.compFastRatio) * 100.0f); lblFast->setText(QString("%1:1").arg(1 + s * 99 / 100, 3)); }
-    { int s = qRound((1-p.compSlowRatio) * 100.0f); lblSlow->setText(QString("%1:1").arg(1 + s * 99 / 100, 3)); }
+    lblFast->setText(QString::number(p.compFastRatio * 10.0f, 'f', 1) + ":1");
+    lblSlow->setText(QString::number(p.compSlowRatio * 10.0f, 'f', 1) + ":1");
     lblInputGain->setText(QString::number(p.inputGainDB, 'f', 1) + " dB");
     lblOutputGain->setText(QString::number(p.outputGainDB, 'f', 1) + " dB");
     lblSidetone->setText(QString::number(static_cast<int>(p.sidetoneLevel * 100.0f)) + "%");
