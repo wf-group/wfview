@@ -576,8 +576,10 @@ void kenwoodCommander::parseData(QByteArray data)
             value.setValue(bool(false));
             isTransmitting = false;
             break;
+        case funcIFShift:
         case funcPBTInner:
         case funcPBTOuter:
+            value.setValue<ushort>(d.mid(0,type.bytes).toUShort());
             break;
         case funcFilterWidth: {
             // We need to work out which mode first:
@@ -936,7 +938,7 @@ void kenwoodCommander::parseData(QByteArray data)
             break;
         case funcFilterControlSSB:
         case funcFilterControlData:
-            qInfo(logRig()) << "Received" << funcString[func] << "value" << d;
+            value.setValue<bool>(d.right(type.bytes).toUShort() != 0);
             break;
         case funcFA:
             qInfo(logRig()) << "Rig error, last command sent:" << funcString[lastCommand.func] << "(min:" << lastCommand.minValue << "max:" <<

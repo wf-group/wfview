@@ -375,6 +375,7 @@ private:
     void updatePbt();
     void suppressPbtOverlay(int milliseconds = 300);
     void updatePassbandModeParameters(const modeInfo &m);
+    double kenwoodShiftMHz() const;
     void updateModeSensitiveUiSpecs();
     void applyModeSpecificPeriodicCommands(const modeInfo &mode);
     bool periodicCommandAllowedByMode(funcs func, uchar receiver, const modeInfo &mode) const;
@@ -426,7 +427,10 @@ private:
     bool waterfallAntiAlias = false;
     int pbtInner = 0;
     int pbtOuter = 0;
+    bool havePbtInner = false;
+    bool havePbtOuter = false;
     int ifShift = 0;
+    bool haveIfShift = false;
     int filterWidth = 0;
 
     // Spectrum

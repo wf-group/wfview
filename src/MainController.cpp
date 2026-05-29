@@ -2964,10 +2964,6 @@ void MainController::getInitialRigState()
         queue->add(priorityHigh,queueItem(funcVOIP,QVariant::fromValue<uchar>(prefs->rxSetup.codec==0x80?2:1),false,0));
     }
 
-    // Put Kenwood into Shift&Width mode for filter control.
-    queue->add(priorityHigh,queueItem(funcFilterControlSSB,QVariant::fromValue<bool>(true),false,0));
-    queue->add(priorityHigh,queueItem(funcFilterControlData,QVariant::fromValue<bool>(true),false,0));
-
 }
 
 void MainController::setAppTheme(bool isCustom)

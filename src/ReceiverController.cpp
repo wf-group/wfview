@@ -131,6 +131,7 @@ void ReceiverController::updatePassband()
         return;
 
     double freq = (frequencyA/1000000.0);
+    const bool kenwood = rigCaps && rigCaps->manufacturer == manufKenwood;
 
     double pbLow = 0.0;
     double pbHigh = 0.0;
@@ -139,7 +140,11 @@ void ReceiverController::updatePassband()
     case modeLSB:
     case modeRTTY_R:
     case modePSK_R:
-        if (rigCaps->manufacturer == manufKenwood) {
+        if (kenwood && mode.mk == modeLSB) {
+            const double shift = kenwoodShiftMHz();
+            pbHigh = freq - shift + (passbandWidth / 2.0);
+            pbLow = pbHigh - passbandWidth;
+        } else if (kenwood) {
             pbLow = freq-passbandWidth;
             pbHigh = freq;
         } else {
@@ -168,7 +173,11 @@ void ReceiverController::updatePassband()
         }
         break;
     default:
-        if (rigCaps->manufacturer == manufKenwood) {
+        if (kenwood && mode.mk == modeUSB) {
+            const double shift = kenwoodShiftMHz();
+            pbLow = freq + shift - (passbandWidth / 2.0);
+            pbHigh = pbLow + passbandWidth;
+        } else if (kenwood) {
             pbLow = freq;
             pbHigh = freq+passbandWidth;
         } else {
@@ -186,6 +195,29 @@ void ReceiverController::updatePassband()
         emit passbandChanged();
         updatePbt();
     }
+}
+
+double ReceiverController::kenwoodShiftMHz() const
+{
+    if (!haveIfShift)
+        return passbandWidth / 2.0;
+
+    if (mode.mk == modeLSB || mode.mk == modeUSB) {
+        if (ifShift <= 0)
+            return 0.000050;
+        if (ifShift == 1)
+            return 0.000100;
+        if (ifShift <= 48)
+            return double((ifShift + 1) * 50) / 1000000.0;
+        return 0.002500;
+    }
+
+    if (mode.mk == modeCW || mode.mk == modeCW_R) {
+        const int shiftHz = qBound(-800, (ifShift * 10) - 800, 800);
+        return double(cwPitch + shiftHz) / 1000000.0;
+    }
+
+    return passbandWidth / 2.0;
 }
 
 int ReceiverController::pbtDefaultValue(const funcType &func) const
@@ -1096,10 +1128,13 @@ void ReceiverController::setRxAntenna(bool v, bool u)
 
 void ReceiverController::setPbtInner(int v, bool u)
 {
-    if (pbtInner != v)
+    if (pbtInner != v || !havePbtInner)
     {
         pbtInner = v;
+        havePbtInner = true;
         emit pbtInnerChanged();
+        if (rigCaps && rigCaps->manufacturer == manufKenwood)
+            updatePassband();
         updatePbt();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
@@ -1110,9 +1145,10 @@ void ReceiverController::setPbtInner(int v, bool u)
 
 void ReceiverController::setPbtOuter(int v, bool u)
 {
-    if (pbtOuter != v)
+    if (pbtOuter != v || !havePbtOuter)
     {
         pbtOuter = v;
+        havePbtOuter = true;
         emit pbtOuterChanged();
         updatePbt();
         if (u) {
@@ -1124,10 +1160,13 @@ void ReceiverController::setPbtOuter(int v, bool u)
 
 void ReceiverController::setIfShift(int v, bool u)
 {
-    if (ifShift != v)
+    if (ifShift != v || !haveIfShift)
     {
         ifShift = v;
+        haveIfShift = true;
         emit ifShiftChanged();
+        if (rigCaps && rigCaps->manufacturer == manufKenwood)
+            updatePassband();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcIFShift,QVariant::fromValue<ushort>(v),false,t.receiver));
