@@ -8,6 +8,18 @@
 #include "audiodevices.h"
 #include "logcategories.h"
 
+namespace {
+
+bool isDefaultDeviceRequest(const QString& name)
+{
+    const QString normalized = name.trimmed().toLower();
+    return normalized == QLatin1String("default") ||
+           normalized == QLatin1String("default input device") ||
+           normalized == QLatin1String("default output device");
+}
+
+}
+
 audioDevices::audioDevices(audioType type, QFontMetrics fm, QObject* parent) :
     QObject(parent),
     system(type),
@@ -28,6 +40,8 @@ void audioDevices::enumerate()
     numOutputDevices = 0;
     numCharsIn = 0;
     numCharsOut = 0;
+    defaultInputDeviceName.clear();
+    defaultOutputDeviceName.clear();
     inputs.clear();
     outputs.clear();
 
@@ -40,8 +54,10 @@ void audioDevices::enumerate()
             qInfo(logAudio()) << "Audio device(s) found (*=default)";
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            defaultInputDeviceName = QAudioDeviceInfo::defaultInputDevice().deviceName();
             for(const auto &deviceInfo: QAudioDeviceInfo::availableDevices(QAudio::AudioInput))
 #else
+            defaultInputDeviceName = mediaDevices.defaultAudioInput().description();
             const auto audioInputs = mediaDevices.audioInputs();
             for (const QAudioDevice& deviceInfo : audioInputs)
 #endif
@@ -59,7 +75,7 @@ void audioDevices::enumerate()
                 }
 #endif
                 bool isDefault = false;
-                if (numInputDevices == 0) {
+                if (defaultInputDeviceName.isEmpty() && numInputDevices == 0) {
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
                     defaultInputDeviceName = QString(deviceInfo.deviceName());
@@ -111,8 +127,10 @@ void audioDevices::enumerate()
             }
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            defaultOutputDeviceName = QAudioDeviceInfo::defaultOutputDevice().deviceName();
             for(const auto &deviceInfo: QAudioDeviceInfo::availableDevices(QAudio::AudioOutput))
 #else
+            defaultOutputDeviceName = mediaDevices.defaultAudioOutput().description();
             const auto audioOutputs = mediaDevices.audioOutputs();
             for (const QAudioDevice& deviceInfo : audioOutputs)
 #endif
@@ -130,7 +148,7 @@ void audioDevices::enumerate()
                 }
 #endif
                 bool isDefault = false;
-                if (numOutputDevices == 0)
+                if (defaultOutputDeviceName.isEmpty() && numOutputDevices == 0)
                 {
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
                     defaultOutputDeviceName = QString(deviceInfo.deviceName());
@@ -376,26 +394,32 @@ int audioDevices::findInput(QString type, QString name, bool ignoreDefault)
     int ret = -1;
     int def = -1;
     int usb = -1;
+    const bool defaultRequested = isDefaultDeviceRequest(name);
     QString msg;
     QTextStream s(&msg);
 
     for (int f = 0; f < inputs.size(); f++)
     {
         //qInfo(logAudio()) << "Found device" << inputs[f].name;
-        if (!name.isEmpty() && inputs[f]->name.startsWith(name)) {
+        if (!defaultRequested && !name.isEmpty() && inputs[f]->name.startsWith(name)) {
             s << type << " Audio input device " << name << " found! ";
             ret = f;
         }
+        if (inputs[f]->isDefault == true)
+        {
+            def = f;
+        }
         if (!ignoreDefault) {
-            if (inputs[f]->isDefault == true)
-            {
-                def = f;
-            }
             if (inputs[f]->name.contains("USB",Qt::CaseInsensitive)) {
                 // This is a USB device...
                 usb = f;
             }
         }
+    }
+
+    if (ret == -1 && defaultRequested && def > -1) {
+        s << type << " Audio input default requested; selecting " << inputs[def]->name;
+        ret = def;
     }
  
     if (ret == -1 && !ignoreDefault)
@@ -433,27 +457,33 @@ int audioDevices::findOutput(QString type, QString name, bool ignoreDefault)
     int ret = -1;
     int def = -1;
     int usb = -1;
+    const bool defaultRequested = isDefaultDeviceRequest(name);
     QString msg;
     QTextStream s(&msg);
 
     for (int f = 0; f < outputs.size(); f++)
     {
         //qInfo(logAudio()) << "Found device" << outputs[f].name;
-        if (!name.isEmpty() && outputs[f]->name.startsWith(name)) {
+        if (!defaultRequested && !name.isEmpty() && outputs[f]->name.startsWith(name)) {
             ret = f;
             s << type << " Audio output device " << name << " found! ";
         }
+        if (outputs[f]->isDefault == true)
+        {
+            def = f;
+        }
         if (!ignoreDefault) {
-            if (outputs[f]->isDefault == true)
-            {
-                def = f;
-            }
             if (outputs[f]->name.contains("USB",Qt::CaseInsensitive)) {
                 // This is a USB device...
                 usb = f;
             }
         }
 
+    }
+
+    if (ret == -1 && defaultRequested && def > -1) {
+        s << type << " Audio output default requested; selecting " << outputs[def]->name;
+        ret = def;
     }
 
     if (ret == -1 && !ignoreDefault)
