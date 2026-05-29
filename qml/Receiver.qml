@@ -141,7 +141,21 @@ Control {
                     scaleHighLineColor: MainController.settings.options["Color.MeterHighScale"]
 
                     drawLabels: true
-                    Component.onCompleted: smeter.setMeterExtremities(-54, 60, 0)
+                    function applyExtremities() {
+                        const type = root.controller ? root.controller.meterType : 0
+                        const ext = MainController.optionalMeterExtremities(type)
+                        if (ext.valid) {
+                            smeter.setMeterExtremities(ext.low, ext.high, ext.red)
+                        } else if (type === 1 || type === 17) {
+                            smeter.setMeterExtremities(-54, 60, 0)
+                        } else if (type === 3) {
+                            smeter.setMeterExtremities(1, 6, 3)
+                        } else {
+                            smeter.clearMeterExtremities()
+                        }
+                    }
+                    Component.onCompleted: applyExtremities()
+                    onMeterTypeChanged: applyExtremities()
                 }
 
                 Popup {

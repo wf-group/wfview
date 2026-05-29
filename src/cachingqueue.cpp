@@ -571,7 +571,7 @@ bool cachingQueue::compare(QVariant a, QVariant b)
             if (a.value<antennaInfo>().antenna != b.value<antennaInfo>().antenna || a.value<antennaInfo>().rx != b.value<antennaInfo>().rx)
                 changed=true;
         } else if(!strcmp(a.typeName(),"rigInput")) {
-            if (a.value<rigInput>().type != b.value<rigInput>().type)
+            if (a.value<rigInput>() != b.value<rigInput>())
                 changed=true;
         } else if (!strcmp(a.typeName(),"duplexMode_t")) {
             if (a.value<duplexMode_t>() != b.value<duplexMode_t>())

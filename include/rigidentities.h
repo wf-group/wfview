@@ -374,6 +374,14 @@ struct rigCapabilities {
     double meterLines[meterUnknown+1];
 };
 
+inline uchar initialDataModeForRig(const rigCapabilities* caps)
+{
+    if (caps && !caps->commands.contains(funcDataMode) && !caps->commands.contains(funcDataModeWithFilter))
+        return 0;
+
+    return 0xff;
+}
+
 Q_DECLARE_METATYPE(manufacturersType_t)
 Q_DECLARE_METATYPE(connectionType_t)
 Q_DECLARE_METATYPE(udpPreferences)

@@ -6,6 +6,7 @@ int runAudioRoutingTests(int argc, char **argv);
 int runClusterTests(int argc, char **argv);
 int runIaxClientSessionTests(int argc, char **argv);
 int runIcomScopeFrameAssemblerTests(int argc, char **argv);
+int runModSourceTests(int argc, char **argv);
 int runPeriodicModeTests(int argc, char **argv);
 int runRadioTransportFrameTests(int argc, char **argv);
 int runRigCtlCompatTests(int argc, char **argv);
@@ -21,6 +22,7 @@ int main(int argc, char **argv)
     status |= runClusterTests(argc, argv);
     status |= runIaxClientSessionTests(argc, argv);
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
+    status |= runModSourceTests(argc, argv);
     status |= runPeriodicModeTests(argc, argv);
     status |= runRadioTransportFrameTests(argc, argv);
     status |= runRigCtlCompatTests(argc, argv);

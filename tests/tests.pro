@@ -18,6 +18,7 @@ SOURCES += \
     $$PWD/tst_controllercontroller.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_iaxclientsession.cpp \
+    $$PWD/tst_modsource.cpp \
     $$PWD/tst_periodicmode.cpp \
     $$PWD/tst_radiotransportframe.cpp \
     $$PWD/tst_rigctlcompat.cpp \

@@ -16,6 +16,7 @@ ReceiverController::ReceiverController(int rxIndex, QString region, QObject *par
     // We don't really care if the rig disconnects, as we will be destroyed anyway!
     queue = cachingQueue::getInstance();
     rigCaps = queue->getRigCaps();
+    mode.data = initialDataModeForRig(rigCaps);
 
     if (!receiver)
         setActive(true);
@@ -608,7 +609,9 @@ void ReceiverController::setScopeEdge(uchar m, bool u)
 
 void ReceiverController::receiveMeter(meter_t inMeter, double level)
 {
-    setMeterType(inMeter);
+    if (inMeter != m_meterType)
+        return;
+
     setMeter(level);
 }
 
@@ -617,6 +620,12 @@ void ReceiverController::setMeterType(meter_t t)
     if (m_meterType == t) return;
     m_meterType = t;
     emit meterTypeChanged();
+}
+
+void ReceiverController::setPrimaryMeterType(meter_t t)
+{
+    setMeterType(t);
+    setMeter(0.0);
 }
 
 void ReceiverController::setMeter(double v)

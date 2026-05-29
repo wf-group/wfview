@@ -763,6 +763,41 @@ funcs MainController::meterCommandForType(meter_t meterType) const
     }
 }
 
+void MainController::updatePrimaryMeterForTransmit(bool transmitting)
+{
+    if (!rigCaps || currentReceiver >= receivers.size() || !receivers[currentReceiver])
+        return;
+
+    meter_t rxMeter = meterS;
+    meter_t txMeter = meterSWR;
+    funcs rxCommand = meterCommandForType(rxMeter);
+    funcs txCommand = meterCommandForType(txMeter);
+
+    if (!rigCaps->commands.contains(txCommand)) {
+        txMeter = meterPower;
+        txCommand = meterCommandForType(txMeter);
+    }
+
+    for (int i = 0; i < receivers.size(); ++i) {
+        if (!receivers[i])
+            continue;
+
+        const uchar receiver = uchar(i);
+        const bool txMeterApplies = transmitting && receiver == currentReceiver;
+        const meter_t newMeter = txMeterApplies ? txMeter : rxMeter;
+        const funcs newCommand = txMeterApplies ? txCommand : rxCommand;
+        const funcs oldCommand = txMeterApplies ? rxCommand : txCommand;
+
+        if (oldCommand != funcNone)
+            queue->del(oldCommand, receiver);
+
+        receivers[i]->setPrimaryMeterType(newMeter);
+
+        if (newCommand != funcNone && rigCaps->commands.contains(newCommand))
+            queue->addUnique(priorityHighest, queueItem(newCommand, true, receiver));
+    }
+}
+
 void MainController::configureOptionalMeter(int slot, meter_t meterType)
 {
     if (slot != 2 && slot != 3)
@@ -922,7 +957,7 @@ void MainController::setTransmit(bool enabled)
     if (enabled) {
         const TxAudioInput source = txSourceForPttOrigin(PttOrigin::Wfview, currentAudioRoute());
         if (source != TxAudioInput::None && !requestTxAudioOwnership(PttOrigin::Wfview, source)) {
-            qWarning(logAudio()) << "Ignoring wfview transmit request because another source owns TX audio";
+            qDebug(logAudio()) << "Ignoring wfview transmit request because another source owns TX audio";
             return;
         }
         if (source == TxAudioInput::LocalInput)
@@ -931,11 +966,6 @@ void MainController::setTransmit(bool enabled)
         if (releaseTxAudioOwnership(PttOrigin::Wfview) &&
             currentAudioRoute().rxSource == RadioRxAudioSource::WfShare)
             setTxAudioSource(TxAudioInput::None);
-    }
-
-    if (m_transmitting != enabled) {
-        m_transmitting = enabled;
-        emit transmittingChanged();
     }
 
     if (rigCaps && rigCaps->commands.contains(funcTransceiverStatus)) {
@@ -1389,11 +1419,11 @@ void MainController::handleTciTransmitRequested(bool transmit)
         }
 
         if (!requestTxAudioOwnership(PttOrigin::Tci, TxAudioInput::Tci)) {
-            qWarning(logAudio()) << "Ignoring TCI transmit audio because another source owns TX audio";
+            qDebug(logAudio()) << "Ignoring TCI transmit audio because another source owns TX audio";
             return;
         }
 
-        qInfo(logAudio()) << "TCI owns transmit audio source";
+        qDebug(logAudio()) << "TCI owns transmit audio source";
         setTxAudioSource(TxAudioInput::Tci);
         if (m_activeTxAudioSource != TxAudioInput::Tci) {
             qWarning(logAudio()) << "TCI transmit audio source could not be started";
@@ -1403,7 +1433,7 @@ void MainController::handleTciTransmitRequested(bool transmit)
     }
 
     if (releaseTxAudioOwnership(PttOrigin::Tci)) {
-        qInfo(logAudio()) << "TCI released transmit audio source";
+        qDebug(logAudio()) << "TCI released transmit audio source";
         setTxAudioSource(currentAudioRoute().txInput == TxAudioInput::LocalInput
                          ? TxAudioInput::LocalInput
                          : TxAudioInput::None);
@@ -1421,7 +1451,7 @@ void MainController::handleRigCtlTransmitRequested(bool transmit)
             return;
 
         if (!requestTxAudioOwnership(PttOrigin::RigCtl, source)) {
-            qWarning(logAudio()) << "Ignoring rigctld transmit audio because another source owns TX audio";
+            qDebug(logAudio()) << "Ignoring rigctld transmit audio because another source owns TX audio";
             return;
         }
 
@@ -1548,7 +1578,7 @@ void MainController::setupUsbAudioBridge()
                     Qt::QueuedConnection);
             QMetaObject::invokeMethod(usbRxOutputAudio, "setVolume",
                                       Qt::QueuedConnection, Q_ARG(quint8, prefs->localAFgain));
-            qInfo(logAudio()) << "USB radio RX audio bridge enabled:" << radioRx.name << "->" << localRx.name;
+            qDebug(logAudio()) << "USB radio RX audio bridge enabled:" << radioRx.name << "->" << localRx.name;
         } else {
             disposeAudioHandler(usbRadioRxAudio, usbRadioRxThread);
             disposeAudioHandler(usbRxOutputAudio, usbRxOutputThread);
@@ -1631,11 +1661,11 @@ void MainController::setupLocalTxBridge()
 
     m_activeTxAudioSource = TxAudioInput::LocalInput;
     if (haveUsbTxOutput)
-        qInfo(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
+        qDebug(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
     else if (haveNativeNetworkTxOutput)
-        qInfo(logAudio()) << "native network TX audio bridge enabled:" << localTx.name << "-> radio";
+        qDebug(logAudio()) << "native network TX audio bridge enabled:" << localTx.name << "-> radio";
     else
-        qInfo(logAudio()) << "wfshare TX audio bridge enabled:" << localTx.name << "-> wfshare";
+        qDebug(logAudio()) << "wfshare TX audio bridge enabled:" << localTx.name << "-> wfshare";
 }
 
 void MainController::stopLocalTxBridge()
@@ -1707,11 +1737,10 @@ void MainController::setupTciUsbTxBridge()
         usbRadioTxThread->start(QThread::TimeCriticalPriority);
         QMetaObject::invokeMethod(usbRadioTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radioTx));
     }
-    m_activeTxAudioSource = TxAudioInput::Tci;
     if (haveUsbTxOutput)
-        qInfo(logAudio()) << "TCI TX audio bridge enabled: TCI ->" << radioTx.name;
+        qDebug(logAudio()) << "TCI TX audio bridge enabled: TCI ->" << radioTx.name;
     else
-        qInfo(logAudio()) << "TCI TX audio bridge enabled: TCI -> radio transport";
+        qDebug(logAudio()) << "TCI TX audio bridge enabled: TCI -> radio transport";
 }
 
 void MainController::setTxAudioSource(TxAudioInput source)
@@ -1725,6 +1754,8 @@ void MainController::setTxAudioSource(TxAudioInput source)
             return;
         }
         setupTciUsbTxBridge();
+        if (tciTxInputAudio)
+            m_activeTxAudioSource = TxAudioInput::Tci;
         return;
     }
 
@@ -3428,6 +3459,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
                 rx->setActive(rx->getReceiver() == r);
             }
             currentReceiver = r;
+            updatePrimaryMeterForTransmit(m_transmitting);
         }
         break;
     }
@@ -3626,6 +3658,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receiveOptionalMeter(meter_t::meterPower, val.value.value<double>());
         break;
     case funcSWRMeter:
+        if (val.receiver == currentReceiver)
+            receivers[val.receiver]->receiveMeter(meter_t::meterSWR, val.value.value<double>());
         receiveOptionalMeter(meter_t::meterSWR, val.value.value<double>());
         break;
     case funcALCMeter:
@@ -3869,6 +3903,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         if (m_transmitting != enabled) {
             m_transmitting = enabled;
             emit transmittingChanged();
+            updatePrimaryMeterForTransmit(enabled);
         }
         break;
     }

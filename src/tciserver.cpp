@@ -376,12 +376,6 @@ void tciServer::processCommand(QWebSocket *client, const QString &rawCommand)
         arg = arg.trimmed();
 
     updateClientState(client, command, args);
-    if (command == QLatin1String("trx") && args.size() >= 2) {
-        auto it = clients.find(client);
-        if (it != clients.end())
-            it.value().txaudio = args[1].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
-    }
-
     const bool changed = setCommandValue(command, args);
     if (changed)
         return;
@@ -415,6 +409,11 @@ void tciServer::updateClientState(QWebSocket *client, const QString &command, co
         it.value().rxSensors = args[1].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
     else if (command == QLatin1String("tx_sensors_enable") && args.size() >= 2)
         it.value().txSensors = args[1].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
+    else if (command == QLatin1String("trx") && args.size() >= 2) {
+        it.value().transmitting = args[1].compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
+        if (!it.value().transmitting)
+            it.value().txaudio = false;
+    }
     else if (command == QLatin1String("audio_samplerate") && !args.isEmpty())
         it.value().audioSampleRate = args[0].toInt();
     else if (command == QLatin1String("audio_stream_channels") && !args.isEmpty())
@@ -673,10 +672,11 @@ void tciServer::processIncomingBinaryMessage(QByteArray message)
         if (message.size() >= headerSize && pStream->type == TxAudioStream && pStream->length > 0 &&
             message.size() >= headerSize + payloadSize)
         {
-            if (!clients[pClient].txaudio) {
-                clients[pClient].txaudio = true;
-                emit transmitRequested(true);
-            }
+            auto clientIt = clients.find(pClient);
+            if (clientIt == clients.end() || !clientIt.value().transmitting)
+                return;
+
+            clientIt.value().txaudio = true;
 
             QByteArray tempData(payloadSize, 0x0);
             memcpy(tempData.data(), pStream->data, tempData.size());

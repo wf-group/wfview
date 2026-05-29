@@ -136,7 +136,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
     setupData = setup;
     radioFormat = toQAudioFormat(setup.codec, setup.sampleRate);
 
-    qInfo(logAudio()) << role() << "audio processor setup:"
+    qDebug(logAudio()) << role() << "audio processor setup:"
                       << "isinput=" << setup.isinput
                       << "txProc=" << setup.txProc
                       << "rxProc=" << setup.rxProc
@@ -198,7 +198,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
     if (setup.isinput && setup.txProc) {
         TxAudioProcessor* proc = setup.txProc;
         const float sr = static_cast<float>(radioFormat.sampleRate());
-        qInfo(logAudio()) << role() << "installing TX audio processing hook"
+        qDebug(logAudio()) << role() << "installing TX audio processing hook"
                           << "proc=" << proc << "sampleRate=" << sr;
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
             converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
@@ -220,7 +220,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
         RxAudioProcessor* proc = setup.rxProc;
         const float sr = static_cast<float>(radioFormat.sampleRate());
         const int   ch = radioFormat.channelCount();
-        qInfo(logAudio()) << role() << "installing RX audio processing hook"
+        qDebug(logAudio()) << role() << "installing RX audio processing hook"
                           << "proc=" << proc << "sampleRate=" << sr
                           << "channels=" << ch;
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr, ch]{
@@ -232,7 +232,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #endif
 
     initialized = true;
-    qInfo(logAudio()) << role() << "thread id" << QThread::currentThreadId();
+    qDebug(logAudio()) << role() << "thread id" << QThread::currentThreadId();
     return true;
 }
 
@@ -270,4 +270,3 @@ void audioHandlerBase::stateChanged(QAudio::State state)
 }
 
 void audioHandlerBase::clearUnderrun() { isUnderrun.store(false, std::memory_order_relaxed); }
-

@@ -197,6 +197,7 @@ public:
 
     meter_t meterType() const { return m_meterType; }
     void setMeterType(meter_t t);
+    void setPrimaryMeterType(meter_t t);
 
     double meter() const { return m_meter; }
     void setMeter(double v);

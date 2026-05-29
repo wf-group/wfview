@@ -27,14 +27,14 @@ bool audioConverter::init(QAudioFormat inFormat, codecType inCodec, QAudioFormat
     this->resampleQuality = resampleQuality;
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    qInfo(logAudioConverter) << "Starting audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleType() << inFormat.sampleSize() <<
+    qDebug(logAudioConverter) << "Starting audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleType() << inFormat.sampleSize() <<
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleType() << outFormat.sampleSize();
 
     if (inFormat.byteOrder() != outFormat.byteOrder()) {
         qInfo(logAudioConverter) << "Byteorder mismatch in:" << inFormat.byteOrder() << "out:" << outFormat.byteOrder();
     }
 #else
-    qInfo(logAudioConverter) << "Starting audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleFormat() <<
+    qDebug(logAudioConverter) << "Starting audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleFormat() <<
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleFormat();
 
 #endif
@@ -77,7 +77,7 @@ bool audioConverter::init(QAudioFormat inFormat, codecType inCodec, QAudioFormat
         resampler = wf_resampler_init(outFormat.channelCount(), inFormat.sampleRate(), outFormat.sampleRate(), resampleQuality, &resampleError);
         wf_resampler_get_ratio(resampler, &ratioNum, &ratioDen);
         resampleRatio = static_cast<double>(ratioDen) / ratioNum;
-        qInfo(logAudioConverter()) << "wf_resampler_init() returned: " << resampleError << " resampleRatio: " << resampleRatio;
+        qDebug(logAudioConverter()) << "wf_resampler_init() returned: " << resampleError << " resampleRatio: " << resampleRatio;
     }
     return true;
 }
@@ -86,10 +86,10 @@ audioConverter::~audioConverter()
 {
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    qInfo(logAudioConverter) << "Closing audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleType() << inFormat.sampleSize() <<
+    qDebug(logAudioConverter) << "Closing audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleType() << inFormat.sampleSize() <<
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleType() << outFormat.sampleSize();
 #else
-    qInfo(logAudioConverter) << "Closing audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleFormat() <<
+    qDebug(logAudioConverter) << "Closing audioConverter() Input:" << inFormat.channelCount() << "Channels of" << inCodec << inFormat.sampleRate() << inFormat.sampleFormat() <<
         "Output:" << outFormat.channelCount() << "Channels of" << outCodec << outFormat.sampleRate() << outFormat.sampleFormat();
 #endif
 

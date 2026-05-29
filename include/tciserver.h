@@ -71,6 +71,7 @@ class tciServer : public QObject
         bool connected=true;
         bool rxaudio=false;
         bool txaudio=false;
+        bool transmitting=false;
         bool iqaudio=false;
         bool lineout=false;
         bool rxSensors=false;

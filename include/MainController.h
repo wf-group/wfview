@@ -378,6 +378,7 @@ private:
     void stopUsbControllerDevice();
 #endif
     funcs meterCommandForType(meter_t meterType) const;
+    void updatePrimaryMeterForTransmit(bool transmitting);
     void configureOptionalMeter(int slot, meter_t meterType);
     void receiveOptionalMeter(meter_t meterType, double level);
     QVariantMap uiSpecs;
