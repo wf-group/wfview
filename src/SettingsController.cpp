@@ -18,6 +18,48 @@ static inline QColor variantToQColor(const QVariant& v) {
     return c;
 }
 
+static const QStringList radioProfileKeys = {
+    QStringLiteral("LAN.EnableLAN"),
+    QStringLiteral("Radio.Manufacturer"),
+    QStringLiteral("Radio.CIVAddr"),
+    QStringLiteral("Radio.CIVisRadioModel"),
+    QStringLiteral("Radio.PTTType"),
+    QStringLiteral("Radio.PollingMS"),
+    QStringLiteral("Radio.SerialPortRadio"),
+    QStringLiteral("Radio.SerialPortBaud"),
+    QStringLiteral("Radio.VirtualSerialPort"),
+    QStringLiteral("Radio.LocalAFGain"),
+    QStringLiteral("Radio.AudioSystem"),
+    QStringLiteral("Radio.EnableUSBAudio"),
+    QStringLiteral("Radio.USBAudioRXInput"),
+    QStringLiteral("Radio.USBAudioTXOutput"),
+    QStringLiteral("UDP.IPAddress"),
+    QStringLiteral("UDP.ControlLANPort"),
+    QStringLiteral("UDP.SerialLANPort"),
+    QStringLiteral("UDP.AudioLANPort"),
+    QStringLiteral("UDP.ScopeLANPort"),
+    QStringLiteral("UDP.Username"),
+    QStringLiteral("UDP.Password"),
+    QStringLiteral("UDP.ClientName"),
+    QStringLiteral("UDP.HalfDuplex"),
+    QStringLiteral("UDP.ConnectionType"),
+    QStringLiteral("UDP.AdminLogin"),
+    QStringLiteral("UDP.SampleRate"),
+    QStringLiteral("UDP.RxLatency"),
+    QStringLiteral("UDP.RxCodec"),
+    QStringLiteral("UDP.TxLatency"),
+    QStringLiteral("UDP.TxCodec"),
+    QStringLiteral("UDP.TxAudio"),
+    QStringLiteral("UDP.RxAudio"),
+    QStringLiteral("Experimental.WfShareEnabled"),
+    QStringLiteral("Experimental.WfShareDirectMode"),
+    QStringLiteral("Experimental.WfShareHost"),
+    QStringLiteral("Experimental.WfSharePort"),
+    QStringLiteral("Experimental.WfShareUsername"),
+    QStringLiteral("Experimental.WfSharePassword"),
+    QStringLiteral("Experimental.WfShareCalledNumber")
+};
+
 
 SettingsController::SettingsController(QString file, QObject *p) :
     QObject(p),
@@ -62,6 +104,13 @@ SettingsController::SettingsController(QString file, QObject *p) :
     // buildBindings() will attach all preferences items to the QML lookup for easy updating.
     buildBindings();
     seedOptionsFromBindings();
+    if (m_radioProfiles.isEmpty()) {
+        QVariantMap profile;
+        profile.insert(QStringLiteral("description"), defaultRadioProfileDescription());
+        profile.insert(QStringLiteral("values"), currentRadioProfileValues());
+        m_radioProfiles.append(profile);
+        m_currentRadioProfileIndex = 0;
+    }
 
     m_clusterModel->setFromList(prefs.clusters);
     prefs.clusters = m_clusterModel->toList();
@@ -173,6 +222,215 @@ void SettingsController::saveLocalAFGain(int gain)
     settings->setValue("localAFgain", clampedGain);
     settings->endGroup();
     settings->sync();
+}
+
+QVariantMap SettingsController::currentRadioProfileValues() const
+{
+    QVariantMap values;
+    for (const QString& key : radioProfileKeys) {
+        const auto it = m_bindings.constFind(key);
+        if (it != m_bindings.constEnd())
+            values.insert(key, it.value().get());
+    }
+    return values;
+}
+
+void SettingsController::applyRadioProfileValues(const QVariantMap& values)
+{
+    for (const QString& key : radioProfileKeys) {
+        if (!values.contains(key))
+            continue;
+        setOption(key, values.value(key));
+    }
+}
+
+QString SettingsController::defaultRadioProfileDescription() const
+{
+    QString manufacturer;
+    switch (prefs.manufacturer) {
+    case manufIcom:
+        manufacturer = QStringLiteral("Icom");
+        break;
+    case manufKenwood:
+        manufacturer = QStringLiteral("Kenwood");
+        break;
+    case manufYaesu:
+        manufacturer = QStringLiteral("Yaesu");
+        break;
+    default:
+        manufacturer = QStringLiteral("Radio");
+        break;
+    }
+
+    if (prefs.wfShareEnabled && !prefs.wfShareCalledNumber.isEmpty())
+        return QStringLiteral("%1 wfshare %2").arg(manufacturer, prefs.wfShareCalledNumber);
+    if (prefs.enableLAN && !udpPrefs.ipAddress.isEmpty())
+        return QStringLiteral("%1 %2").arg(manufacturer, udpPrefs.ipAddress);
+    if (!prefs.serialPortRadio.isEmpty())
+        return QStringLiteral("%1 %2").arg(manufacturer, prefs.serialPortRadio);
+    return manufacturer;
+}
+
+void SettingsController::loadRadioProfiles()
+{
+    m_radioProfiles.clear();
+    m_currentRadioProfileIndex = -1;
+
+    if (!settings)
+        return;
+
+    settings->beginGroup("Radios");
+    m_currentRadioProfileIndex = settings->value("CurrentIndex", -1).toInt();
+    const int count = settings->beginReadArray("Profile");
+    for (int i = 0; i < count; ++i) {
+        settings->setArrayIndex(i);
+        QVariantMap profile;
+        profile.insert(QStringLiteral("description"),
+                       settings->value("Description", tr("Radio %1").arg(i + 1)).toString());
+
+        QVariantMap values;
+        settings->beginGroup("Values");
+        for (const QString& key : radioProfileKeys) {
+            const QString storageKey = key;
+            if (settings->contains(storageKey))
+                values.insert(key, settings->value(storageKey));
+        }
+        settings->endGroup();
+        profile.insert(QStringLiteral("values"), values);
+        m_radioProfiles.append(profile);
+    }
+    settings->endArray();
+    settings->endGroup();
+
+    if (m_currentRadioProfileIndex >= m_radioProfiles.size())
+        m_currentRadioProfileIndex = m_radioProfiles.isEmpty() ? -1 : 0;
+}
+
+void SettingsController::saveRadioProfiles()
+{
+    if (!settings)
+        return;
+
+    settings->beginGroup("Radios");
+    settings->remove(QString());
+    settings->setValue("CurrentIndex", m_currentRadioProfileIndex);
+    settings->beginWriteArray("Profile", m_radioProfiles.size());
+    for (int i = 0; i < m_radioProfiles.size(); ++i) {
+        settings->setArrayIndex(i);
+        const QVariantMap profile = m_radioProfiles.at(i).toMap();
+        settings->setValue("Description", profile.value(QStringLiteral("description")).toString());
+        settings->beginGroup("Values");
+        const QVariantMap values = profile.value(QStringLiteral("values")).toMap();
+        for (auto it = values.constBegin(); it != values.constEnd(); ++it)
+            settings->setValue(it.key(), it.value());
+        settings->endGroup();
+    }
+    settings->endArray();
+    settings->endGroup();
+}
+
+void SettingsController::addRadioProfile(const QString& description)
+{
+    QVariantMap profile;
+    const QString name = description.trimmed().isEmpty()
+                             ? defaultRadioProfileDescription()
+                             : description.trimmed();
+    profile.insert(QStringLiteral("description"), name);
+    profile.insert(QStringLiteral("values"), currentRadioProfileValues());
+    m_radioProfiles.append(profile);
+    m_currentRadioProfileIndex = m_radioProfiles.size() - 1;
+    markDirty();
+    emit radioProfilesChanged();
+    emit currentRadioProfileIndexChanged();
+}
+
+void SettingsController::updateRadioProfile(int index, const QString& description)
+{
+    if (index < 0 || index >= m_radioProfiles.size())
+        return;
+
+    QVariantMap profile = m_radioProfiles.at(index).toMap();
+    const QString name = description.trimmed();
+    if (!name.isEmpty())
+        profile.insert(QStringLiteral("description"), name);
+    profile.insert(QStringLiteral("values"), currentRadioProfileValues());
+    m_radioProfiles[index] = profile;
+    markDirty();
+    emit radioProfilesChanged();
+}
+
+void SettingsController::deleteRadioProfile(int index)
+{
+    if (index < 0 || index >= m_radioProfiles.size())
+        return;
+
+    m_radioProfiles.removeAt(index);
+    if (m_radioProfiles.isEmpty())
+        m_currentRadioProfileIndex = -1;
+    else if (m_currentRadioProfileIndex >= m_radioProfiles.size())
+        m_currentRadioProfileIndex = m_radioProfiles.size() - 1;
+    else if (m_currentRadioProfileIndex > index)
+        --m_currentRadioProfileIndex;
+
+    markDirty();
+    emit radioProfilesChanged();
+    emit currentRadioProfileIndexChanged();
+}
+
+void SettingsController::selectRadioProfile(int index)
+{
+    if (index < 0 || index >= m_radioProfiles.size())
+        return;
+
+    if (m_currentRadioProfileIndex != index) {
+        m_currentRadioProfileIndex = index;
+        markDirty();
+        emit currentRadioProfileIndexChanged();
+    }
+
+    const QVariantMap profile = m_radioProfiles.at(index).toMap();
+    applyRadioProfileValues(profile.value(QStringLiteral("values")).toMap());
+}
+
+void SettingsController::renameRadioProfile(int index, const QString& description)
+{
+    if (index < 0 || index >= m_radioProfiles.size())
+        return;
+
+    const QString name = description.trimmed();
+    if (name.isEmpty())
+        return;
+
+    QVariantMap profile = m_radioProfiles.at(index).toMap();
+    if (profile.value(QStringLiteral("description")).toString() == name)
+        return;
+
+    profile.insert(QStringLiteral("description"), name);
+    m_radioProfiles[index] = profile;
+    markDirty();
+    emit radioProfilesChanged();
+}
+
+void SettingsController::moveRadioProfile(int index, int direction)
+{
+    if (index < 0 || index >= m_radioProfiles.size() || direction == 0)
+        return;
+
+    const int target = index + (direction < 0 ? -1 : 1);
+    if (target < 0 || target >= m_radioProfiles.size())
+        return;
+
+    m_radioProfiles.move(index, target);
+    if (m_currentRadioProfileIndex == index) {
+        m_currentRadioProfileIndex = target;
+        emit currentRadioProfileIndexChanged();
+    } else if (m_currentRadioProfileIndex == target) {
+        m_currentRadioProfileIndex = index;
+        emit currentRadioProfileIndexChanged();
+    }
+
+    markDirty();
+    emit radioProfilesChanged();
 }
 
 QVariantMap SettingsController::receiverSettings(int index) const
@@ -1076,9 +1334,12 @@ void SettingsController::load()
     setupui->acceptUdpPreferencesPtr(&udpPrefs);
     */
 
+    loadRadioProfiles();
     prefs.settingsChanged = false;
     m_dirty = false;
     emit dirtyChanged();
+    emit radioProfilesChanged();
+    emit currentRadioProfileIndexChanged();
 }
 
 void SettingsController::save()
@@ -1089,6 +1350,8 @@ void SettingsController::save()
     prefs.clusters = m_clusterModel->toList();
     updateDefaultClusterPrefs();
     serverConfig.users = m_serverUsersModel->toList();
+    if (m_currentRadioProfileIndex >= 0 && m_currentRadioProfileIndex < m_radioProfiles.size())
+        updateRadioProfile(m_currentRadioProfileIndex);
 
     QString versionstr = QString(WFVIEW_VERSION);
     QString majorVersion = "-1";
@@ -1579,6 +1842,7 @@ void SettingsController::save()
     settings->endGroup();
 #endif
 
+    saveRadioProfiles();
     settings->sync(); // Automatic, not needed (supposedly)
     prefs.settingsChanged = false;
     if (m_dirty) {

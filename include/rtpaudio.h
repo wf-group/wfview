@@ -23,7 +23,8 @@ class rtpAudio : public QObject
 {
     Q_OBJECT
 public:
-    explicit rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup, QObject *parent = nullptr);
+    explicit rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup,
+                      bool localInputEnabled = true, QObject *parent = nullptr);
     ~rtpAudio();
 
 signals:
@@ -36,6 +37,9 @@ signals:
     void haveSetVolume(quint8 value);
     void haveOutLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void haveInLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
+
+public slots:
+    void shutdown();
 
 private slots:
     void init();
@@ -62,6 +66,8 @@ private:
     QTimer* inAudioTimer = nullptr;
     bool enableIn = true;
     bool enableOut = true;
+    bool localInputEnabled = true;
+    bool didShutdown = false;
 
     QMutex audioMutex;
 

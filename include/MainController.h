@@ -334,6 +334,7 @@ private slots:
     void receiveValueFromQueue(cacheItem c);
     void receiveRigCaps(rigCapabilities* caps);
     void receiveStatusUpdate(networkStatus status);
+    void receiveNetworkAudioLevels(networkAudioLevels levels);
     void routeRxAudioToSinks(const audioPacket &packet);
     void routeLocalTxAudioToRadio(const audioPacket &packet);
     void routeTciTxAudioToRadio(const audioPacket &packet);

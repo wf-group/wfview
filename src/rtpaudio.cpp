@@ -2,8 +2,9 @@
 #include "logcategories.h"
 
 // Audio stream
-rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup, QObject* parent)
-    : QObject{parent}, outSetup(outSetup), inSetup(inSetup), port(port)
+rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup,
+                   bool localInputEnabled, QObject* parent)
+    : QObject{parent}, outSetup(outSetup), inSetup(inSetup), localInputEnabled(localInputEnabled), port(port)
 {
     qInfo(logUdp()) << "Starting rtpAudio";
 
@@ -18,15 +19,24 @@ rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inS
     }
 }
 
-rtpAudio::~rtpAudio()
+void rtpAudio::shutdown()
 {
-    if (udp != nullptr)
-    {
+    if (didShutdown)
+        return;
+    didShutdown = true;
+
+    if (udp != nullptr) {
         qDebug(logUdp()) << "Closing RTP connection";
         udp->close();
         delete udp;
         udp = nullptr;
     }
+
+    if (outaudio != nullptr)
+        outaudio->dispose();
+    if (inaudio != nullptr)
+        inaudio->dispose();
+
     if (outAudioThread != nullptr) {
         qDebug(logUdp()) << "Stopping outaudio thread";
         outAudioThread->quit();
@@ -38,6 +48,11 @@ rtpAudio::~rtpAudio()
         inAudioThread->quit();
         inAudioThread->wait();
     }
+}
+
+rtpAudio::~rtpAudio()
+{
+    shutdown();
     debugFile.close();
 }
 
@@ -92,7 +107,7 @@ void rtpAudio::init()
         emit setupOutAudio(outSetup);
     }
 
-    if (enableIn) {
+    if (enableIn && localInputEnabled) {
         if (inSetup.type == qtAudio) {
             inaudio = new audioHandlerQtInput();
         }
@@ -168,11 +183,14 @@ void rtpAudio::getInLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 
 
 void rtpAudio::receiveAudioData(audioPacket audio)
 {
-    // I really can't see how this could be possible but a quick sanity check!
-    if (inaudio == nullptr) {
+    if (udp == nullptr) {
         return;
     }
     if (audio.data.length() > 0) {
+        const auto peak = quint16(qBound(0, qRound(audio.amplitudePeak * 255.0f), 255));
+        const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
+        emit haveInLevels(peak, rms, inSetup.latency, 0, false, false);
+
         int len = 0;
 
         while (len < audio.data.length()) {

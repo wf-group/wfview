@@ -27,14 +27,7 @@ kenwoodCommander::~kenwoodCommander()
 {
     qInfo(logRig()) << "closing instance of kenwoodCommander()";
 
-    if (rtpThread != nullptr) {
-        //if (port->isOpen()) {
-        //    receiveCommand(funcVOIP,QVariant::fromValue<uchar>(0),0);
-        //}
-        qInfo(logUdp()) << "Stopping RTP thread";
-        rtpThread->quit();
-        rtpThread->wait();
-    }
+    stopRtpAudio();
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
@@ -106,8 +99,59 @@ void kenwoodCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 
     connect(qobject_cast<QTcpSocket*>(port), &QTcpSocket::disconnected, this, &kenwoodCommander::lanDisconnected);
     qobject_cast<QTcpSocket*>(port)->connectToHost(prefs.ipAddress,prefs.controlLANPort);
 
+    startRtpAudio(false);
+
     // Run setup common to all rig types    
     commonSetup();
+}
+
+void kenwoodCommander::startRtpAudio(bool localInputEnabled)
+{
+    if (rtpThread != nullptr)
+        return;
+
+    if (rxSetup.sampleRate == 0 && txSetup.sampleRate == 0) {
+        qDebug(logAudio()) << "Kenwood RTP audio not started because no RX/TX audio setup is configured";
+        return;
+    }
+
+    rtp = new rtpAudio(prefs.ipAddress, quint16(prefs.audioLANPort),
+                       this->rxSetup, this->txSetup, localInputEnabled);
+    rtpThread = new QThread(this);
+    rtpThread->setObjectName("RTP()");
+    rtp->moveToThread(rtpThread);
+    connect(this, SIGNAL(initRtpAudio()), rtp, SLOT(init()));
+    connect(rtpThread, SIGNAL(finished()), rtp, SLOT(deleteLater()));
+    connect(this, SIGNAL(haveChangeLatency(quint16)), rtp, SLOT(changeLatency(quint16)));
+    connect(this, SIGNAL(haveSetVolume(quint8)), rtp, SLOT(setVolume(quint8)));
+    connect(rtp, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
+    QObject::connect(rtp, SIGNAL(haveOutLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));
+    QObject::connect(rtp, SIGNAL(haveInLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
+    rtpThread->start(QThread::TimeCriticalPriority);
+    emit initRtpAudio();
+}
+
+void kenwoodCommander::stopRtpAudio()
+{
+    if (rtpThread == nullptr)
+        return;
+
+    if (rtp != nullptr) {
+        QMetaObject::invokeMethod(rtp, &rtpAudio::shutdown,
+                                  rtpThread->isRunning()
+                                      ? Qt::BlockingQueuedConnection
+                                      : Qt::DirectConnection);
+    }
+
+    qInfo(logUdp()) << "Stopping RTP thread";
+    rtpThread->quit();
+    if (!rtpThread->wait(3000)) {
+        qWarning(logUdp()) << "RTP thread did not stop cleanly, terminating";
+        rtpThread->terminate();
+        rtpThread->wait(2000);
+    }
+    rtpThread = nullptr;
+    rtp = nullptr;
 }
 
 void kenwoodCommander::lanConnected()
@@ -128,6 +172,7 @@ void kenwoodCommander::lanDisconnected()
 void kenwoodCommander::closeComm()
 {
     qInfo(logRig()) << "Closing rig comms";
+    stopRtpAudio();
     if (port != nullptr && portConnected)
     {
         if (port->isOpen())
@@ -842,22 +887,8 @@ void kenwoodCommander::parseData(QByteArray data)
             break;
         case funcVOIP:
             qInfo(logRig()) << "Recieved VOIP response:" << d.toInt();
-            if (d.toInt() && rtpThread == nullptr) {
-                rtp = new rtpAudio(prefs.ipAddress,quint16(prefs.audioLANPort),this->rxSetup, this->txSetup);
-                rtpThread = new QThread(this);
-                rtpThread->setObjectName("RTP()");
-                rtp->moveToThread(rtpThread);
-                connect(this, SIGNAL(initRtpAudio()), rtp, SLOT(init()));
-                connect(rtpThread, SIGNAL(finished()), rtp, SLOT(deleteLater()));
-                connect(this, SIGNAL(haveChangeLatency(quint16)), rtp, SLOT(changeLatency(quint16)));
-                connect(this, SIGNAL(haveSetVolume(quint8)), rtp, SLOT(setVolume(quint8)));
-                // Audio from UDP
-                connect(rtp, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
-                QObject::connect(rtp, SIGNAL(haveOutLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));
-                QObject::connect(rtp, SIGNAL(haveInLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
-                rtpThread->start(QThread::TimeCriticalPriority);
-                emit initRtpAudio();
-            }
+            if (d.toInt())
+                startRtpAudio(false);
             break;
         case funcFilterControlSSB:
         case funcFilterControlData:
@@ -1612,6 +1643,16 @@ void kenwoodCommander::getTxLevels(quint16 amplitudePeak, quint16 amplitudeRMS ,
         emit haveNetworkAudioLevels(l);
     }
     audioLevelsTxPosition++;
+}
+
+void kenwoodCommander::receiveTxAudioData(const audioPacket &packet)
+{
+    if (rtp == nullptr)
+        return;
+
+    QMetaObject::invokeMethod(rtp, "receiveAudioData",
+                              Qt::QueuedConnection,
+                              Q_ARG(audioPacket, packet));
 }
 
 quint8 kenwoodCommander::findMean(quint8 *data)

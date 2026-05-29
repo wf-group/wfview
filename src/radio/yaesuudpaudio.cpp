@@ -1,8 +1,9 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
 
-yaesuUdpAudio::yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port, audioSetup rxAudio, audioSetup txAudio) :
-    rxSetup(rxAudio),txSetup(txAudio)
+yaesuUdpAudio::yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port,
+                             audioSetup rxAudio, audioSetup txAudio, bool localTxInputEnabled) :
+    rxSetup(rxAudio),txSetup(txAudio),localTxInputEnabled(localTxInputEnabled)
 {
     remotePort = port;
     remoteAddr = remote;
@@ -93,31 +94,33 @@ void yaesuUdpAudio::init()
 
 
 
-    /* Setup TX Audio */
-    if (txSetup.type == qtAudio) {
-        txaudio = new audioHandlerQtInput();
-    }
-    else if (txSetup.type == portAudio) {
-        txaudio = new audioHandlerPaInput();
-    }
-    else if (txSetup.type == rtAudio) {
-        txaudio = new audioHandlerRtInput();
-    }
-        else
-    {
-        qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
-        return;
-    }
+    if (localTxInputEnabled) {
+        /* Setup TX Audio */
+        if (txSetup.type == qtAudio) {
+            txaudio = new audioHandlerQtInput();
+        }
+        else if (txSetup.type == portAudio) {
+            txaudio = new audioHandlerPaInput();
+        }
+        else if (txSetup.type == rtAudio) {
+            txaudio = new audioHandlerRtInput();
+        }
+            else
+        {
+            qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
+            return;
+        }
 
-    txAudioThread = new QThread(this);
-    rxAudioThread->setObjectName("txAudio()");
-    txaudio->moveToThread(txAudioThread);
-    txAudioThread->start(QThread::TimeCriticalPriority);
-    connect(this, SIGNAL(setupTxAudio(audioSetup)), txaudio, SLOT(init(audioSetup)));
-    connect(txaudio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
-    connect(txaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
-    connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
-    emit setupTxAudio(txSetup);
+        txAudioThread = new QThread(this);
+        txAudioThread->setObjectName("txAudio()");
+        txaudio->moveToThread(txAudioThread);
+        txAudioThread->start(QThread::TimeCriticalPriority);
+        connect(this, SIGNAL(setupTxAudio(audioSetup)), txaudio, SLOT(init(audioSetup)));
+        connect(txaudio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
+        connect(txaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
+        connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
+        emit setupTxAudio(txSetup);
+    }
 
     qInfo(logUdp()) << "Sending connect packet";
     yaesuUdpBase::init();
@@ -313,11 +316,11 @@ quint8 yaesuUdpAudio::findMax(quint8 *data)
 
 
 void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
-    // I really can't see how this could be possible but a quick sanity check!
-    if (txaudio == nullptr) {
-        return;
-    }
     if (audio.data.length() > 0) {
+        const auto peak = quint16(qBound(0, qRound(audio.amplitudePeak * 255.0f), 255));
+        const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
+        getTxLevels(peak, rms, txSetup.latency, 0, false, false);
+
         int len = 0;
 
         while (len < audio.data.length()) {

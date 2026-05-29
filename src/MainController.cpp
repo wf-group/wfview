@@ -2559,6 +2559,7 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::setRadioUsage, m_selRad.get(), &SelectRadioController::setInUse);
         connect(rig, &rigCommander::requestRadioSelection, m_selRad.get(), &SelectRadioController::populate);
         connect(rig, &rigCommander::haveStatusUpdate, this, &MainController::receiveStatusUpdate);
+        connect(rig, &rigCommander::haveNetworkAudioLevels, this, &MainController::receiveNetworkAudioLevels);
         connect(rig, &rigCommander::havePortError, this, &MainController::receivePortError);
         connect(rig, &rigCommander::haveAudioData, this, &MainController::routeRxAudioToSinks);
         connect(rig, &rigCommander::externalPttChanged, this, &MainController::handleExternalTransmitRequested);
@@ -2609,9 +2610,35 @@ void MainController::receiveStatusUpdate(networkStatus status)
                            .arg(status.packetsSent, 3));
 }
 
+void MainController::receiveNetworkAudioLevels(networkAudioLevels levels)
+{
+    if (levels.haveRxLevels) {
+        setRxAudioLevel(levels.rxAudioPeak);
+        if (m_selRad)
+            m_selRad->audioOutputLevel(levels.rxAudioPeak);
+    }
+
+    if (levels.haveTxLevels && m_activeTxAudioSource == TxAudioInput::None) {
+        setTxAudioLevel(levels.txAudioPeak);
+        if (m_selRad)
+            m_selRad->audioInputLevel(levels.txAudioPeak);
+    }
+}
+
 void MainController::receivePortError(errorType err)
 {
     qWarning(logSystem()) << "Radio connection error from" << err.device << ":" << err.message;
+
+    QString message = err.message.trimmed();
+    message.replace(QLatin1Char('\r'), QLatin1Char(' '));
+    message.replace(QLatin1Char('\n'), QLatin1Char(' '));
+
+    const QString device = err.device.trimmed();
+    if (!message.isEmpty()) {
+        setFooterMessageText(device.isEmpty()
+                                 ? tr("ERROR: %1").arg(message)
+                                 : tr("ERROR: %1: %2").arg(device, message));
+    }
 
     if (!prefs || !prefs->wfShareEnabled)
         return;
@@ -2652,7 +2679,6 @@ void MainController::receivePortError(errorType err)
     }
 
     queue->interval(-1);
-    setFooterMessageText(QString());
     setRadioStatusText(QString());
     setRigModelName(QString());
     connStatus = connectionStatus_t::connDisconnected;

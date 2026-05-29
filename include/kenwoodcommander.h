@@ -43,6 +43,7 @@ public slots:
     // UDP:
     void handleNewData(const QByteArray& data) override;
     void receiveBaudRate(quint32 baudrate) override;
+    void receiveTxAudioData(const audioPacket &packet) override;
 
     // Housekeeping:
     void receiveCommand(funcs func, QVariant value, uchar receiver) override;
@@ -63,6 +64,8 @@ signals:
 
 private:
     void commonSetup();
+    void startRtpAudio(bool localInputEnabled);
+    void stopRtpAudio();
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 

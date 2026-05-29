@@ -365,7 +365,7 @@ void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 ri
     connect(cat, SIGNAL(haveCatDataFromRig(QByteArray)), this, SLOT(receiveCatDataFromRig(QByteArray)));
     connect(this, SIGNAL(sendDataToRig(QByteArray)),cat,SLOT(sendCatDataToRig(QByteArray)));
 
-    audio = new yaesuUdpAudio(localIP,remoteIP,prefs.audioLANPort,rxSetup,txSetup);
+    audio = new yaesuUdpAudio(localIP,remoteIP,prefs.audioLANPort,rxSetup,txSetup,false);
     audioThread = new QThread(this);
     audioThread->setObjectName("udpAudio()");
     audio->moveToThread(audioThread);
@@ -373,6 +373,7 @@ void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 ri
     connect(audioThread, &QThread::finished, audio, &yaesuUdpAudio::deleteLater);
     connect(cat, &yaesuUdpCat::initAudio, audio, &yaesuUdpAudio::init);
     connect(this, SIGNAL(haveSetVolume(quint8)), audio, SLOT(setVolume(quint8)));
+    connect(audio, SIGNAL(haveAudioData(audioPacket)), this, SLOT(receiveAudioData(audioPacket)));
     connect(audio, SIGNAL(haveNetworkAudioLevels(networkAudioLevels)), this, SLOT(handleNetworkAudioLevels(networkAudioLevels)));
 
     scope = new yaesuUdpScope(localIP,remoteIP,prefs.scopeLANPort);
@@ -495,6 +496,16 @@ void yaesuCommander::process()
 void yaesuCommander::receiveBaudRate(quint32 baudrate)
 {
     Q_UNUSED(baudrate)
+}
+
+void yaesuCommander::receiveTxAudioData(const audioPacket &packet)
+{
+    if (audio == nullptr)
+        return;
+
+    QMetaObject::invokeMethod(audio, "receiveAudioData",
+                              Qt::QueuedConnection,
+                              Q_ARG(audioPacket, packet));
 }
 
 void yaesuCommander::setPTTType(pttType_t ptt)

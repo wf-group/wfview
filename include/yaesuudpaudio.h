@@ -39,7 +39,8 @@ class yaesuUdpAudio: public yaesuUdpBase
     Q_OBJECT
 
 public:
-    yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port, audioSetup rxAudio, audioSetup txAudio);
+    yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port,
+                  audioSetup rxAudio, audioSetup txAudio, bool localTxInputEnabled = true);
     ~yaesuUdpAudio();
 
 
@@ -82,6 +83,7 @@ private:
 
     audioHandlerBase* txaudio = nullptr;
     QThread* txAudioThread = nullptr;
+    bool localTxInputEnabled = true;
 
     quint8 audioLevelsTxPeak[audioLevelBufferSize];
     quint8 audioLevelsRxPeak[audioLevelBufferSize];

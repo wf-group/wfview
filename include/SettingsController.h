@@ -579,6 +579,8 @@ class SettingsController : public QObject {
     Q_PROPERTY(QQmlPropertyMap * options READ options CONSTANT)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
+    Q_PROPERTY(QVariantList radioProfiles READ radioProfiles NOTIFY radioProfilesChanged)
+    Q_PROPERTY(int currentRadioProfileIndex READ currentRadioProfileIndex NOTIFY currentRadioProfileIndexChanged)
 
     Q_PROPERTY(ClusterSettingsModel* clusterModel READ clusterModel CONSTANT)
     Q_PROPERTY(ServerUsersModel* serverUsersModel READ serverUsersModel CONSTANT)
@@ -597,6 +599,8 @@ public:
     Q_INVOKABLE bool selectClusterRow(int row);
 
     QVariantMap getUiSpecs() const { return uiSpecs; }
+    QVariantList radioProfiles() const { return m_radioProfiles; }
+    int currentRadioProfileIndex() const { return m_currentRadioProfileIndex; }
 
     preferences* getPrefs() { return &prefs;}
     udpPreferences* getUdpPrefs() { return &udpPrefs;}
@@ -617,6 +621,12 @@ public:
     Q_INVOKABLE void load();
     Q_INVOKABLE void save();
     Q_INVOKABLE void markDirty();
+    Q_INVOKABLE void addRadioProfile(const QString& description);
+    Q_INVOKABLE void updateRadioProfile(int index, const QString& description = QString());
+    Q_INVOKABLE void deleteRadioProfile(int index);
+    Q_INVOKABLE void selectRadioProfile(int index);
+    Q_INVOKABLE void renameRadioProfile(int index, const QString& description);
+    Q_INVOKABLE void moveRadioProfile(int index, int direction);
     Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
@@ -660,6 +670,8 @@ signals:
     void optionChanged(const QString& key, const QVariant& value);
     void dirtyChanged();
     void uiSpecsChanged();
+    void radioProfilesChanged();
+    void currentRadioProfileIndexChanged();
 
 private:
     void setDefPrefs();
@@ -679,6 +691,11 @@ private:
     void updateOptionInMap(const QString& key, const QVariant& v);
     void refreshAudioDevices();
     void applyManufacturerDefaults();
+    void loadRadioProfiles();
+    void saveRadioProfiles();
+    QVariantMap currentRadioProfileValues() const;
+    void applyRadioProfileValues(const QVariantMap& values);
+    QString defaultRadioProfileDescription() const;
 
     void emitGroupChange(const Binding& b);
     void refreshCurrentColorPresetOptions(bool loading=true);
@@ -705,6 +722,8 @@ private:
     QQmlPropertyMap* m_options = nullptr;
     bool m_dirty = false;
     QVector<QVariantMap> m_receiverSettings;
+    QVariantList m_radioProfiles;
+    int m_currentRadioProfileIndex = -1;
 
     QHash<QString, Binding> m_bindings;
 

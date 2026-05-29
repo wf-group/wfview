@@ -364,6 +364,113 @@ ApplicationWindow {
                         anchors.fill: parent
                         spacing: 8
 
+                        RowLayout {
+                            Layout.fillWidth: true
+                            enabled: controller && connStatus === 0
+                            spacing: 8
+
+                            Label {
+                                text: qsTr("Radio")
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 280
+                                Layout.maximumWidth: 360
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: radioProfileCombo.implicitHeight
+
+                                ComboBox {
+                                    id: radioProfileCombo
+                                    anchors.fill: parent
+                                    editable: true
+                                    textRole: "description"
+                                    model: controller ? controller.radioProfiles : []
+                                    currentIndex: controller ? controller.currentRadioProfileIndex : -1
+                                    rightPadding: 82
+                                    ToolTip.visible: hovered && displayText.length > 0
+                                    ToolTip.text: displayText
+
+                                    function syncCurrentProfile() {
+                                        if (!controller)
+                                            return
+                                        const selected = controller.currentRadioProfileIndex
+                                        if (currentIndex !== selected)
+                                            currentIndex = selected
+                                    }
+
+                                    Component.onCompleted: syncCurrentProfile()
+
+                                    onActivated: if (controller) controller.selectRadioProfile(index)
+                                    onAccepted: {
+                                        if (controller && currentIndex >= 0)
+                                            controller.renameRadioProfile(currentIndex, editText)
+                                    }
+                                }
+
+                                Row {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 28
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 0
+
+                                    ToolButton {
+                                        width: 24
+                                        height: radioProfileCombo.height - 4
+                                        text: "\u25B2"
+                                        enabled: controller && radioProfileCombo.currentIndex > 0
+                                        padding: 0
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Move the selected radio profile up.")
+                                        onClicked: if (controller) controller.moveRadioProfile(radioProfileCombo.currentIndex, -1)
+                                    }
+
+                                    ToolButton {
+                                        width: 24
+                                        height: radioProfileCombo.height - 4
+                                        text: "\u25BC"
+                                        enabled: controller
+                                                 && radioProfileCombo.currentIndex >= 0
+                                                 && radioProfileCombo.currentIndex < controller.radioProfiles.length - 1
+                                        padding: 0
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Move the selected radio profile down.")
+                                        onClicked: if (controller) controller.moveRadioProfile(radioProfileCombo.currentIndex, 1)
+                                    }
+                                }
+                            }
+
+                            Connections {
+                                target: controller
+                                function onRadioProfilesChanged() { radioProfileCombo.syncCurrentProfile() }
+                                function onCurrentRadioProfileIndexChanged() { radioProfileCombo.syncCurrentProfile() }
+                            }
+
+                            Button {
+                                text: qsTr("Update")
+                                enabled: controller && radioProfileCombo.currentIndex >= 0
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Store the current radio settings in the selected radio profile.")
+                                onClicked: if (controller) controller.updateRadioProfile(radioProfileCombo.currentIndex, radioProfileCombo.editText)
+                            }
+
+                            Button {
+                                text: qsTr("Add")
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Create a new radio profile from the current radio settings.")
+                                onClicked: if (controller) controller.addRadioProfile(radioProfileCombo.editText)
+                            }
+
+                            Button {
+                                text: qsTr("Delete")
+                                enabled: controller && radioProfileCombo.currentIndex >= 0 && controller.radioProfiles.length > 1
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Delete the selected radio profile.")
+                                onClicked: if (controller) controller.deleteRadioProfile(radioProfileCombo.currentIndex)
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
                         // Top row: Connection / CIV+Model / Info
                         RowLayout {
                             Layout.fillWidth: true
@@ -780,6 +887,25 @@ ApplicationWindow {
                                         }
                                     }
 
+                                    Label { text: qsTr("Connection Type"); visible: manufacturerCombo.currentValue === 1 }
+                                    ComboBox {
+                                        id: networkConnectionTypeCombo
+                                        visible: manufacturerCombo.currentValue === 1
+                                        Accessible.name: "Connection Type Combo"
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        model: [
+                                            { text: qsTr("LAN"), value: 1 },
+                                            { text: qsTr("WiFi"), value: 2 },
+                                            { text: qsTr("WAN"), value: 3 }
+                                        ]
+                                        currentIndex: (controller && controller.options)
+                                                      ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
+                                                      : -1
+
+                                        onActivated: controller.setOption("UDP.ConnectionType",currentValue)
+                                    }
+
                                     Label { id: catPortLabel; text: qsTr("CAT"); visible: manufacturerCombo.currentValue === 2 }
                                     TextField {
                                         id: catPortTxt
@@ -876,31 +1002,23 @@ ApplicationWindow {
 
                                     }
 
+                                    CheckBox {
+                                        id: adminLoginChk
+                                        visible: manufacturerCombo.currentValue === 1;
+                                        text: qsTr("Admin Login")
+                                        Accessible.name: "Admin Login Checkbox"
+                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
+                                        onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
+
+                                        Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
+                                    }
+
                                     Item { Layout.fillWidth: true }
                                 }
 
                                 // Row: connection and audio format combos
                                 RowLayout {
                                     spacing: 8
-
-                                    Label { text: qsTr("Connection Type"); visible: manufacturerCombo.currentValue === 1 }
-                                    ComboBox {
-                                        id: networkConnectionTypeCombo
-                                        visible: manufacturerCombo.currentValue === 1
-                                        Accessible.name: "Connection Type Combo"
-                                        textRole: "text"
-                                        valueRole: "value"
-                                        model: [
-                                            { text: qsTr("LAN"), value: 1 },
-                                            { text: qsTr("WiFi"), value: 2 },
-                                            { text: qsTr("WAN"), value: 3 }
-                                        ]
-                                        currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(networkConnectionTypeCombo,controller.options["UDP.ConnectionType"])
-                                                      : -1
-
-                                        onActivated: controller.setOption("UDP.ConnectionType",currentValue)
-                                    }
 
                                     Label { text: qsTr("RX Codec") }
                                     ComboBox {
@@ -981,17 +1099,6 @@ ApplicationWindow {
                                                       ? indexFromValue(audioDuplexCombo, Boolean(controller.options["UDP.HalfDuplex"]) ? 1 : 0)
                                                       : -1
                                         onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
-                                    }
-
-                                    CheckBox {
-                                        id: adminLoginChk
-                                        visible: manufacturerCombo.currentValue === 1;
-                                        text: qsTr("Admin Login")
-                                        Accessible.name: "Admin Login Checkbox"
-                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
-                                        onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
-
-                                        Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
                                     }
 
                                     Item { Layout.fillWidth: true }
