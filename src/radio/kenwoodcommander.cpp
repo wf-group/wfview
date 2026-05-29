@@ -159,6 +159,10 @@ void kenwoodCommander::lanConnected()
     qInfo() << QString("Connected to: %0:%1").arg(prefs.ipAddress).arg(prefs.controlLANPort);
     qInfo() << "Sending initial connection request";
     loginRequired=true;
+    pendingNetworkCommands.clear();
+    networkRttBaseline = -1;
+    networkResponseCount = 0;
+    status = networkStatus();
     port->write("##CN;\n");
 }
 
@@ -334,6 +338,45 @@ void kenwoodCommander::handleNewData(const QByteArray& data)
     }
 }
 
+void kenwoodCommander::recordNetworkCommand(const QByteArray& command)
+{
+    if (!usingNativeLAN || command.isEmpty())
+        return;
+
+    pendingNetworkCommands.insert(command, QDateTime::currentDateTimeUtc());
+}
+
+void kenwoodCommander::updateNetworkTiming(const QByteArray& command)
+{
+    if (!usingNativeLAN || command.isEmpty())
+        return;
+
+    const auto it = pendingNetworkCommands.constFind(command);
+    if (it == pendingNetworkCommands.constEnd())
+        return;
+
+    const qint64 rtt = it.value().msecsTo(QDateTime::currentDateTimeUtc());
+    pendingNetworkCommands.remove(command);
+    if (rtt < 0)
+        return;
+
+    if (networkRttBaseline < 0)
+        networkRttBaseline = rtt;
+
+    status.networkLatency = status.networkLatency == 0
+            ? quint32(rtt)
+            : quint32((status.networkLatency * 3 + quint32(rtt)) / 4);
+    status.timeDifference = rtt - networkRttBaseline;
+    status.packetsSent = ++networkResponseCount;
+    status.packetsLost = 0;
+
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    if (!lastNetworkStatusUpdate.isValid() || lastNetworkStatusUpdate.msecsTo(now) >= 250) {
+        lastNetworkStatusUpdate = now;
+        emit haveStatusUpdate(status);
+    }
+}
+
 
 funcType kenwoodCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver)
 {
@@ -412,6 +455,7 @@ void kenwoodCommander::parseData(QByteArray data)
             {
                 func = it.value();
                 count = i;
+                updateNetworkTiming(d.left(i));
                 break;
             }
         }
@@ -1573,6 +1617,7 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
 
             qDebug(logRigTraffic()).noquote() << "Send to rig: " << funcString[cmd.cmd] << payload.toStdString().c_str();
 
+            recordNetworkCommand(cmd.data);
             if (port->write(payload) != payload.size())
             {
                 qInfo(logSerial()) << "Error writing to port";

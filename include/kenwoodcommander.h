@@ -2,6 +2,7 @@
 #define KENWOODCOMMANDER_H
 #include "rigcommander.h"
 #include "rtpaudio.h"
+#include <QDateTime>
 #include <QSerialPort>
 
 #define audioLevelBufferSize (4)
@@ -67,6 +68,8 @@ private:
     void startRtpAudio(bool localInputEnabled);
     void stopRtpAudio();
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
+    void recordNetworkCommand(const QByteArray& command);
+    void updateNetworkTiming(const QByteArray& command);
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
     mutable QMutex serialMutex;
@@ -102,6 +105,10 @@ private:
     ushort scopeSplit=0;
 
     networkStatus status;
+    QHash<QByteArray, QDateTime> pendingNetworkCommands;
+    QDateTime lastNetworkStatusUpdate;
+    qint64 networkRttBaseline = -1;
+    quint32 networkResponseCount = 0;
 
     quint8 audioLevelsTxPeak[audioLevelBufferSize];
     quint8 audioLevelsRxPeak[audioLevelBufferSize];
