@@ -22,6 +22,15 @@ void rtpAudio::shutdown()
 {
     qDebug(logUdp()) << "[SHUTDOWN] rtpAudio::shutdown() enter";
 
+    // Idempotent: shutdown() can be reached both via the queued request from
+    // ~kenwoodCommander and again from ~rtpAudio's safety net. Running the body
+    // twice would dispose() already-deleted audio handlers (use-after-free).
+    if (didShutdown) {
+        qDebug(logUdp()) << "[SHUTDOWN] rtpAudio::shutdown() already done, skipping";
+        return;
+    }
+    didShutdown = true;
+
     // Close the UDP socket first — this stops readyRead signals and unblocks
     // the event loop so that quit() can be processed after we return.
     if (udp != Q_NULLPTR) {
@@ -66,12 +75,13 @@ void rtpAudio::shutdown()
 rtpAudio::~rtpAudio()
 {
     qDebug(logUdp()) << "[SHUTDOWN] ~rtpAudio enter";
-    // shutdown() should have been called already; safety net if not:
-    if (udp != Q_NULLPTR) {
-        udp->close();
-        delete udp;
-        udp = Q_NULLPTR;
-    }
+    // shutdown() should have been called already, but if the owning RTP thread's
+    // event loop exited before the queued shutdown() request was dispatched, the
+    // audio threads are still running. They are children of this object, so
+    // QObject::~QObject -> deleteChildren() would delete a running QThread, which
+    // calls qFatal() ("QThread: Destroyed while thread is still running") and
+    // aborts. Run shutdown() here to stop and join them first. It is idempotent.
+    shutdown();
     debugFile.close();
     qDebug(logUdp()) << "[SHUTDOWN] ~rtpAudio complete";
 }

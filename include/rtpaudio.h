@@ -70,6 +70,7 @@ private:
     QTimer* inAudioTimer = Q_NULLPTR;
     bool enableIn = true;
     bool enableOut = true;
+    bool didShutdown = false;
 
     QMutex audioMutex;
 
