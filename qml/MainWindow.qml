@@ -1084,9 +1084,15 @@ ApplicationWindow {
                     spacing: 6
 
                     GroupBox {
+                        id: scopeSettingsGroup
                         title: qsTr("Scope Settings")
                         Layout.fillWidth: true
-                        visible: anyControlVisible(["canDualScope", "canDualWatch", "canSplit", "canMainSub", "canSwapMainSub", "canEqualMainSub"])
+                        readonly property bool hasReceiverScopeControls: (mainControlSpecs.canDualScope ?? false)
+                                                                        || (mainControlSpecs.canDualWatch ?? false)
+                                                                        || (mainControlSpecs.canMainSub ?? false)
+                                                                        || (mainControlSpecs.canSwapMainSub ?? false)
+                                                                        || (mainControlSpecs.canEqualMainSub ?? false)
+                        visible: hasReceiverScopeControls
 
                         GridLayout {
                             columns: 3
@@ -1114,7 +1120,7 @@ ApplicationWindow {
                                 checkable: true
                                 checked: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
-                                visible: mainControlSpecs.canSplit ?? false
+                                visible: (mainControlSpecs.canSplit ?? false) && scopeSettingsGroup.hasReceiverScopeControls
                                 onToggled: MainController.splitEnabled = checked
                             }
 
