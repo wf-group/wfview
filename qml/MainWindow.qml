@@ -98,6 +98,8 @@ ApplicationWindow {
 
         Popup {
             id: meterMenu
+            x: 0
+            y: -implicitHeight - win.mainControlSpacing
             modal: false
             focus: true
             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
