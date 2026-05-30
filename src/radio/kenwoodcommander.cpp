@@ -1224,6 +1224,8 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                     value.setValue(uchar(3));
                 else if (connType == connectionWiFi)
                     value.setValue(uchar(2));
+                else // connectionLAN (and the safe default for any unknown type)
+                    value.setValue(uchar(1));
                 qInfo() << "Setting scope type to:" << value.toInt() << "for connection type:" << connType;
             } else if (cmd.cmd == funcAutoInformation)
             {

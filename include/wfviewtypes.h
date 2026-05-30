@@ -20,6 +20,21 @@ enum underlay_t { underlayNone, underlayPeakHold, underlayPeakBuffer, underlayAv
 
 enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connectionWAN };
 
+// Safely convert an integer (e.g. read from settings) into a connectionType_t.
+// Network connections default to LAN when the stored value is missing or invalid.
+inline connectionType_t normalizeConnectionType(int value)
+{
+    switch (value) {
+    case connectionUSB:
+    case connectionLAN:
+    case connectionWiFi:
+    case connectionWAN:
+        return static_cast<connectionType_t>(value);
+    default:
+        return connectionLAN;
+    }
+}
+
 // meterString MUST be updated if any of these are changed, but this might break rigCaps.
 enum meter_t {
     meterNone=0,

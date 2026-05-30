@@ -99,7 +99,7 @@ private:
 
     QByteArray partial;
 
-    connectionType_t connType = connectionUSB;
+    connectionType_t connType = connectionLAN;
 
     bool aiModeEnabled=false;
     ushort scopeSplit=0;

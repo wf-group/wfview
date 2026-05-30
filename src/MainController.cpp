@@ -4508,7 +4508,7 @@ void MainController::loadSettings(QString settingsFile)
         emit tciInit(prefs->tciPort);
     }
 
-    udpprefs->connectionType = settings->value("ConnectionType", udpDefprefs->connectionType).value<connectionType_t>();
+    udpprefs->connectionType = normalizeConnectionType(settings->value("ConnectionType", int(udpDefprefs->connectionType)).toInt());
     udpprefs->clientName = settings->value("ClientName", udpDefprefs->clientName).toString();
 
     udpprefs->halfDuplex = settings->value("HalfDuplex", udpDefprefs->halfDuplex).toBool();

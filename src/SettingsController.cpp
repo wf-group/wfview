@@ -1028,7 +1028,7 @@ void SettingsController::load()
 
     */
 
-    udpPrefs.connectionType = settings->value("ConnectionType", udpDefPrefs.connectionType).value<connectionType_t>();
+    udpPrefs.connectionType = normalizeConnectionType(settings->value("ConnectionType", int(udpDefPrefs.connectionType)).toInt());
     udpPrefs.clientName = settings->value("ClientName", udpDefPrefs.clientName).toString();
 
     udpPrefs.halfDuplex = settings->value("HalfDuplex", udpDefPrefs.halfDuplex).toBool();
