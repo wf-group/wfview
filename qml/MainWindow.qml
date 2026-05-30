@@ -34,7 +34,7 @@ ApplicationWindow {
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
-    visible: waylandPlatform
+    visible: false
 
     minimumWidth:  radioConnected ? 360 : mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
@@ -42,7 +42,7 @@ ApplicationWindow {
                    + mainGroup.padding * 2
                    + scopeVFOGroup.padding * 2
                    + mainLayout.spacing * 2
-    height: 640
+    height: minimumHeight
 
     component OptionalMeterSlot: Item {
         id: optionalMeterSlot
