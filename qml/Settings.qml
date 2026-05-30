@@ -55,6 +55,25 @@ ApplicationWindow {
 
     function showAudioProcessing() {
         settingsStack.currentIndex = 9
+        showOnScreen()
+    }
+
+    function showOnScreen(ownerWindow) {
+        const platform = String(MainController.platformName())
+        const wayland = platform.indexOf("wayland") !== -1
+        const targetScreen = ownerWindow && ownerWindow.screen ? ownerWindow.screen : screen
+        const rect = targetScreen ? targetScreen.availableGeometry : null
+
+        if (rect && !wayland) {
+            const margin = 24
+            const maxWidth = Math.max(320, rect.width - margin * 2)
+            const maxHeight = Math.max(240, rect.height - margin * 2)
+            width = Math.min(width, maxWidth)
+            height = Math.min(height, maxHeight)
+            x = rect.x + Math.max(margin, Math.round((rect.width - width) / 2))
+            y = rect.y + Math.max(margin, Math.round((rect.height - height) / 2))
+        }
+
         show()
         raise()
         requestActivate()

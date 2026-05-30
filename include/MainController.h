@@ -337,6 +337,9 @@ public slots:
     void shutdown();
     Q_INVOKABLE void quitApplication();
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private slots:
     void receiveValueFromQueue(cacheItem c);
     void receiveRigCaps(rigCapabilities* caps);
@@ -431,6 +434,7 @@ private:
     void disposeAudioHandler(audioHandlerBase*& handler, QThread*& thread);
     AudioRouteState currentAudioRoute() const;
     void updateAudioRouteState();
+    void tuneFrequencyHz(qint64 hzDelta, int receiver = -1);
 
 
     QString windowTitle = "wfview";

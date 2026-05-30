@@ -7,7 +7,10 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QEvent>
 #include <QGuiApplication>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QMutexLocker>
 #include <QPointer>
 #include <QStandardPaths>
@@ -74,6 +77,36 @@ static funcs shortcutFuncFromName(const QString& commandName)
     return funcNone;
 }
 
+static QString portableShortcutText(const QKeySequence& sequence)
+{
+    QString text = sequence.toString(QKeySequence::PortableText);
+    if (text == QLatin1String("+"))
+        return QStringLiteral("Plus");
+    if (text == QLatin1String("Shift++"))
+        return QStringLiteral("Shift+Plus");
+    if (text == QLatin1String("Ctrl++"))
+        return QStringLiteral("Ctrl+Plus");
+    if (text == QLatin1String("Alt++"))
+        return QStringLiteral("Alt+Plus");
+    if (text == QLatin1String("Ctrl+Shift++") || text == QLatin1String("Shift+Ctrl++"))
+        return QStringLiteral("Ctrl+Shift+Plus");
+    return text;
+}
+
+static int fixedFrequencyShortcutHz(const QString& sequence, int configuredValue)
+{
+    if (sequence == QLatin1String("-") || sequence == QLatin1String("Plus") ||
+        sequence == QLatin1String("J") || sequence == QLatin1String("K") ||
+        sequence == QLatin1String("Shift+-") || sequence == QLatin1String("Shift+Plus") ||
+        sequence == QLatin1String("Shift+J") || sequence == QLatin1String("Shift+K") ||
+        sequence == QLatin1String("Ctrl+-") || sequence == QLatin1String("Ctrl+Plus") ||
+        sequence == QLatin1String("Ctrl+J") || sequence == QLatin1String("Ctrl+K") ||
+        sequence == QLatin1String("PgUp") || sequence == QLatin1String("PgDown"))
+        return qMax(1, qAbs(configuredValue));
+
+    return 0;
+}
+
 MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
     : QObject(p)
     , m_settings(std::make_unique<SettingsController>(settingsFile,this))
@@ -99,6 +132,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
 
     prefs = m_settings->getPrefs();
     udpPrefs = m_settings->getUdpPrefs();
+    qApp->installEventFilter(this);
     m_cwSender->loadSettings(prefs->cwCutNumbers,
                              prefs->cwSendImmediate,
                              prefs->cwSidetoneEnabled,
@@ -612,6 +646,47 @@ void MainController::runShortcutAppAction(const QString& commandName)
     }
 }
 
+bool MainController::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() != QEvent::KeyPress)
+        return QObject::eventFilter(watched, event);
+
+    auto* keyEvent = static_cast<QKeyEvent*>(event);
+    if (keyEvent->key() == Qt::Key_unknown)
+        return QObject::eventFilter(watched, event);
+
+    const int shortcutKey = int(keyEvent->modifiers() & (Qt::ShiftModifier
+                                                         | Qt::ControlModifier
+                                                         | Qt::AltModifier
+                                                         | Qt::MetaModifier))
+                            | keyEvent->key();
+    const QString sequence = portableShortcutText(QKeySequence(shortcutKey));
+    if (sequence.isEmpty())
+        return QObject::eventFilter(watched, event);
+
+    for (const shortcutPreference& shortcut : std::as_const(prefs->shortcuts)) {
+        if (!shortcut.enabled || shortcut.sequence != sequence)
+            continue;
+        if (shortcut.command.startsWith(QLatin1String("app.")))
+            continue;
+
+        if (shortcut.command == funcString[funcFreq]) {
+            const int hz = fixedFrequencyShortcutHz(shortcut.sequence, shortcut.value);
+            if (hz > 0 && (shortcut.action == 2 || shortcut.action == 3)) {
+                tuneFrequencyHz(shortcut.action == 2 ? hz : -hz, shortcut.receiver);
+                keyEvent->accept();
+                return true;
+            }
+        }
+
+        runShortcutCommand(shortcut.command, shortcut.action, shortcut.value, shortcut.receiver);
+        keyEvent->accept();
+        return true;
+    }
+
+    return QObject::eventFilter(watched, event);
+}
+
 void MainController::runShortcutCommand(const QString& commandName, int action, int value, int receiver)
 {
     const funcs command = shortcutFuncFromName(commandName);
@@ -681,6 +756,41 @@ void MainController::runShortcutCommand(const QString& commandName, int action, 
     }
 
     buttonControl(&shortcut);
+}
+
+void MainController::tuneFrequencyHz(qint64 hzDelta, int receiver)
+{
+    if (hzDelta == 0 || freqLock || receivers.isEmpty() || !queue)
+        return;
+
+    const int defaultReceiver = qBound(0, int(currentReceiver), receivers.size() - 1);
+    const int rx = receiver >= 0 ? qBound(0, receiver, receivers.size() - 1) : defaultReceiver;
+
+    const quint64 current = receivers[rx]->getFrequencyA();
+    if (current == 0)
+        return;
+
+    quint64 target = 0;
+    if (hzDelta < 0) {
+        const quint64 decrement = quint64(-hzDelta);
+        if (decrement >= current)
+            return;
+        target = current - decrement;
+    } else {
+        target = current + quint64(hzDelta);
+    }
+
+    vfoCommandType command = queue->getVfoCommand(vfoA, uchar(rx), true);
+    if (command.freqFunc == funcNone)
+        return;
+
+    freqt frequency;
+    frequency.Hz = target;
+    frequency.MHzDouble = target / 1E6;
+    receivers[rx]->setFrequencyA(target, false);
+
+    queueItem item(command.freqFunc, QVariant::fromValue<freqt>(frequency), false, command.receiver);
+    queue->addUnique(priorityImmediate, item);
 }
 
 QString MainController::platformName() const

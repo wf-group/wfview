@@ -195,12 +195,23 @@ ApplicationWindow {
             win.startupGeometryPending = false
             return
         }
-        Qt.callLater(function() {
+        startupGeometryTimer.restart()
+    }
+
+    Timer {
+        id: startupGeometryTimer
+        interval: 300
+        repeat: false
+        onTriggered: {
+            if (win.waylandPlatform) {
+                win.startupGeometryPending = false
+                return
+            }
             if (win.startupGeometryPending && win.radioConnected && win.savedStartupGeometry && win.savedStartupGeometry.valid) {
                 win.applyWindowGeometry(win.savedStartupGeometry)
                 win.startupGeometryPending = false
             }
-        })
+        }
     }
 
     Connections {
@@ -312,7 +323,7 @@ ApplicationWindow {
         }
 
         onShowSettings: function(isNetwork) {
-            settings.show()
+            settings.showOnScreen(win)
             win.visible = true
         }
 
@@ -386,6 +397,10 @@ ApplicationWindow {
         }
     }
 
+    function showSettingsWindow() {
+        settings.showOnScreen(win)
+    }
+
     function runConfiguredShortcut(shortcut) {
         const command = String(shortcut.command)
         if (command === "app.debug") {
@@ -399,9 +414,7 @@ ApplicationWindow {
             return
         }
         if (command === "app.openSettings") {
-            settings.show()
-            settings.raise()
-            settings.requestActivate()
+            showSettingsWindow()
             return
         }
         if (command === "app.toggleFullscreen") {
@@ -423,7 +436,9 @@ ApplicationWindow {
         model: MainController.settings.shortcuts
         delegate: Shortcut {
             readonly property var shortcutData: modelData
-            enabled: Boolean(shortcutData.enabled) && String(shortcutData.sequence).length > 0
+            enabled: Boolean(shortcutData.enabled)
+                     && String(shortcutData.sequence).length > 0
+                     && String(shortcutData.command).indexOf("app.") === 0
             sequences: [String(shortcutData.sequence)]
             context: Qt.ApplicationShortcut
             onActivated: win.runConfiguredShortcut(shortcutData)
@@ -1392,7 +1407,7 @@ ApplicationWindow {
                 }
                 Button {
                     text: qsTr("Settings")
-                    onClicked: settings.show()
+                    onClicked: showSettingsWindow()
                 }
                 Button {
                     text: qsTr("TX Audio Proc")

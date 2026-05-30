@@ -72,39 +72,34 @@ static QVariantMap shortcutToMap(const shortcutPreference& shortcut)
     };
 }
 
+static QString normalizedShortcutSequence(const QString& sequence)
+{
+    QString normalized = sequence.trimmed();
+    if (normalized == QLatin1String("+"))
+        return QStringLiteral("Plus");
+    if (normalized == QLatin1String("Shift++"))
+        return QStringLiteral("Shift+Plus");
+    if (normalized == QLatin1String("Ctrl++"))
+        return QStringLiteral("Ctrl+Plus");
+    if (normalized == QLatin1String("Alt++"))
+        return QStringLiteral("Alt+Plus");
+    if (normalized == QLatin1String("Ctrl+Shift++") || normalized == QLatin1String("Shift+Ctrl++"))
+        return QStringLiteral("Ctrl+Shift+Plus");
+    return normalized;
+}
+
 static QString shortcutCommandNameFromLegacyValue(const QVariant& value)
 {
     if (value.userType() == QMetaType::QString) {
         const QString command = value.toString().trimmed();
-        if (!command.isEmpty())
-            return command;
+        if (command.isEmpty())
+            return QStringLiteral("None");
+
+        return command;
     }
 
-    bool ok = false;
-    const int command = value.toInt(&ok);
-    if (!ok)
-        return QStringLiteral("None");
-
-    switch (command) {
-    case -1:
-        return QStringLiteral("app.debug");
-    case -2:
-        return QStringLiteral("app.raiseMainWindow");
-    case -3:
-        return QStringLiteral("app.openSettings");
-    case -4:
-        return QStringLiteral("app.toggleFullscreen");
-    case -5:
-        return QStringLiteral("app.quit");
-    case -6:
-        return QStringLiteral("app.openCwSender");
-    default:
-        if (command >= 0 && command < int(funcLastFunc))
-            return funcString[command];
-        return QStringLiteral("None");
-    }
+    return QStringLiteral("None");
 }
-
 
 SettingsController::SettingsController(QString file, QObject *p) :
     QObject(p),
@@ -722,11 +717,15 @@ void SettingsController::load()
         settings->setArrayIndex(i);
         shortcutPreference shortcut;
         shortcut.enabled = settings->value(QStringLiteral("Enabled"), true).toBool();
-        shortcut.sequence = settings->value(QStringLiteral("Sequence")).toString().trimmed();
+        shortcut.sequence = normalizedShortcutSequence(settings->value(QStringLiteral("Sequence")).toString());
         shortcut.command = shortcutCommandNameFromLegacyValue(settings->value(QStringLiteral("Command"), QStringLiteral("None")));
         shortcut.action = settings->value(QStringLiteral("Action"), 0).toInt();
         shortcut.value = settings->value(QStringLiteral("Value"), 0).toInt();
-        shortcut.receiver = settings->value(QStringLiteral("Receiver"), -1).toInt();
+        bool receiverOk = false;
+        qlonglong receiver = settings->value(QStringLiteral("Receiver"), -1).toLongLong(&receiverOk);
+        if (!receiverOk || receiver > 127)
+            receiver = -1;
+        shortcut.receiver = int(receiver);
         if (!shortcut.sequence.isEmpty() || shortcut.command != QLatin1String("None"))
             prefs.shortcuts.append(shortcut);
     }
@@ -2050,20 +2049,20 @@ void SettingsController::setDefPrefs()
     addShortcut(QStringLiteral("Ctrl+U"), funcString[funcTunerStatus], 1, 2);
     addShortcut(QStringLiteral("/"), funcString[funcMode], 2, 1);
     addShortcut(QStringLiteral("\\"), funcString[funcBandStackReg], 3, 1);
-    addShortcut(QStringLiteral("-"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("+"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("J"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("K"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("Shift+-"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("Shift++"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("Shift+J"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("Shift+K"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("Ctrl+-"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("Ctrl++"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("Ctrl+J"), funcString[funcFreq], 3, 1);
-    addShortcut(QStringLiteral("Ctrl+K"), funcString[funcFreq], 2, 1);
-    addShortcut(QStringLiteral("PgUp"), funcString[funcFreq], 2, 10);
-    addShortcut(QStringLiteral("PgDown"), funcString[funcFreq], 3, 10);
+    addShortcut(QStringLiteral("-"), funcString[funcFreq], 3, 100);
+    addShortcut(QStringLiteral("Plus"), funcString[funcFreq], 2, 100);
+    addShortcut(QStringLiteral("J"), funcString[funcFreq], 3, 100);
+    addShortcut(QStringLiteral("K"), funcString[funcFreq], 2, 100);
+    addShortcut(QStringLiteral("Shift+-"), funcString[funcFreq], 3, 1000);
+    addShortcut(QStringLiteral("Shift+Plus"), funcString[funcFreq], 2, 1000);
+    addShortcut(QStringLiteral("Shift+J"), funcString[funcFreq], 3, 1000);
+    addShortcut(QStringLiteral("Shift+K"), funcString[funcFreq], 2, 1000);
+    addShortcut(QStringLiteral("Ctrl+-"), funcString[funcFreq], 3, 1000);
+    addShortcut(QStringLiteral("Ctrl+Plus"), funcString[funcFreq], 2, 1000);
+    addShortcut(QStringLiteral("Ctrl+J"), funcString[funcFreq], 3, 1000);
+    addShortcut(QStringLiteral("Ctrl+K"), funcString[funcFreq], 2, 1000);
+    addShortcut(QStringLiteral("PgUp"), funcString[funcFreq], 2, 1000000);
+    addShortcut(QStringLiteral("PgDown"), funcString[funcFreq], 3, 1000000);
     addShortcut(QStringLiteral("F"), funcString[funcSpeech], 1, 1);
     addShortcut(QStringLiteral("M"), funcString[funcSpeech], 1, 2);
     addShortcut(QStringLiteral("H"), funcString[funcFreq], 3, 1);
@@ -2363,7 +2362,7 @@ void SettingsController::updateShortcut(int index, const QString& field, const Q
         changed = shortcut.enabled != newValue;
         shortcut.enabled = newValue;
     } else if (field == QStringLiteral("sequence")) {
-        const QString newValue = value.toString().trimmed();
+        const QString newValue = normalizedShortcutSequence(value.toString());
         changed = shortcut.sequence != newValue;
         shortcut.sequence = newValue;
     } else if (field == QStringLiteral("command")) {
