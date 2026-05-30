@@ -4,10 +4,20 @@
 #include <QString>
 #include <QColor>
 #include <QMap>
+#include <QVector>
 #include "audioconverter.h"
 #include "cluster.h"
 #include "rigidentities.h"
 #include "wfviewtypes.h"
+
+struct shortcutPreference {
+    bool enabled = true;
+    QString sequence;
+    QString command;
+    int action = 0;
+    int value = 0;
+    int receiver = -1;
+};
 
 enum prefIfItem {
     if_useFullScreen = 1 << 0,
@@ -317,6 +327,7 @@ struct preferences {
     bool niceTS;
     bool automaticSidebandSwitching = true;
     bool enableUSBControllers;
+    QVector<shortcutPreference> shortcuts;
 
     // LAN:
     bool enableLAN;

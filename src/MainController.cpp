@@ -58,6 +58,22 @@ static QString pttOriginName(PttOrigin origin)
     return QStringLiteral("unknown");
 }
 
+static constexpr auto shortcutDebugWindow = "app.debug";
+static constexpr auto shortcutRaiseMainWindow = "app.raiseMainWindow";
+static constexpr auto shortcutOpenSettings = "app.openSettings";
+static constexpr auto shortcutToggleFullscreen = "app.toggleFullscreen";
+static constexpr auto shortcutQuitApplication = "app.quit";
+static constexpr auto shortcutOpenCwSender = "app.openCwSender";
+
+static funcs shortcutFuncFromName(const QString& commandName)
+{
+    for (int i = 0; i < int(funcLastFunc); ++i) {
+        if (commandName == funcString[i])
+            return funcs(i);
+    }
+    return funcNone;
+}
+
 MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
     : QObject(p)
     , m_settings(std::make_unique<SettingsController>(settingsFile,this))
@@ -523,6 +539,153 @@ QVariantList MainController::optionalMeterOptions() const
         options.push_back(option);
     }
     return options;
+}
+
+QVariantList MainController::shortcutCommandOptions() const
+{
+    QVariantList options = shortcutAppCommandOptions();
+    const QVariantList radioOptions = shortcutRadioCommandOptions();
+    for (const QVariant& option : radioOptions)
+        options.push_back(option);
+    return options;
+}
+
+QVariantList MainController::shortcutAppCommandOptions() const
+{
+    QVariantList options;
+
+    QVariantMap debugOption;
+    debugOption["text"] = tr("Debug Window");
+    debugOption["value"] = QString::fromLatin1(shortcutDebugWindow);
+    options.push_back(debugOption);
+
+    const QList<QPair<QString, QString>> appCommands = {
+        { tr("Raise Main Window"), QString::fromLatin1(shortcutRaiseMainWindow) },
+        { tr("Open Settings"), QString::fromLatin1(shortcutOpenSettings) },
+        { tr("Toggle Fullscreen"), QString::fromLatin1(shortcutToggleFullscreen) },
+        { tr("Quit wfview"), QString::fromLatin1(shortcutQuitApplication) },
+        { tr("Open CW Sender"), QString::fromLatin1(shortcutOpenCwSender) }
+    };
+    for (const auto& item : appCommands) {
+        QVariantMap option;
+        option["text"] = item.first;
+        option["value"] = item.second;
+        options.push_back(option);
+    }
+
+    return options;
+}
+
+QVariantList MainController::shortcutRadioCommandOptions() const
+{
+    QVariantList options;
+
+    for (int i = 0; i < int(funcLastFunc); ++i) {
+        const QString text = funcString[i];
+        if (text.startsWith(QLatin1String("+<")))
+            continue;
+
+        QVariantMap option;
+        option["text"] = text;
+        option["value"] = text;
+        options.push_back(option);
+    }
+
+    return options;
+}
+
+void MainController::runShortcutAppAction(const QString& commandName)
+{
+    if (commandName == QLatin1String(shortcutDebugWindow))
+        return;
+    if (commandName == QLatin1String(shortcutRaiseMainWindow)
+        || commandName == QLatin1String(shortcutOpenSettings)
+        || commandName == QLatin1String(shortcutToggleFullscreen))
+        return;
+    if (commandName == QLatin1String(shortcutQuitApplication)) {
+        quitApplication();
+        return;
+    }
+    if (commandName == QLatin1String(shortcutOpenCwSender)) {
+        showCWSender();
+        return;
+    }
+}
+
+void MainController::runShortcutCommand(const QString& commandName, int action, int value, int receiver)
+{
+    const funcs command = shortcutFuncFromName(commandName);
+    if (command <= int(funcNone) || command >= int(funcLastFunc))
+        return;
+
+    COMMAND shortcut;
+    shortcut.text = funcString[command];
+    shortcut.cmdType = commandAny;
+    shortcut.command = command;
+    shortcut.suffix = 0xff;
+
+    const int amount = qMax(1, qAbs(value));
+    switch (action) {
+    case 1:
+        shortcut.value = value;
+        break;
+    case 2:
+        shortcut.value = amount;
+        break;
+    case 3:
+        shortcut.value = -amount;
+        break;
+    default:
+        shortcut.value = value;
+        break;
+    }
+
+    if (command == funcMode || command == funcModeSet || command == funcUnselectedMode)
+        shortcut.mode = rigMode_t(value);
+
+    switch (command) {
+    case funcMode:
+    case funcModeSet:
+    case funcUnselectedMode:
+    case funcFreq:
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcCwPitch:
+    case funcKeySpeed:
+    case funcAfGain:
+    case funcRfGain:
+    case funcSquelch:
+    case funcAPFLevel:
+    case funcNRLevel:
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcIFShift:
+    case funcRFPower:
+    case funcMicGain:
+    case funcLANModLevel:
+    case funcUSBModLevel:
+    case funcACCAModLevel:
+    case funcNotchFilter:
+    case funcCompressorLevel:
+    case funcBreakInDelay:
+    case funcNBLevel:
+    case funcDigiSelShift:
+    case funcDriveGain:
+    case funcMonitorGain:
+    case funcVoxGain:
+    case funcAntiVoxGain:
+        shortcut.suffix = receiver >= 0 ? quint8(receiver) : currentReceiver;
+        break;
+    default:
+        break;
+    }
+
+    buttonControl(&shortcut);
+}
+
+QString MainController::platformName() const
+{
+    return QGuiApplication::platformName();
 }
 
 bool MainController::isOptionalMeterAvailable(int meterType) const

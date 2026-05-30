@@ -581,6 +581,7 @@ class SettingsController : public QObject {
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
     Q_PROPERTY(QVariantList radioProfiles READ radioProfiles NOTIFY radioProfilesChanged)
     Q_PROPERTY(int currentRadioProfileIndex READ currentRadioProfileIndex NOTIFY currentRadioProfileIndexChanged)
+    Q_PROPERTY(QVariantList shortcuts READ shortcuts NOTIFY shortcutsChanged)
 
     Q_PROPERTY(ClusterSettingsModel* clusterModel READ clusterModel CONSTANT)
     Q_PROPERTY(ServerUsersModel* serverUsersModel READ serverUsersModel CONSTANT)
@@ -601,6 +602,7 @@ public:
     QVariantMap getUiSpecs() const { return uiSpecs; }
     QVariantList radioProfiles() const { return m_radioProfiles; }
     int currentRadioProfileIndex() const { return m_currentRadioProfileIndex; }
+    QVariantList shortcuts() const;
 
     preferences* getPrefs() { return &prefs;}
     udpPreferences* getUdpPrefs() { return &udpPrefs;}
@@ -627,6 +629,11 @@ public:
     Q_INVOKABLE void selectRadioProfile(int index);
     Q_INVOKABLE void renameRadioProfile(int index, const QString& description);
     Q_INVOKABLE void moveRadioProfile(int index, int direction);
+    Q_INVOKABLE void addShortcut();
+    Q_INVOKABLE void duplicateShortcut(int index);
+    Q_INVOKABLE void deleteShortcut(int index);
+    Q_INVOKABLE void updateShortcut(int index, const QString& field, const QVariant& value);
+    Q_INVOKABLE void resetShortcutsToDefault();
     Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
@@ -672,6 +679,7 @@ signals:
     void uiSpecsChanged();
     void radioProfilesChanged();
     void currentRadioProfileIndexChanged();
+    void shortcutsChanged();
 
 private:
     void setDefPrefs();

@@ -229,6 +229,11 @@ public:
     Q_INVOKABLE void swapMainSub();
     Q_INVOKABLE void equalizeMainSub();
     Q_INVOKABLE QVariantList optionalMeterOptions() const;
+    Q_INVOKABLE QVariantList shortcutCommandOptions() const;
+    Q_INVOKABLE QVariantList shortcutAppCommandOptions() const;
+    Q_INVOKABLE QVariantList shortcutRadioCommandOptions() const;
+    Q_INVOKABLE void runShortcutCommand(const QString& commandName, int action, int value, int receiver);
+    Q_INVOKABLE void runShortcutAppAction(const QString& commandName);
     Q_INVOKABLE QVariantMap optionalMeterExtremities(int meterType) const;
     Q_INVOKABLE bool isOptionalMeterAvailable(int meterType) const;
     Q_INVOKABLE void setOptionalMeterType(int slot, int meterType);
@@ -236,6 +241,7 @@ public:
     Q_INVOKABLE int modSourceReg(int dataMode) const;
     Q_INVOKABLE bool modSourceSupported(int dataMode) const;
     Q_INVOKABLE void setModSource(int dataMode, int reg);
+    Q_INVOKABLE QString platformName() const;
     Q_INVOKABLE void syncRadioClock();
     Q_INVOKABLE void connectCluster();
     Q_INVOKABLE void disconnectCluster();

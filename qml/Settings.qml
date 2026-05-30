@@ -54,7 +54,7 @@ ApplicationWindow {
     }
 
     function showAudioProcessing() {
-        settingsStack.currentIndex = 8
+        settingsStack.currentIndex = 9
         show()
         raise()
         requestActivate()
@@ -322,7 +322,7 @@ ApplicationWindow {
                 clip: true
 
                 Accessible.name: "Setting Category"
-                Accessible.description: "Select the settings category you wish to edit. Selection may also be performed with keyboard shortcuts: Shift F1 is Radio Access, Shift F2 is User Interface, Shift F3 is Radio Settings, Shift F4 is Radio Server, Shift F5 is External Control, Shift F6 is DX Cluster,  Shift F7 is Experimental"
+                Accessible.description: "Select the settings category you wish to edit. Selection may also be performed with keyboard shortcuts: Shift F1 is Radio Access, Shift F2 is User Interface, Shift F3 is Radio Settings, Shift F4 is Radio Server, Shift F5 is External Control, Shift F6 is Controllers, Shift F7 is DX Cluster, Shift F8 is Shortcuts, Shift F9 is Experimental"
 
                 model: [
                     { title: qsTr("Radio Access") },
@@ -332,6 +332,7 @@ ApplicationWindow {
                     { title: qsTr("External Control") },
                     { title: qsTr("Controllers") },
                     { title: qsTr("DX Cluster") },
+                    { title: qsTr("Shortcuts") },
                     { title: qsTr("Experimental") }
                 ]
 
@@ -2497,7 +2498,204 @@ ApplicationWindow {
                 }
 
                 // =========================
-                // Page 7: Experimental
+                // Page 7: Shortcuts
+                // =========================
+                ScrollView {
+                    id: shortcutsPage
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+
+                    ColumnLayout {
+                        width: shortcutsPage.availableWidth
+                        spacing: 10
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("Configure keyboard shortcuts. wfview commands affect the application; radio commands send rig function commands.")
+                            wrapMode: Text.WordWrap
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Button {
+                                text: qsTr("Add Shortcut")
+                                onClicked: if (controller) controller.addShortcut()
+                            }
+                            Button {
+                                text: qsTr("Reset Defaults")
+                                onClicked: if (controller) controller.resetShortcutsToDefault()
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        GroupBox {
+                            title: qsTr("Shortcut Bindings")
+                            Layout.fillWidth: true
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                spacing: 6
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Label { text: qsTr("On"); Layout.preferredWidth: 34 }
+                                    Label { text: qsTr("Shortcut"); Layout.preferredWidth: 120 }
+                                    Label { text: qsTr("Type"); Layout.preferredWidth: 90 }
+                                    Label { text: qsTr("Command"); Layout.fillWidth: true }
+                                    Label { text: qsTr("Action"); Layout.preferredWidth: 110 }
+                                    Label { text: qsTr("Value"); Layout.preferredWidth: 90 }
+                                    Label { text: qsTr("Receiver"); Layout.preferredWidth: 100 }
+                                    Item { Layout.preferredWidth: 32 }
+                                }
+
+                                Repeater {
+                                    model: controller ? controller.shortcuts : []
+
+                                    delegate: RowLayout {
+                                        id: shortcutRow
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        readonly property int rowIndex: index
+                                        readonly property bool appCommand: String(modelData.command).indexOf("app.") === 0
+
+                                        CheckBox {
+                                            Layout.preferredWidth: 34
+                                            checked: Boolean(modelData.enabled)
+                                            onClicked: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "enabled", checked)
+                                        }
+
+                                        TextField {
+                                            Layout.preferredWidth: 120
+                                            text: String(modelData.sequence)
+                                            placeholderText: qsTr("Ctrl+D")
+                                            selectByMouse: true
+                                            onEditingFinished: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "sequence", text.trim())
+                                            ToolTip.visible: hovered
+                                            ToolTip.text: qsTr("Qt shortcut text, for example Ctrl+D, Alt+F, or Shift+F10.")
+                                        }
+
+                                        ComboBox {
+                                            id: shortcutTypeCombo
+                                            Layout.preferredWidth: 90
+                                            textRole: "text"
+                                            valueRole: "value"
+                                            model: [
+                                                { text: qsTr("wfview"), value: 0 },
+                                                { text: qsTr("Radio"), value: 1 }
+                                            ]
+                                            currentIndex: shortcutRow.appCommand ? 0 : 1
+                                            onActivated: {
+                                                if (!controller)
+                                                    return
+                                                controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue === 0 ? "app.debug" : "None")
+                                                controller.updateShortcut(shortcutRow.rowIndex, "action", 0)
+                                                controller.updateShortcut(shortcutRow.rowIndex, "value", 0)
+                                            }
+                                        }
+
+                                        ComboBox {
+                                            id: shortcutAppCommandCombo
+                                            Layout.fillWidth: true
+                                            textRole: "text"
+                                            valueRole: "value"
+                                            visible: shortcutRow.appCommand
+                                            model: MainController.shortcutAppCommandOptions()
+                                            currentIndex: indexFromValue(shortcutAppCommandCombo, modelData.command)
+                                            onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue)
+                                        }
+
+                                        ComboBox {
+                                            id: shortcutRadioCommandCombo
+                                            Layout.fillWidth: true
+                                            textRole: "text"
+                                            valueRole: "value"
+                                            visible: !shortcutRow.appCommand
+                                            model: MainController.shortcutRadioCommandOptions()
+                                            currentIndex: indexFromValue(shortcutRadioCommandCombo, modelData.command)
+                                            onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue)
+                                        }
+
+                                        ComboBox {
+                                            id: shortcutActionCombo
+                                            Layout.preferredWidth: 110
+                                            textRole: "text"
+                                            valueRole: "value"
+                                            model: [
+                                                { text: qsTr("Trigger"), value: 0 },
+                                                { text: qsTr("Absolute"), value: 1 },
+                                                { text: qsTr("Increase"), value: 2 },
+                                                { text: qsTr("Decrease"), value: 3 }
+                                            ]
+                                            enabled: !shortcutRow.appCommand
+                                            currentIndex: indexFromValue(shortcutActionCombo, modelData.action)
+                                            onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "action", currentValue)
+                                        }
+
+                                        SpinBox {
+                                            Layout.preferredWidth: 90
+                                            from: -100000000
+                                            to: 100000000
+                                            value: Number(modelData.value)
+                                            enabled: !shortcutRow.appCommand
+                                            editable: true
+                                            onValueModified: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "value", value)
+                                        }
+
+                                        ComboBox {
+                                            id: shortcutReceiverCombo
+                                            Layout.preferredWidth: 100
+                                            textRole: "text"
+                                            valueRole: "value"
+                                            model: [
+                                                { text: qsTr("Current"), value: -1 },
+                                                { text: qsTr("Main"), value: 0 },
+                                                { text: qsTr("Sub"), value: 1 }
+                                            ]
+                                            enabled: !shortcutRow.appCommand
+                                            currentIndex: indexFromValue(shortcutReceiverCombo, modelData.receiver)
+                                            onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "receiver", currentValue)
+                                        }
+
+                                        ToolButton {
+                                            Layout.preferredWidth: 32
+                                            text: "..."
+                                            onClicked: shortcutMenu.popup()
+                                            Menu {
+                                                id: shortcutMenu
+                                                MenuItem {
+                                                    text: qsTr("Add Shortcut")
+                                                    onTriggered: if (controller) controller.addShortcut()
+                                                }
+                                                MenuItem {
+                                                    text: qsTr("Duplicate Shortcut")
+                                                    onTriggered: if (controller) controller.duplicateShortcut(shortcutRow.rowIndex)
+                                                }
+                                                MenuItem {
+                                                    text: qsTr("Delete Shortcut")
+                                                    onTriggered: if (controller) controller.deleteShortcut(shortcutRow.rowIndex)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("For radio shortcuts, use Absolute for fixed values and Increase or Decrease for step changes.")
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // =========================
+                // Page 8: Experimental
                 // =========================
                 Item {
                     id: experimental
@@ -2637,7 +2835,7 @@ ApplicationWindow {
                 }
 
                 // =========================
-                // Page 8: Audio Processing
+                // Page 9: Audio Processing
                 // =========================
                 ScrollView {
                     id: audioProcessing
@@ -2909,4 +3107,5 @@ ApplicationWindow {
     Shortcut { sequence: "Shift+F6"; onActivated: settingsStack.currentIndex = 5 }
     Shortcut { sequence: "Shift+F7"; onActivated: settingsStack.currentIndex = 6 }
     Shortcut { sequence: "Shift+F8"; onActivated: settingsStack.currentIndex = 7 }
+    Shortcut { sequence: "Shift+F9"; onActivated: settingsStack.currentIndex = 8 }
 }

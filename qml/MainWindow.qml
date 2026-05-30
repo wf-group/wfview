@@ -29,6 +29,7 @@ ApplicationWindow {
     readonly property int optionalMeterWidth: 300
     readonly property int optionalMeterHeight: 40
     readonly property bool radioConnected: Number(MainController.connStatus) === 2
+    readonly property bool waylandPlatform: String(MainController.platformName()).indexOf("wayland") !== -1
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
@@ -41,7 +42,7 @@ ApplicationWindow {
                    + mainGroup.padding * 2
                    + scopeVFOGroup.padding * 2
                    + mainLayout.spacing * 2
-    height: minimumHeight
+    height: 640
 
     component OptionalMeterSlot: Item {
         id: optionalMeterSlot
@@ -189,23 +190,20 @@ ApplicationWindow {
         id: loggingWindow
     }
 
-    Timer {
-        id: startupGeometryTimer
-        interval: 300
-        repeat: false
-        onTriggered: {
+    function scheduleStartupGeometryRestore() {
+        Qt.callLater(function() {
             if (win.startupGeometryPending && win.radioConnected && win.savedStartupGeometry && win.savedStartupGeometry.valid) {
                 win.applyWindowGeometry(win.savedStartupGeometry)
                 win.startupGeometryPending = false
             }
-        }
+        })
     }
 
     Connections {
         target: MainController
         function onReceiverCountChanged() {
             if (win.startupGeometryPending)
-                startupGeometryTimer.restart()
+                win.scheduleStartupGeometryRestore()
         }
     }
 
@@ -370,17 +368,57 @@ ApplicationWindow {
         }
     }
 
-    Shortcut {
-        sequences: ["Ctrl+D"]
-        context: Qt.ApplicationShortcut
-        onActivated: {
-            if (!debugLoader.active) {
-                debugLoader.active = true
-            } else {
-                debugLoader.item.visible = true
-                debugLoader.item.raise()
-                debugLoader.item.requestActivate()
-            }
+    function showDebugWindow() {
+        if (!debugLoader.active) {
+            debugLoader.active = true
+        } else {
+            debugLoader.item.visible = true
+            debugLoader.item.raise()
+            debugLoader.item.requestActivate()
+        }
+    }
+
+    function runConfiguredShortcut(shortcut) {
+        const command = String(shortcut.command)
+        if (command === "app.debug") {
+            showDebugWindow()
+            return
+        }
+        if (command === "app.raiseMainWindow") {
+            win.show()
+            win.raise()
+            win.requestActivate()
+            return
+        }
+        if (command === "app.openSettings") {
+            settings.show()
+            settings.raise()
+            settings.requestActivate()
+            return
+        }
+        if (command === "app.toggleFullscreen") {
+            win.visibility = win.visibility === Window.FullScreen ? Window.Windowed : Window.FullScreen
+            return
+        }
+        if (command.indexOf("app.") === 0) {
+            MainController.runShortcutAppAction(command)
+            return
+        }
+
+        MainController.runShortcutCommand(command,
+                                          Number(shortcut.action),
+                                          Number(shortcut.value),
+                                          Number(shortcut.receiver))
+    }
+
+    Instantiator {
+        model: MainController.settings.shortcuts
+        delegate: Shortcut {
+            readonly property var shortcutData: modelData
+            enabled: Boolean(shortcutData.enabled) && String(shortcutData.sequence).length > 0
+            sequences: [String(shortcutData.sequence)]
+            context: Qt.ApplicationShortcut
+            onActivated: win.runConfiguredShortcut(shortcutData)
         }
     }
 
@@ -463,8 +501,10 @@ ApplicationWindow {
 
     function applyWindowGeometry(g) {
         if (g.valid) {
-            win.x = g.x
-            win.y = g.y
+            if (!win.waylandPlatform) {
+                win.x = g.x
+                win.y = g.y
+            }
             win.width = Math.max(g.width, win.minimumWidth)
             win.height = Math.max(g.height, win.minimumHeight)
             if (g.maximized)
@@ -502,7 +542,7 @@ ApplicationWindow {
         if (g && g.valid) {
             win.savedStartupGeometry = g
             win.startupGeometryPending = true
-            startupGeometryTimer.restart()
+            win.scheduleStartupGeometryRestore()
         }
     }
 
@@ -796,16 +836,20 @@ ApplicationWindow {
 
                                 if (visible && row.havePendingPos) {
                                     Qt.callLater(function() {
-                                        detachedWin.x = row.pendingX
-                                        detachedWin.y = row.pendingY
+                                        if (!win.waylandPlatform) {
+                                            detachedWin.x = row.pendingX
+                                            detachedWin.y = row.pendingY
+                                        }
                                         row.havePendingPos = false
                                     })
                                 }
                             }
 
                             Component.onCompleted: {
-                                x = Number(MainController.settings.receiverSetting(index, "DetachedX", x))
-                                y = Number(MainController.settings.receiverSetting(index, "DetachedY", y))
+                                if (!win.waylandPlatform) {
+                                    x = Number(MainController.settings.receiverSetting(index, "DetachedX", x))
+                                    y = Number(MainController.settings.receiverSetting(index, "DetachedY", y))
+                                }
                                 restoringGeometry = false
                                 Qt.callLater(detachedWin.applyWindowMode)
                             }
@@ -1361,19 +1405,21 @@ ApplicationWindow {
                             windows.push(w)
                             rigCreatorWindows = windows
 
-                            const screenRect = win.screen ? win.screen.availableGeometry : null
-                            const margin = 24
-                            const offset = Math.min(40 + (windows.length - 1) * 24, 160)
-                            if (screenRect) {
-                                w.x = Math.max(screenRect.x + margin,
-                                               Math.min(win.x + offset,
-                                                        screenRect.x + screenRect.width - w.width - margin))
-                                w.y = Math.max(screenRect.y + margin,
-                                               Math.min(win.y + offset,
-                                                        screenRect.y + screenRect.height - w.height - margin))
-                            } else {
-                                w.x = Math.max(0, win.x + offset)
-                                w.y = Math.max(0, win.y + offset)
+                            if (!win.waylandPlatform) {
+                                const screenRect = win.screen ? win.screen.availableGeometry : null
+                                const margin = 24
+                                const offset = Math.min(40 + (windows.length - 1) * 24, 160)
+                                if (screenRect) {
+                                    w.x = Math.max(screenRect.x + margin,
+                                                   Math.min(win.x + offset,
+                                                            screenRect.x + screenRect.width - w.width - margin))
+                                    w.y = Math.max(screenRect.y + margin,
+                                                   Math.min(win.y + offset,
+                                                            screenRect.y + screenRect.height - w.height - margin))
+                                } else {
+                                    w.x = Math.max(0, win.x + offset)
+                                    w.y = Math.max(0, win.y + offset)
+                                }
                             }
 
                             w.show()

@@ -60,6 +60,51 @@ static const QStringList radioProfileKeys = {
     QStringLiteral("Experimental.WfShareCalledNumber")
 };
 
+static QVariantMap shortcutToMap(const shortcutPreference& shortcut)
+{
+    return {
+        { QStringLiteral("enabled"), shortcut.enabled },
+        { QStringLiteral("sequence"), shortcut.sequence },
+        { QStringLiteral("command"), shortcut.command },
+        { QStringLiteral("action"), shortcut.action },
+        { QStringLiteral("value"), shortcut.value },
+        { QStringLiteral("receiver"), shortcut.receiver }
+    };
+}
+
+static QString shortcutCommandNameFromLegacyValue(const QVariant& value)
+{
+    if (value.userType() == QMetaType::QString) {
+        const QString command = value.toString().trimmed();
+        if (!command.isEmpty())
+            return command;
+    }
+
+    bool ok = false;
+    const int command = value.toInt(&ok);
+    if (!ok)
+        return QStringLiteral("None");
+
+    switch (command) {
+    case -1:
+        return QStringLiteral("app.debug");
+    case -2:
+        return QStringLiteral("app.raiseMainWindow");
+    case -3:
+        return QStringLiteral("app.openSettings");
+    case -4:
+        return QStringLiteral("app.toggleFullscreen");
+    case -5:
+        return QStringLiteral("app.quit");
+    case -6:
+        return QStringLiteral("app.openCwSender");
+    default:
+        if (command >= 0 && command < int(funcLastFunc))
+            return funcString[command];
+        return QStringLiteral("None");
+    }
+}
+
 
 SettingsController::SettingsController(QString file, QObject *p) :
     QObject(p),
@@ -669,6 +714,26 @@ void SettingsController::load()
     prefs.frequencyUnits = settings->value("FrequencyUnits",3).toInt();
 
     settings->endGroup();
+
+    settings->beginGroup("Shortcuts");
+    prefs.shortcuts.clear();
+    const int shortcutCount = settings->beginReadArray("Shortcut");
+    for (int i = 0; i < shortcutCount; ++i) {
+        settings->setArrayIndex(i);
+        shortcutPreference shortcut;
+        shortcut.enabled = settings->value(QStringLiteral("Enabled"), true).toBool();
+        shortcut.sequence = settings->value(QStringLiteral("Sequence")).toString().trimmed();
+        shortcut.command = shortcutCommandNameFromLegacyValue(settings->value(QStringLiteral("Command"), QStringLiteral("None")));
+        shortcut.action = settings->value(QStringLiteral("Action"), 0).toInt();
+        shortcut.value = settings->value(QStringLiteral("Value"), 0).toInt();
+        shortcut.receiver = settings->value(QStringLiteral("Receiver"), -1).toInt();
+        if (!shortcut.sequence.isEmpty() || shortcut.command != QLatin1String("None"))
+            prefs.shortcuts.append(shortcut);
+    }
+    settings->endArray();
+    settings->endGroup();
+    if (prefs.shortcuts.isEmpty())
+        prefs.shortcuts = defPrefs.shortcuts;
 
     // Load in the color presets. The default values are already loaded.
 
@@ -1435,6 +1500,22 @@ void SettingsController::save()
 
     settings->endGroup();
 
+    settings->beginGroup("Shortcuts");
+    settings->remove(QString());
+    settings->beginWriteArray(QStringLiteral("Shortcut"), prefs.shortcuts.size());
+    for (int i = 0; i < prefs.shortcuts.size(); ++i) {
+        settings->setArrayIndex(i);
+        const shortcutPreference& shortcut = prefs.shortcuts.at(i);
+        settings->setValue(QStringLiteral("Enabled"), shortcut.enabled);
+        settings->setValue(QStringLiteral("Sequence"), shortcut.sequence);
+        settings->setValue(QStringLiteral("Command"), shortcut.command);
+        settings->setValue(QStringLiteral("Action"), shortcut.action);
+        settings->setValue(QStringLiteral("Value"), shortcut.value);
+        settings->setValue(QStringLiteral("Receiver"), shortcut.receiver);
+    }
+    settings->endArray();
+    settings->endGroup();
+
     // Radio and Comms: C-IV addr, port to use
     settings->beginGroup("Radio");
     settings->setValue("Manufacturer", prefs.manufacturer);
@@ -1938,6 +2019,55 @@ void SettingsController::setDefPrefs()
     defPrefs.waterfallFormat = 0;
     defPrefs.audioSystem = qtAudio;
     defPrefs.enableUSBControllers = false;
+    defPrefs.shortcuts.clear();
+    auto addShortcut = [this](const QString& sequence, const QString& command, int action, int value, int receiver = -1) {
+        shortcutPreference shortcut;
+        shortcut.enabled = true;
+        shortcut.sequence = sequence;
+        shortcut.command = command;
+        shortcut.action = action;
+        shortcut.value = value;
+        shortcut.receiver = receiver;
+        defPrefs.shortcuts.append(shortcut);
+    };
+    addShortcut(QStringLiteral("Ctrl+D"), QStringLiteral("app.debug"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Shift+D"), QStringLiteral("app.debug"), 0, 0);
+    addShortcut(QStringLiteral("F1"), QStringLiteral("app.raiseMainWindow"), 0, 0);
+    addShortcut(QStringLiteral("F4"), QStringLiteral("app.openSettings"), 0, 0);
+    addShortcut(QStringLiteral("F11"), QStringLiteral("app.toggleFullscreen"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Q"), QStringLiteral("app.quit"), 0, 0);
+    addShortcut(QStringLiteral("F5"), funcString[funcMode], 1, modeLSB);
+    addShortcut(QStringLiteral("F6"), funcString[funcMode], 1, modeUSB);
+    addShortcut(QStringLiteral("F7"), funcString[funcMode], 1, modeAM);
+    addShortcut(QStringLiteral("F8"), funcString[funcMode], 1, modeCW);
+    addShortcut(QStringLiteral("F9"), funcString[funcMode], 1, modeUSB_D);
+    addShortcut(QStringLiteral("F10"), funcString[funcMode], 1, modeFM);
+    addShortcut(QStringLiteral("F12"), funcString[funcSpeech], 0, 0);
+    addShortcut(QStringLiteral("Ctrl+T"), funcString[funcTransceiverStatus], 1, 1);
+    addShortcut(QStringLiteral("Ctrl+R"), funcString[funcTransceiverStatus], 1, 0);
+    addShortcut(QStringLiteral("Ctrl+P"), funcString[funcTransceiverStatus], 0, -1);
+    addShortcut(QStringLiteral("Ctrl+I"), funcString[funcTunerStatus], 1, 1);
+    addShortcut(QStringLiteral("Ctrl+U"), funcString[funcTunerStatus], 1, 2);
+    addShortcut(QStringLiteral("/"), funcString[funcMode], 2, 1);
+    addShortcut(QStringLiteral("\\"), funcString[funcBandStackReg], 3, 1);
+    addShortcut(QStringLiteral("-"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("+"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("J"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("K"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("Shift+-"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("Shift++"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("Shift+J"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("Shift+K"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("Ctrl+-"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("Ctrl++"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("Ctrl+J"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("Ctrl+K"), funcString[funcFreq], 2, 1);
+    addShortcut(QStringLiteral("PgUp"), funcString[funcFreq], 2, 10);
+    addShortcut(QStringLiteral("PgDown"), funcString[funcFreq], 3, 10);
+    addShortcut(QStringLiteral("F"), funcString[funcSpeech], 1, 1);
+    addShortcut(QStringLiteral("M"), funcString[funcSpeech], 1, 2);
+    addShortcut(QStringLiteral("H"), funcString[funcFreq], 3, 1);
+    addShortcut(QStringLiteral("L"), funcString[funcFreq], 2, 1);
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     defPrefs.groupSeparator = QLocale().groupSeparator();
     defPrefs.decimalSeparator = QLocale().decimalPoint();
@@ -2178,6 +2308,93 @@ void SettingsController::markDirty()
         m_dirty = true;
         emit dirtyChanged();
     }
+}
+
+QVariantList SettingsController::shortcuts() const
+{
+    QVariantList list;
+    list.reserve(prefs.shortcuts.size());
+    for (const auto& shortcut : prefs.shortcuts)
+        list.append(shortcutToMap(shortcut));
+    return list;
+}
+
+void SettingsController::addShortcut()
+{
+    shortcutPreference shortcut;
+    shortcut.enabled = true;
+    shortcut.sequence.clear();
+    shortcut.command = QStringLiteral("app.debug");
+    shortcut.action = 0;
+    shortcut.value = 0;
+    shortcut.receiver = -1;
+    prefs.shortcuts.append(shortcut);
+    markDirty();
+    emit shortcutsChanged();
+}
+
+void SettingsController::duplicateShortcut(int index)
+{
+    if (index < 0 || index >= prefs.shortcuts.size())
+        return;
+    prefs.shortcuts.insert(index + 1, prefs.shortcuts.at(index));
+    markDirty();
+    emit shortcutsChanged();
+}
+
+void SettingsController::deleteShortcut(int index)
+{
+    if (index < 0 || index >= prefs.shortcuts.size())
+        return;
+    prefs.shortcuts.removeAt(index);
+    markDirty();
+    emit shortcutsChanged();
+}
+
+void SettingsController::updateShortcut(int index, const QString& field, const QVariant& value)
+{
+    if (index < 0 || index >= prefs.shortcuts.size())
+        return;
+
+    shortcutPreference& shortcut = prefs.shortcuts[index];
+    bool changed = false;
+    if (field == QStringLiteral("enabled")) {
+        const bool newValue = value.toBool();
+        changed = shortcut.enabled != newValue;
+        shortcut.enabled = newValue;
+    } else if (field == QStringLiteral("sequence")) {
+        const QString newValue = value.toString().trimmed();
+        changed = shortcut.sequence != newValue;
+        shortcut.sequence = newValue;
+    } else if (field == QStringLiteral("command")) {
+        const QString newValue = shortcutCommandNameFromLegacyValue(value);
+        changed = shortcut.command != newValue;
+        shortcut.command = newValue;
+    } else if (field == QStringLiteral("action")) {
+        const int newValue = value.toInt();
+        changed = shortcut.action != newValue;
+        shortcut.action = newValue;
+    } else if (field == QStringLiteral("value")) {
+        const int newValue = value.toInt();
+        changed = shortcut.value != newValue;
+        shortcut.value = newValue;
+    } else if (field == QStringLiteral("receiver")) {
+        const int newValue = value.toInt();
+        changed = shortcut.receiver != newValue;
+        shortcut.receiver = newValue;
+    }
+
+    if (!changed)
+        return;
+    markDirty();
+    emit shortcutsChanged();
+}
+
+void SettingsController::resetShortcutsToDefault()
+{
+    prefs.shortcuts = defPrefs.shortcuts;
+    markDirty();
+    emit shortcutsChanged();
 }
 
 void SettingsController::updateDefaultClusterPrefs()
