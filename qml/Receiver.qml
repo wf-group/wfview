@@ -76,6 +76,13 @@ Control {
         return Math.min(Math.ceil(longest), maximumWidth)
     }
 
+    component AboveToolTip: ToolTip {
+        delay: 300
+        timeout: 5000
+        x: parent ? (parent.width - width) / 2 : 0
+        y: -implicitHeight - 4
+    }
+
     function receiverSetting(key, fallback) {
         return MainController.settings
                 ? MainController.settings.receiverSetting(root.receiverIndex, key, fallback)
@@ -529,6 +536,10 @@ Control {
 
                                 onActivated: controller.scopeMode = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 82, 125)
+                                AboveToolTip {
+                                    text: qsTr("Scope display mode")
+                                    visible: scopeModeCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -541,6 +552,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(scopeSpanCombo,controller.scopeSpan) : -1
                                 onActivated: controller.scopeSpan = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 58, 95)
+                                AboveToolTip {
+                                    text: qsTr("Center-mode span")
+                                    visible: scopeSpanCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -553,6 +568,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(scopeEdgeCombo,controller.scopeEdge) : -1
                                 onActivated: controller.scopeEdge = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 92, 140)
+                                AboveToolTip {
+                                    text: qsTr("Fixed edge range")
+                                    visible: scopeEdgeCombo.hovered
+                                }
                             }
 
                             Button {
@@ -598,6 +617,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(modeCombo,controller.mode) : -1
                                 onActivated: controller.mode = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 58, 90)
+                                AboveToolTip {
+                                    text: qsTr("Operating mode")
+                                    visible: modeCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -610,6 +633,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(dataModeCombo,controller.dataMode) : -1
                                 onActivated: controller.dataMode = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 64, 105)
+                                AboveToolTip {
+                                    text: qsTr("Data mode")
+                                    visible: dataModeCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -622,6 +649,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(filterCombo,controller.filter) : -1
                                 onActivated: controller.filter = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 78, 110)
+                                AboveToolTip {
+                                    text: qsTr("IF filter selection")
+                                    visible: filterCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -635,6 +666,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(filterShapeCombo,controller.filterShape) : -1
                                 onActivated: controller.filterShape = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 66, 95)
+                                AboveToolTip {
+                                    text: qsTr("Filter shape")
+                                    visible: filterShapeCombo.hovered
+                                }
                             }
 
                             ComboBox {
@@ -647,6 +682,10 @@ Control {
                                 currentIndex: controller ? indexFromValue(roofingCombo,controller.roofing) : -1
                                 onActivated: controller.roofing = currentValue
                                 Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 70, 105)
+                                AboveToolTip {
+                                    text: qsTr("Roofing filter")
+                                    visible: roofingCombo.hovered
+                                }
                             }
 
                             Item {
