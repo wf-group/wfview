@@ -191,6 +191,10 @@ ApplicationWindow {
     }
 
     function scheduleStartupGeometryRestore() {
+        if (win.waylandPlatform) {
+            win.startupGeometryPending = false
+            return
+        }
         Qt.callLater(function() {
             if (win.startupGeometryPending && win.radioConnected && win.savedStartupGeometry && win.savedStartupGeometry.valid) {
                 win.applyWindowGeometry(win.savedStartupGeometry)
@@ -524,7 +528,7 @@ ApplicationWindow {
     }
 
     function shrinkDisconnectedWindow() {
-        if (win.radioConnected)
+        if (win.radioConnected || win.waylandPlatform)
             return
         if (win.visibility === Window.Maximized || win.visibility === Window.FullScreen)
             win.visibility = Window.Windowed
@@ -533,6 +537,11 @@ ApplicationWindow {
     }
 
     function restoreConnectedWindowGeometry() {
+        if (win.waylandPlatform) {
+            win.connectedGeometryRestored = true
+            win.startupGeometryPending = false
+            return
+        }
         if (win.connectedGeometryRestored)
             return
 
@@ -550,6 +559,12 @@ ApplicationWindow {
         var g = MainController.restoredMainWindowGeometry()
         win.savedStartupGeometry = g
         win.visible = true
+        if (win.waylandPlatform) {
+            win.connectedGeometryRestored = true
+            win.startupGeometryPending = false
+            win.wasRadioConnected = win.radioConnected
+            return
+        }
         if (win.radioConnected)
             win.restoreConnectedWindowGeometry()
         else
@@ -558,7 +573,7 @@ ApplicationWindow {
     }
 
     function saveWindowGeometry() {
-        if (!win.radioConnected)
+        if (!win.radioConnected || win.waylandPlatform)
             return
         MainController.saveMainWindowGeometry(win.x, win.y, win.width, win.height,
                                               win.visibility === Window.Maximized)
