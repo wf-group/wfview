@@ -8,7 +8,7 @@ import WFVIEW 1.0
 ApplicationWindow {
     id: win
 
-    title: MainController.windowTitle
+    title: radioConnected ? MainController.windowTitle : qsTr("wfview")
 
     property int connStatus: Number(MainController.connStatus)
     property var txAudioProcessingWindow: null
@@ -16,16 +16,25 @@ ApplicationWindow {
     property var rigCreatorWindows: []
     property bool quitConfirmed: false
     property var savedStartupGeometry: null
+    property var lastConnectedGeometry: null
     property bool startupGeometryPending: false
+    property bool connectedGeometryRestored: false
+    property bool wasRadioConnected: false
     readonly property int contentHorizontalPadding: 8
     readonly property int contentTopPadding: 4
+    readonly property int mainControlSpacing: 6
+    readonly property int mainControlSliderHeight: 120
+    readonly property int mainControlDialSize: 80
+    readonly property int optionalMeterWidth: 300
+    readonly property int optionalMeterHeight: 40
+    readonly property bool radioConnected: Number(MainController.connStatus) === 2
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
     visible: false
 
-    minimumWidth:  mainLayout.implicitWidth + contentHorizontalPadding * 2
+    minimumWidth:  radioConnected ? 360 : mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
     minimumHeight: mainLayout.implicitHeight + 8
                    + mainGroup.padding * 2
@@ -129,7 +138,7 @@ ApplicationWindow {
         readonly property real normalizedValue: Math.max(0, Math.min(255, value)) / 255
 
         Layout.preferredWidth: 14
-        Layout.preferredHeight: 120
+        Layout.preferredHeight: win.mainControlSliderHeight
         opacity: active ? 1.0 : 0.35
 
         Rectangle {
@@ -182,9 +191,10 @@ ApplicationWindow {
         interval: 300
         repeat: false
         onTriggered: {
-            if (win.startupGeometryPending && win.savedStartupGeometry && win.savedStartupGeometry.valid)
+            if (win.startupGeometryPending && win.radioConnected && win.savedStartupGeometry && win.savedStartupGeometry.valid) {
                 win.applyWindowGeometry(win.savedStartupGeometry)
-            win.startupGeometryPending = false
+                win.startupGeometryPending = false
+            }
         }
     }
 
@@ -194,6 +204,19 @@ ApplicationWindow {
             if (win.startupGeometryPending)
                 startupGeometryTimer.restart()
         }
+    }
+
+    onRadioConnectedChanged: {
+        if (win.radioConnected) {
+            win.restoreConnectedWindowGeometry()
+        } else {
+            if (win.wasRadioConnected)
+                win.rememberConnectedWindowGeometry()
+            win.connectedGeometryRestored = false
+            win.startupGeometryPending = Boolean(win.savedStartupGeometry && win.savedStartupGeometry.valid)
+            Qt.callLater(win.shrinkDisconnectedWindow)
+        }
+        win.wasRadioConnected = win.radioConnected
     }
 
     Dialog {
@@ -446,15 +469,54 @@ ApplicationWindow {
         }
     }
 
+    function rememberConnectedWindowGeometry() {
+        win.lastConnectedGeometry = {
+            valid: true,
+            x: win.x,
+            y: win.y,
+            width: win.width,
+            height: win.height,
+            maximized: win.visibility === Window.Maximized
+        }
+    }
+
+    function shrinkDisconnectedWindow() {
+        if (win.radioConnected)
+            return
+        if (win.visibility === Window.Maximized || win.visibility === Window.FullScreen)
+            win.visibility = Window.Windowed
+        win.width = win.minimumWidth
+        win.height = win.minimumHeight
+    }
+
+    function restoreConnectedWindowGeometry() {
+        if (win.connectedGeometryRestored)
+            return
+
+        var g = win.lastConnectedGeometry && win.lastConnectedGeometry.valid ? win.lastConnectedGeometry
+                                                                             : win.savedStartupGeometry
+        win.connectedGeometryRestored = true
+        if (g && g.valid) {
+            win.savedStartupGeometry = g
+            win.startupGeometryPending = true
+            startupGeometryTimer.restart()
+        }
+    }
+
     function restoreWindowGeometry() {
         var g = MainController.restoredMainWindowGeometry()
         win.savedStartupGeometry = g
-        win.startupGeometryPending = Boolean(g.valid)
-        applyWindowGeometry(g)
         win.visible = true
+        if (win.radioConnected)
+            win.restoreConnectedWindowGeometry()
+        else
+            Qt.callLater(win.shrinkDisconnectedWindow)
+        win.wasRadioConnected = win.radioConnected
     }
 
     function saveWindowGeometry() {
+        if (!win.radioConnected)
+            return
         MainController.saveMainWindowGeometry(win.x, win.y, win.width, win.height,
                                               win.visibility === Window.Maximized)
     }
@@ -558,6 +620,7 @@ ApplicationWindow {
             id: scopeVFOGroup
             Layout.fillWidth: true
             Layout.fillHeight: true
+            visible: win.radioConnected
             //Layout.preferredHeight: implicitHeight   // content drives height
             padding: 0
 
@@ -765,26 +828,32 @@ ApplicationWindow {
         Frame {
             id: mainGroup
             Layout.fillWidth: true
-            Layout.preferredHeight: implicitHeight
+            Layout.preferredHeight: Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
             padding: 3
 
             RowLayout {
-                spacing: 6
+                anchors.fill: parent
+                spacing: win.mainControlSpacing
 
-                // ---- meters + power buttons (left) ----
                 ColumnLayout {
+                    id: leftControlsColumn
                     Layout.preferredWidth: 320
-                    Layout.alignment: Qt.AlignTop
+                    Layout.maximumWidth: 320
+                    Layout.fillHeight: true
+                    spacing: win.mainControlSpacing
 
                     ColumnLayout {
-                        spacing: 0
+                        spacing: 1
+                        visible: win.radioConnected
 
                         Repeater {
                             model: [2, 3]
                             OptionalMeterSlot {
                                 slot: modelData
-                                Layout.preferredWidth: 300
-                                Layout.preferredHeight: 40
+                                width: win.optionalMeterWidth
+                                height: win.optionalMeterHeight
+                                Layout.preferredWidth: win.optionalMeterWidth
+                                Layout.preferredHeight: win.optionalMeterHeight
                             }
                         }
                     }
@@ -792,27 +861,40 @@ ApplicationWindow {
                     Item { Layout.fillHeight: true }
 
                     RowLayout {
+                        id: powerButtonsRow
+                        spacing: win.mainControlSpacing
                         Button { text: qsTr("Power On"); onClicked: MainController.powerOn() }
                         Button { text: qsTr("Power Off"); onClicked: MainController.powerOff() }
                     }
                 }
 
-                // ---- tuningLayout (dial, step combo, lock, RIT) ----
-                ColumnLayout {
+                Flow {
+                    id: mainControlsFlow
+                    Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    spacing: 6
+                    spacing: win.width >= 1500 ? 12 : (win.width >= 1200 ? 8 : win.mainControlSpacing)
+
+                // ---- tuningLayout ----
+                ColumnLayout {
+                    width: win.mainControlDialSize
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: win.mainControlDialSize
+                    Layout.maximumWidth: win.mainControlDialSize
+                    spacing: win.mainControlSpacing
+                    visible: win.radioConnected
 
                     Dial {
                         id: freqDial
                         property real lastValue: value
                         property bool syncing: false
                         property double lastMoveTime: 0
-                        Layout.preferredWidth: 80
-                        Layout.preferredHeight: 80
+                        Layout.preferredWidth: win.mainControlDialSize
+                        Layout.preferredHeight: win.mainControlDialSize
                         from: 3000
                         to: 4000
                         stepSize: 10
                         wrap: true
+                        visible: win.radioConnected
                         enabled: firstReceiver !== null
                         onMoved: {
                             if (syncing || !firstReceiver)
@@ -856,62 +938,84 @@ ApplicationWindow {
                             lastMoveTime = 0
                         }
                     }
+                }
 
-                    ComboBox {
-                        id: tuningStepCombo
-                        Layout.fillWidth: true
-                        readonly property var spec: MainController ? MainController.uiSpecs["tuningSteps"] : null
-                        model: spec ? spec.model : []
-                        textRole: spec ? spec.textRole : "text"
-                        valueRole: spec ? spec.valueRole : "value"
-                        visible: spec ? (spec.visible ?? true) : false
-                        currentIndex: MainController ? indexFromValue(tuningStepCombo, MainController.stepSize) : -1
-                        onActivated: MainController.stepSize = currentValue
-                    }
+                Frame {
+                    id: tuningControlsGroup
+                    width: 120
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: 120
+                    Layout.maximumWidth: 120
+                    padding: 3
+                    visible: win.radioConnected
 
-                    CheckBox {
-                        id: tuneLockChk
-                        text: qsTr("F Lock")
-                        onToggled: MainController.setFrequencyLock(checked)
-                    }
+                    contentItem: ColumnLayout {
+                        spacing: 4
+
+                        ComboBox {
+                            id: tuningStepCombo
+                            Layout.fillWidth: true
+                            readonly property var spec: MainController ? MainController.uiSpecs["tuningSteps"] : null
+                            model: spec ? spec.model : []
+                            textRole: spec ? spec.textRole : "text"
+                            valueRole: spec ? spec.valueRole : "value"
+                            visible: win.radioConnected && (spec ? (spec.visible ?? true) : false)
+                            currentIndex: MainController ? indexFromValue(tuningStepCombo, MainController.stepSize) : -1
+                            onActivated: MainController.stepSize = currentValue
+                        }
+
+                        CheckBox {
+                            id: tuneLockChk
+                            text: qsTr("F Lock")
+                            visible: win.radioConnected
+                            onToggled: MainController.setFrequencyLock(checked)
+                        }
 
                         RowLayout {
-                            visible: mainControlSpecs.canRit ?? false
+                            id: ritControlsRow
+                            visible: win.radioConnected && (mainControlSpecs.canRit ?? false)
                             Dial {
                                 id: ritTuneDial
                                 Layout.preferredWidth: 30
                                 Layout.preferredHeight: 30
-                            readonly property var spec: controlSpec("ritFrequency", -500, 500)
-                            from: spec.min
-                            to: spec.max
-                            value: MainController.ritFrequency
-                            enabled: mainControlSpecs.canRit ?? false
-                            stepSize: 10
-                            wrap: false
-                            onMoved: MainController.ritFrequency = Math.round(value)
-                        }
-                        CheckBox {
-                            id: ritEnableChk
-                            text: qsTr("RIT")
-                            checked: MainController.ritEnabled
-                            enabled: mainControlSpecs.canRit ?? false
-                            onToggled: MainController.ritEnabled = checked
+                                readonly property var spec: controlSpec("ritFrequency", -500, 500)
+                                from: spec.min
+                                to: spec.max
+                                value: MainController.ritFrequency
+                                enabled: mainControlSpecs.canRit ?? false
+                                stepSize: 10
+                                wrap: false
+                                onMoved: MainController.ritFrequency = Math.round(value)
+                            }
+                            CheckBox {
+                                id: ritEnableChk
+                                text: qsTr("RIT")
+                                checked: MainController.ritEnabled
+                                enabled: mainControlSpecs.canRit ?? false
+                                onToggled: MainController.ritEnabled = checked
+                            }
                         }
                     }
                 }
 
                 // ---- levelsHorizontalLayout (RF/AF/SQ/Mic/TX/Mon sliders) + OtherControls ----
                 ColumnLayout {
+                    width: implicitWidth
                     Layout.alignment: Qt.AlignTop
-                    spacing: 6
+                    Layout.fillWidth: false
+                    Layout.preferredWidth: implicitWidth
+                    spacing: win.mainControlSpacing
+                    visible: win.radioConnected
 
                     RowLayout {
+                        Layout.fillWidth: true
                         spacing: 10
 
                         ColumnLayout {
+                            visible: win.radioConnected && MainController.localAudioAvailable
                             enabled: MainController.localAudioAvailable
                             RowLayout {
-                                Layout.preferredHeight: 120
+                                Layout.preferredHeight: win.mainControlSliderHeight
                                 spacing: 4
 
                                 Slider {
@@ -921,7 +1025,7 @@ ApplicationWindow {
                                     value: MainController.localAfGain
                                     enabled: MainController.localAudioAvailable
                                     orientation: Qt.Vertical
-                                    Layout.preferredHeight: 120
+                                    Layout.preferredHeight: win.mainControlSliderHeight
                                     onMoved: MainController.localAfGain = Math.round(value)
 
                                     HoverHandler { id: hoverVolume }
@@ -948,7 +1052,7 @@ ApplicationWindow {
                                 value: MainController.txPower
                                 enabled: spec.available ?? false
                                 orientation: Qt.Vertical
-                                Layout.preferredHeight: 120
+                                Layout.preferredHeight: win.mainControlSliderHeight
                                 onMoved: MainController.txPower = Math.round(value)
 
                                 HoverHandler { id: hoverTxPower }
@@ -968,7 +1072,7 @@ ApplicationWindow {
                                 value: MainController.monitorGain
                                 enabled: spec.available ?? false
                                 orientation: Qt.Vertical
-                                Layout.preferredHeight: 120
+                                Layout.preferredHeight: win.mainControlSliderHeight
                                 onMoved: MainController.monitorGain = Math.round(value)
 
                                 HoverHandler { id: hoverMonitor }
@@ -996,7 +1100,7 @@ ApplicationWindow {
                         ColumnLayout {
                             visible: rangeControlVisible("micGain")
                             RowLayout {
-                                Layout.preferredHeight: 120
+                                Layout.preferredHeight: win.mainControlSliderHeight
                                 spacing: 4
 
                                 Slider {
@@ -1007,7 +1111,7 @@ ApplicationWindow {
                                     value: MainController.micGain
                                     enabled: spec.available ?? false
                                     orientation: Qt.Vertical
-                                    Layout.preferredHeight: 120
+                                    Layout.preferredHeight: win.mainControlSliderHeight
                                     onMoved: MainController.micGain = Math.round(value)
 
                                     HoverHandler { id: hoverMicGain }
@@ -1027,13 +1131,19 @@ ApplicationWindow {
                     }
                 }
 
-                // ---- buttonsVerticalLayout (Transmit, ATU, etc.) ----
-                ColumnLayout {
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 6
+                // ---- command buttons (Transmit, ATU, etc.) ----
+                GridLayout {
+                    id: commandButtonsColumn
+                    readonly property bool twoColumns: mainControlsFlow.width >= 1180
+                    columns: twoColumns ? 2 : 1
+                    width: twoColumns ? 246 : 120
+                    rowSpacing: win.mainControlSpacing
+                    columnSpacing: win.mainControlSpacing
+                    visible: win.radioConnected
 
                     Button {
                         text: MainController.transmitting ? qsTr("Receive") : qsTr("Transmit")
+                        Layout.preferredWidth: 120
                         Layout.preferredHeight: 50
                         checkable: true
                         checked: MainController.transmitting
@@ -1043,6 +1153,7 @@ ApplicationWindow {
                     }
                     CheckBox {
                         text: qsTr("Enable ATU")
+                        Layout.preferredWidth: 120
                         checked: MainController.tunerEnabled
                         enabled: mainControlSpecs.canTune ?? false
                         visible: mainControlSpecs.canTune ?? false
@@ -1050,12 +1161,14 @@ ApplicationWindow {
                     }
                     Button {
                         text: qsTr("Tune")
+                        Layout.preferredWidth: 120
                         enabled: mainControlSpecs.canTune ?? false
                         visible: mainControlSpecs.canTune ?? false
                         onClicked: MainController.tuneNow()
                     }
                     Button {
                         text: qsTr("CW")
+                        Layout.preferredWidth: 120
                         enabled: mainControlSpecs.canSendCW ?? false
                         visible: mainControlSpecs.canSendCW ?? false
                         onClicked: MainController.showCWSender()
@@ -1063,6 +1176,7 @@ ApplicationWindow {
 
                     Button {
                         text: qsTr("Rpt/Split")
+                        Layout.preferredWidth: 120
                         enabled: false
                         visible: false
                         ToolTip.visible: hovered
@@ -1070,7 +1184,9 @@ ApplicationWindow {
                     }
                     Button {
                         text: qsTr("Memories")
-                        enabled: (connStatus === 2) // Only enable button if connected
+                        Layout.preferredWidth: 120
+                        visible: win.radioConnected
+                        enabled: win.radioConnected
                         onClicked: {
                             MainController.openMemories()
                             memoriesLoader.item.visible = true
@@ -1078,103 +1194,101 @@ ApplicationWindow {
                     }
                 }
 
-                // ---- rightControlsLayout (Scope Settings, Preamp/Att, Antenna) ----
-                ColumnLayout {
-                    Layout.alignment: Qt.AlignTop
-                    spacing: 6
+                GroupBox {
+                    id: scopeSettingsGroup
+                    title: qsTr("Scope Settings")
+                    width: mainControlsFlow.width >= 1320 ? 640 : 320
+                    readonly property bool hasReceiverScopeControls: (mainControlSpecs.canDualScope ?? false)
+                                                                    || (mainControlSpecs.canDualWatch ?? false)
+                                                                    || (mainControlSpecs.canMainSub ?? false)
+                                                                    || (mainControlSpecs.canSwapMainSub ?? false)
+                                                                    || (mainControlSpecs.canEqualMainSub ?? false)
+                    visible: win.radioConnected && hasReceiverScopeControls
 
-                    GroupBox {
-                        id: scopeSettingsGroup
-                        title: qsTr("Scope Settings")
-                        Layout.fillWidth: true
-                        readonly property bool hasReceiverScopeControls: (mainControlSpecs.canDualScope ?? false)
-                                                                        || (mainControlSpecs.canDualWatch ?? false)
-                                                                        || (mainControlSpecs.canMainSub ?? false)
-                                                                        || (mainControlSpecs.canSwapMainSub ?? false)
-                                                                        || (mainControlSpecs.canEqualMainSub ?? false)
-                        visible: hasReceiverScopeControls
+                    contentItem: GridLayout {
+                        columns: scopeSettingsGroup.width >= 600 ? 6 : 3
+                        rowSpacing: scopeSettingsGroup.width >= 600 ? 10 : 6
+                        columnSpacing: scopeSettingsGroup.width >= 600 ? 10 : 6
 
-                        GridLayout {
-                            columns: 3
-                            rowSpacing: 6
-                            columnSpacing: 6
+                        Button {
+                            text: qsTr("Dual Scope")
+                            checkable: true
+                            checked: MainController.dualScope
+                            enabled: mainControlSpecs.canDualScope ?? false
+                            visible: mainControlSpecs.canDualScope ?? false
+                            onToggled: MainController.dualScope = checked
+                        }
+                        Button {
+                            text: qsTr("Dual Watch")
+                            checkable: true
+                            checked: MainController.dualWatch
+                            enabled: mainControlSpecs.canDualWatch ?? false
+                            visible: mainControlSpecs.canDualWatch ?? false
+                            onToggled: MainController.dualWatch = checked
+                        }
+                        Button {
+                            text: qsTr("Split")
+                            checkable: true
+                            checked: MainController.splitEnabled
+                            enabled: mainControlSpecs.canSplit ?? false
+                            visible: (mainControlSpecs.canSplit ?? false) && scopeSettingsGroup.hasReceiverScopeControls
+                            onToggled: MainController.splitEnabled = checked
+                        }
 
-                            Button {
-                                text: qsTr("Dual Scope")
-                                checkable: true
-                                checked: MainController.dualScope
-                                enabled: mainControlSpecs.canDualScope ?? false
-                                visible: mainControlSpecs.canDualScope ?? false
-                                onToggled: MainController.dualScope = checked
-                            }
-                            Button {
-                                text: qsTr("Dual Watch")
-                                checkable: true
-                                checked: MainController.dualWatch
-                                enabled: mainControlSpecs.canDualWatch ?? false
-                                visible: mainControlSpecs.canDualWatch ?? false
-                                onToggled: MainController.dualWatch = checked
-                            }
-                            Button {
-                                text: qsTr("Split")
-                                checkable: true
-                                checked: MainController.splitEnabled
-                                enabled: mainControlSpecs.canSplit ?? false
-                                visible: (mainControlSpecs.canSplit ?? false) && scopeSettingsGroup.hasReceiverScopeControls
-                                onToggled: MainController.splitEnabled = checked
-                            }
-
-                            Button {
-                                text: qsTr("Main/Sub")
-                                enabled: mainControlSpecs.canMainSub ?? false
-                                visible: mainControlSpecs.canMainSub ?? false
-                                onClicked: MainController.selectMainSub()
-                            }
-                            Button {
-                                text: qsTr("Main<>Sub")
-                                enabled: mainControlSpecs.canSwapMainSub ?? false
-                                visible: mainControlSpecs.canSwapMainSub ?? false
-                                onClicked: MainController.swapMainSub()
-                            }
-                            Button {
-                                text: qsTr("Main=Sub")
-                                enabled: mainControlSpecs.canEqualMainSub ?? false
-                                visible: mainControlSpecs.canEqualMainSub ?? false
-                                onClicked: MainController.equalizeMainSub()
-                            }
+                        Button {
+                            text: qsTr("Main/Sub")
+                            enabled: mainControlSpecs.canMainSub ?? false
+                            visible: mainControlSpecs.canMainSub ?? false
+                            onClicked: MainController.selectMainSub()
+                        }
+                        Button {
+                            text: qsTr("Main<>Sub")
+                            enabled: mainControlSpecs.canSwapMainSub ?? false
+                            visible: mainControlSpecs.canSwapMainSub ?? false
+                            onClicked: MainController.swapMainSub()
+                        }
+                        Button {
+                            text: qsTr("Main=Sub")
+                            enabled: mainControlSpecs.canEqualMainSub ?? false
+                            visible: mainControlSpecs.canEqualMainSub ?? false
+                            onClicked: MainController.equalizeMainSub()
                         }
                     }
-
-                    GroupBox {
-                        title: qsTr("Other Controls")
-                        Layout.fillWidth: true
-                        visible: anyControlVisible(["canCompressor", "canVox"])
-
-                        ColumnLayout {
-                            spacing: 3
-                            RowLayout {
-                                CheckBox {
-                                    text: qsTr("CMP")
-                                    checked: MainController.compressorEnabled
-                                    enabled: mainControlSpecs.canCompressor ?? false
-                                    visible: mainControlSpecs.canCompressor ?? false
-                                    onToggled: MainController.compressorEnabled = checked
-                                }
-                                CheckBox {
-                                    text: qsTr("VOX")
-                                    checked: MainController.voxEnabled
-                                    enabled: mainControlSpecs.canVox ?? false
-                                    visible: mainControlSpecs.canVox ?? false
-                                    onToggled: MainController.voxEnabled = checked
-                                }
-                            }
-                        }
-                    }
-
-
                 }
 
-                Item { Layout.fillWidth: true } // spacer (your horizontalSpacer_3)
+                Frame {
+                    width: 165
+                    padding: 3
+                    visible: win.radioConnected && anyControlVisible(["canCompressor", "canVox"])
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 3
+                        RowLayout {
+                            CheckBox {
+                                text: qsTr("CMP")
+                                checked: MainController.compressorEnabled
+                                enabled: mainControlSpecs.canCompressor ?? false
+                                visible: mainControlSpecs.canCompressor ?? false
+                                onToggled: MainController.compressorEnabled = checked
+                            }
+                            CheckBox {
+                                text: qsTr("VOX")
+                                checked: MainController.voxEnabled
+                                enabled: mainControlSpecs.canVox ?? false
+                                visible: mainControlSpecs.canVox ?? false
+                                onToggled: MainController.voxEnabled = checked
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    width: win.radioConnected ? 0 : 1
+                    height: 1
+                    visible: !win.radioConnected
+                }
+                }
             }
         }
 
@@ -1199,10 +1313,12 @@ ApplicationWindow {
                 }
                 Button {
                     text: qsTr("TX Audio Proc")
+                    visible: win.radioConnected
                     onClicked: showTxAudioProcessing()
                 }
                 Button {
                     text: qsTr("RX Audio Proc")
+                    visible: win.radioConnected
                     onClicked: showRxAudioProcessing()
                 }
 
@@ -1284,7 +1400,8 @@ ApplicationWindow {
             }
 
             Label {
-                Layout.preferredWidth: 360
+                visible: win.radioConnected
+                Layout.preferredWidth: win.radioConnected ? 360 : 0
                 text: MainController ? MainController.radioStatusText : ""
                 color: win.palette.windowText
                 elide: Text.ElideRight
@@ -1292,7 +1409,8 @@ ApplicationWindow {
             }
 
             Label {
-                Layout.preferredWidth: 90
+                visible: win.radioConnected
+                Layout.preferredWidth: win.radioConnected ? 90 : 0
                 text: MainController && MainController.rigModelName.length > 0 ? MainController.rigModelName : qsTr("NONE")
                 color: win.palette.windowText
                 font.bold: true
