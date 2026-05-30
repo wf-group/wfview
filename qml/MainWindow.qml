@@ -34,7 +34,7 @@ ApplicationWindow {
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
     width: 946
-    visible: false
+    visible: waylandPlatform
 
     minimumWidth:  radioConnected ? 360 : mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
@@ -212,6 +212,10 @@ ApplicationWindow {
     }
 
     onRadioConnectedChanged: {
+        if (win.waylandPlatform) {
+            win.wasRadioConnected = win.radioConnected
+            return
+        }
         if (win.radioConnected) {
             win.restoreConnectedWindowGeometry()
         } else {
@@ -556,15 +560,17 @@ ApplicationWindow {
     }
 
     function restoreWindowGeometry() {
-        var g = MainController.restoredMainWindowGeometry()
-        win.savedStartupGeometry = g
-        win.visible = true
         if (win.waylandPlatform) {
+            win.visible = true
             win.connectedGeometryRestored = true
             win.startupGeometryPending = false
             win.wasRadioConnected = win.radioConnected
             return
         }
+
+        var g = MainController.restoredMainWindowGeometry()
+        win.savedStartupGeometry = g
+        win.visible = true
         if (win.radioConnected)
             win.restoreConnectedWindowGeometry()
         else
