@@ -24,7 +24,8 @@ ApplicationWindow {
     readonly property int contentTopPadding: 4
     readonly property int mainControlSpacing: 6
     readonly property int mainControlSliderHeight: 120
-    readonly property int mainControlDialSize: 80
+    readonly property int mainControlDialSize: 104
+    readonly property int ritDialSize: 44
     readonly property int optionalMeterWidth: 300
     readonly property int optionalMeterHeight: 40
     readonly property bool radioConnected: Number(MainController.connStatus) === 2
@@ -976,18 +977,33 @@ ApplicationWindow {
                         RowLayout {
                             id: ritControlsRow
                             visible: win.radioConnected && (mainControlSpecs.canRit ?? false)
-                            Dial {
-                                id: ritTuneDial
-                                Layout.preferredWidth: 30
-                                Layout.preferredHeight: 30
-                                readonly property var spec: controlSpec("ritFrequency", -500, 500)
-                                from: spec.min
-                                to: spec.max
-                                value: MainController.ritFrequency
-                                enabled: mainControlSpecs.canRit ?? false
-                                stepSize: 10
-                                wrap: false
-                                onMoved: MainController.ritFrequency = Math.round(value)
+
+                            Rectangle {
+                                Layout.preferredWidth: win.ritDialSize + 8
+                                Layout.preferredHeight: win.ritDialSize + 8
+                                radius: width / 2
+                                color: Qt.rgba(win.palette.button.r, win.palette.button.g, win.palette.button.b, 0.35)
+                                border.color: win.palette.mid
+
+                                Dial {
+                                    id: ritTuneDial
+                                    anchors.centerIn: parent
+                                    width: win.ritDialSize
+                                    height: win.ritDialSize
+                                    readonly property var spec: controlSpec("ritFrequency", -500, 500)
+                                    from: spec.min
+                                    to: spec.max
+                                    value: MainController.ritFrequency
+                                    enabled: (mainControlSpecs.canRit ?? false) && MainController.ritEnabled
+                                    stepSize: 10
+                                    wrap: false
+                                    onMoved: MainController.ritFrequency = Math.round(value)
+
+                                    HoverHandler { id: hoverRitTune }
+                                    ToolTip.visible: hoverRitTune.hovered
+                                    ToolTip.text: qsTr("RIT") + ": " + Math.round(value).toString() + " Hz"
+                                    ToolTip.delay: 300
+                                }
                             }
                             CheckBox {
                                 id: ritEnableChk
@@ -1136,7 +1152,7 @@ ApplicationWindow {
                 // ---- command buttons (Transmit, ATU, etc.) ----
                 GridLayout {
                     id: commandButtonsColumn
-                    readonly property bool twoColumns: mainControlsFlow.width >= 1180
+                    readonly property bool twoColumns: mainControlsFlow.width >= 900
                     columns: twoColumns ? 2 : 1
                     width: twoColumns ? 246 : 120
                     rowSpacing: win.mainControlSpacing

@@ -809,7 +809,7 @@ void ReceiverController::setRoofing(uchar m, bool u)
     if (roofing != m)
     {
         roofing = m;
-        emit filterShapeChanged();
+        emit roofingChanged();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             uchar f = uchar(m + (mode.filter * 10));

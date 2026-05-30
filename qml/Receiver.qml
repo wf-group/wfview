@@ -58,6 +58,24 @@ Control {
             MainController.settings.setOption(key, value)
     }
 
+    function comboTextPreferredWidth(model, textRole, minimumWidth, maximumWidth) {
+        let longest = minimumWidth
+        if (!model)
+            return minimumWidth
+
+        const count = model.count !== undefined ? model.count : model.length
+        for (let i = 0; i < count; ++i) {
+            const item = model.get ? model.get(i) : model[i]
+            if (!item)
+                continue
+
+            const textLength = String(item[textRole] ?? "").length
+            longest = Math.max(longest, textLength * 7 + 34)
+        }
+
+        return Math.min(Math.ceil(longest), maximumWidth)
+    }
+
     function receiverSetting(key, fallback) {
         return MainController.settings
                 ? MainController.settings.receiverSetting(root.receiverIndex, key, fallback)
@@ -510,7 +528,7 @@ Control {
                                 currentIndex: controller ? indexFromValue(scopeModeCombo, controller.scopeMode) : -1
 
                                 onActivated: controller.scopeMode = currentValue
-                                Layout.preferredWidth: 100
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 82, 125)
                             }
 
                             ComboBox {
@@ -522,7 +540,7 @@ Control {
                                 visible: (spec ? (spec.visible ?? true) : false) && root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 currentIndex: controller ? indexFromValue(scopeSpanCombo,controller.scopeSpan) : -1
                                 onActivated: controller.scopeSpan = currentValue
-                                Layout.preferredWidth: 80
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 58, 95)
                             }
 
                             ComboBox {
@@ -534,7 +552,7 @@ Control {
                                 visible: (spec ? (spec.visible ?? true) : false) && !root.isCenterScopeMode(scopeModeCombo.currentValue)
                                 currentIndex: controller ? indexFromValue(scopeEdgeCombo,controller.scopeEdge) : -1
                                 onActivated: controller.scopeEdge = currentValue
-                                Layout.preferredWidth: 110
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 92, 140)
                             }
 
                             Button {
@@ -579,7 +597,7 @@ Control {
                                 visible: spec ? (spec.visible ?? true) : false
                                 currentIndex: controller ? indexFromValue(modeCombo,controller.mode) : -1
                                 onActivated: controller.mode = currentValue
-                                Layout.preferredWidth: 65
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 58, 90)
                             }
 
                             ComboBox {
@@ -591,7 +609,7 @@ Control {
                                 visible: spec ? (spec.visible ?? true) : false
                                 currentIndex: controller ? indexFromValue(dataModeCombo,controller.dataMode) : -1
                                 onActivated: controller.dataMode = currentValue
-                                Layout.preferredWidth: 80
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 64, 105)
                             }
 
                             ComboBox {
@@ -603,7 +621,7 @@ Control {
                                 visible: spec ? (spec.visible ?? true) : false
                                 currentIndex: controller ? indexFromValue(filterCombo,controller.filter) : -1
                                 onActivated: controller.filter = currentValue
-                                Layout.preferredWidth: 65
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 78, 110)
                             }
 
                             ComboBox {
@@ -616,7 +634,7 @@ Control {
                                 enabled: spec ? (spec.enabled ?? true) : false
                                 currentIndex: controller ? indexFromValue(filterShapeCombo,controller.filterShape) : -1
                                 onActivated: controller.filterShape = currentValue
-                                Layout.preferredWidth: 65
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 66, 95)
                             }
 
                             ComboBox {
@@ -628,7 +646,7 @@ Control {
                                 visible: spec ? (spec.visible ?? true) : false
                                 currentIndex: controller ? indexFromValue(roofingCombo,controller.roofing) : -1
                                 onActivated: controller.roofing = currentValue
-                                Layout.preferredWidth: 65
+                                Layout.preferredWidth: root.comboTextPreferredWidth(model, textRole, 70, 105)
                             }
 
                             Item {
