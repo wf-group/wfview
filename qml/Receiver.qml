@@ -1113,7 +1113,7 @@ Control {
                     Slider {
                         id: lengthSlider
                         from: 10
-                        to: 256
+                        to: 1024
                         stepSize: 16
                         value: controller ? controller.waterfallLength : 160
                         //Layout.preferredWidth: 120

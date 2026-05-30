@@ -13,6 +13,7 @@
 #include <QPointer>
 #include <QMutex>
 #include <atomic>
+#include <vector>
 
 #include "wfviewtypes.h"
 
@@ -94,10 +95,24 @@ private:
     // --- guarded by imgMu ---
     QMutex imgMu;
     int imgWidth = 0;
-    QImage img;
+    QImage img;           // RGB cache (circular buffer); newest line at ringIndex
     int ringIndex = 0;    // newest line index
     bool  dirty = false;
+
+    // Raw scope-data ring buffer (source of truth, fixed length).
+    // RGB is derived from this on demand so length/floor/ceiling/theme
+    // changes can redraw real history rather than blank/stale pixels.
+    static constexpr int rawCapacity = 1024;
+    std::vector<uchar> rawRing; // rawCapacity * rawWidth bytes
+    int rawWidth = 0;           // bins per line currently stored
+    int rawHead  = -1;          // index of newest raw line (-1 = empty)
+    int rawCount = 0;           // number of valid lines (<= rawCapacity)
     // ------------------------
+
+    // Append one raw scope line; resets the ring if the bin width changed.
+    void pushRawLine(const uchar *src, int w);
+    // Rebuild the entire RGB cache from the raw ring at the current length.
+    void rebuildImageFromRaw();
 
     int length = 128;
     double startFreq = 0.0;

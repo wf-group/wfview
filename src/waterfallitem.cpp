@@ -22,36 +22,9 @@ void WaterfallItem::setLength(int d)
 
     {
         QMutexLocker lock(&imgMu);
-
-        // If we already have an image, resample it to the new height.
-        if (!img.isNull() && imgWidth > 0) {
-            const int oldH = img.height();
-            const int oldW = imgWidth;
-
-            QImage newImg(oldW, length, QImage::Format_RGB32);
-            newImg.fill(Qt::black);
-
-            if (oldH > 0) {
-                const int newH = length;
-                for (int yNew = 0; yNew < newH; ++yNew) {
-                    int yOld = (newH > 1) ? (yNew * (oldH - 1) / (newH - 1)) : 0;
-                    yOld = qBound(0, yOld, oldH - 1);
-
-                    const QRgb *srcRow = reinterpret_cast<const QRgb *>(img.constScanLine(yOld));
-                    QRgb *dstRow = reinterpret_cast<QRgb *>(newImg.scanLine(yNew));
-                    std::memcpy(dstRow, srcRow, size_t(oldW) * sizeof(QRgb));
-                }
-            }
-
-            img = std::move(newImg);
-            ringIndex = 0;
-        } else {
-            img = QImage();
-            imgWidth = 0;
-            ringIndex = 0;
-        }
-
-        dirty = true;
+        // Pull real history out of the raw ring at the new length instead of
+        // resampling the RGB image (which would blur/lose data).
+        rebuildImageFromRaw();
     }
 
     emit lengthChanged();
@@ -65,7 +38,8 @@ void WaterfallItem::setTheme(Theme t)
     theme = t;
     {
         QMutexLocker lock(&imgMu);
-        dirty = true;
+        // Recolor the entire waterfall with the new theme.
+        rebuildImageFromRaw();
     }
     emit themeChanged();
     update();
@@ -87,6 +61,11 @@ void WaterfallItem::setFloor(uchar v)
 {
     if (floor == v) return;
     floor = v;
+    {
+        QMutexLocker lock(&imgMu);
+        // Rescale the entire waterfall with the new floor.
+        rebuildImageFromRaw();
+    }
     emit scaleChanged();
     update();
 }
@@ -95,6 +74,11 @@ void WaterfallItem::setCeiling(uchar v)
 {
     if (ceiling == v) return;
     ceiling = v;
+    {
+        QMutexLocker lock(&imgMu);
+        // Rescale the entire waterfall with the new ceiling.
+        rebuildImageFromRaw();
+    }
     emit scaleChanged();
     update();
 }
@@ -156,38 +140,101 @@ void WaterfallItem::updateScope(const scopeData &data)
 
     const int targetHeight = qMax(1, length);
 
+    const uchar *src = reinterpret_cast<const uchar *>(data.data.constData());
+
     QMutexLocker lock(&imgMu);
 
+    // Always store the raw line first so history is available for redraws.
+    pushRawLine(src, w);
+
+    // If the RGB cache doesn't match the current width/length, rebuild it
+    // wholesale from the raw ring; otherwise just append one new RGB line
+    // (the cheap, cached path).
     if (img.isNull() || imgWidth != w || img.height() != targetHeight) {
-        imgWidth = w;
-        img = QImage(imgWidth, targetHeight, QImage::Format_RGB32);
-        img.fill(Qt::black);
-        ringIndex = 0;
+        rebuildImageFromRaw();
+    } else {
+        const int imgH = img.height();
+        if (ringIndex < 0 || ringIndex >= imgH)
+            ringIndex = 0;
+
+        ringIndex = (ringIndex - 1 + imgH) % imgH;
+
+        rebuildLut();
+        const QRgb *lut = valueLut;
+
+        QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(ringIndex));
+        for (int i = 0; i < imgWidth; ++i)
+            dstRow[i] = lut[src[i]];
+
         dirty = true;
     }
 
-    const int imgH = img.height();
-    if (imgH <= 0)
+    scopeUpdateTimeNs.store(timer.nsecsElapsed(), std::memory_order_relaxed);
+    update();
+}
+
+// Caller must hold imgMu.
+void WaterfallItem::pushRawLine(const uchar *src, int w)
+{
+    if (w <= 0)
         return;
 
-    if (ringIndex < 0 || ringIndex >= imgH)
+    // A change in bin count invalidates the whole ring.
+    if (w != rawWidth) {
+        rawWidth = w;
+        rawRing.assign(size_t(rawCapacity) * size_t(rawWidth), uchar(0));
+        rawHead  = -1;
+        rawCount = 0;
+    }
+
+    rawHead = (rawHead + 1) % rawCapacity;
+    std::memcpy(&rawRing[size_t(rawHead) * size_t(rawWidth)], src, size_t(rawWidth));
+    if (rawCount < rawCapacity)
+        ++rawCount;
+}
+
+// Caller must hold imgMu.
+// Rebuilds the entire RGB cache from the raw ring at the current length,
+// scaling each value through the LUT (floor/ceiling/theme). The newest line
+// is placed at row 0 so the existing top/bottom ring rendering continues to
+// work, with subsequent incremental lines filling rows backwards from there.
+void WaterfallItem::rebuildImageFromRaw()
+{
+    const int h = qMax(1, length);
+
+    if (rawWidth <= 0 || rawCount <= 0) {
+        // No data yet; just present a black image of the right size.
+        if (img.isNull() || img.height() != h || imgWidth <= 0) {
+            img = QImage();
+            imgWidth = 0;
+        }
         ringIndex = 0;
+        dirty = true;
+        return;
+    }
 
-    ringIndex = (ringIndex - 1 + imgH) % imgH;
-
-    QRgb *dstRow = reinterpret_cast<QRgb *>(img.scanLine(ringIndex));
-    const uchar *src = reinterpret_cast<const uchar *>(data.data.constData());
+    if (img.isNull() || imgWidth != rawWidth || img.height() != h) {
+        imgWidth = rawWidth;
+        img = QImage(imgWidth, h, QImage::Format_RGB32);
+    }
+    img.fill(Qt::black);
 
     rebuildLut();
     const QRgb *lut = valueLut;
 
-    for (int i = 0; i < imgWidth; ++i) {
-        dstRow[i] = lut[src[i]];
+    // Only as many rows as we have history for; the rest stay black.
+    const int lines = qMin(h, rawCount);
+    for (int row = 0; row < lines; ++row) {
+        // row 0 = newest, row k = k-th most recent raw line.
+        const int rawIdx = (rawHead - row + rawCapacity) % rawCapacity;
+        const uchar *src = &rawRing[size_t(rawIdx) * size_t(rawWidth)];
+        QRgb *dst = reinterpret_cast<QRgb *>(img.scanLine(row));
+        for (int i = 0; i < imgWidth; ++i)
+            dst[i] = lut[src[i]];
     }
 
-    scopeUpdateTimeNs.store(timer.nsecsElapsed(), std::memory_order_relaxed);
+    ringIndex = 0;
     dirty = true;
-    update();
 }
 
 QSGNode *WaterfallItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
