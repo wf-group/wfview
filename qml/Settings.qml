@@ -2664,7 +2664,6 @@ ApplicationWindow {
                                     ProcSwitch { text: qsTr("Equalizer"); key: "AudioProc.Tx.EqEnabled" }
                                     ProcSwitch { text: qsTr("Noise gate"); key: "AudioProc.Tx.GateEnabled" }
                                     ProcSwitch { text: qsTr("Sidetone"); key: "AudioProc.Tx.SidetoneEnabled" }
-                                    ProcSwitch { text: qsTr("Mute RX on sidetone"); key: "AudioProc.Tx.MuteRx" }
                                     ProcSwitch { text: qsTr("Spectrum"); key: "AudioProc.Tx.SpectrumEnabled" }
                                 }
                             }

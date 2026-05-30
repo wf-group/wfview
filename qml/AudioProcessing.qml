@@ -89,8 +89,13 @@ ApplicationWindow {
     component SwitchRow: CheckBox {
         id: switchRow
         property string key: ""
-        checked: Boolean(win.opt(key, false))
-        onToggled: win.setOpt(key, checked)
+        // Keyed switches reflect/persist a setting. Keyless switches are plain
+        // runtime checkboxes (default unchecked) — the caller handles onToggled.
+        Binding on checked {
+            when: switchRow.key !== ""
+            value: Boolean(win.opt(switchRow.key, false))
+        }
+        onToggled: if (switchRow.key !== "") win.setOpt(switchRow.key, checked)
 
         indicator: Rectangle {
             implicitWidth: 16
@@ -520,7 +525,15 @@ ApplicationWindow {
                     anchors.fill: parent
                     RowLayout {
                         SwitchRow { text: qsTr("Enable self-monitoring"); key: "AudioProc.Tx.SidetoneEnabled" }
-                        SwitchRow { text: qsTr("Mute RX Audio"); key: "AudioProc.Tx.MuteRx" }
+                        SwitchRow {
+                            id: muteRxSwitch
+                            text: qsTr("Mute RX Audio")
+                            enabled: Boolean(win.opt("AudioProc.Tx.SidetoneEnabled", false))
+                            onToggled: MainController.setRxMuted(checked)
+                            // Clear the mute if self-monitoring is turned off, so RX
+                            // audio can't be left muted by a now-disabled control.
+                            onEnabledChanged: if (!enabled && checked) { checked = false; MainController.setRxMuted(false) }
+                        }
                     }
                     SliderRow { label: qsTr("Monitor level"); key: "AudioProc.Tx.SidetoneLevel"; from: 0; to: 1; step: 0.01; decimals: 0; suffix: "%"; maxSliderWidth: 86; displayScale: 100 }
                 }

@@ -103,6 +103,10 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         p = m_params;
     }
 
+    // Runtime RX mute: silence received audio (sidetone is mixed in afterwards,
+    // so self-monitoring still passes through). Not a persisted setting.
+    const bool muted = m_muted.load(std::memory_order_relaxed);
+
     // Clamp channel count
     if (channels < 1) channels = 1;
     if (channels > 2) channels = 2;
@@ -162,6 +166,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     // ── Master bypass ────────────────────────────────────────────────────────
     // In bypass mode, pass audio through unchanged (preserving stereo if present).
     if (p.bypass) {
+        if (muted) samples.setZero();
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
         if (specActive) {
@@ -233,6 +238,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     samples = samples.array().max(-1.0f).min(1.0f);
 
     // ── Mix sidetone (AFTER NR so user's own voice is not processed) ─────────
+    if (muted) samples.setZero();
     mixSidetone(samples, channels, p);
 
     emit rxOutputLevel(samples.array().abs().maxCoeff());
@@ -907,6 +913,7 @@ void RxAudioProcessor::setEqBandGain(int idx, float dB)  { if (idx < 0 || idx >=
 void RxAudioProcessor::setEqBandFreq(int idx, float hz)  { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqFreq[idx] = hz; }
 void RxAudioProcessor::setEqBandQ(int idx, float q)      { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqQ[idx]    = q; }
 void RxAudioProcessor::setOutputGainDB(float v)          { QMutexLocker lk(&m_mutex); m_params.outputGainDB   = v; }
+void RxAudioProcessor::setMuted(bool v)                  { m_muted.store(v, std::memory_order_relaxed); }
 
 // ─── Getters ─────────────────────────────────────────────────────────────────
 

@@ -219,6 +219,7 @@ public:
     Q_INVOKABLE void ensureAudioProcessors();
     Q_INVOKABLE void startAnrNoiseProfile();
     Q_INVOKABLE void stopAnrNoiseProfile();
+    Q_INVOKABLE void setRxMuted(bool muted);   // runtime-only; not persisted
     Q_INVOKABLE void powerOn();
     Q_INVOKABLE void powerOff();
     Q_INVOKABLE void toggleTransmit();

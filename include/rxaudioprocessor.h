@@ -108,6 +108,10 @@ public:
     void setSpectrumEnabled(bool en);
     void setSpectrumFps(int fps);   // 1–60; default 10
 
+    // Runtime RX mute — silences received audio (sidetone still passes).
+    // Not a persisted setting; defaults to unmuted. Thread-safe.
+    void setMuted(bool muted);
+
     // ── Getters ───────────────────────────────────────────────────────────────
     bool  bypassed()       const;
     bool  nrEnabled()      const;
@@ -263,6 +267,9 @@ private:
     // SPEC_FFT_LEN is declared public above.
     std::atomic<bool> m_specEnabled   { false };
     std::atomic<int>  m_specTargetFps { 10 };
+
+    // Runtime RX mute (written from main thread, read on converter thread).
+    std::atomic<bool> m_muted         { false };
 
     rfft_plan              m_specFftPlan  { nullptr };
     std::vector<double>    m_specFftBuf;

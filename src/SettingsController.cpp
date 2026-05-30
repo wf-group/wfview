@@ -964,7 +964,6 @@ void SettingsController::load()
     prefs.txAudioProc.compSlowRatio = settings->value("TxProcCompSlow", defPrefs.txAudioProc.compSlowRatio).toFloat();
     prefs.txAudioProc.sidetoneEnabled = settings->value("TxProcSidetone", defPrefs.txAudioProc.sidetoneEnabled).toBool();
     prefs.txAudioProc.sidetoneLevel = settings->value("TxProcSidetoneLevel", defPrefs.txAudioProc.sidetoneLevel).toFloat();
-    prefs.txAudioProc.muteRx = settings->value("TxProcMuteRx", defPrefs.txAudioProc.muteRx).toBool();
     prefs.txAudioProc.spectrumEnabled = settings->value("TxProcSpectrumEnabled", defPrefs.txAudioProc.spectrumEnabled).toBool();
     prefs.txAudioProc.spectrumFPS = settings->value("TxProcSpectrumFps", defPrefs.txAudioProc.spectrumFPS).toInt();
     prefs.txAudioProc.specInhibitDuringRx = settings->value("TxProcSpecInhibitDuringRx", defPrefs.txAudioProc.specInhibitDuringRx).toBool();
@@ -1509,7 +1508,6 @@ void SettingsController::save()
     settings->setValue("TxProcCompSlow", prefs.txAudioProc.compSlowRatio);
     settings->setValue("TxProcSidetone", prefs.txAudioProc.sidetoneEnabled);
     settings->setValue("TxProcSidetoneLevel", prefs.txAudioProc.sidetoneLevel);
-    settings->setValue("TxProcMuteRx", prefs.txAudioProc.muteRx);
     settings->setValue("TxProcSpectrumEnabled", prefs.txAudioProc.spectrumEnabled);
     settings->setValue("TxProcSpectrumFps", prefs.txAudioProc.spectrumFPS);
     settings->setValue("TxProcSpecInhibitDuringRx", prefs.txAudioProc.specInhibitDuringRx);
@@ -2929,7 +2927,6 @@ void SettingsController::buildBindings()
     WF_F32("AudioProc.Tx.CompSlowRatio", prefs.txAudioProc.compSlowRatio, audioNotify);
     WF_BOOL("AudioProc.Tx.SidetoneEnabled", prefs.txAudioProc.sidetoneEnabled, audioNotify);
     WF_F32("AudioProc.Tx.SidetoneLevel", prefs.txAudioProc.sidetoneLevel, audioNotify);
-    WF_BOOL("AudioProc.Tx.MuteRx", prefs.txAudioProc.muteRx, audioNotify);
     WF_BOOL("AudioProc.Tx.SpectrumEnabled", prefs.txAudioProc.spectrumEnabled, audioNotify);
     WF_I32("AudioProc.Tx.SpectrumFPS", prefs.txAudioProc.spectrumFPS, audioNotify);
     WF_BOOL("AudioProc.Tx.SpecInhibitDuringRx", prefs.txAudioProc.specInhibitDuringRx, audioNotify);

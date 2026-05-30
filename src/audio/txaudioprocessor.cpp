@@ -351,11 +351,6 @@ void TxAudioProcessor::setCompSlowRatio(float r)        { QMutexLocker lk(&m_mut
 void TxAudioProcessor::setSidetoneEnabled(bool en)      { QMutexLocker lk(&m_mutex); m_params.sidetoneEnabled = en; }
 void TxAudioProcessor::setSidetoneLevel(float lv)       { QMutexLocker lk(&m_mutex); m_params.sidetoneLevel   = lv; }
 void TxAudioProcessor::setSidetoneDelay(int delay)      { QMutexLocker lk(&m_mutex); m_sidetoneDelay = delay; m_sidetoneBuffer.clear();}
-void TxAudioProcessor::setMuteRx(bool muted)
-{
-    { QMutexLocker lk(&m_mutex); m_params.muteRx = muted; }
-    emit haveRxMuted(muted);
-}
 
 void TxAudioProcessor::setEqBand(int idx, float gainDB)
 {
@@ -387,7 +382,6 @@ float TxAudioProcessor::compFastRatio()  const { QMutexLocker lk(&m_mutex); retu
 float TxAudioProcessor::compSlowRatio()  const { QMutexLocker lk(&m_mutex); return m_params.compSlowRatio; }
 bool  TxAudioProcessor::sidetoneEnabled()const { QMutexLocker lk(&m_mutex); return m_params.sidetoneEnabled; }
 float TxAudioProcessor::sidetoneLevel()  const { QMutexLocker lk(&m_mutex); return m_params.sidetoneLevel;   }
-bool  TxAudioProcessor::muteRx()         const { QMutexLocker lk(&m_mutex); return m_params.muteRx;          }
 
 float TxAudioProcessor::eqBand(int idx) const
 {

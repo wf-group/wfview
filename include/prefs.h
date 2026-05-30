@@ -204,7 +204,6 @@ struct txAudioProcessingPrefs {
     float compSlowRatio = 0.2f;
     bool  sidetoneEnabled = false;
     float sidetoneLevel   = 0.5f;
-    bool  muteRx          = false;
     bool  spectrumEnabled       = false;
     int   spectrumFPS           = 10;
     bool  specInhibitDuringRx   = true;

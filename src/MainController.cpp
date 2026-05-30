@@ -338,7 +338,6 @@ void MainController::applyTxAudioProcPrefs(const txAudioProcessingPrefs& p)
     txProc->setCompSlowRatio(p.compSlowRatio);
     txProc->setSidetoneEnabled(p.sidetoneEnabled);
     txProc->setSidetoneLevel(p.sidetoneLevel);
-    txProc->setMuteRx(p.muteRx);
     txProc->setSpectrumEnabled(p.spectrumEnabled);
     m_txSpectrumEnabled = p.spectrumEnabled;
     emit audioProcessingSpectrumStateChanged(m_txSpectrumEnabled, m_rxSpectrumEnabled);
@@ -401,6 +400,12 @@ void MainController::stopAnrNoiseProfile()
 {
     if (rxProc)
         rxProc->stopAnrProfile();
+}
+
+void MainController::setRxMuted(bool muted)
+{
+    if (rxProc)
+        rxProc->setMuted(muted);
 }
 
 void MainController::setReceiverDetached(int i, bool v)

@@ -79,7 +79,6 @@ public:
     void setSidetoneEnabled(bool enabled);
     void setSidetoneLevel(float level);     // 0‥1 linear gain
     void setSidetoneDelay(int delay);
-    void setMuteRx(bool muted);             // mute RX while self-monitoring
     // Enable/disable spectrum capture and set target frame rate (thread-safe; main thread).
     void setSpectrumEnabled(bool en);
     void setSpectrumFps(int fps);       // 1–60; default 30
@@ -107,7 +106,6 @@ public:
     float compSlowRatio() const;
     bool sidetoneEnabled()  const;
     float sidetoneLevel()   const;
-    bool muteRx()           const;
     bool gateEnabled()      const;
     float gateThreshold()   const;
     float gateAttack()      const;
@@ -127,8 +125,6 @@ signals:
     void txGainReduction(float linearGain);
     // Sidetone: processed float audio at given sample rate, channel count, format description.
     void haveSidetoneFloat(Eigen::VectorXf samples, quint32 sampleRate, int channels, QString format);
-    // Emitted when the RX mute state changes; connect to audio class setRxMuted().
-    void haveRxMuted(bool muted);
     // Emitted at ~spectrumFps Hz when spectrum capture is enabled.
     // inBins/outBins: SPEC_FFT_LEN/2 dBFS values (bins 0..511, bin k = k*effectiveSR/SPEC_FFT_LEN Hz).
     // rawSR: original audio sample rate (use to set EQ band visibility / derive effective SR).
@@ -158,7 +154,6 @@ private:
         float compSlowRatio = 0.3f;
         bool  sidetoneEnabled = false;
         float sidetoneLevel   = 0.5f;
-        bool  muteRx          = false;
         // Noise gate
         bool  gateEnabled    = false;
         float gateThreshold  = -40.0f;
