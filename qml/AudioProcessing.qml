@@ -47,6 +47,41 @@ ApplicationWindow {
     property int rxBlocks: 0
     property bool txSpectrumEnabled: false
     property bool rxSpectrumEnabled: false
+    // Latest TX processing sample rate, reported via onTxAudioSpectrumChanged.
+    // Used to hide Multiband EQ bands that sit at or above the Nyquist limit.
+    property real txSampleRate: 48000
+
+    // Multiband EQ band centre frequencies — must stay in sync with the
+    // MbeqProcessor::bandFreqs table in src/audio/plugins/mbeq.h. The index of
+    // each entry is the backend EqBand index (AudioProc.Tx.EqBandN).
+    readonly property var eqBands: [
+        { freq: 50,   label: "50" },
+        { freq: 100,  label: "100" },
+        { freq: 200,  label: "200" },
+        { freq: 300,  label: "300" },
+        { freq: 400,  label: "400" },
+        { freq: 600,  label: "600" },
+        { freq: 800,  label: "800" },
+        { freq: 1000, label: "1.0k" },
+        { freq: 1200, label: "1.2k" },
+        { freq: 1600, label: "1.6k" },
+        { freq: 2000, label: "2.0k" },
+        { freq: 2500, label: "2.5k" },
+        { freq: 3200, label: "3.2k" },
+        { freq: 5000, label: "5.0k" },
+        { freq: 8000, label: "8.0k" }
+    ]
+
+    // Bands below the Nyquist frequency, each carrying its original backend
+    // index so the correct AudioProc.Tx.EqBandN setting is driven.
+    function visibleEqBands() {
+        var nyquist = win.txSampleRate / 2
+        var out = []
+        for (var i = 0; i < win.eqBands.length; ++i)
+            if (win.eqBands[i].freq < nyquist)
+                out.push({ idx: i, label: win.eqBands[i].label })
+        return out
+    }
 
     function opt(key, fallback) {
         if (!controller || !controller.options || controller.options[key] === undefined)
@@ -390,6 +425,8 @@ ApplicationWindow {
         function onTxAudioSpectrumChanged(input, output, sampleRate) {
             win.txInBins = input
             win.txOutBins = output
+            if (sampleRate > 0)
+                win.txSampleRate = sampleRate
         }
         function onRxAudioSpectrumChanged(input, output, sampleRate) {
             win.rxInBins = input
@@ -480,7 +517,7 @@ ApplicationWindow {
                         Button {
                             text: qsTr("Clear")
                             onClicked: {
-                                for (var i = 0; i < 15; ++i)
+                                for (var i = 0; i < win.eqBands.length; ++i)
                                     win.setOpt("AudioProc.Tx.EqBand" + i, 0)
                             }
                         }
@@ -488,8 +525,8 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         Repeater {
-                            model: ["25", "40", "63", "100", "160", "250", "400", "630", "1k", "1.6k", "2.5k", "4k", "6.3k", "10k", "16k"]
-                            VerticalEq { key: "AudioProc.Tx.EqBand" + index; label: modelData }
+                            model: win.visibleEqBands()
+                            VerticalEq { key: "AudioProc.Tx.EqBand" + modelData.idx; label: modelData.label }
                         }
                     }
                 }
