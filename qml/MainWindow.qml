@@ -24,7 +24,7 @@ ApplicationWindow {
     readonly property int contentTopPadding: 4
     readonly property int mainControlSpacing: 6
     readonly property int mainControlSliderHeight: 120
-    readonly property int mainControlDialSize: 104
+    readonly property int mainControlDialSize: mainControlSliderHeight
     readonly property int ritDialSize: 44
     readonly property int optionalMeterWidth: 300
     readonly property int optionalMeterHeight: 40
@@ -1069,6 +1069,8 @@ ApplicationWindow {
                         property real lastValue: value
                         property bool syncing: false
                         property double lastMoveTime: 0
+                        property int lastDirection: 0
+                        property int fastMoveCount: 0
                         Layout.preferredWidth: win.mainControlDialSize
                         Layout.preferredHeight: win.mainControlDialSize
                         from: 3000
@@ -1088,27 +1090,31 @@ ApplicationWindow {
                             else if (delta < -fullSweep / 2)
                                 delta += fullSweep
 
-                            var steps = 0
+                            var direction = 0
                             if (Math.abs(delta) < stepSize)
-                                steps = delta > 0 ? 1 : -1
+                                direction = delta > 0 ? 1 : -1
                             else
-                                steps = Math.round(delta / stepSize)
+                                direction = Math.round(delta / stepSize) > 0 ? 1 : -1
 
-                            if (steps !== 0) {
+                            if (direction !== 0) {
                                 const now = Date.now()
                                 const elapsed = lastMoveTime > 0 ? Math.max(1, now - lastMoveTime) : 0
-                                const rate = elapsed > 0 ? Math.abs(steps) * 1000 / elapsed : 0
                                 var multiplier = 1
-                                if (rate >= 45)
-                                    multiplier = 25
-                                else if (rate >= 25)
+
+                                if (direction === lastDirection && elapsed > 0 && elapsed <= 90)
+                                    fastMoveCount += 1
+                                else
+                                    fastMoveCount = 0
+
+                                if (fastMoveCount >= 5 && elapsed <= 35)
                                     multiplier = 10
-                                else if (rate >= 12)
+                                else if (fastMoveCount >= 3 && elapsed <= 60)
                                     multiplier = 5
-                                else if (rate >= 6)
+                                else if (fastMoveCount >= 2 && elapsed <= 90)
                                     multiplier = 2
 
-                                firstReceiver.tuneSteps(steps * multiplier, 0, true)
+                                firstReceiver.tuneSteps(direction * multiplier, 0, true)
+                                lastDirection = direction
                                 lastMoveTime = now
                             }
 
@@ -1117,6 +1123,8 @@ ApplicationWindow {
                         Component.onCompleted: {
                             lastValue = value
                             lastMoveTime = 0
+                            lastDirection = 0
+                            fastMoveCount = 0
                         }
                     }
                 }
