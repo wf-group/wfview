@@ -89,6 +89,25 @@ ApplicationWindow {
         return controller.options[key]
     }
 
+    function boolValue(value, fallback) {
+        if (typeof value === "boolean")
+            return value
+        if (typeof value === "number")
+            return value !== 0
+        if (typeof value === "string") {
+            const s = value.trim().toLowerCase()
+            if (s === "true" || s === "1" || s === "yes" || s === "on")
+                return true
+            if (s === "false" || s === "0" || s === "no" || s === "off" || s === "")
+                return false
+        }
+        return fallback === undefined ? false : boolValue(fallback, false)
+    }
+
+    function optBool(key, fallback) {
+        return boolValue(opt(key, fallback), fallback)
+    }
+
     function setOpt(key, value) {
         if (!controller)
             return
@@ -128,7 +147,7 @@ ApplicationWindow {
         // runtime checkboxes (default unchecked) — the caller handles onToggled.
         Binding on checked {
             when: switchRow.key !== ""
-            value: Boolean(win.opt(switchRow.key, false))
+            value: win.optBool(switchRow.key, false)
         }
         onToggled: if (switchRow.key !== "") win.setOpt(switchRow.key, checked)
 
@@ -268,7 +287,7 @@ ApplicationWindow {
         property string fpsKey: ""
         property int blocksProcessed: 0
         property bool processorEnabled: false
-        readonly property bool spectrumEnabled: enableKey === "" || Boolean(win.opt(enableKey, false))
+        readonly property bool spectrumEnabled: enableKey === "" || win.optBool(enableKey, false)
         Layout.fillWidth: true
 
         ColumnLayout {
@@ -565,7 +584,7 @@ ApplicationWindow {
                         SwitchRow {
                             id: muteRxSwitch
                             text: qsTr("Mute RX Audio")
-                            enabled: Boolean(win.opt("AudioProc.Tx.SidetoneEnabled", false))
+                            enabled: win.optBool("AudioProc.Tx.SidetoneEnabled", false)
                             onToggled: MainController.setRxMuted(checked)
                             // Clear the mute if self-monitoring is turned off, so RX
                             // audio can't be left muted by a now-disabled control.

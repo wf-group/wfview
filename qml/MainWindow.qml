@@ -70,7 +70,7 @@ ApplicationWindow {
             meterType: optionalMeterSlot.meterChoice
             current: optionalMeterSlot.meterLevel
             drawLabels: true
-            reverseCompMeter: Boolean(MainController.settings.options["Interface.CompMeterReverse"])
+            reverseCompMeter: win.settingAsBool(MainController.settings.options["Interface.CompMeterReverse"], false)
             scaleTextColor: win.palette.windowText
             scaleLineColor: win.palette.windowText
             scaleHighTextColor: MainController.settings.options["Color.MeterHighScale"]
@@ -409,7 +409,73 @@ ApplicationWindow {
             settingsLoader.item.showOnScreen(win)
     }
 
-    function runConfiguredAppShortcut(commandName) {
+    function closeTopWindow() {
+        if (settingsLoader.item && settingsLoader.item.visible && settingsLoader.item.active) {
+            settingsLoader.item.close()
+            return
+        }
+        if (memoriesLoader.item && memoriesLoader.item.visible && memoriesLoader.item.active) {
+            memoriesLoader.item.close()
+            return
+        }
+        if (cwSenderLoader.item && cwSenderLoader.item.visible && cwSenderLoader.item.active) {
+            MainController.cwSender.visible = false
+            return
+        }
+        if (debugLoader.item && debugLoader.item.visible && debugLoader.item.active) {
+            debugLoader.item.close()
+            return
+        }
+        for (var i = 0; i < receiversRepeater.count; ++i) {
+            var row = receiversRepeater.itemAt(i)
+            if (row && MainController.isReceiverDetached(i) && row.detachedWindowActive) {
+                MainController.setReceiverDetached(i, false)
+                return
+            }
+        }
+        if (win.active)
+            win.close()
+    }
+
+    function openMemoriesWindow() {
+        if (!win.radioConnected || !MainController.canOpenMemories())
+            return
+        MainController.openMemories()
+        Qt.callLater(function() {
+            if (memoriesLoader.item) {
+                memoriesLoader.item.visible = true
+                memoriesLoader.item.raise()
+                memoriesLoader.item.requestActivate()
+            }
+        })
+    }
+
+    function openCwSenderWindow() {
+        if (!(mainControlSpecs.canSendCW ?? false))
+            return
+        MainController.showCWSender()
+        if (cwSenderLoader.item) {
+            cwSenderLoader.item.raise()
+            cwSenderLoader.item.requestActivate()
+        }
+    }
+
+    function popoutReceiver(receiver) {
+        if (!win.radioConnected)
+            return
+        var i = Number(receiver)
+        var row = i >= 0 && i < receiversRepeater.count ? receiversRepeater.itemAt(i) : null
+        if (row && row.receiverController && row.receiverController.active && !MainController.isReceiverDetached(i))
+            MainController.setReceiverDetached(i, true)
+    }
+
+    function popinReceiver(receiver) {
+        var i = Number(receiver)
+        if (i >= 0 && i < receiversRepeater.count && MainController.isReceiverDetached(i))
+            MainController.setReceiverDetached(i, false)
+    }
+
+    function runConfiguredAppShortcut(commandName, receiver) {
         const command = String(commandName)
         if (command === "app.debug") {
             showDebugWindow()
@@ -429,6 +495,26 @@ ApplicationWindow {
             win.visibility = win.visibility === Window.FullScreen ? Window.Windowed : Window.FullScreen
             return
         }
+        if (command === "app.closeWindow") {
+            closeTopWindow()
+            return
+        }
+        if (command === "app.openMemories") {
+            openMemoriesWindow()
+            return
+        }
+        if (command === "app.openCwSender") {
+            openCwSenderWindow()
+            return
+        }
+        if (command === "app.popoutReceiver") {
+            popoutReceiver(receiver)
+            return
+        }
+        if (command === "app.popinReceiver") {
+            popinReceiver(receiver)
+            return
+        }
         if (command.indexOf("app.") === 0) {
             MainController.runShortcutAppAction(command)
             return
@@ -437,8 +523,8 @@ ApplicationWindow {
 
     Connections {
         target: MainController
-        function onAppShortcutActivated(commandName) {
-            win.runConfiguredAppShortcut(commandName)
+        function onAppShortcutActivated(commandName, receiver) {
+            win.runConfiguredAppShortcut(commandName, receiver)
         }
     }
 
@@ -459,6 +545,21 @@ ApplicationWindow {
             p.x > win.contentItem.width ||
             p.y > win.contentItem.height
         )
+    }
+
+    function settingAsBool(value, fallback) {
+        if (typeof value === "boolean")
+            return value
+        if (typeof value === "number")
+            return value !== 0
+        if (typeof value === "string") {
+            const s = value.trim().toLowerCase()
+            if (s === "true" || s === "1" || s === "yes" || s === "on")
+                return true
+            if (s === "false" || s === "0" || s === "no" || s === "off" || s === "")
+                return false
+        }
+        return fallback === undefined ? false : settingAsBool(fallback, false)
     }
 
     function indexFromValue(cb, v) {
@@ -516,7 +617,8 @@ ApplicationWindow {
             return false
 
         var confirm = MainController.settings.options["Interface.ConfirmSettingsChanged"]
-        return Boolean(MainController.settings.dirty) && (confirm === undefined || Boolean(confirm))
+        return win.settingAsBool(MainController.settings.dirty, false)
+                && (confirm === undefined || win.settingAsBool(confirm, true))
     }
 
     function applyWindowGeometry(g) {
@@ -728,6 +830,7 @@ ApplicationWindow {
                         property int pendingY: 0
                         property bool havePendingPos: false
                         property bool detached: MainController.isReceiverDetached(index)
+                        property bool detachedWindowActive: false
                         readonly property var receiverController: MainController.receiver(index)
                         readonly property var receiverItem: rxLoader.item
                         readonly property bool receiverVisible: receiverController
@@ -756,7 +859,7 @@ ApplicationWindow {
                                 rxLoader.item.parent = row.detached ? detachedHost : attachedHost
                                 rxLoader.item.anchors.fill = row.detached ? detachedHost : attachedHost
                                 rxLoader.item.anchors.margins = 1
-                                detachedWin.visible = row.detached
+                                detachedWin.applyWindowMode()
                             }
                         }
 
@@ -798,23 +901,23 @@ ApplicationWindow {
                             target: MainController
                             function onReceiverDetachedChanged(i, d) {
                                 if (i !== index) return
-                                detachedWin.visible = d
                                 row.detached = d
+                                detachedWin.applyWindowMode()
                             }
                         }
 
                         ApplicationWindow {
                             id: detachedWin
-                            visible: row.detached
                             title: qsTr("Receiver %1").arg(index + 1)
                             width: Number(MainController.settings.receiverSetting(index, "DetachedWidth", 900))
                             height: Number(MainController.settings.receiverSetting(index, "DetachedHeight", 500))
                             color: palette.window
                             property bool restoringGeometry: true
-                            property bool fullScreen: Boolean(MainController.settings.receiverSetting(index, "DetachedFullScreen", false))
+                            property bool fullScreen: win.settingAsBool(MainController.settings.receiverSetting(index, "DetachedFullScreen", false), false)
+                            onActiveChanged: row.detachedWindowActive = active
 
                             function saveDetachedGeometry() {
-                                if (restoringGeometry || !visible || fullScreen)
+                                if (restoringGeometry || !row.detached || fullScreen)
                                     return
                                 MainController.settings.saveReceiverSetting(index, "DetachedX", Math.round(x))
                                 MainController.settings.saveReceiverSetting(index, "DetachedY", Math.round(y))
@@ -823,9 +926,7 @@ ApplicationWindow {
                             }
 
                             function applyWindowMode() {
-                                if (!visible)
-                                    return
-                                visibility = fullScreen ? Window.FullScreen : Window.Windowed
+                                visibility = row.detached ? (fullScreen ? Window.FullScreen : Window.Windowed) : Window.Hidden
                             }
 
                             palette {
@@ -1266,7 +1367,7 @@ ApplicationWindow {
                         Layout.preferredWidth: 120
                         enabled: mainControlSpecs.canSendCW ?? false
                         visible: mainControlSpecs.canSendCW ?? false
-                        onClicked: MainController.showCWSender()
+                        onClicked: win.openCwSenderWindow()
                     }
 
                     Button {
@@ -1280,12 +1381,9 @@ ApplicationWindow {
                     Button {
                         text: qsTr("Memories")
                         Layout.preferredWidth: 120
-                        visible: win.radioConnected
-                        enabled: win.radioConnected
-                        onClicked: {
-                            MainController.openMemories()
-                            memoriesLoader.item.visible = true
-                        }
+                        visible: win.radioConnected && (mainControlSpecs.canMemories ?? false)
+                        enabled: win.radioConnected && (mainControlSpecs.canMemories ?? false)
+                        onClicked: win.openMemoriesWindow()
                     }
                 }
 

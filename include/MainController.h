@@ -152,6 +152,8 @@ public:
 
     Q_INVOKABLE void showCWSender()
     {
+        if (!rigCaps || !rigCaps->hasTransmit || !rigCaps->commands.contains(funcSendCW))
+            return;
         m_cwSender->setVisible(true);
     }
 
@@ -209,7 +211,13 @@ public:
         }
     }
 
+    Q_INVOKABLE bool canOpenMemories() const {
+        return rigCaps && rigCaps->commands.contains(funcMemoryContents);
+    }
+
     Q_INVOKABLE void openMemories() {
+        if (!canOpenMemories())
+            return;
         if (!m_memoriesModel) {
             createMemoriesModel();
         }
@@ -273,7 +281,7 @@ signals:
     void footerMessageTextChanged();
     void radioStatusTextChanged();
     void rigModelNameChanged();
-    void appShortcutActivated(QString commandName);
+    void appShortcutActivated(QString commandName, int receiver);
     void receiverCountChanged();
     void receiverDetachedChanged(int index, bool detached);
     void detachedChanged();

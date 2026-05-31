@@ -101,6 +101,155 @@ static QString shortcutCommandNameFromLegacyValue(const QVariant& value)
     return QStringLiteral("None");
 }
 
+int ShortcutOptionModel::rowCount(const QModelIndex &parent) const
+{
+    return parent.isValid() ? 0 : m_options.count();
+}
+
+QVariant ShortcutOptionModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_options.count())
+        return {};
+
+    const auto& option = m_options.at(index.row());
+    switch (role) {
+    case TextRole:
+        return option.first;
+    case ValueRole:
+        return option.second;
+    default:
+        return {};
+    }
+}
+
+QHash<int, QByteArray> ShortcutOptionModel::roleNames() const
+{
+    return {
+        { TextRole, "text" },
+        { ValueRole, "value" }
+    };
+}
+
+void ShortcutOptionModel::setOptions(const QVector<QPair<QString, QString>>& options)
+{
+    beginResetModel();
+    m_options = options;
+    endResetModel();
+}
+
+int ShortcutOptionModel::indexOfValue(const QString& value) const
+{
+    for (int i = 0; i < m_options.count(); ++i) {
+        if (m_options.at(i).second == value)
+            return i;
+    }
+    return -1;
+}
+
+int ShortcutSettingsModel::rowCount(const QModelIndex &parent) const
+{
+    return parent.isValid() || !m_shortcuts ? 0 : m_shortcuts->count();
+}
+
+QVariant ShortcutSettingsModel::data(const QModelIndex &index, int role) const
+{
+    if (!m_shortcuts || !index.isValid() || index.row() < 0 || index.row() >= m_shortcuts->count())
+        return {};
+
+    const shortcutPreference& shortcut = m_shortcuts->at(index.row());
+    switch (role) {
+    case ShortcutEnabledRole:
+        return shortcut.enabled;
+    case ShortcutSequenceRole:
+        return shortcut.sequence;
+    case ShortcutCommandRole:
+        return shortcut.command;
+    case ShortcutActionRole:
+        return shortcut.action;
+    case ShortcutValueRole:
+        return shortcut.value;
+    case ShortcutReceiverRole:
+        return shortcut.receiver;
+    default:
+        return {};
+    }
+}
+
+QHash<int, QByteArray> ShortcutSettingsModel::roleNames() const
+{
+    return {
+        { ShortcutEnabledRole, "shortcutEnabled" },
+        { ShortcutSequenceRole, "shortcutSequence" },
+        { ShortcutCommandRole, "shortcutCommand" },
+        { ShortcutActionRole, "shortcutAction" },
+        { ShortcutValueRole, "shortcutValue" },
+        { ShortcutReceiverRole, "shortcutReceiver" }
+    };
+}
+
+void ShortcutSettingsModel::setShortcuts(QVector<shortcutPreference>* shortcuts)
+{
+    beginResetModel();
+    m_shortcuts = shortcuts;
+    endResetModel();
+}
+
+void ShortcutSettingsModel::beginAppend()
+{
+    const int row = m_shortcuts ? m_shortcuts->count() : 0;
+    beginInsertRows(QModelIndex(), row, row);
+}
+
+void ShortcutSettingsModel::endAppend()
+{
+    endInsertRows();
+}
+
+void ShortcutSettingsModel::beginDuplicate(int index)
+{
+    beginInsertRows(QModelIndex(), index + 1, index + 1);
+}
+
+void ShortcutSettingsModel::endDuplicate()
+{
+    endInsertRows();
+}
+
+void ShortcutSettingsModel::beginRemove(int index)
+{
+    beginRemoveRows(QModelIndex(), index, index);
+}
+
+void ShortcutSettingsModel::endRemove()
+{
+    endRemoveRows();
+}
+
+void ShortcutSettingsModel::notifyRowChanged(int row)
+{
+    if (!m_shortcuts || row < 0 || row >= m_shortcuts->count())
+        return;
+
+    emit dataChanged(index(row, 0), index(row, 0), {
+        ShortcutEnabledRole,
+        ShortcutSequenceRole,
+        ShortcutCommandRole,
+        ShortcutActionRole,
+        ShortcutValueRole,
+        ShortcutReceiverRole
+    });
+}
+
+void ShortcutSettingsModel::beginModelReset()
+{
+    beginResetModel();
+}
+
+void ShortcutSettingsModel::endModelReset()
+{
+    endResetModel();
+}
+
 SettingsController::SettingsController(QString file, QObject *p) :
     QObject(p),
     m_controllerController(new ControllerController(this))
@@ -135,10 +284,42 @@ SettingsController::SettingsController(QString file, QObject *p) :
     m_options = new QQmlPropertyMap(this);
     m_clusterModel = std::make_unique<ClusterSettingsModel>();
     m_serverUsersModel = std::make_unique<ServerUsersModel>();
+    m_shortcutsModel = std::make_unique<ShortcutSettingsModel>();
+    m_shortcutAppCommandModel = std::make_unique<ShortcutOptionModel>();
+    m_shortcutRadioCommandModel = std::make_unique<ShortcutOptionModel>();
+
+    m_shortcutAppCommandModel->setOptions({
+        { tr("None"), QStringLiteral("None") },
+        { tr("Debug Window"), QStringLiteral("app.debug") },
+        { tr("Raise Main Window"), QStringLiteral("app.raiseMainWindow") },
+        { tr("Open Settings"), QStringLiteral("app.openSettings") },
+        { tr("Toggle Fullscreen"), QStringLiteral("app.toggleFullscreen") },
+        { tr("Quit wfview"), QStringLiteral("app.quit") },
+        { tr("Close Window"), QStringLiteral("app.closeWindow") },
+        { tr("Open Memories"), QStringLiteral("app.openMemories") },
+        { tr("Open CW Sender"), QStringLiteral("app.openCwSender") },
+        { tr("Pop Out Receiver"), QStringLiteral("app.popoutReceiver") },
+        { tr("Pop In Receiver"), QStringLiteral("app.popinReceiver") }
+    });
+
+    QVector<QPair<QString, QString>> radioShortcutOptions;
+    radioShortcutOptions.reserve(int(funcLastFunc));
+    bool haveNone = false;
+    for (int i = 0; i < int(funcLastFunc); ++i) {
+        const QString text = funcString[i];
+        if (text.startsWith(QLatin1String("+<")))
+            continue;
+        haveNone = haveNone || text == QLatin1String("None");
+        radioShortcutOptions.append({ text, text });
+    }
+    if (!haveNone)
+        radioShortcutOptions.prepend({ tr("None"), QStringLiteral("None") });
+    m_shortcutRadioCommandModel->setOptions(radioShortcutOptions);
 
 
     setDefPrefs();
     load();
+    m_shortcutsModel->setShortcuts(&prefs.shortcuts);
     buildUiSpecs();
 
     // buildBindings() will attach all preferences items to the QML lookup for easy updating.
@@ -2035,6 +2216,11 @@ void SettingsController::setDefPrefs()
     addShortcut(QStringLiteral("F4"), QStringLiteral("app.openSettings"), 0, 0);
     addShortcut(QStringLiteral("F11"), QStringLiteral("app.toggleFullscreen"), 0, 0);
     addShortcut(QStringLiteral("Ctrl+Q"), QStringLiteral("app.quit"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+W"), QStringLiteral("app.closeWindow"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Shift+M"), QStringLiteral("app.openMemories"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Shift+C"), QStringLiteral("app.openCwSender"), 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Shift+O"), QStringLiteral("app.popoutReceiver"), 0, 0, 0);
+    addShortcut(QStringLiteral("Ctrl+Shift+I"), QStringLiteral("app.popinReceiver"), 0, 0, 0);
     addShortcut(QStringLiteral("F5"), funcString[funcMode], 1, modeLSB);
     addShortcut(QStringLiteral("F6"), funcString[funcMode], 1, modeUSB);
     addShortcut(QStringLiteral("F7"), funcString[funcMode], 1, modeAM);
@@ -2327,7 +2513,9 @@ void SettingsController::addShortcut()
     shortcut.action = 0;
     shortcut.value = 0;
     shortcut.receiver = -1;
+    m_shortcutsModel->beginAppend();
     prefs.shortcuts.append(shortcut);
+    m_shortcutsModel->endAppend();
     markDirty();
     emit shortcutsChanged();
 }
@@ -2336,7 +2524,9 @@ void SettingsController::duplicateShortcut(int index)
 {
     if (index < 0 || index >= prefs.shortcuts.size())
         return;
+    m_shortcutsModel->beginDuplicate(index);
     prefs.shortcuts.insert(index + 1, prefs.shortcuts.at(index));
+    m_shortcutsModel->endDuplicate();
     markDirty();
     emit shortcutsChanged();
 }
@@ -2345,7 +2535,9 @@ void SettingsController::deleteShortcut(int index)
 {
     if (index < 0 || index >= prefs.shortcuts.size())
         return;
+    m_shortcutsModel->beginRemove(index);
     prefs.shortcuts.removeAt(index);
+    m_shortcutsModel->endRemove();
     markDirty();
     emit shortcutsChanged();
 }
@@ -2386,14 +2578,27 @@ void SettingsController::updateShortcut(int index, const QString& field, const Q
     if (!changed)
         return;
     markDirty();
+    m_shortcutsModel->notifyRowChanged(index);
     emit shortcutsChanged();
 }
 
 void SettingsController::resetShortcutsToDefault()
 {
+    m_shortcutsModel->beginModelReset();
     prefs.shortcuts = defPrefs.shortcuts;
+    m_shortcutsModel->endModelReset();
     markDirty();
     emit shortcutsChanged();
+}
+
+int SettingsController::shortcutAppCommandIndex(const QString& command) const
+{
+    return m_shortcutAppCommandModel ? m_shortcutAppCommandModel->indexOfValue(command) : -1;
+}
+
+int SettingsController::shortcutRadioCommandIndex(const QString& command) const
+{
+    return m_shortcutRadioCommandModel ? m_shortcutRadioCommandModel->indexOfValue(command) : -1;
 }
 
 void SettingsController::updateDefaultClusterPrefs()

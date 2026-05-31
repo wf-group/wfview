@@ -90,19 +90,22 @@ Control {
     }
 
     function boolReceiverSetting(key, fallback) {
-        const v = receiverSetting(key, fallback)
-        if (typeof v === "boolean")
-            return v
-        if (typeof v === "number")
-            return v !== 0
-        if (typeof v === "string") {
-            const s = v.trim().toLowerCase()
+        return boolReceiverSettingValue(receiverSetting(key, fallback), fallback)
+    }
+
+    function boolReceiverSettingValue(value, fallback) {
+        if (typeof value === "boolean")
+            return value
+        if (typeof value === "number")
+            return value !== 0
+        if (typeof value === "string") {
+            const s = value.trim().toLowerCase()
             if (s === "true" || s === "1" || s === "yes" || s === "on")
                 return true
             if (s === "false" || s === "0" || s === "no" || s === "off" || s === "")
                 return false
         }
-        return Boolean(fallback)
+        return fallback === undefined ? false : boolReceiverSettingValue(fallback, false)
     }
 
     function saveReceiverSetting(key, value) {

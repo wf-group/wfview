@@ -68,6 +68,27 @@ ApplicationWindow {
         return -1
     }
 
+    function boolValue(value, fallback) {
+        if (typeof value === "boolean")
+            return value
+        if (typeof value === "number")
+            return value !== 0
+        if (typeof value === "string") {
+            const s = value.trim().toLowerCase()
+            if (s === "true" || s === "1" || s === "yes" || s === "on")
+                return true
+            if (s === "false" || s === "0" || s === "no" || s === "off" || s === "")
+                return false
+        }
+        return fallback === undefined ? false : boolValue(fallback, false)
+    }
+
+    function optBool(key, fallback) {
+        if (!controller || !controller.options || controller.options[key] === undefined)
+            return boolValue(fallback, false)
+        return boolValue(controller.options[key], fallback)
+    }
+
     function showAudioProcessing() {
         settingsStack.currentIndex = 9
         showOnScreen()
@@ -263,7 +284,7 @@ ApplicationWindow {
 
     component ProcSwitch: CheckBox {
         property string key: ""
-        checked: controller && controller.options ? Boolean(controller.options[key]) : false
+        checked: optBool(key, false)
         onToggled: {
             if (!controller) return
             controller.setOption(key, checked)
@@ -543,9 +564,9 @@ ApplicationWindow {
                                         id: serialEnableBtn
                                         text: qsTr("Serial (USB)")
                                         ButtonGroup.group: connGroup
-                                        checked: controller ? !Boolean(controller.options["LAN.EnableLAN"]) : true
+                                        checked: controller ? !optBool("LAN.EnableLAN", false) : true
                                         onToggled: {
-                                            if (checked && controller && Boolean(controller.options["LAN.EnableLAN"]))
+                                            if (checked && controller && optBool("LAN.EnableLAN", false))
                                                 controller.setOption("LAN.EnableLAN", false)
                                         }
                                     }
@@ -554,9 +575,9 @@ ApplicationWindow {
                                         id: lanEnableBtn
                                         text: qsTr("Network")
                                         ButtonGroup.group: connGroup
-                                        checked: controller ? Boolean(controller.options["LAN.EnableLAN"]) : false
+                                        checked: optBool("LAN.EnableLAN", false)
                                         onToggled: {
-                                            if (checked && controller && !Boolean(controller.options["LAN.EnableLAN"]))
+                                            if (checked && controller && !optBool("LAN.EnableLAN", false))
                                                 controller.setOption("LAN.EnableLAN", true)
                                         }
                                     }
@@ -626,7 +647,7 @@ ApplicationWindow {
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio.")
 
-                                        checked: controller ? Boolean(controller.options["Radio.CIVisRadioModel"]) : false
+                                        checked: optBool("Radio.CIVisRadioModel", false)
                                         onClicked: if (controller) controller.setOption("Radio.CIVisRadioModel", checked)
                                     }
                                 }
@@ -744,7 +765,7 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             enabled: controller
                                      && connStatus === 0
-                                     && !Boolean(controller.options["LAN.EnableLAN"])
+                                     && !optBool("LAN.EnableLAN", false)
                             ColumnLayout {
                                 anchors.fill: parent
                                 spacing: 8
@@ -825,7 +846,7 @@ ApplicationWindow {
                                     CheckBox {
                                         id: usbAudioCheck
                                         text: qsTr("USB Audio")
-                                        checked: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        checked: optBool("Radio.EnableUSBAudio", false)
                                         onClicked: if (controller) controller.setOption("Radio.EnableUSBAudio", checked)
                                     }
 
@@ -836,7 +857,7 @@ ApplicationWindow {
                                         model: spec ? spec.model : []
                                         textRole: spec ? spec.textRole : "text"
                                         valueRole: spec ? spec.valueRole : "value"
-                                        enabled: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        enabled: optBool("Radio.EnableUSBAudio", false)
                                         currentIndex: controller ? indexFromValue(usbRadioRxAudioCombo, controller.options["Radio.USBAudioRXInput"]) : -1
                                         onActivated: if (controller) controller.setOption("Radio.USBAudioRXInput", currentValue)
                                         Layout.fillWidth: true
@@ -854,7 +875,7 @@ ApplicationWindow {
                                         model: spec ? spec.model : []
                                         textRole: spec ? spec.textRole : "text"
                                         valueRole: spec ? spec.valueRole : "value"
-                                        enabled: controller ? Boolean(controller.options["Radio.EnableUSBAudio"]) : false
+                                        enabled: optBool("Radio.EnableUSBAudio", false)
                                         currentIndex: controller ? indexFromValue(usbRadioTxAudioCombo, controller.options["Radio.USBAudioTXOutput"]) : -1
                                         onActivated: if (controller) controller.setOption("Radio.USBAudioTXOutput", currentValue)
                                         Layout.fillWidth: true
@@ -875,7 +896,7 @@ ApplicationWindow {
                             id: groupLan
                             enabled: controller
                                      && connStatus === 0
-                                     && Boolean(controller.options["LAN.EnableLAN"])
+                                     && optBool("LAN.EnableLAN", false)
 
                             title: qsTr("Network Connected Radios")
                             Layout.fillWidth: true
@@ -1042,7 +1063,7 @@ ApplicationWindow {
                                         visible: manufacturerCombo.currentValue === 1;
                                         text: qsTr("Admin Login")
                                         Accessible.name: "Admin Login Checkbox"
-                                        checked: controller ? Boolean(controller.options["UDP.AdminLogin"]) : false
+                                        checked: optBool("UDP.AdminLogin", false)
                                         onClicked: if (controller) controller.setOption("UDP.AdminLogin", checked)
 
                                         Accessible.description: "Check this box if you are using the admin login (Kenwood radios only)"
@@ -1131,7 +1152,7 @@ ApplicationWindow {
                                         ]
                                         Accessible.name: "Full or Half Duplex Combo"
                                         currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(audioDuplexCombo, Boolean(controller.options["UDP.HalfDuplex"]) ? 1 : 0)
+                                                      ? indexFromValue(audioDuplexCombo, optBool("UDP.HalfDuplex", false) ? 1 : 0)
                                                       : -1
                                         onActivated: controller.setOption("UDP.HalfDuplex",currentValue)
                                     }
@@ -1145,7 +1166,7 @@ ApplicationWindow {
                         GroupBox {
                             id: groupLatency
                             enabled: controller
-                                     && Boolean(controller.options["LAN.EnableLAN"])
+                                     && optBool("LAN.EnableLAN", false)
 
                             title: qsTr("Network latency settings")
                             Layout.fillWidth: true
@@ -1208,7 +1229,7 @@ ApplicationWindow {
 
                             CheckBox {
                                 id: tuningFloorZerosChk
-                                checked: controller ? Boolean(controller.options["Controls.NiceTS"]) : false
+                                checked: optBool("Controls.NiceTS", false)
                                 onClicked: if (controller) controller.setOption("Controls.NiceTS", checked)
 
                                 text: qsTr("When tuning, set lower digits to zero")
@@ -1216,7 +1237,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: autoSSBchk
                                 text: qsTr("Auto SSB")
-                                checked: controller ? Boolean(controller.options["Controls.AutomaticSidebandSwitching"]) : false
+                                checked: optBool("Controls.AutomaticSidebandSwitching", false)
                                 onClicked: if (controller) controller.setOption("Controls.AutomaticSidebandSwitching", checked)
                                 Accessible.name: "Auto SSB Switching"
                                 Accessible.description: "When using SSB, automatically switch to the standard sideband for a given band."
@@ -1226,7 +1247,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: pttEnableChk;
                                 text: qsTr("Enable PTT Controls")
-                                checked: controller ? Boolean(controller.options["Controls.EnablePTT"]) : false
+                                checked: optBool("Controls.EnablePTT", false)
                                 onClicked: if (controller) controller.setOption("Controls.EnablePTT", checked)
                             }
                             CheckBox {
@@ -1234,7 +1255,7 @@ ApplicationWindow {
                                 text: qsTr("Enable Rig Creator Feature (use with care)")
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Rig creator allows changing of all rig features and adding new rig profiles")
-                                checked: controller ? Boolean(controller.options["Interface.RigCreatorEnable"]) : false
+                                checked: optBool("Interface.RigCreatorEnable", false)
                                 onClicked: if (controller) controller.setOption("Interface.RigCreatorEnable", checked)
                             }
 
@@ -1267,32 +1288,32 @@ ApplicationWindow {
                             CheckBox {
                                 id: wfInterpolateChk
                                 text: qsTr("Interpolate Waterfall")
-                                checked: controller ? Boolean(controller.options["Interface.WFInterpolate"]) : false
+                                checked: optBool("Interface.WFInterpolate", false)
                                 onClicked: if (controller) controller.setOption("Interface.WFInterpolate", checked)
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Enables interpolation between pixels. Note that this will increase CPU usage.")
                             }
                             CheckBox {
                                 id: wfAntiAliasChk;
-                                checked: controller ? Boolean(controller.options["Interface.WFAntiAlias"]) : false
+                                checked: optBool("Interface.WFAntiAlias", false)
                                 onClicked: if (controller) controller.setOption("Interface.WFAntiAlias", checked)
                                 text: qsTr("Anti-Alias Waterfall")
                             }
                             CheckBox {
                                 id: clickDragTuningEnableChk;
-                                checked: controller ? Boolean(controller.options["Interface.ClickDragTuningEnable"]) : false
+                                checked: optBool("Interface.ClickDragTuningEnable", false)
                                 onClicked: if (controller) controller.setOption("Interface.ClickDragTuningEnable", checked)
                                 text: qsTr("Allow tuning via click and drag (experimental)")
                             }
                             CheckBox {
                                 id: useSystemThemeChk;
-                                checked: controller ? Boolean(controller.options["Interface.UseSystemTheme"]) : false
+                                checked: optBool("Interface.UseSystemTheme", false)
                                 onClicked: if (controller) controller.setOption("Interface.UseSystemTheme", checked)
                                 text: qsTr("Use System Theme")
                             }
                             CheckBox {
                                 id: fullScreenChk;
-                                checked: controller ? Boolean(controller.options["Interface.UseFullScreen"]) : false
+                                checked: optBool("Interface.UseFullScreen", false)
                                 onClicked: if (controller) controller.setOption("Interface.UseFullScreen", checked)
                                 text: qsTr("Show full screen (F11)")
                             }
@@ -1358,13 +1379,13 @@ ApplicationWindow {
                             CheckBox {
                                 id: forceVfoModeChk;
                                 text: qsTr("Force VFO Mode");
-                                checked: controller ? Boolean(controller.options["Interface.ForceVfoMode"]) : true
+                                checked: optBool("Interface.ForceVfoMode", true)
                                 onClicked: if (controller) controller.setOption("Interface.ForceVfoMode", checked)
                             }
                             CheckBox {
                                 id: autoPowerOnChk;
                                 text: qsTr("Auto Power-on radio");
-                                checked: controller ? Boolean(controller.options["Interface.AutoPowerOn"]) : true
+                                checked: optBool("Interface.AutoPowerOn", true)
                                 onClicked: if (controller) controller.setOption("Interface.AutoPowerOn", checked)
                             }
                             Item { Layout.fillWidth: true }
@@ -1397,7 +1418,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: showBandsChk
                                 text: qsTr("Show Bands")
-                                checked: controller ? Boolean(controller.options["Interface.ShowBands"]) : true
+                                checked: optBool("Interface.ShowBands", true)
                                 onClicked: if (controller) controller.setOption("Interface.ShowBands", checked)
                             }
                             Item { Layout.fillWidth: true }
@@ -1451,7 +1472,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: revCompMeterBtn
                                 text: qsTr("Reverse Comp Meter")
-                                checked: controller ? Boolean(controller.options["Interface.CompMeterReverse"]) : false
+                                checked: optBool("Interface.CompMeterReverse", false)
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Broadcast-style reduction meter")
                                 onClicked: if (controller) controller.setOption("Interface.CompMeterReverse", checked)
@@ -1621,7 +1642,7 @@ ApplicationWindow {
                                     CheckBox {
                                         id: useSpectrumFillGradientChk;
                                         text: qsTr("Spectrum Gradient")
-                                        checked: controller ? Boolean(controller.options["Color.UseSpectrumFillGradient"]) : false
+                                        checked: optBool("Color.UseSpectrumFillGradient", false)
                                         onClicked: if (controller) controller.setOption("Color.UseSpectrumFillGradient", checked)
 
                                     }
@@ -1629,7 +1650,7 @@ ApplicationWindow {
                                     CheckBox {
                                         id: useUnderlayFillGradientChk;
                                         text: qsTr("Underlay Gradient")
-                                        checked: controller ? Boolean(controller.options["Color.UseUnderlayFillGradient"]) : false
+                                        checked: optBool("Color.UseUnderlayFillGradient", false)
                                         onClicked: if (controller) controller.setOption("Color.UseUnderlayFillGradient", checked)
                                     }
 
@@ -1746,7 +1767,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: useUTCChk
                                 text: qsTr("Use UTC")
-                                checked: controller ? Boolean(controller.options["Radio.UseUTC"]) : false
+                                checked: optBool("Radio.UseUTC", false)
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Set radio clock to UTC; otherwise uses local timezone.")
                                 onClicked: {
@@ -1759,7 +1780,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: setRadioTimeChk
                                 text: qsTr("Set radio time on connect (takes up to a minute)")
-                                checked: controller ? Boolean(controller.options["Radio.SetRadioTime"]) : false
+                                checked: optBool("Radio.SetRadioTime", false)
                                 onClicked: if (controller) controller.setOption("Radio.SetRadioTime", checked)
                             }
                             Item { Layout.fillWidth: true }
@@ -1804,14 +1825,14 @@ ApplicationWindow {
                             CheckBox {
                                 id: serverEnableCheckbox
                                 text: qsTr("Enable")
-                                checked: controller ? Boolean(controller.options["Server.Enabled"]) : false
+                                checked: optBool("Server.Enabled", false)
                                 onClicked: if (controller) controller.setOption("Server.Enabled", checked)
                             }
                             Item { Layout.preferredWidth: 20 }
                             CheckBox {
                                 id: serverDisableUIChk
                                 text: qsTr("Disable local user controls when in use (restart required)")
-                                checked: controller ? Boolean(controller.options["Server.DisableUI"]) : false
+                                checked: optBool("Server.DisableUI", false)
                                 onClicked: if (controller) controller.setOption("Server.DisableUI", checked)
                             }
                             Item { Layout.fillWidth: true }
@@ -2076,7 +2097,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: enableRigctldChk
                                 text: qsTr("Enable RigCtld")
-                                checked: controller ? Boolean(controller.options["LAN.EnableRigCtlD"]) : false
+                                checked: optBool("LAN.EnableRigCtlD", false)
                                 onClicked: if (controller) controller.setOption("LAN.EnableRigCtlD", checked)
                                 Accessible.name: "Enable RIGCTLD checkbox"
                             }
@@ -2188,7 +2209,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: enableUsbChk
                                 text: qsTr("Enable USB Controllers")
-                                checked: controller ? Boolean(controller.options["Controls.EnableUSBControllers"]) : false
+                                checked: optBool("Controls.EnableUSBControllers", false)
                                 onClicked: if (controller) controller.setOption("Controls.EnableUSBControllers", checked)
                                 Accessible.name: "Enable USB Controllers Checkbox"
                             }
@@ -2243,7 +2264,7 @@ ApplicationWindow {
                             label: CheckBox {
                                 id: clusterTcpEnable
                                 text: qsTr("TCP Cluster Connection")
-                                checked: controller ? Boolean(controller.options["Cluster.TcpEnabled"]) : false
+                                checked: optBool("Cluster.TcpEnabled", false)
                                 onClicked: {
                                     if (!controller)
                                         return
@@ -2461,7 +2482,7 @@ ApplicationWindow {
                             label: CheckBox {
                                     id: clusterUdpEnable
                                     text: qsTr("UDP Broadcast Connection")
-                                    checked: controller ? Boolean(controller.options["Cluster.UdpEnabled"]) : false
+                                    checked: optBool("Cluster.UdpEnabled", false)
                                     onClicked: if (controller) controller.setOption("Cluster.UdpEnabled", checked)
                                 }
 
@@ -2519,7 +2540,7 @@ ApplicationWindow {
                             CheckBox {
                                 id: clusterSkimmerSpotsEnable
                                 text: qsTr("Show Skimmer Spots")
-                                checked: controller ? Boolean(controller.options["Cluster.SkimmerSpotsEnable"]) : false
+                                checked: optBool("Cluster.SkimmerSpotsEnable", false)
                                 onClicked: if (controller) controller.setOption("Cluster.SkimmerSpotsEnable", checked)
                             }
                             Button {
@@ -2585,8 +2606,8 @@ ApplicationWindow {
                                     spacing: 8
                                     Label { text: qsTr("On"); Layout.preferredWidth: 34 }
                                     Label { text: qsTr("Shortcut"); Layout.preferredWidth: 120 }
-                                    Label { text: qsTr("Type"); Layout.preferredWidth: 90 }
-                                    Label { text: qsTr("Command"); Layout.fillWidth: true }
+                                    Label { text: qsTr("wfview Command"); Layout.fillWidth: true }
+                                    Label { text: qsTr("Radio Command"); Layout.fillWidth: true }
                                     Label { text: qsTr("Action"); Layout.preferredWidth: 110 }
                                     Label { text: qsTr("Value"); Layout.preferredWidth: 90 }
                                     Label { text: qsTr("Receiver"); Layout.preferredWidth: 100 }
@@ -2594,7 +2615,7 @@ ApplicationWindow {
                                 }
 
                                 Repeater {
-                                    model: controller ? controller.shortcuts : []
+                                    model: controller ? controller.shortcutsModel : null
 
                                     delegate: RowLayout {
                                         id: shortcutRow
@@ -2602,17 +2623,19 @@ ApplicationWindow {
                                         spacing: 8
 
                                         readonly property int rowIndex: index
-                                        readonly property bool appCommand: String(modelData.command).indexOf("app.") === 0
+                                        readonly property bool appCommand: String(shortcutCommand).indexOf("app.") === 0
+                                        readonly property bool radioCommand: String(shortcutCommand) !== "None" && !appCommand
+                                        readonly property bool receiverAppCommand: String(shortcutCommand) === "app.popoutReceiver" || String(shortcutCommand) === "app.popinReceiver"
 
                                         CheckBox {
                                             Layout.preferredWidth: 34
-                                            checked: Boolean(modelData.enabled)
+                                            checked: Boolean(shortcutEnabled)
                                             onClicked: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "enabled", checked)
                                         }
 
                                         TextField {
                                             Layout.preferredWidth: 120
-                                            text: String(modelData.sequence)
+                                            text: String(shortcutSequence)
                                             placeholderText: qsTr("Ctrl+D")
                                             selectByMouse: true
                                             onEditingFinished: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "sequence", text.trim())
@@ -2621,33 +2644,20 @@ ApplicationWindow {
                                         }
 
                                         ComboBox {
-                                            id: shortcutTypeCombo
-                                            Layout.preferredWidth: 90
-                                            textRole: "text"
-                                            valueRole: "value"
-                                            model: [
-                                                { text: qsTr("wfview"), value: 0 },
-                                                { text: qsTr("Radio"), value: 1 }
-                                            ]
-                                            currentIndex: shortcutRow.appCommand ? 0 : 1
-                                            onActivated: {
-                                                if (!controller)
-                                                    return
-                                                controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue === 0 ? "app.debug" : "None")
-                                                controller.updateShortcut(shortcutRow.rowIndex, "action", 0)
-                                                controller.updateShortcut(shortcutRow.rowIndex, "value", 0)
-                                            }
-                                        }
-
-                                        ComboBox {
                                             id: shortcutAppCommandCombo
                                             Layout.fillWidth: true
                                             textRole: "text"
                                             valueRole: "value"
-                                            visible: shortcutRow.appCommand
-                                            model: MainController.shortcutAppCommandOptions()
-                                            currentIndex: indexFromValue(shortcutAppCommandCombo, modelData.command)
-                                            onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue)
+                                            enabled: !shortcutRow.radioCommand
+                                            model: controller ? controller.shortcutAppCommandModel : null
+                                            currentIndex: controller ? controller.shortcutAppCommandIndex(shortcutRow.appCommand ? shortcutCommand : "None") : -1
+                                            onActivated: {
+                                                if (!controller)
+                                                    return
+                                                controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue)
+                                                controller.updateShortcut(shortcutRow.rowIndex, "action", 0)
+                                                controller.updateShortcut(shortcutRow.rowIndex, "value", 0)
+                                            }
                                         }
 
                                         ComboBox {
@@ -2655,9 +2665,9 @@ ApplicationWindow {
                                             Layout.fillWidth: true
                                             textRole: "text"
                                             valueRole: "value"
-                                            visible: !shortcutRow.appCommand
-                                            model: MainController.shortcutRadioCommandOptions()
-                                            currentIndex: indexFromValue(shortcutRadioCommandCombo, modelData.command)
+                                            enabled: !shortcutRow.appCommand
+                                            model: controller ? controller.shortcutRadioCommandModel : null
+                                            currentIndex: controller ? controller.shortcutRadioCommandIndex(shortcutRow.radioCommand ? shortcutCommand : "None") : -1
                                             onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "command", currentValue)
                                         }
 
@@ -2673,7 +2683,7 @@ ApplicationWindow {
                                                 { text: qsTr("Decrease"), value: 3 }
                                             ]
                                             enabled: !shortcutRow.appCommand
-                                            currentIndex: indexFromValue(shortcutActionCombo, modelData.action)
+                                            currentIndex: indexFromValue(shortcutActionCombo, shortcutAction)
                                             onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "action", currentValue)
                                         }
 
@@ -2681,7 +2691,7 @@ ApplicationWindow {
                                             Layout.preferredWidth: 90
                                             from: -100000000
                                             to: 100000000
-                                            value: Number(modelData.value)
+                                            value: Number(shortcutValue)
                                             enabled: !shortcutRow.appCommand
                                             editable: true
                                             onValueModified: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "value", value)
@@ -2697,8 +2707,8 @@ ApplicationWindow {
                                                 { text: qsTr("Main"), value: 0 },
                                                 { text: qsTr("Sub"), value: 1 }
                                             ]
-                                            enabled: !shortcutRow.appCommand
-                                            currentIndex: indexFromValue(shortcutReceiverCombo, modelData.receiver)
+                                            enabled: !shortcutRow.appCommand || shortcutRow.receiverAppCommand
+                                            currentIndex: indexFromValue(shortcutReceiverCombo, shortcutReceiver)
                                             onActivated: if (controller) controller.updateShortcut(shortcutRow.rowIndex, "receiver", currentValue)
                                         }
 
@@ -2768,7 +2778,7 @@ ApplicationWindow {
                                 CheckBox {
                                     id: wfShareEnabledCheck
                                     text: qsTr("Enable wfshare")
-                                    checked: controller ? Boolean(controller.options["Experimental.WfShareEnabled"]) : false
+                                    checked: optBool("Experimental.WfShareEnabled", false)
                                     onClicked: if (controller) controller.setOption("Experimental.WfShareEnabled", checked)
                                     Layout.columnSpan: 3
                                 }
@@ -2776,7 +2786,7 @@ ApplicationWindow {
                                 CheckBox {
                                     id: wfShareDirectCheck
                                     text: qsTr("Direct point-to-point mode")
-                                    checked: controller ? Boolean(controller.options["Experimental.WfShareDirectMode"]) : false
+                                    checked: optBool("Experimental.WfShareDirectMode", false)
                                     enabled: wfShareEnabledCheck.checked
                                     onClicked: if (controller) controller.setOption("Experimental.WfShareDirectMode", checked)
                                     Layout.columnSpan: 3

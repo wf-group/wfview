@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QSerialPortInfo>
 #include <QAbstractTableModel>
+#include <QAbstractListModel>
 #include <QString>
 #include <QVector>
 #include <QMutex>
@@ -26,6 +27,67 @@
 #include "freqctrlquick.h"
 
 #include "ControllerController.h"
+
+class ShortcutOptionModel : public QAbstractListModel
+{
+    Q_OBJECT
+
+public:
+    enum Roles {
+        TextRole = Qt::UserRole + 1,
+        ValueRole
+    };
+    Q_ENUM(Roles)
+
+    explicit ShortcutOptionModel(QObject *parent = nullptr)
+        : QAbstractListModel(parent) {}
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
+    void setOptions(const QVector<QPair<QString, QString>>& options);
+    int indexOfValue(const QString& value) const;
+
+private:
+    QVector<QPair<QString, QString>> m_options;
+};
+
+class ShortcutSettingsModel : public QAbstractListModel
+{
+    Q_OBJECT
+
+public:
+    enum Roles {
+        ShortcutEnabledRole = Qt::UserRole + 1,
+        ShortcutSequenceRole,
+        ShortcutCommandRole,
+        ShortcutActionRole,
+        ShortcutValueRole,
+        ShortcutReceiverRole
+    };
+    Q_ENUM(Roles)
+
+    explicit ShortcutSettingsModel(QObject *parent = nullptr)
+        : QAbstractListModel(parent) {}
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
+
+    void setShortcuts(QVector<shortcutPreference>* shortcuts);
+    void beginAppend();
+    void endAppend();
+    void beginDuplicate(int index);
+    void endDuplicate();
+    void beginRemove(int index);
+    void endRemove();
+    void notifyRowChanged(int row);
+    void beginModelReset();
+    void endModelReset();
+
+private:
+    QVector<shortcutPreference>* m_shortcuts = nullptr;
+};
 
 
 class ClusterSettingsModel : public QAbstractTableModel
@@ -582,6 +644,9 @@ class SettingsController : public QObject {
     Q_PROPERTY(QVariantList radioProfiles READ radioProfiles NOTIFY radioProfilesChanged)
     Q_PROPERTY(int currentRadioProfileIndex READ currentRadioProfileIndex NOTIFY currentRadioProfileIndexChanged)
     Q_PROPERTY(QVariantList shortcuts READ shortcuts NOTIFY shortcutsChanged)
+    Q_PROPERTY(QAbstractListModel* shortcutsModel READ shortcutsModel CONSTANT)
+    Q_PROPERTY(QAbstractListModel* shortcutAppCommandModel READ shortcutAppCommandModel CONSTANT)
+    Q_PROPERTY(QAbstractListModel* shortcutRadioCommandModel READ shortcutRadioCommandModel CONSTANT)
 
     Q_PROPERTY(ClusterSettingsModel* clusterModel READ clusterModel CONSTANT)
     Q_PROPERTY(ServerUsersModel* serverUsersModel READ serverUsersModel CONSTANT)
@@ -613,6 +678,9 @@ public:
     ClusterSettingsModel* clusterModel() const { return m_clusterModel.get(); }
     ServerUsersModel* serverUsersModel() const { return m_serverUsersModel.get(); }
     ControllerController* controllerController() const { return m_controllerController; }
+    QAbstractListModel* shortcutsModel() const { return m_shortcutsModel.get(); }
+    QAbstractListModel* shortcutAppCommandModel() const { return m_shortcutAppCommandModel.get(); }
+    QAbstractListModel* shortcutRadioCommandModel() const { return m_shortcutRadioCommandModel.get(); }
 
     usbDevMap* usbDevices() { return &m_usbDevices; }
     QVector<BUTTON>* usbButtons() { return &m_usbButtons; }
@@ -634,6 +702,8 @@ public:
     Q_INVOKABLE void deleteShortcut(int index);
     Q_INVOKABLE void updateShortcut(int index, const QString& field, const QVariant& value);
     Q_INVOKABLE void resetShortcutsToDefault();
+    Q_INVOKABLE int shortcutAppCommandIndex(const QString& command) const;
+    Q_INVOKABLE int shortcutRadioCommandIndex(const QString& command) const;
     Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
@@ -726,6 +796,9 @@ private:
     std::unique_ptr<audioDevices> audioDev;
     std::unique_ptr<ClusterSettingsModel> m_clusterModel;
     std::unique_ptr<ServerUsersModel> m_serverUsersModel;
+    std::unique_ptr<ShortcutSettingsModel> m_shortcutsModel;
+    std::unique_ptr<ShortcutOptionModel> m_shortcutAppCommandModel;
+    std::unique_ptr<ShortcutOptionModel> m_shortcutRadioCommandModel;
 
     QQmlPropertyMap* m_options = nullptr;
     bool m_dirty = false;

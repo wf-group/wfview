@@ -67,6 +67,10 @@ static constexpr auto shortcutOpenSettings = "app.openSettings";
 static constexpr auto shortcutToggleFullscreen = "app.toggleFullscreen";
 static constexpr auto shortcutQuitApplication = "app.quit";
 static constexpr auto shortcutOpenCwSender = "app.openCwSender";
+static constexpr auto shortcutCloseWindow = "app.closeWindow";
+static constexpr auto shortcutOpenMemories = "app.openMemories";
+static constexpr auto shortcutPopoutReceiver = "app.popoutReceiver";
+static constexpr auto shortcutPopinReceiver = "app.popinReceiver";
 
 static funcs shortcutFuncFromName(const QString& commandName)
 {
@@ -598,7 +602,11 @@ QVariantList MainController::shortcutAppCommandOptions() const
         { tr("Open Settings"), QString::fromLatin1(shortcutOpenSettings) },
         { tr("Toggle Fullscreen"), QString::fromLatin1(shortcutToggleFullscreen) },
         { tr("Quit wfview"), QString::fromLatin1(shortcutQuitApplication) },
-        { tr("Open CW Sender"), QString::fromLatin1(shortcutOpenCwSender) }
+        { tr("Close Window"), QString::fromLatin1(shortcutCloseWindow) },
+        { tr("Open Memories"), QString::fromLatin1(shortcutOpenMemories) },
+        { tr("Open CW Sender"), QString::fromLatin1(shortcutOpenCwSender) },
+        { tr("Pop Out Receiver"), QString::fromLatin1(shortcutPopoutReceiver) },
+        { tr("Pop In Receiver"), QString::fromLatin1(shortcutPopinReceiver) }
     };
     for (const auto& item : appCommands) {
         QVariantMap option;
@@ -634,7 +642,11 @@ void MainController::runShortcutAppAction(const QString& commandName)
         return;
     if (commandName == QLatin1String(shortcutRaiseMainWindow)
         || commandName == QLatin1String(shortcutOpenSettings)
-        || commandName == QLatin1String(shortcutToggleFullscreen))
+        || commandName == QLatin1String(shortcutToggleFullscreen)
+        || commandName == QLatin1String(shortcutCloseWindow)
+        || commandName == QLatin1String(shortcutOpenMemories)
+        || commandName == QLatin1String(shortcutPopoutReceiver)
+        || commandName == QLatin1String(shortcutPopinReceiver))
         return;
     if (commandName == QLatin1String(shortcutQuitApplication)) {
         quitApplication();
@@ -668,7 +680,13 @@ bool MainController::eventFilter(QObject* watched, QEvent* event)
         if (!shortcut.enabled || shortcut.sequence != sequence)
             continue;
         if (shortcut.command.startsWith(QLatin1String("app."))) {
-            emit appShortcutActivated(shortcut.command);
+            int receiver = shortcut.receiver;
+            if ((shortcut.command == QLatin1String(shortcutPopoutReceiver)
+                 || shortcut.command == QLatin1String(shortcutPopinReceiver))
+                && receiver < 0) {
+                receiver = int(currentReceiver);
+            }
+            emit appShortcutActivated(shortcut.command, receiver);
             keyEvent->accept();
             return true;
         }
@@ -1204,6 +1222,7 @@ void MainController::buildUiSpecs()
         {"canCompressor", rigCaps->hasTransmit && rigCaps->commands.contains(funcCompressor)},
         {"canVox", rigCaps->hasTransmit && rigCaps->commands.contains(funcVox)},
         {"canSendCW", rigCaps->hasTransmit && rigCaps->commands.contains(funcSendCW)},
+        {"canMemories", rigCaps->commands.contains(funcMemoryContents)},
         {"canMonitor", rigCaps->hasTransmit && rigCaps->commands.contains(funcMonitor)},
         {"txPower", rangeSpec(funcRFPower, 0, 255, true)},
         {"monitorGain", rangeSpec(funcMonitorGain, 0, 255, true)},
