@@ -21,6 +21,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: window
+    transientParent: null
     title: qsTr("Settings")
 
     width: 1193

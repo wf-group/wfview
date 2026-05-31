@@ -908,6 +908,7 @@ ApplicationWindow {
 
                         ApplicationWindow {
                             id: detachedWin
+                            transientParent: null
                             title: qsTr("Receiver %1").arg(index + 1)
                             width: Number(MainController.settings.receiverSetting(index, "DetachedWidth", 900))
                             height: Number(MainController.settings.receiverSetting(index, "DetachedHeight", 500))

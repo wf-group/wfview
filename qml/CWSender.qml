@@ -6,6 +6,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: cwSenderWindow
+    transientParent: null
     title: qsTr("CW Sender")
     width: 835
     height: 451

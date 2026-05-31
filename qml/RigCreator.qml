@@ -9,6 +9,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: rigCreator
+    transientParent: null
     title: qsTr("Rig Creator")
     RigCreatorController { id: rig }
 

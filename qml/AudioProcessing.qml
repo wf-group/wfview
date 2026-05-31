@@ -6,6 +6,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: win
+    transientParent: null
     title: mode === "rx" ? qsTr("RX Audio Processing") : qsTr("TX Audio Processing")
     color: palette.window
     width: mode === "rx" ? 860 : 635

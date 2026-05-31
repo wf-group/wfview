@@ -8,6 +8,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: memoriesWindow
+    transientParent: null
 
     palette {
         window: MainController.settings.options["Color.Window"]
