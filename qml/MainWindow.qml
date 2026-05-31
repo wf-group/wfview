@@ -323,7 +323,7 @@ ApplicationWindow {
         }
 
         onShowSettings: function(isNetwork) {
-            settings.showOnScreen(win)
+            showSettingsWindow()
             win.visible = true
         }
 
@@ -332,9 +332,14 @@ ApplicationWindow {
         }
     }
 
-    Settings {
-        id: settings
-        controller: MainController.settings
+    Loader {
+        id: settingsLoader
+        active: false
+        sourceComponent: Component {
+            Settings {
+                controller: MainController.settings
+            }
+        }
     }
 
     // Create memories window on demand
@@ -398,7 +403,10 @@ ApplicationWindow {
     }
 
     function showSettingsWindow() {
-        settings.showOnScreen(win)
+        if (!settingsLoader.active)
+            settingsLoader.active = true
+        if (settingsLoader.item)
+            settingsLoader.item.showOnScreen(win)
     }
 
     function runConfiguredAppShortcut(commandName) {
@@ -611,8 +619,8 @@ ApplicationWindow {
     function shutdownAndQuit() {
         saveWindowGeometry()
         unsavedSettingsDialog.visible = false
-        if (settings)
-            settings.visible = false
+        if (settingsLoader.item)
+            settingsLoader.item.visible = false
         if (txAudioProcessingWindow)
             txAudioProcessingWindow.visible = false
         if (rxAudioProcessingWindow)
