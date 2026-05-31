@@ -2534,10 +2534,19 @@ ApplicationWindow {
                 // =========================
                 // Page 7: Shortcuts
                 // =========================
-                ScrollView {
-                    id: shortcutsPage
+                Loader {
+                    id: shortcutsPageLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    active: settingsStack.currentIndex === 7
+                    sourceComponent: shortcutsPageComponent
+                }
+
+                Component {
+                    id: shortcutsPageComponent
+
+                ScrollView {
+                    id: shortcutsPage
                     clip: true
 
                     ColumnLayout {
@@ -2726,6 +2735,7 @@ ApplicationWindow {
 
                         Item { Layout.fillHeight: true }
                     }
+                }
                 }
 
                 // =========================
