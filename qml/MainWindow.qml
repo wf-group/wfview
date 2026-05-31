@@ -401,8 +401,8 @@ ApplicationWindow {
         settings.showOnScreen(win)
     }
 
-    function runConfiguredShortcut(shortcut) {
-        const command = String(shortcut.command)
+    function runConfiguredAppShortcut(commandName) {
+        const command = String(commandName)
         if (command === "app.debug") {
             showDebugWindow()
             return
@@ -425,23 +425,12 @@ ApplicationWindow {
             MainController.runShortcutAppAction(command)
             return
         }
-
-        MainController.runShortcutCommand(command,
-                                          Number(shortcut.action),
-                                          Number(shortcut.value),
-                                          Number(shortcut.receiver))
     }
 
-    Instantiator {
-        model: MainController.settings.shortcuts
-        delegate: Shortcut {
-            readonly property var shortcutData: modelData
-            enabled: Boolean(shortcutData.enabled)
-                     && String(shortcutData.sequence).length > 0
-                     && String(shortcutData.command).indexOf("app.") === 0
-            sequences: [String(shortcutData.sequence)]
-            context: Qt.ApplicationShortcut
-            onActivated: win.runConfiguredShortcut(shortcutData)
+    Connections {
+        target: MainController
+        function onAppShortcutActivated(commandName) {
+            win.runConfiguredAppShortcut(commandName)
         }
     }
 

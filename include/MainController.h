@@ -273,6 +273,7 @@ signals:
     void footerMessageTextChanged();
     void radioStatusTextChanged();
     void rigModelNameChanged();
+    void appShortcutActivated(QString commandName);
     void receiverCountChanged();
     void receiverDetachedChanged(int index, bool detached);
     void detachedChanged();

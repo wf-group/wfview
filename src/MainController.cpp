@@ -667,8 +667,11 @@ bool MainController::eventFilter(QObject* watched, QEvent* event)
     for (const shortcutPreference& shortcut : std::as_const(prefs->shortcuts)) {
         if (!shortcut.enabled || shortcut.sequence != sequence)
             continue;
-        if (shortcut.command.startsWith(QLatin1String("app.")))
-            continue;
+        if (shortcut.command.startsWith(QLatin1String("app."))) {
+            emit appShortcutActivated(shortcut.command);
+            keyEvent->accept();
+            return true;
+        }
 
         if (shortcut.command == funcString[funcFreq]) {
             const int hz = fixedFrequencyShortcutHz(shortcut.sequence, shortcut.value);
