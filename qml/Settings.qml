@@ -21,6 +21,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: window
+    color: palette.window
     transientParent: null
     title: qsTr("Settings")
 

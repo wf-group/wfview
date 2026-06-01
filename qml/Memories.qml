@@ -8,6 +8,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: memoriesWindow
+    color: palette.window
     transientParent: null
 
     palette {

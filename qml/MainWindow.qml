@@ -7,6 +7,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: win
+    color: palette.window
 
     title: radioConnected ? MainController.windowTitle : qsTr("wfview")
 
@@ -34,7 +35,67 @@ ApplicationWindow {
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
 
+    property int flowSpacing: mainControlSpacing
+    property bool cmdTwoColumns: false
+    property int scopeFlowPaneWidth: 320
+    property bool _flowLayoutInitialized: false
+
+    Timer {
+        id: flowLayoutTimer
+        interval: 150
+        onTriggered: win.applyFlowThresholds()
+    }
+
+    Timer {
+        id: heightReleaseTimer
+        interval: 300
+        onTriggered: {
+            mainGroup.targetHeight = Qt.binding(function() {
+                return Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
+            })
+        }
+    }
+
+    function applyFlowThresholds() {
+        var flowW = mainControlsFlow.width
+        var changed = false
+
+        if (!cmdTwoColumns && flowW >= 930) {
+            cmdTwoColumns = true
+            changed = true
+        } else if (cmdTwoColumns && flowW < 870) {
+            cmdTwoColumns = false
+            changed = true
+        }
+
+        if (scopeFlowPaneWidth === 320 && flowW >= 1680) {
+            scopeFlowPaneWidth = 640
+            changed = true
+        } else if (scopeFlowPaneWidth === 640 && flowW < 1620) {
+            scopeFlowPaneWidth = 320
+            changed = true
+        }
+
+        if (changed) {
+            mainGroup.targetHeight = mainGroup.height
+            heightReleaseTimer.restart()
+        }
+    }
+
+    function updateFlowLayout() {
+        var w = win.width
+        flowSpacing = w >= 1500 ? 12 : (w >= 1200 ? 8 : mainControlSpacing)
+
+        if (!_flowLayoutInitialized) {
+            _flowLayoutInitialized = true
+            applyFlowThresholds()
+        } else {
+            flowLayoutTimer.restart()
+        }
+    }
+
     width: 946
+    height: minimumHeight
     visible: false
 
     minimumWidth:  radioConnected ? 360 : mainLayout.implicitWidth + contentHorizontalPadding * 2
@@ -43,7 +104,6 @@ ApplicationWindow {
                    + mainGroup.padding * 2
                    + scopeVFOGroup.padding * 2
                    + mainLayout.spacing * 2
-    height: minimumHeight
     onMinimumWidthChanged: {
         if (!win.radioConnected && !win.waylandPlatform)
             win.width = win.minimumWidth
@@ -1140,7 +1200,9 @@ ApplicationWindow {
         Frame {
             id: mainGroup
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
+            property real targetHeight: Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
+            Layout.preferredHeight: targetHeight
+            clip: true
             padding: 3
 
             RowLayout {
@@ -1184,7 +1246,8 @@ ApplicationWindow {
                     id: mainControlsFlow
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop
-                    spacing: win.width >= 1500 ? 12 : (win.width >= 1200 ? 8 : win.mainControlSpacing)
+                    spacing: win.flowSpacing
+                    onWidthChanged: win.updateFlowLayout()
 
                 // ---- tuningLayout ----
                 ColumnLayout {
@@ -1468,14 +1531,26 @@ ApplicationWindow {
                 }
 
                 // ---- command buttons (Transmit, ATU, etc.) ----
+                // Fixed width so column changes don't cause the Flow to re-wrap.
+                Item {
+                    id: commandButtonsWrapper
+                    width: 246
+                    height: commandButtonsColumn.implicitHeight
+                    clip: true
+                    visible: win.radioConnected
+
+                    Behavior on height {
+                        enabled: win._flowLayoutInitialized
+                        NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                    }
+
                 GridLayout {
                     id: commandButtonsColumn
-                    readonly property bool twoColumns: mainControlsFlow.width >= 900
+                    property bool twoColumns: win.cmdTwoColumns
                     columns: twoColumns ? 2 : 1
-                    width: twoColumns ? 246 : 120
+                    anchors.left: parent.left
                     rowSpacing: win.mainControlSpacing
                     columnSpacing: win.mainControlSpacing
-                    visible: win.radioConnected
 
                     Button {
                         text: MainController.transmitting ? qsTr("Receive") : qsTr("Transmit")
@@ -1526,6 +1601,7 @@ ApplicationWindow {
                         onClicked: win.openMemoriesWindow()
                     }
                 }
+                } // commandButtonsWrapper
 
                 Flow {
                     id: scopeAndOtherControlsFlow
@@ -1536,12 +1612,12 @@ ApplicationWindow {
                                                                    || (mainControlSpecs.canEqualMainSub ?? false)
                     readonly property bool showScopeControls: win.radioConnected && hasReceiverScopeControls
                     readonly property bool showOtherControls: win.radioConnected && anyControlVisible(["canCompressor", "canVox"])
-                    readonly property int scopePaneWidth: mainControlsFlow.width >= 1650 ? 640 : 320
+                    property int scopePaneWidth: win.scopeFlowPaneWidth
                     readonly property int otherPaneWidth: 165
                     readonly property int rowWidthBeforeScope: (freqDial.visible ? win.mainControlDialSize : 0)
                                                             + (tuningControlsGroup.visible ? tuningControlsGroup.width : 0)
                                                             + (levelsControlsGroup.visible ? levelsControlsGroup.implicitWidth : 0)
-                                                            + (commandButtonsColumn.visible ? commandButtonsColumn.width : 0)
+                                                            + (commandButtonsWrapper.visible ? commandButtonsWrapper.width : 0)
                                                             + (4 * mainControlsFlow.spacing)
                     readonly property bool scopeFitsOnCurrentRow: mainControlsFlow.width >= (rowWidthBeforeScope + scopePaneWidth)
                     readonly property bool otherFitsBesideScopeOnCurrentRow: mainControlsFlow.width >= (rowWidthBeforeScope + scopePaneWidth + otherPaneWidth + spacing)

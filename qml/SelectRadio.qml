@@ -7,6 +7,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: selectRadioWindow
+    color: palette.window
     transientParent: null
     title: qsTr("Radio Status")
     width: 760

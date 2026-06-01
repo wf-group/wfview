@@ -172,6 +172,14 @@ int main(int argc, char *argv[])
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
+    // Wayland + threaded render loop flashes stale frames during resize;
+    // the basic (synchronous) loop eliminates this.
+    if (qEnvironmentVariableIsEmpty("QSG_RENDER_LOOP")) {
+        QByteArray platform = qgetenv("QT_QPA_PLATFORM");
+        QByteArray session  = qgetenv("XDG_SESSION_TYPE");
+        if (platform.startsWith("wayland") || session == "wayland")
+            qputenv("QSG_RENDER_LOOP", "basic");
+    }
     QGuiApplication a(argc, argv);
 
     a.setApplicationName("wfview");

@@ -7,6 +7,7 @@ import WFVIEW 1.0
 
 ApplicationWindow {
     id: win
+    color: palette.window
     transientParent: null
     width: 896
     height: 575
