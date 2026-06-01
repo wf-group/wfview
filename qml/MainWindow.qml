@@ -44,6 +44,14 @@ ApplicationWindow {
                    + scopeVFOGroup.padding * 2
                    + mainLayout.spacing * 2
     height: minimumHeight
+    onMinimumWidthChanged: {
+        if (!win.radioConnected && !win.waylandPlatform)
+            win.width = win.minimumWidth
+    }
+    onMinimumHeightChanged: {
+        if (!win.radioConnected && !win.waylandPlatform)
+            win.height = win.minimumHeight
+    }
 
     component OptionalMeterSlot: Item {
         id: optionalMeterSlot
