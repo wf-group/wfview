@@ -93,11 +93,11 @@ struct KNOBVALUE {
 };
 
 struct USBDEVICE {
-    USBDEVICE() : detected(false), remove(false), connected(false), uiCreated(false), disabled(false), speed(2), timeout(30), brightness(2),orientation(0),
+    USBDEVICE() : detected(false), remove(false), connected(false), uiCreated(false), disabled(false), openAttempts(0), speed(2), timeout(30), brightness(2),orientation(0),
         color(Qt::darkGray), lcd(funcNone), sensitivity(1),jogpos(0),shutpos(0),shutMult(0),jogCounter(0),buttons(0),knobs(0),lastusbController(QTime::currentTime()),
         lastData(QByteArray(8,0x0)), lastDialPos(0), pages(1),currentPage(1), ledStatus(0x07) {}
 
-    USBDEVICE(USBTYPE type) : type(type), detected(false), remove(false), connected(false), uiCreated(false), disabled(false), speed(2), timeout(30), brightness(2),orientation(0),
+    USBDEVICE(USBTYPE type) : type(type), detected(false), remove(false), connected(false), uiCreated(false), disabled(false), openAttempts(0), speed(2), timeout(30), brightness(2),orientation(0),
         color(Qt::darkGray), lcd(funcNone), sensitivity(1),jogpos(0),shutpos(0),shutMult(0),jogCounter(0),buttons(0),knobs(0),lastusbController(QTime::currentTime()),
         lastData(QByteArray(8,0x0)), lastDialPos(0), pages(1),currentPage(1), ledStatus(0x07) {}
 
@@ -107,6 +107,7 @@ struct USBDEVICE {
     bool connected;
     bool uiCreated;
     bool disabled;
+    int openAttempts;
     quint8 speed;
     quint8 timeout;
     quint8 brightness;

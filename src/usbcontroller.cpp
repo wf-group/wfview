@@ -152,14 +152,10 @@ void usbController::run()
         // If device is not detected, ignore it.
         if (dev->detected)
         {
-            if (!dev->disabled && !dev->connected)
+            if (!dev->disabled && !dev->connected && dev->openAttempts < 2)
             {
-                        
                 if (!initDevice(dev))
                 {
-                    // This should only get displayed once if we fail to connect to a device
-                    qInfo(logUsbControl()) << QString("Error connecting to  %0: %1")
-                                              .arg(dev->product, hidString(hid_error(dev->handle)));
                     continue;
                 }
             }
@@ -1268,6 +1264,7 @@ void usbController::programDisable(USBDEVICE* dev, bool disabled)
         }
     } else {
         qInfo(logUsbControl()) << "Enabling device:" << dev->product;
+        dev->openAttempts = 0;
     }
     QTimer::singleShot(250, this, SLOT(run())); // Call run disconnect/reconnect after 250ms
 }
@@ -2318,6 +2315,7 @@ void usbController::checkForControllers()
                 usbDev->serial = hidString(info->serial_number);
                 usbDev->deviceId = QString("0x%1").arg(usbDev->type.productId, 4, 16, QChar('0'));
                 usbDev->detected = true;
+                usbDev->openAttempts = 0;
                 qDebug(logUsbControl()) << "Known device detected" << usbDev->product;
             }
         }
@@ -2481,10 +2479,16 @@ bool usbController::initDevice(USBDEVICE *dev)
     }
     else
     {
+        dev->openAttempts++;
         qWarning(logUsbControl()) << "Unable to open USB controller" << dev->product
                                   << "path" << dev->path
                                   << "vendor" << QString("0x%1").arg(dev->type.manufacturerId, 4, 16, QChar('0'))
-                                  << "product" << QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'));
+                                  << "product" << QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'))
+                                  << QString("(attempt %1 of 2)").arg(dev->openAttempts);
+        if (dev->openAttempts >= 2) {
+            qWarning(logUsbControl()) << "Giving up on USB controller" << dev->product
+                                      << "- device may be in use by another program or there may be a permission issue.";
+        }
         mutex->unlock();
     }
 
