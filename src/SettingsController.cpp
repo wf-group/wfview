@@ -1121,11 +1121,18 @@ void SettingsController::load()
         qWarning(logAudio) << "No valid audio input device found, please configure one in settings";
     }
 
-    int output = audioDev->findOutput("Client",settings->value("AudioOutput", "Default Output Device").toString(),true);
+    const QString savedAudioOutput = settings->value("AudioOutput", "Default Output Device").toString();
+    int output = audioDev->findOutput("Client", savedAudioOutput, true);
+    qDebug(logAudio()) << "loadSettings: audio output device from prefs=" << savedAudioOutput
+                      << "findOutput returned index=" << output;
 
     if (output != -1) {
         if (prefs.audioSystem == qtAudio) {
             prefs.rxSetup.port = audioDev->getOutputDeviceInfo(output);
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+            qDebug(logAudio()) << "loadSettings: resolved audio output port.id=" << prefs.rxSetup.port.id()
+                              << "port.description=" << prefs.rxSetup.port.description();
+#endif
         }
         else {
             prefs.rxSetup.portInt = audioDev->getOutputDeviceInt(output);
@@ -2781,6 +2788,22 @@ void SettingsController::setOption(const QString& key, const QVariant& value)
     const QVariant newVal = it.value().get();
     qDebug(logSystem) << "setting changed" << key << oldVal << "->" << newVal;
 
+    if (key == QStringLiteral("UDP.RxAudio")) {
+        qDebug(logAudio()) << "UI audio output selection changed:"
+                          << "settings name (old)=" << oldVal.toString()
+                          << "settings name (new)=" << newVal.toString()
+                          << "prefs.rxSetup.name=" << prefs.rxSetup.name
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+                          << "prefs.rxSetup.port.id=" << prefs.rxSetup.port.id()
+                          << "prefs.rxSetup.port.description=" << prefs.rxSetup.port.description()
+                          << "prefs.rxSetup.port.isNull=" << prefs.rxSetup.port.isNull()
+#else
+                          << "prefs.rxSetup.port.deviceName=" << prefs.rxSetup.port.deviceName()
+                          << "prefs.rxSetup.port.isNull=" << prefs.rxSetup.port.isNull()
+#endif
+                          ;
+    }
+
     // Mark dirty + update map (QML reacts to the map)
     markDirty();
     updateOptionInMap(key, newVal);
@@ -3272,11 +3295,43 @@ void SettingsController::buildBindings()
     WF_U8("UDP.TxCodec", prefs.txSetup.codec,
           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_txCodec)); });
 
-    WF_STR("UDP.TxAudio", prefs.txSetup.name,
-           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioInput)); });
+    WF_BIND("UDP.TxAudio", QVariant(prefs.txSetup.name), {
+        const QString name = _v.toString();
+        if (prefs.txSetup.name == name)
+            return false;
+        prefs.txSetup.name = name;
+        const int index = audioDev ? audioDev->findInput(QStringLiteral("Client"), name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.txSetup.port = audioDev->getInputDeviceInfo(index);
+            else
+                prefs.txSetup.portInt = audioDev->getInputDeviceInt(index);
+            prefs.txSetup.name = audioDev->getInputName(index);
+        } else {
+            prefs.txSetup.port = {};
+            prefs.txSetup.portInt = -1;
+        }
+        return true;
+    }, [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioInput)); });
 
-    WF_STR("UDP.RxAudio", prefs.rxSetup.name,
-           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioOutput)); });
+    WF_BIND("UDP.RxAudio", QVariant(prefs.rxSetup.name), {
+        const QString name = _v.toString();
+        if (prefs.rxSetup.name == name)
+            return false;
+        prefs.rxSetup.name = name;
+        const int index = audioDev ? audioDev->findOutput(QStringLiteral("Client"), name, true) : -1;
+        if (index >= 0) {
+            if (prefs.audioSystem == qtAudio)
+                prefs.rxSetup.port = audioDev->getOutputDeviceInfo(index);
+            else
+                prefs.rxSetup.portInt = audioDev->getOutputDeviceInt(index);
+            prefs.rxSetup.name = audioDev->getOutputName(index);
+        } else {
+            prefs.rxSetup.port = {};
+            prefs.rxSetup.portInt = -1;
+        }
+        return true;
+    }, [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioOutput)); });
 
     // -------------------------
     // Server group

@@ -141,7 +141,20 @@ bool audioHandlerBase::init(const audioSetup& setup)
                       << "txProc=" << setup.txProc
                       << "rxProc=" << setup.rxProc
                       << "codec=" << setup.codec
-                      << "sampleRate=" << setup.sampleRate;
+                      << "sampleRate=" << setup.sampleRate
+                      << "name(from prefs)=" << setup.name;
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+    qDebug(logAudio()) << role() << "audio device sent to backend:"
+                      << "port.id=" << setup.port.id()
+                      << "port.description=" << setup.port.description()
+                      << "port.isNull=" << setup.port.isNull()
+                      << "portInt=" << setup.portInt;
+#else
+    qDebug(logAudio()) << role() << "audio device sent to backend:"
+                      << "port.deviceName=" << setup.port.deviceName()
+                      << "port.isNull=" << setup.port.isNull()
+                      << "portInt=" << setup.portInt;
+#endif
 
     codec = codecType::LPCM;
     if (setup.codec == 0x01 || setup.codec == 0x20)      codec = codecType::PCMU;
