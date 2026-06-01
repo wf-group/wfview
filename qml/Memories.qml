@@ -31,6 +31,9 @@ ApplicationWindow {
     }
 
     onClosing: function(close) {
+        if (forceClose)
+            return
+
         close.accepted = false  // Don't actually close
         visible = false         // Just hide instead
     }
@@ -66,6 +69,7 @@ ApplicationWindow {
     visible: true
 
     property MemoriesModel memoriesModel
+    property bool forceClose: false
 
     function applyDisabledPalette() {
         try {

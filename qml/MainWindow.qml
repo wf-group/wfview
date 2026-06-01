@@ -307,14 +307,19 @@ ApplicationWindow {
 
 
     onClosing: function(close) {
+        if (win.shutdownStarted) {
+            close.accepted = true
+            return
+        }
+
         if (!win.quitConfirmed && shouldConfirmUnsavedSettings()) {
             close.accepted = false
             unsavedSettingsDialog.showDialog()
             return
         }
 
+        close.accepted = false
         shutdownAndQuit()
-        close.accepted = true
     }
 
     FirstTimeSetup {
@@ -773,19 +778,33 @@ ApplicationWindow {
         saveWindowGeometry()
         unsavedSettingsDialog.visible = false
         if (settingsLoader.item)
-            settingsLoader.item.visible = false
-        if (memoriesLoader.item)
-            memoriesLoader.item.visible = false
-        if (selectRadioLoader.item)
+            settingsLoader.item.close()
+        if (memoriesLoader.item) {
+            memoriesLoader.item.forceClose = true
+            memoriesLoader.item.close()
+        }
+        if (selectRadioLoader.item) {
             MainController.selectRadio.visible = false
-        if (cwSenderLoader.item)
+            selectRadioLoader.item.close()
+        }
+        if (cwSenderLoader.item) {
             MainController.cwSender.visible = false
+            cwSenderLoader.item.close()
+        }
+        for (var i = 0; i < rigCreatorWindows.length; ++i) {
+            if (rigCreatorWindows[i]) {
+                rigCreatorWindows[i].forceClose = true
+                rigCreatorWindows[i].close()
+            }
+        }
         if (txAudioProcessingWindow)
-            txAudioProcessingWindow.visible = false
+            txAudioProcessingWindow.close()
         if (rxAudioProcessingWindow)
-            rxAudioProcessingWindow.visible = false
+            rxAudioProcessingWindow.close()
 
-        Qt.callLater(MainController.quitApplication)
+        Qt.callLater(function() {
+            MainController.quitApplication()
+        })
     }
 
     Component {
