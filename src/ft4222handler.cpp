@@ -48,7 +48,7 @@ bool ft4222Handler::loadFTDILibraries()
 #elif defined(Q_OS_MACOS)
     // macOS: Documentation is contradictory - try both approaches
     // First try libft4222 alone (newer versions may have D2XX built-in)
-    ft4222Lib.setFileName("libft4222");
+    ft4222Lib.setFileName("/usr/local/lib/libft4222");
 
     if (ft4222Lib.load())
     {
@@ -67,7 +67,7 @@ bool ft4222Handler::loadFTDILibraries()
         {
             // D2XX not built-in, need separate library
             qInfo(logRig()) << "libft4222 loaded, attempting to load separate libftd2xx";
-            ftd2xxLib.setFileName("libftd2xx");
+            ftd2xxLib.setFileName("/usr/local/lib/libftd2xx");
 
             if (!ftd2xxLib.load())
             {
