@@ -46,7 +46,7 @@ public:
     enum connectionStatus_t { connDisconnected, connConnecting, connConnected };
     Q_ENUM (connectionStatus_t)
 
-    enum underlay_t { underlayNone, underlayPeakHold, underlayPeakBuffer, underlayAverageBuffer };
+    enum underlay_t { underlayNone, underlayPeak, underlayAverage };
     Q_ENUM (underlay_t)
 
     enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connectionWAN };

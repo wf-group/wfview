@@ -4307,8 +4307,9 @@ void MainController::setDefPrefs()
     defprefs->useSystemTheme = false;
     defprefs->drawPeaks = true;
     defprefs->currentColorPresetNumber = 0;
-    defprefs->underlayMode = underlayNone;
-    defprefs->underlayBufferSize = 64;
+    defprefs->underlayMode = underlayAverage;
+    defprefs->underlayBufferSize = 80;
+    defprefs->peakDecay = 50;
     defprefs->wfEnable = 2;
     defprefs->wfAntiAlias = false;
     defprefs->wfInterpolate = true;
@@ -4589,7 +4590,12 @@ void MainController::loadSettings(QString settingsFile)
 
     prefs->drawPeaks = settings->value("DrawPeaks", defprefs->drawPeaks).toBool();
     prefs->underlayBufferSize = settings->value("underlayBufferSize", defprefs->underlayBufferSize).toInt();
-    prefs->underlayMode = static_cast<underlay_t>(settings->value("underlayMode", defprefs->underlayMode).toInt());
+    {
+        int modeVal = settings->value("underlayMode", defprefs->underlayMode).toInt();
+        if (modeVal < 0 || modeVal > 2) modeVal = underlayAverage;
+        prefs->underlayMode = static_cast<underlay_t>(modeVal);
+    }
+    prefs->peakDecay = qBound(0, settings->value("peakDecay", defprefs->peakDecay).toInt(), 100);
     prefs->wfAntiAlias = settings->value("WFAntiAlias", defprefs->wfAntiAlias).toBool();
     prefs->wfInterpolate = settings->value("WFInterpolate", defprefs->wfInterpolate).toBool();
     prefs->mainWflength = (unsigned int)settings->value("MainWFLength", defprefs->mainWflength).toInt();

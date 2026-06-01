@@ -95,10 +95,30 @@ void SpectrumItem::setPeakDecay(int d)
 {
     if (decay != d)
     {
-        decay = (d/8); // Try to make similar to widget.
-        decayCounter = 0;
+        decay = d;
         emit peakDecayChanged();
     }
+}
+
+void SpectrumItem::setUnderlayMode(int mode)
+{
+    underlay_t m = static_cast<underlay_t>(qBound(0, mode, 2));
+    if (m_underlayMode == m) return;
+    m_underlayMode = m;
+    peaks.fill(0);
+    m_historyCount = 0;
+    m_historyWriteIndex = 0;
+    emit underlayModeChanged();
+    update();
+}
+
+void SpectrumItem::setUnderlayBufferSize(int size)
+{
+    size = qBound(2, size, HISTORY_CAPACITY);
+    if (m_underlayBufferSize == size) return;
+    m_underlayBufferSize = size;
+    emit underlayBufferSizeChanged();
+    update();
 }
 
 void SpectrumItem::setOverflow(bool on)
@@ -520,23 +540,9 @@ void SpectrumItem::updateScope(const scopeData &data)
         mags.resize(n);
         peaks.resize(n);
         peaks.fill(0);
+        m_historyCount = 0;
+        m_historyWriteIndex = 0;
     }
-
-    if (!peaks.isEmpty() && decay > 0)
-    {
-        // Only decay once every N updates
-        if (++decayCounter >= decay)
-        {
-            decayCounter = 0;
-
-            for (int i = 0; i < peaks.size(); ++i) {
-                int p = peaks[i];
-                if (p > 0) --p;              // 1 step per 'decay' frames
-                peaks[i] = quint8(p);
-            }
-        }
-    }
-
 
     const uchar *raw = reinterpret_cast<const uchar *>(data.data.constData());
 
@@ -558,8 +564,56 @@ void SpectrumItem::updateScope(const scopeData &data)
         if (scaled > 255) scaled = 255;
 
         mags[i] = quint8(scaled);
-        if (mags[i] > peaks[i])
-            peaks[i] = mags[i];
+    }
+
+    switch (m_underlayMode) {
+    case underlayPeak:
+    {
+        // Slider 0-100 maps to decay factor 0.95 (fast) to 0.9999 (slow)
+        const double factor = 0.95 + (decay / 100.0) * (0.9999 - 0.95);
+
+        for (int i = 0; i < n; ++i) {
+            peaks[i] = quint16(peaks[i] * factor);
+        }
+
+        for (int i = 0; i < n; ++i) {
+            quint16 mag100 = quint16(mags[i]) * 100;
+            if (mag100 > peaks[i])
+                peaks[i] = mag100;
+        }
+        break;
+    }
+    case underlayAverage:
+    {
+        // Store current mags into circular history buffer
+        if (m_history.size() != HISTORY_CAPACITY) {
+            m_history.resize(HISTORY_CAPACITY);
+            m_historyCount = 0;
+            m_historyWriteIndex = 0;
+        }
+        m_history[m_historyWriteIndex] = mags;
+        m_historyWriteIndex = (m_historyWriteIndex + 1) % HISTORY_CAPACITY;
+        if (m_historyCount < HISTORY_CAPACITY)
+            ++m_historyCount;
+
+        // Compute average over the requested window
+        const int count = qMin(m_underlayBufferSize, m_historyCount);
+        if (count > 0) {
+            for (int i = 0; i < n; ++i) {
+                int sum = 0;
+                for (int h = 0; h < count; ++h) {
+                    int idx = (m_historyWriteIndex - 1 - h + HISTORY_CAPACITY) % HISTORY_CAPACITY;
+                    sum += m_history[idx][i];
+                }
+                peaks[i] = quint16((sum / count) * 100);
+            }
+        }
+        break;
+    }
+    case underlayNone:
+    default:
+        peaks.fill(0);
+        break;
     }
 
     scopeUpdateTimeNs.store(timer.nsecsElapsed(), std::memory_order_relaxed);
@@ -1208,26 +1262,38 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     // 2) Grid
     updateGridNode(root->gridLines, w, plotH, floor, ceiling, gridStep, colors.gridColor);
 
-    if (!colors.useUnderlayFillGradient) {
-        updateFillStripNode(root->peaksFill, peaks, w, plotH, colors.underlayFill);
+    if (m_underlayMode != underlayNone) {
+        // Convert quint16 (100x scale) peaks to quint8 for rendering
+        QVector<quint8> peaksDisplay(peaks.size());
+        for (int i = 0; i < peaks.size(); ++i) {
+            int v = peaks[i] / 100;
+            peaksDisplay[i] = quint8(qMin(v, 255));
+        }
+
+        if (!colors.useUnderlayFillGradient) {
+            updateFillStripNode(root->peaksFill, peaksDisplay, w, plotH, colors.underlayFill);
+            QSGGeometry *g = root->peaksGradient->geometry();
+            Q_ASSERT(g);
+            g->allocate(0);
+            root->peaksGradient->markDirty(QSGNode::DirtyGeometry);
+        } else {
+            updateFillStripNode(root->peaksFill, QVector<quint8>(), w, plotH, Qt::transparent);
+            updateGradientFillNode(root->peaksGradient,
+                                   peaksDisplay,
+                                   w,
+                                   plotH,
+                                   colors.underlayFillTop,
+                                   colors.underlayFillBot);
+        }
+        updateLineNode(root->peaksLine, peaksDisplay, w, plotH, colors.underlayLine);
+    } else {
+        updateFillStripNode(root->peaksFill, QVector<quint8>(), w, plotH, Qt::transparent);
         QSGGeometry *g = root->peaksGradient->geometry();
         Q_ASSERT(g);
         g->allocate(0);
         root->peaksGradient->markDirty(QSGNode::DirtyGeometry);
-    } else {
-        // no flat fill in gradient mode
-        updateFillStripNode(root->peaksFill, QVector<quint8>(), w, plotH, Qt::transparent);
-        // gradient fill using vertex colors
-        updateGradientFillNode(root->peaksGradient,
-                               peaks,
-                               w,
-                               plotH,
-                               colors.underlayFillTop,
-                               colors.underlayFillBot);
+        updateLineNode(root->peaksLine, QVector<quint8>(), w, plotH, Qt::transparent);
     }
-
-    // 4) Peaks line
-    updateLineNode(root->peaksLine, peaks, w, plotH,colors.underlayLine);
 
     // 3) Fill under spectrum (flat only)
     if (!colors.useSpectrumFillGradient) {
@@ -1804,7 +1870,6 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 void SpectrumItem::clearPeaks()
 {
     peaks.fill(0);
-    decayCounter = 0;
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

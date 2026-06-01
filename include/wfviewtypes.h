@@ -16,7 +16,7 @@ enum valueType { typeNone=0, typeFloat, typeFloatDiv, typeFloatDiv5, typeUChar, 
 
 enum connectionStatus_t { connDisconnected, connConnecting, connConnected };
 
-enum underlay_t { underlayNone, underlayPeakHold, underlayPeakBuffer, underlayAverageBuffer };
+enum underlay_t { underlayNone = 0, underlayPeak = 1, underlayAverage = 2 };
 
 enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connectionWAN };
 

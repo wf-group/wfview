@@ -47,6 +47,7 @@ enum prefIfItem {
     if_separators = 1 << 24,
     if_forceVfoMode = 1 << 25,
     if_autoPowerOn = 1 << 26,
+    if_peakDecay = 1 << 27,
     if_all = ~0
 };
 
@@ -277,8 +278,9 @@ struct preferences {
     bool useSystemTheme;
     int wfEnable;
     bool drawPeaks;
-    underlay_t underlayMode = underlayNone;
-    int underlayBufferSize = 64;
+    underlay_t underlayMode = underlayAverage;
+    int underlayBufferSize = 80;
+    int peakDecay = 50;
     bool wfAntiAlias;
     bool wfInterpolate;
     int mainWfTheme;

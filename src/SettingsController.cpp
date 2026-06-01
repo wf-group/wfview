@@ -837,7 +837,12 @@ void SettingsController::load()
 
     prefs.drawPeaks = settings->value("DrawPeaks", defPrefs.drawPeaks).toBool();
     prefs.underlayBufferSize = settings->value("underlayBufferSize", defPrefs.underlayBufferSize).toInt();
-    prefs.underlayMode = static_cast<underlay_t>(settings->value("underlayMode", defPrefs.underlayMode).toInt());
+    {
+        int modeVal = settings->value("underlayMode", defPrefs.underlayMode).toInt();
+        if (modeVal < 0 || modeVal > 2) modeVal = underlayAverage;
+        prefs.underlayMode = static_cast<underlay_t>(modeVal);
+    }
+    prefs.peakDecay = qBound(0, settings->value("peakDecay", defPrefs.peakDecay).toInt(), 100);
     prefs.wfAntiAlias = settings->value("WFAntiAlias", defPrefs.wfAntiAlias).toBool();
     prefs.wfInterpolate = settings->value("WFInterpolate", defPrefs.wfInterpolate).toBool();
     prefs.mainWflength = (unsigned int)settings->value("MainWFLength", defPrefs.mainWflength).toInt();
@@ -1629,6 +1634,7 @@ void SettingsController::save()
     settings->setValue("DrawPeaks", prefs.drawPeaks);
     settings->setValue("underlayMode", prefs.underlayMode);
     settings->setValue("underlayBufferSize", prefs.underlayBufferSize);
+    settings->setValue("peakDecay", prefs.peakDecay);
     settings->setValue("WFAntiAlias", prefs.wfAntiAlias);
     settings->setValue("WFInterpolate", prefs.wfInterpolate);
     settings->setValue("MainWFTheme", prefs.mainWfTheme);
@@ -2146,8 +2152,9 @@ void SettingsController::setDefPrefs()
     defPrefs.useSystemTheme = false;
     defPrefs.drawPeaks = true;
     defPrefs.currentColorPresetNumber = 0;
-    defPrefs.underlayMode = underlayNone;
-    defPrefs.underlayBufferSize = 64;
+    defPrefs.underlayMode = underlayAverage;
+    defPrefs.underlayBufferSize = 80;
+    defPrefs.peakDecay = 50;
     defPrefs.wfEnable = 2;
     defPrefs.wfAntiAlias = false;
     defPrefs.wfInterpolate = true;
@@ -3122,6 +3129,9 @@ void SettingsController::buildBindings()
 
     WF_I32("Interface.UnderlayBufferSize", prefs.underlayBufferSize,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_underlayBufferSize)); });
+
+    WF_I32("Interface.PeakDecay", prefs.peakDecay,
+           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_peakDecay)); });
 
     WF_BOOL("Interface.WFAntiAlias", prefs.wfAntiAlias,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wfAntiAlias)); });

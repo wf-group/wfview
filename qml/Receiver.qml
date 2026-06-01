@@ -321,6 +321,9 @@ Control {
                     colors: controller ? controller.colors : null
                     center: controller ? controller.frequencyA : null
                     bands: controller && controller.activeBands
+                    underlayMode: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayMode"]) : 2
+                    peakDecay: MainController.settings ? Number(MainController.settings.options["Interface.PeakDecay"]) : 50
+                    underlayBufferSize: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayBufferSize"]) : 80
                     onTuneRequested: function(freq) {
                         controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
                         controller.frequencyAChanged() // Signal the controller that frequency has changed

@@ -69,6 +69,8 @@ class SpectrumItem : public QQuickItem
     Q_PROPERTY(double pbtHigh READ getPbtHigh WRITE setPbtHigh NOTIFY pbtChanged)
 
     Q_PROPERTY(float peakDecay READ getPeakDecay WRITE setPeakDecay NOTIFY peakDecayChanged)
+    Q_PROPERTY(int underlayMode READ getUnderlayMode WRITE setUnderlayMode NOTIFY underlayModeChanged)
+    Q_PROPERTY(int underlayBufferSize READ getUnderlayBufferSize WRITE setUnderlayBufferSize NOTIFY underlayBufferSizeChanged)
 
     Q_PROPERTY(int maxSpotRows READ getMaxSpotRows WRITE setMaxSpotRows NOTIFY spotsChanged)
     Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
@@ -99,6 +101,8 @@ public:
     double getPbtLow() const { return pbtLow; }
     double getPbtHigh() const { return pbtHigh; }
     float getPeakDecay() const { return decay; }
+    int getUnderlayMode() const { return static_cast<int>(m_underlayMode); }
+    int getUnderlayBufferSize() const { return m_underlayBufferSize; }
     int getMaxSpotRows() const { return maxSpotRows; }
 
     struct SpotLayout {
@@ -119,6 +123,8 @@ public slots:
     void setPbtLow(qreal x);
     void setPbtHigh(qreal x);
     void setPeakDecay(int d);
+    void setUnderlayMode(int mode);
+    void setUnderlayBufferSize(int size);
     void setMaxSpotRows(int rows);
     void updateScope(const scopeData &data);
     void setSpots(const QVector<spotData> &newSpots);
@@ -133,6 +139,8 @@ signals:
     void passbandChanged();
     void pbtChanged();
     void peakDecayChanged();
+    void underlayModeChanged();
+    void underlayBufferSizeChanged();
     void tuneRequested(double freqMHz);
     void spotsChanged();
     void overflowChanged();
@@ -167,7 +175,7 @@ private:
     QPointer<QObject> m_controller;
 
     QVector<quint8> mags;
-    QVector<quint8> peaks;
+    QVector<quint16> peaks;
     QVector<spotData> spots;
     QVector<SpotLayout> spotLayouts;
     QVector<bandType> bands;
@@ -193,8 +201,14 @@ private:
     double pbtLow = 0.0;
     double pbtHigh = 0.0;
 
-    int decay = 4;
-    int decayCounter = 0;
+    int decay = 50;
+
+    underlay_t m_underlayMode = underlayAverage;
+    int m_underlayBufferSize = 80;
+    static constexpr int HISTORY_CAPACITY = 160;
+    QVector<QVector<quint8>> m_history;
+    int m_historyWriteIndex = 0;
+    int m_historyCount = 0;
 
     int axis = 20;
     int ticks  = 7;

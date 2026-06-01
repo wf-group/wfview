@@ -1398,22 +1398,42 @@ ApplicationWindow {
                             Label { id: underlayLabel; text: qsTr("Underlay Mode") }
                             ButtonGroup { id: underlayGroup }
 
-                            RadioButton { id: underlayNone; text: qsTr("None"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 0 : true; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("No underlay graphics"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 0) }
-                            RadioButton { id: underlayPeakHold; text: qsTr("Peak Hold"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 1 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Indefinite peak hold"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 1) }
-                            RadioButton { id: underlayPeakBuffer; text: qsTr("Peak"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 2 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Peak value within the buffer"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 2) }
-                            RadioButton { id: underlayAverageBuffer; text: qsTr("Average"); checked: controller ? Number(controller.options["Interface.UnderlayMode"]) === 3 : false; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Average value within the buffer"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 3) }
+                            property int currentMode: {
+                                if (!controller) return 2
+                                var v = Number(controller.options["Interface.UnderlayMode"])
+                                return (v >= 0 && v <= 2) ? v : 2
+                            }
 
-                            Label { text: qsTr("Underlay Buffer Size:") }
+                            RadioButton { id: underlayNoneBtn; text: qsTr("None"); checked: parent.currentMode === 0; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("No underlay graphics"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 0) }
+                            RadioButton { id: underlayPeakBtn; text: qsTr("Peak"); checked: parent.currentMode === 1; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Peak hold with configurable decay"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 1) }
+                            RadioButton { id: underlayAverageBtn; text: qsTr("Average"); checked: parent.currentMode === 2; ButtonGroup.group: underlayGroup; ToolTip.visible: hovered; ToolTip.text: qsTr("Average of recent spectrum data"); onClicked: if (controller) controller.setOption("Interface.UnderlayMode", 2) }
+
+                            Label {
+                                text: parent.currentMode === 1 ? qsTr("Peak Lifetime") : qsTr("Average Count")
+                                visible: parent.currentMode !== 0
+                            }
                             Slider {
-                                id: underlayBufferSlider
-                                from: 8
-                                to: 128
-                                value: controller ? Number(controller.options["Interface.UnderlayBufferSize"]) : 64
+                                id: underlaySlider
+                                visible: parent.currentMode !== 0
+                                enabled: parent.currentMode !== 0
+                                from: parent.currentMode === 1 ? 0 : 2
+                                to: parent.currentMode === 1 ? 100 : 160
+                                value: parent.currentMode === 1
+                                    ? (controller ? Number(controller.options["Interface.PeakDecay"]) : 50)
+                                    : (controller ? Number(controller.options["Interface.UnderlayBufferSize"]) : 80)
                                 stepSize: 1
                                 Layout.preferredWidth: 100
                                 ToolTip.visible: hovered
-                                ToolTip.text: qsTr("Size of buffer for spectrum data. Shorter values are more responsive.")
-                                onMoved: if (controller) controller.setOption("Interface.UnderlayBufferSize", Math.round(value))
+                                ToolTip.text: parent.currentMode === 1
+                                    ? qsTr("Lower values decay rapidly; Higher values decay slowly. Maximum setting does not decay.")
+                                    : qsTr("Number of spectral frames to average (2-160)")
+                                onMoved: {
+                                    if (!controller) return
+                                    if (parent.currentMode === 1)
+                                        controller.setOption("Interface.PeakDecay", Math.round(value))
+                                    else
+                                        controller.setOption("Interface.UnderlayBufferSize", Math.round(value))
+                                }
                             }
 
                             CheckBox {
