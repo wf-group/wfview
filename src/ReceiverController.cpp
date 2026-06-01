@@ -1103,7 +1103,7 @@ void ReceiverController::setAntenna(uchar v, bool u)
         antenna.antenna = v;
         emit antennaChanged();
 
-        if (u) {
+        if (u && rigCaps && rigCaps->commands.contains(funcAntenna)) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
             queue->addUnique(priorityImmediate,queueItem(funcAntenna,QVariant::fromValue(antenna),false,t.receiver));
         }
@@ -1118,9 +1118,12 @@ void ReceiverController::setRxAntenna(bool v, bool u)
         antenna.rx = v;
         emit rxAntennaChanged();
 
-        if (u) {
+        if (u && rigCaps) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            queue->addUnique(priorityImmediate,queueItem(funcAntenna,QVariant::fromValue(antenna),false,t.receiver));
+            if (rigCaps->commands.contains(funcAntenna))
+                queue->addUnique(priorityImmediate,queueItem(funcAntenna,QVariant::fromValue(antenna),false,t.receiver));
+            else if (rigCaps->commands.contains(funcRXAntenna))
+                queue->addUnique(priorityImmediate,queueItem(funcRXAntenna,QVariant::fromValue(antenna.rx),false,t.receiver));
         }
     }
 }
@@ -1654,10 +1657,14 @@ void ReceiverController::buildUiSpecs()
         return opts;
     };
 
+    const bool hasAntennaCommand = rigCaps->commands.contains(funcAntenna);
+    const bool hasRxAntennaCommand = hasAntennaCommand || rigCaps->commands.contains(funcRXAntenna);
+
     // usage
     uiSpecs["antenna"] = QVariantMap{
-        {"visible", true},
-        {"options", mkAntennaOptions(rigCaps->antennas)}
+        {"visible", hasAntennaCommand || hasRxAntennaCommand},
+        {"rxVisible", hasRxAntennaCommand},
+        {"options", hasAntennaCommand ? mkAntennaOptions(rigCaps->antennas) : QVariantList{}}
     };
 
 

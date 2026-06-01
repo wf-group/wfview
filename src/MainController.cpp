@@ -3491,7 +3491,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         //ui->mainSubTrackingBtn->setVisible(rigCaps->commands.contains(funcMainSubTracking));
         // Only show this split button on IC7610/IC785x
         ui->splitBtn->setVisible(rigCaps->commands.contains(funcSplitStatus) && rigCaps->commands.contains(funcVFOEqualMS));
-        ui->antennaGroup->setVisible(rigCaps->commands.contains(funcAntenna));
+        ui->antennaGroup->setVisible(rigCaps->commands.contains(funcAntenna) || rigCaps->commands.contains(funcRXAntenna));
         ui->preampAttGroup->setVisible(rigCaps->commands.contains(funcPreamp));
         //ui->dualWatchBtn->setVisible(rigCaps->hasCommand29);
 
@@ -3627,7 +3627,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             ui->antennaSelCombo->setDisabled(true);
         }
 
-        ui->rxAntennaCheck->setEnabled(rigCaps->commands.contains(funcRXAntenna));
+        ui->rxAntennaCheck->setEnabled(rigCaps->commands.contains(funcAntenna) || rigCaps->commands.contains(funcRXAntenna));
         ui->rxAntennaCheck->setChecked(false);
 
         ui->tuneEnableChk->setEnabled(rigCaps->commands.contains(funcTunerStatus));
@@ -4064,14 +4064,13 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcDigiSel:
         receivers[val.receiver]->setDs(val.value.value<bool>(),false);
-        //ui->preampSelCombo->setEnabled(!val.value.value<bool>());
         break;
     case funcTwinPeakFilter:
         break;
     case funcDialLock:
         break;
     case funcRXAntenna:
-        //ui->rxAntennaCheck->setChecked(val.value.value<bool>());
+        receivers[val.receiver]->setRxAntenna(val.value.value<bool>(),false);
         break;
     case funcManualNotchWidth:
         break;

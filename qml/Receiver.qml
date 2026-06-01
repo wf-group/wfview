@@ -1935,6 +1935,7 @@ Control {
                         readonly property var spec: controller ? controller.uiSpecs["antenna"] : null
                         visible: spec ? (spec.visible ?? true) : false
                         readonly property var options: spec ? (spec.options ?? []) : []
+                        readonly property bool rxVisible: spec ? (spec.rxVisible ?? false) : false
 
                         RowLayout {
                             id: antRow
@@ -1958,10 +1959,14 @@ Control {
                                 }
                             }
 
-                            Item { Layout.fillWidth: true } // pushes RX to the right
+                            Item {
+                                Layout.fillWidth: true
+                                visible: antCtl.rxVisible && antCtl.options.length > 0
+                            } // pushes RX to the right
 
                             CheckBox {
                                 text: qsTr("RX")
+                                visible: antCtl.rxVisible
                                 checked: controller ? controller.rxAntenna : false
                                 onToggled: if (controller) controller.rxAntenna = checked
                                 Layout.alignment: Qt.AlignVCenter

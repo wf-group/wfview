@@ -806,6 +806,7 @@ ApplicationWindow {
                                         if (ed === "modes") return modesEditor
                                         if (ed === "bool") return boolEditor
                                         if (ed === "color") return colorEditor
+                                        if (ed === "int") return intEditor
                                         return textEditor
                                     }
                                 }
@@ -835,6 +836,24 @@ ApplicationWindow {
                                     text: ""
                                     checked: panel.toBool(editorLoader.cellValueRef)
                                     onToggled: editorLoader.cellDataRef.display = checked
+                                }
+                            }
+
+                            Component {
+                                id: intEditor
+                                TextField {
+                                    text: String(editorLoader.cellValueRef ?? "")
+                                    color: panel.textColor
+                                    background: Rectangle { color: "transparent" }
+                                    selectByMouse: true
+                                    validator: IntValidator {
+                                        bottom: editorLoader.colDef.from ?? -2147483648
+                                        top: editorLoader.colDef.to ?? 2147483647
+                                    }
+                                    onEditingFinished: {
+                                        if (acceptableInput || text.length === 0)
+                                            editorLoader.cellDataRef.display = text
+                                    }
                                 }
                             }
 
@@ -1594,7 +1613,7 @@ ApplicationWindow {
                                         { text: qsTr("Low"), value: "Low" }
                                     ]},
                                     { title: qsTr("Command"), name: "Command", width: 180, editor: "combo", choices: rig.commandTypeChoices, searchable: true },
-                                    { title: qsTr("VFO"),     name: "VFO",     width: 40 },
+                                    { title: qsTr("VFO"),     name: "VFO",     width: 40, editor: "int", from: -1 },
                                     { title: qsTr("Modes"),   name: "Modes",   width: 220, editor: "modes" }
                                 ]
                             }
