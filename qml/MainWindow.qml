@@ -258,10 +258,12 @@ ApplicationWindow {
         }
 
         function showDialog() {
+            win.ensureWindowFitsPopup(unsavedSettingsDialog)
             open()
             forceActiveFocus()
         }
 
+        onClosed: win.shrinkAfterDialog()
         onRejected: close()
 
         ColumnLayout {
@@ -642,6 +644,27 @@ ApplicationWindow {
             width: win.width,
             height: win.height,
             maximized: win.visibility === Window.Maximized
+        }
+    }
+
+    property bool dialogExpandedWindow: false
+
+    function ensureWindowFitsPopup(popup) {
+        var pad = 40
+        var needW = popup.width + pad
+        var needH = popup.height + pad
+        if (win.width < needW || win.height < needH) {
+            win.dialogExpandedWindow = true
+            win.width  = Math.max(win.width,  needW)
+            win.height = Math.max(win.height, needH)
+        }
+    }
+
+    function shrinkAfterDialog() {
+        if (win.dialogExpandedWindow) {
+            win.dialogExpandedWindow = false
+            if (!win.radioConnected)
+                shrinkDisconnectedWindow()
         }
     }
 
@@ -1507,7 +1530,10 @@ ApplicationWindow {
 
                 Button {
                     text: qsTr("About")
-                    onClicked: aboutDialog.open()
+                    onClicked: {
+                        win.ensureWindowFitsPopup(aboutDialog)
+                        aboutDialog.open()
+                    }
                 }
                 Button {
                     text: qsTr("Settings")
@@ -1655,8 +1681,8 @@ ApplicationWindow {
             qtVersion: Qt.version ? Qt.version : ""
         }
 
-        // Optional: Add a close button at the bottom
         standardButtons: Dialog.Close
+        onClosed: win.shrinkAfterDialog()
     }
 
     Component.onCompleted: {
