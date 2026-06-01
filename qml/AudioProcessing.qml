@@ -29,6 +29,23 @@ ApplicationWindow {
         dark: MainController.settings.options["Color.Dark"]
         light: MainController.settings.options["Color.Light"]
         placeholderText: MainController.settings.options["Color.PlaceholderText"]
+
+        disabled {
+            window: MainController.settings.options["Color.Window"]
+            windowText: MainController.settings.options["Color.Mid"]
+            base: MainController.settings.options["Color.Base"]
+            alternateBase: MainController.settings.options["Color.AlternateBase"]
+            text: MainController.settings.options["Color.Mid"]
+            button: MainController.settings.options["Color.Button"]
+            buttonText: MainController.settings.options["Color.Mid"]
+            brightText: MainController.settings.options["Color.Mid"]
+            highlight: MainController.settings.options["Color.Dark"]
+            highlightedText: MainController.settings.options["Color.Mid"]
+            mid: MainController.settings.options["Color.Mid"]
+            dark: MainController.settings.options["Color.Dark"]
+            light: MainController.settings.options["Color.Light"]
+            placeholderText: MainController.settings.options["Color.Mid"]
+        }
     }
 
     property string mode: "tx"
@@ -51,6 +68,36 @@ ApplicationWindow {
     // Latest TX processing sample rate, reported via onTxAudioSpectrumChanged.
     // Used to hide Multiband EQ bands that sit at or above the Nyquist limit.
     property real txSampleRate: 48000
+
+    function applyDisabledPalette() {
+        try {
+            palette.disabled.window = MainController.settings.options["Color.Window"]
+            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            palette.disabled.base = Qt.darker(MainController.settings.options["Color.Base"], 1.1)
+            palette.disabled.alternateBase = Qt.darker(MainController.settings.options["Color.AlternateBase"], 1.1)
+            palette.disabled.text = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.button = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            palette.disabled.brightText = Qt.darker(MainController.settings.options["Color.BrightText"], 2.5)
+            palette.disabled.highlight = Qt.darker(MainController.settings.options["Color.Highlight"], 1.5)
+            palette.disabled.highlightedText = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.mid = MainController.settings.options["Color.Mid"]
+            palette.disabled.dark = MainController.settings.options["Color.Dark"]
+            palette.disabled.light = Qt.darker(MainController.settings.options["Color.Light"], 1.2)
+            palette.disabled.placeholderText = Qt.darker(MainController.settings.options["Color.PlaceholderText"], 1.5)
+        } catch (e) {
+            // Qt 5 does not expose palette disabled groups to QML.
+        }
+    }
+
+    Component.onCompleted: applyDisabledPalette()
+
+    Connections {
+        target: MainController
+        function onColChanged(items) {
+            win.applyDisabledPalette()
+        }
+    }
 
     // Multiband EQ band centre frequencies — must stay in sync with the
     // MbeqProcessor::bandFreqs table in src/audio/plugins/mbeq.h. The index of
@@ -117,8 +164,10 @@ ApplicationWindow {
     }
 
     onVisibleChanged: {
-        if (visible)
+        if (visible) {
             MainController.updateApplicationPalette()
+            applyDisabledPalette()
+        }
     }
 
     function comboIndex(combo, value) {

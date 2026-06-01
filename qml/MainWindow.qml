@@ -15,6 +15,7 @@ ApplicationWindow {
     property var rxAudioProcessingWindow: null
     property var rigCreatorWindows: []
     property bool quitConfirmed: false
+    property bool shutdownStarted: false
     property var savedStartupGeometry: null
     property var lastConnectedGeometry: null
     property bool startupGeometryPending: false
@@ -347,7 +348,7 @@ ApplicationWindow {
     // Create memories window on demand
     Loader {
         id: memoriesLoader
-        active: MainController.memoriesModel !== null
+        active: false
         sourceComponent: Component {
             Memories {
                 memoriesModel: MainController.memoriesModel
@@ -357,6 +358,7 @@ ApplicationWindow {
 
     Loader {
         id: selectRadioLoader
+        active: false
         source: "qrc:/qml/SelectRadio.qml"
         asynchronous: false
 
@@ -369,6 +371,7 @@ ApplicationWindow {
     // Load CWSender window
     Loader {
         id: cwSenderLoader
+        active: false
         source: "qrc:/qml/CWSender.qml"
         asynchronous: false
         onLoaded: {
@@ -411,6 +414,18 @@ ApplicationWindow {
             settingsLoader.item.showOnScreen(win)
     }
 
+    function showSelectRadioWindow() {
+        if (!selectRadioLoader.active)
+            selectRadioLoader.active = true
+        MainController.showSelectRadio()
+        Qt.callLater(function() {
+            if (selectRadioLoader.item) {
+                selectRadioLoader.item.raise()
+                selectRadioLoader.item.requestActivate()
+            }
+        })
+    }
+
     function closeTopWindow() {
         if (settingsLoader.item && settingsLoader.item.visible && settingsLoader.item.active) {
             settingsLoader.item.close()
@@ -418,6 +433,10 @@ ApplicationWindow {
         }
         if (memoriesLoader.item && memoriesLoader.item.visible && memoriesLoader.item.active) {
             memoriesLoader.item.close()
+            return
+        }
+        if (selectRadioLoader.item && selectRadioLoader.item.visible && selectRadioLoader.item.active) {
+            MainController.selectRadio.visible = false
             return
         }
         if (cwSenderLoader.item && cwSenderLoader.item.visible && cwSenderLoader.item.active) {
@@ -443,6 +462,8 @@ ApplicationWindow {
         if (!win.radioConnected || !MainController.canOpenMemories())
             return
         MainController.openMemories()
+        if (!memoriesLoader.active)
+            memoriesLoader.active = true
         Qt.callLater(function() {
             if (memoriesLoader.item) {
                 memoriesLoader.item.visible = true
@@ -455,11 +476,15 @@ ApplicationWindow {
     function openCwSenderWindow() {
         if (!(mainControlSpecs.canSendCW ?? false))
             return
+        if (!cwSenderLoader.active)
+            cwSenderLoader.active = true
         MainController.showCWSender()
-        if (cwSenderLoader.item) {
-            cwSenderLoader.item.raise()
-            cwSenderLoader.item.requestActivate()
-        }
+        Qt.callLater(function() {
+            if (cwSenderLoader.item) {
+                cwSenderLoader.item.raise()
+                cwSenderLoader.item.requestActivate()
+            }
+        })
     }
 
     function popoutReceiver(receiver) {
@@ -728,7 +753,6 @@ ApplicationWindow {
             return
         }
 
-        win.quitConfirmed = true
         win.close()
     }
 
@@ -737,21 +761,31 @@ ApplicationWindow {
             MainController.settings.save()
 
         win.quitConfirmed = true
-        shutdownAndQuit()
         win.close()
     }
 
     function shutdownAndQuit() {
+        if (win.shutdownStarted)
+            return
+
+        win.shutdownStarted = true
+        win.quitConfirmed = true
         saveWindowGeometry()
         unsavedSettingsDialog.visible = false
         if (settingsLoader.item)
             settingsLoader.item.visible = false
+        if (memoriesLoader.item)
+            memoriesLoader.item.visible = false
+        if (selectRadioLoader.item)
+            MainController.selectRadio.visible = false
+        if (cwSenderLoader.item)
+            MainController.cwSender.visible = false
         if (txAudioProcessingWindow)
             txAudioProcessingWindow.visible = false
         if (rxAudioProcessingWindow)
             rxAudioProcessingWindow.visible = false
 
-        MainController.quitApplication()
+        Qt.callLater(MainController.quitApplication)
     }
 
     Component {
@@ -953,6 +987,27 @@ ApplicationWindow {
                                 visibility = row.detached ? (fullScreen ? Window.FullScreen : Window.Windowed) : Window.Hidden
                             }
 
+                            function applyDisabledPalette() {
+                                try {
+                                    palette.disabled.window = MainController.settings.options["Color.Window"]
+                                    palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+                                    palette.disabled.base = Qt.darker(MainController.settings.options["Color.Base"], 1.1)
+                                    palette.disabled.alternateBase = Qt.darker(MainController.settings.options["Color.AlternateBase"], 1.1)
+                                    palette.disabled.text = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+                                    palette.disabled.button = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+                                    palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+                                    palette.disabled.brightText = Qt.darker(MainController.settings.options["Color.BrightText"], 2.5)
+                                    palette.disabled.highlight = Qt.darker(MainController.settings.options["Color.Highlight"], 1.5)
+                                    palette.disabled.highlightedText = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+                                    palette.disabled.mid = MainController.settings.options["Color.Mid"]
+                                    palette.disabled.dark = MainController.settings.options["Color.Dark"]
+                                    palette.disabled.light = Qt.darker(MainController.settings.options["Color.Light"], 1.2)
+                                    palette.disabled.placeholderText = Qt.darker(MainController.settings.options["Color.PlaceholderText"], 1.5)
+                                } catch (e) {
+                                    // Qt 5 does not expose palette disabled groups to QML.
+                                }
+                            }
+
                             palette {
                                 window: MainController.settings.options["Color.Window"]
                                 windowText: MainController.settings.options["Color.WindowText"]
@@ -967,6 +1022,22 @@ ApplicationWindow {
                                 mid: MainController.settings.options["Color.Mid"]
                                 dark: MainController.settings.options["Color.Dark"]
                                 light: MainController.settings.options["Color.Light"]
+
+                                disabled {
+                                    window: MainController.settings.options["Color.Window"]
+                                    windowText: MainController.settings.options["Color.Mid"]
+                                    base: MainController.settings.options["Color.Base"]
+                                    alternateBase: MainController.settings.options["Color.AlternateBase"]
+                                    text: MainController.settings.options["Color.Mid"]
+                                    button: MainController.settings.options["Color.Button"]
+                                    buttonText: MainController.settings.options["Color.Mid"]
+                                    brightText: MainController.settings.options["Color.Mid"]
+                                    highlight: MainController.settings.options["Color.Dark"]
+                                    highlightedText: MainController.settings.options["Color.Mid"]
+                                    mid: MainController.settings.options["Color.Mid"]
+                                    dark: MainController.settings.options["Color.Dark"]
+                                    light: MainController.settings.options["Color.Light"]
+                                }
                             }
 
                             Item { id: detachedHost; anchors.fill: parent }
@@ -990,6 +1061,7 @@ ApplicationWindow {
                                 rxLoader.item.anchors.fill = visible ? detachedHost : attachedHost
                                 rxLoader.item.anchors.margins = 1
                                 Qt.callLater(MainController.updateApplicationPalette)
+                                Qt.callLater(detachedWin.applyDisabledPalette)
                                 Qt.callLater(detachedWin.applyWindowMode)
 
                                 if (visible && row.havePendingPos) {
@@ -1009,7 +1081,15 @@ ApplicationWindow {
                                     y = Number(MainController.settings.receiverSetting(index, "DetachedY", y))
                                 }
                                 restoringGeometry = false
+                                applyDisabledPalette()
                                 Qt.callLater(detachedWin.applyWindowMode)
+                            }
+
+                            Connections {
+                                target: MainController
+                                function onColChanged(items) {
+                                    detachedWin.applyDisabledPalette()
+                                }
                             }
 
                             onXChanged: saveDetachedGeometry()
@@ -1552,7 +1632,7 @@ ApplicationWindow {
 
                 Button {
                     text: qsTr("Radio Status")
-                    onClicked: MainController.selectRadio.visible = true
+                    onClicked: showSelectRadioWindow()
                 }
                 Button {
                     text: qsTr("Log")

@@ -49,7 +49,42 @@ ApplicationWindow {
 
     property int connStatus: Number(MainController.connStatus)
 
+    onControllerChanged: applyDisabledPalette()
+
     // ---- Helpers ----
+
+    function applyDisabledPalette() {
+        if (!controller || !controller.options)
+            return
+
+        try {
+            palette.disabled.window = controller.options["Color.Window"]
+            palette.disabled.windowText = Qt.darker(controller.options["Color.WindowText"], 2.5)
+            palette.disabled.base = Qt.darker(controller.options["Color.Base"], 1.1)
+            palette.disabled.alternateBase = Qt.darker(controller.options["Color.AlternateBase"], 1.1)
+            palette.disabled.text = Qt.darker(controller.options["Color.MainText"], 2.5)
+            palette.disabled.button = Qt.darker(controller.options["Color.Button"], 1.3)
+            palette.disabled.buttonText = Qt.darker(controller.options["Color.ButtonText"], 2.5)
+            palette.disabled.brightText = Qt.darker(controller.options["Color.BrightText"], 2.5)
+            palette.disabled.highlight = Qt.darker(controller.options["Color.Highlight"], 1.5)
+            palette.disabled.highlightedText = Qt.darker(controller.options["Color.MainText"], 2.5)
+            palette.disabled.mid = controller.options["Color.Mid"]
+            palette.disabled.dark = controller.options["Color.Dark"]
+            palette.disabled.light = Qt.darker(controller.options["Color.Light"], 1.2)
+            palette.disabled.placeholderText = Qt.darker(controller.options["Color.PlaceholderText"], 1.5)
+        } catch (e) {
+            // Qt 5 does not expose palette disabled groups to QML.
+        }
+    }
+
+    Component.onCompleted: applyDisabledPalette()
+
+    Connections {
+        target: MainController
+        function onColChanged(items) {
+            window.applyDisabledPalette()
+        }
+    }
 
     function indexFromValue(cb, v) {
         if (!cb || v === undefined || v === null)

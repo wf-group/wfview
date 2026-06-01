@@ -18,6 +18,16 @@ ApplicationWindow {
         text: MainController.settings.options["Color.MainText"]
         button: MainController.settings.options["Color.Button"]
         buttonText: MainController.settings.options["Color.ButtonText"]
+
+        disabled {
+            window: MainController.settings.options["Color.Window"]
+            windowText: MainController.settings.options["Color.Mid"]
+            base: MainController.settings.options["Color.Base"]
+            alternateBase: MainController.settings.options["Color.AlternateBase"]
+            text: MainController.settings.options["Color.Mid"]
+            button: MainController.settings.options["Color.Button"]
+            buttonText: MainController.settings.options["Color.Mid"]
+        }
     }
 
     onClosing: function(close) {
@@ -57,10 +67,32 @@ ApplicationWindow {
 
     property MemoriesModel memoriesModel
 
+    function applyDisabledPalette() {
+        try {
+            palette.disabled.window = MainController.settings.options["Color.Window"]
+            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            palette.disabled.base = Qt.darker(MainController.settings.options["Color.Base"], 1.1)
+            palette.disabled.alternateBase = Qt.darker(MainController.settings.options["Color.AlternateBase"], 1.1)
+            palette.disabled.text = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.button = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            palette.disabled.brightText = Qt.darker(MainController.settings.options["Color.BrightText"], 2.5)
+            palette.disabled.highlight = Qt.darker(MainController.settings.options["Color.Highlight"], 1.5)
+            palette.disabled.highlightedText = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.mid = MainController.settings.options["Color.Mid"]
+            palette.disabled.dark = MainController.settings.options["Color.Dark"]
+            palette.disabled.light = Qt.darker(MainController.settings.options["Color.Light"], 1.2)
+            palette.disabled.placeholderText = Qt.darker(MainController.settings.options["Color.PlaceholderText"], 1.5)
+        } catch (e) {
+            // Qt 5 does not expose palette disabled groups to QML.
+        }
+    }
+
     onVisibleChanged: {
         if (visible) {
             // Apply palette when window becomes visible
             MainController.updateApplicationPalette()
+            applyDisabledPalette()
         }
     }
 
@@ -68,17 +100,15 @@ ApplicationWindow {
         if (memoriesModel) {
             memoriesModel.populate()
         }
-        // palette.disabled sub-group is Qt 6 only; set via JS to avoid parse error on Qt 5
-        if (parseInt(Qt.version.split(".")[0]) >= 6) {
-            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
-            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
-            palette.disabled.text       = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
-            palette.disabled.button     = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
-        }
+        applyDisabledPalette()
     }
 
     Connections {
         target: MainController
+
+        function onColChanged(items) {
+            memoriesWindow.applyDisabledPalette()
+        }
 
         function onMemoryReceived(mem) {
             memoriesModel.receiveMemory(mem)

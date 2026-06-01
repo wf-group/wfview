@@ -10,12 +10,52 @@ ApplicationWindow {
     title: qsTr("CW Sender")
     width: 835
     height: 451
+    color: palette.window
+
+    palette {
+        window: MainController.settings.options["Color.Window"]
+        windowText: MainController.settings.options["Color.WindowText"]
+        base: MainController.settings.options["Color.Base"]
+        alternateBase: MainController.settings.options["Color.AlternateBase"]
+        text: MainController.settings.options["Color.MainText"]
+        button: MainController.settings.options["Color.Button"]
+        buttonText: MainController.settings.options["Color.ButtonText"]
+        brightText: MainController.settings.options["Color.BrightText"]
+        highlight: MainController.settings.options["Color.Highlight"]
+        highlightedText: MainController.settings.options["Color.HighlightedText"]
+        mid: MainController.settings.options["Color.Mid"]
+        dark: MainController.settings.options["Color.Dark"]
+        light: MainController.settings.options["Color.Light"]
+        placeholderText: MainController.settings.options["Color.PlaceholderText"]
+    }
 
     property var cwSenderController: null
     
     visible: cwSenderController ? cwSenderController.visible : false
+
+    function applyDisabledPalette() {
+        try {
+            palette.disabled.window = MainController.settings.options["Color.Window"]
+            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            palette.disabled.base = Qt.darker(MainController.settings.options["Color.Base"], 1.1)
+            palette.disabled.alternateBase = Qt.darker(MainController.settings.options["Color.AlternateBase"], 1.1)
+            palette.disabled.text = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.button = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            palette.disabled.brightText = Qt.darker(MainController.settings.options["Color.BrightText"], 2.5)
+            palette.disabled.highlight = Qt.darker(MainController.settings.options["Color.Highlight"], 1.5)
+            palette.disabled.highlightedText = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.mid = MainController.settings.options["Color.Mid"]
+            palette.disabled.dark = MainController.settings.options["Color.Dark"]
+            palette.disabled.light = Qt.darker(MainController.settings.options["Color.Light"], 1.2)
+            palette.disabled.placeholderText = Qt.darker(MainController.settings.options["Color.PlaceholderText"], 1.5)
+        } catch (e) {
+            // Qt 5 does not expose palette disabled groups to QML.
+        }
+    }
     
     Component.onCompleted: {
+        applyDisabledPalette()
         closing.connect(function(close) {
             if (cwSenderController) {
                 cwSenderController.visible = false
@@ -54,6 +94,13 @@ ApplicationWindow {
             statusBar.text = cwSenderController.statusMessage
         }
     }
+
+    Connections {
+        target: MainController
+        function onColChanged(items) {
+            cwSenderWindow.applyDisabledPalette()
+        }
+    }
     
     ColumnLayout {
         anchors.fill: parent
@@ -79,8 +126,8 @@ ApplicationWindow {
                     wrapMode: TextArea.Wrap
                     font.family: "Courier"
                     font.pixelSize: 12
-                    color: "white"
-                    background: Rectangle { color: "#2b2b2b" }
+                    color: cwSenderWindow.palette.text
+                    background: Rectangle { color: cwSenderWindow.palette.base }
                 }
             }
             
@@ -96,8 +143,8 @@ ApplicationWindow {
                     font.family: "Courier"
                     font.pixelSize: 12
                     placeholderText: qsTr("CW Transmission Transcript")
-                    color: "white"
-                    background: Rectangle { color: "#2b2b2b" }
+                    color: cwSenderWindow.palette.text
+                    background: Rectangle { color: cwSenderWindow.palette.base }
                 }
             }
         }
@@ -114,10 +161,10 @@ ApplicationWindow {
                 font.family: "Courier"
                 font.pixelSize: 12
                 placeholderText: qsTr("Text to send...")
-                color: "white"
+                color: enabled ? cwSenderWindow.palette.text : cwSenderWindow.palette.disabled.text
                 background: Rectangle {
-                    color: "#2b2b2b"
-                    border.color: "#555"
+                    color: textToSendEdit.enabled ? cwSenderWindow.palette.base : cwSenderWindow.palette.disabled.base
+                    border.color: textToSendEdit.enabled ? cwSenderWindow.palette.mid : cwSenderWindow.palette.disabled.mid
                 }
                 
                 onTextChanged: {
@@ -343,8 +390,8 @@ ApplicationWindow {
             color: text.indexOf(qsTr("Note:")) === 0 ? "#ffd166" : cwSenderWindow.palette.windowText
             padding: 5
             background: Rectangle {
-                color: "#333"
-                border.color: "#555"
+                color: cwSenderWindow.palette.base
+                border.color: cwSenderWindow.palette.mid
             }
         }
     }
