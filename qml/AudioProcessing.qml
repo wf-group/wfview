@@ -93,7 +93,7 @@ ApplicationWindow {
     Component.onCompleted: applyDisabledPalette()
 
     Connections {
-        target: MainController
+        target: MainController.settings
         function onColChanged(items) {
             win.applyDisabledPalette()
         }

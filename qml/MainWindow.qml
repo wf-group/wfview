@@ -1113,7 +1113,7 @@ ApplicationWindow {
                             }
 
                             Connections {
-                                target: MainController
+                                target: MainController.settings
                                 function onColChanged(items) {
                                     detachedWin.applyDisabledPalette()
                                 }
