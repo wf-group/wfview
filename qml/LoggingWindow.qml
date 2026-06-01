@@ -14,6 +14,7 @@ ApplicationWindow {
 
     visible: false
     title: qsTr("Logging")
+    onActiveChanged: if (active && !annotationField.activeFocus) annotationField.forceActiveFocus()
 
     Shortcut {
         sequence: "Ctrl+C"
@@ -309,7 +310,12 @@ ApplicationWindow {
 
                     anchors.fill: parent
                     rightPadding: 26
-                    onAccepted: Logging.annotateRequested(text)
+                    onAccepted: {
+                        Logging.annotateRequested(text)
+                        clear()
+                        if (logView.autoFollow)
+                            Qt.callLater(scrollToBottomNow)
+                    }
                 }
 
                 ToolButton {
@@ -328,7 +334,12 @@ ApplicationWindow {
                 text: qsTr("Annotate")
                 Layout.minimumWidth: 85
                 Layout.maximumWidth: 85
-                onClicked: Logging.annotateRequested(annotationField.text)
+                onClicked: {
+                    Logging.annotateRequested(annotationField.text)
+                    annotationField.clear()
+                    if (logView.autoFollow)
+                        Qt.callLater(scrollToBottomNow)
+                }
             }
         }
 
