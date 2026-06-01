@@ -1327,6 +1327,7 @@ ApplicationWindow {
 
                 // ---- levelsHorizontalLayout (RF/AF/SQ/Mic/TX/Mon sliders) + OtherControls ----
                 ColumnLayout {
+                    id: levelsControlsGroup
                     width: implicitWidth
                     Layout.alignment: Qt.AlignTop
                     Layout.fillWidth: false
@@ -1518,90 +1519,117 @@ ApplicationWindow {
                     }
                 }
 
-                GroupBox {
-                    id: scopeSettingsGroup
-                    title: qsTr("Scope Settings")
-                    width: mainControlsFlow.width >= 1320 ? 640 : 320
+                Flow {
+                    id: scopeAndOtherControlsFlow
                     readonly property bool hasReceiverScopeControls: (mainControlSpecs.canDualScope ?? false)
-                                                                    || (mainControlSpecs.canDualWatch ?? false)
-                                                                    || (mainControlSpecs.canMainSub ?? false)
-                                                                    || (mainControlSpecs.canSwapMainSub ?? false)
-                                                                    || (mainControlSpecs.canEqualMainSub ?? false)
-                    visible: win.radioConnected && hasReceiverScopeControls
+                                                                   || (mainControlSpecs.canDualWatch ?? false)
+                                                                   || (mainControlSpecs.canMainSub ?? false)
+                                                                   || (mainControlSpecs.canSwapMainSub ?? false)
+                                                                   || (mainControlSpecs.canEqualMainSub ?? false)
+                    readonly property bool showScopeControls: win.radioConnected && hasReceiverScopeControls
+                    readonly property bool showOtherControls: win.radioConnected && anyControlVisible(["canCompressor", "canVox"])
+                    readonly property int scopePaneWidth: mainControlsFlow.width >= 1650 ? 640 : 320
+                    readonly property int otherPaneWidth: 165
+                    readonly property int rowWidthBeforeScope: (freqDial.visible ? win.mainControlDialSize : 0)
+                                                            + (tuningControlsGroup.visible ? tuningControlsGroup.width : 0)
+                                                            + (levelsControlsGroup.visible ? levelsControlsGroup.implicitWidth : 0)
+                                                            + (commandButtonsColumn.visible ? commandButtonsColumn.width : 0)
+                                                            + (4 * mainControlsFlow.spacing)
+                    readonly property bool scopeFitsOnCurrentRow: mainControlsFlow.width >= (rowWidthBeforeScope + scopePaneWidth)
+                    readonly property bool otherFitsBesideScopeOnCurrentRow: mainControlsFlow.width >= (rowWidthBeforeScope + scopePaneWidth + otherPaneWidth + spacing)
+                    readonly property bool otherFitsBesideScopeOnWrappedRow: !scopeFitsOnCurrentRow
+                                                                             && mainControlsFlow.width >= (scopePaneWidth + otherPaneWidth + spacing)
+                    readonly property bool canPlaceOtherBesideScope: showScopeControls
+                                                                     && showOtherControls
+                                                                     && (otherFitsBesideScopeOnCurrentRow || otherFitsBesideScopeOnWrappedRow)
+                    width: showScopeControls
+                           ? (canPlaceOtherBesideScope ? scopePaneWidth + otherPaneWidth + spacing : scopePaneWidth)
+                           : otherPaneWidth
+                    height: implicitHeight
+                    spacing: win.mainControlSpacing
+                    visible: showScopeControls || showOtherControls
 
-                    contentItem: GridLayout {
-                        columns: scopeSettingsGroup.width >= 600 ? 6 : 3
-                        rowSpacing: scopeSettingsGroup.width >= 600 ? 10 : 6
-                        columnSpacing: scopeSettingsGroup.width >= 600 ? 10 : 6
+                    GroupBox {
+                        id: scopeSettingsGroup
+                        title: qsTr("Scope Settings")
+                        width: scopeAndOtherControlsFlow.scopePaneWidth
+                        visible: scopeAndOtherControlsFlow.showScopeControls
 
-                        Button {
-                            text: qsTr("Dual Scope")
-                            checkable: true
-                            checked: MainController.dualScope
-                            enabled: mainControlSpecs.canDualScope ?? false
-                            visible: mainControlSpecs.canDualScope ?? false
-                            onToggled: MainController.dualScope = checked
-                        }
-                        Button {
-                            text: qsTr("Dual Watch")
-                            checkable: true
-                            checked: MainController.dualWatch
-                            enabled: mainControlSpecs.canDualWatch ?? false
-                            visible: mainControlSpecs.canDualWatch ?? false
-                            onToggled: MainController.dualWatch = checked
-                        }
-                        Button {
-                            text: qsTr("Split")
-                            checkable: true
-                            checked: MainController.splitEnabled
-                            enabled: mainControlSpecs.canSplit ?? false
-                            visible: (mainControlSpecs.canSplit ?? false) && scopeSettingsGroup.hasReceiverScopeControls
-                            onToggled: MainController.splitEnabled = checked
-                        }
+                        contentItem: GridLayout {
+                            columns: scopeAndOtherControlsFlow.scopePaneWidth >= 600 ? 6 : 3
+                            rowSpacing: scopeAndOtherControlsFlow.scopePaneWidth >= 600 ? 10 : 6
+                            columnSpacing: scopeAndOtherControlsFlow.scopePaneWidth >= 600 ? 10 : 6
 
-                        Button {
-                            text: qsTr("Main/Sub")
-                            enabled: mainControlSpecs.canMainSub ?? false
-                            visible: mainControlSpecs.canMainSub ?? false
-                            onClicked: MainController.selectMainSub()
-                        }
-                        Button {
-                            text: qsTr("Main<>Sub")
-                            enabled: mainControlSpecs.canSwapMainSub ?? false
-                            visible: mainControlSpecs.canSwapMainSub ?? false
-                            onClicked: MainController.swapMainSub()
-                        }
-                        Button {
-                            text: qsTr("Main=Sub")
-                            enabled: mainControlSpecs.canEqualMainSub ?? false
-                            visible: mainControlSpecs.canEqualMainSub ?? false
-                            onClicked: MainController.equalizeMainSub()
+                            Button {
+                                text: qsTr("Dual Scope")
+                                checkable: true
+                                checked: MainController.dualScope
+                                enabled: mainControlSpecs.canDualScope ?? false
+                                visible: mainControlSpecs.canDualScope ?? false
+                                onToggled: MainController.dualScope = checked
+                            }
+                            Button {
+                                text: qsTr("Dual Watch")
+                                checkable: true
+                                checked: MainController.dualWatch
+                                enabled: mainControlSpecs.canDualWatch ?? false
+                                visible: mainControlSpecs.canDualWatch ?? false
+                                onToggled: MainController.dualWatch = checked
+                            }
+                            Button {
+                                text: qsTr("Split")
+                                checkable: true
+                                checked: MainController.splitEnabled
+                                enabled: mainControlSpecs.canSplit ?? false
+                                visible: (mainControlSpecs.canSplit ?? false) && scopeAndOtherControlsFlow.hasReceiverScopeControls
+                                onToggled: MainController.splitEnabled = checked
+                            }
+
+                            Button {
+                                text: qsTr("Main/Sub")
+                                enabled: mainControlSpecs.canMainSub ?? false
+                                visible: mainControlSpecs.canMainSub ?? false
+                                onClicked: MainController.selectMainSub()
+                            }
+                            Button {
+                                text: qsTr("Main<>Sub")
+                                enabled: mainControlSpecs.canSwapMainSub ?? false
+                                visible: mainControlSpecs.canSwapMainSub ?? false
+                                onClicked: MainController.swapMainSub()
+                            }
+                            Button {
+                                text: qsTr("Main=Sub")
+                                enabled: mainControlSpecs.canEqualMainSub ?? false
+                                visible: mainControlSpecs.canEqualMainSub ?? false
+                                onClicked: MainController.equalizeMainSub()
+                            }
                         }
                     }
-                }
 
-                Frame {
-                    width: 165
-                    padding: 3
-                    visible: win.radioConnected && anyControlVisible(["canCompressor", "canVox"])
+                    Frame {
+                        id: otherControlsFrame
+                        width: scopeAndOtherControlsFlow.otherPaneWidth
+                        padding: 3
+                        visible: scopeAndOtherControlsFlow.showOtherControls
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 3
-                        RowLayout {
-                            CheckBox {
-                                text: qsTr("CMP")
-                                checked: MainController.compressorEnabled
-                                enabled: mainControlSpecs.canCompressor ?? false
-                                visible: mainControlSpecs.canCompressor ?? false
-                                onToggled: MainController.compressorEnabled = checked
-                            }
-                            CheckBox {
-                                text: qsTr("VOX")
-                                checked: MainController.voxEnabled
-                                enabled: mainControlSpecs.canVox ?? false
-                                visible: mainControlSpecs.canVox ?? false
-                                onToggled: MainController.voxEnabled = checked
+                        ColumnLayout {
+                            anchors.fill: parent
+                            spacing: 3
+                            RowLayout {
+                                CheckBox {
+                                    text: qsTr("CMP")
+                                    checked: MainController.compressorEnabled
+                                    enabled: mainControlSpecs.canCompressor ?? false
+                                    visible: mainControlSpecs.canCompressor ?? false
+                                    onToggled: MainController.compressorEnabled = checked
+                                }
+                                CheckBox {
+                                    text: qsTr("VOX")
+                                    checked: MainController.voxEnabled
+                                    enabled: mainControlSpecs.canVox ?? false
+                                    visible: mainControlSpecs.canVox ?? false
+                                    onToggled: MainController.voxEnabled = checked
+                                }
                             }
                         }
                     }
