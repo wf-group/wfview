@@ -47,6 +47,8 @@ ApplicationWindow {
             model: Logging.model
 
             property bool autoFollow: true
+            property real maxLineWidth: width
+            contentWidth: maxLineWidth
 
             // Selection
             property int selStart: -1
@@ -72,7 +74,7 @@ ApplicationWindow {
             ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
 
             delegate: Rectangle {
-                width: logView.width
+                width: Math.max(logView.width, logView.maxLineWidth)
                 height: logText.implicitHeight + 4
 
                 color: (index >= logView.selStart && index <= logView.selEnd)
@@ -86,11 +88,21 @@ ApplicationWindow {
                     anchors.leftMargin: 4
                     anchors.verticalCenter: parent.verticalCenter
 
-                    // IMPORTANT: role names injected directly (no model.xxx)
                     text: line
                     font.family: "monospace"
                     wrapMode: Text.NoWrap
                     elide: Text.ElideNone
+
+                    Component.onCompleted: {
+                        var w = implicitWidth + 12
+                        if (w > logView.maxLineWidth)
+                            logView.maxLineWidth = w
+                    }
+                    onImplicitWidthChanged: {
+                        var w = implicitWidth + 12
+                        if (w > logView.maxLineWidth)
+                            logView.maxLineWidth = w
+                    }
 
                     color: {
                         switch (type) {
@@ -202,6 +214,27 @@ ApplicationWindow {
                     const idx = clampIndexFromMouse(mouse)
                     if (idx >= 0)
                         Clipboard.text = Logging.model.lineAt(idx)
+                }
+
+                onWheel: (wheel) => {
+                    var dx = wheel.angleDelta.x
+                    var dy = wheel.angleDelta.y
+
+                    if (dx !== 0) {
+                        logView.contentX = Math.max(0, Math.min(
+                            logView.contentWidth - logView.width,
+                            logView.contentX - dx))
+                    }
+
+                    if (dy !== 0) {
+                        logView.contentY = Math.max(0, Math.min(
+                            logView.contentHeight - logView.height,
+                            logView.contentY - dy))
+                        logView.autoFollow =
+                            (logView.contentY >= logView.contentHeight - logView.height - 10)
+                    }
+
+                    wheel.accepted = true
                 }
 
             }
@@ -403,6 +436,7 @@ ApplicationWindow {
                 Qt.callLater(scrollToBottomNow)
         }
         function onModelReset() {
+            logView.maxLineWidth = logView.width
             if (logView.autoFollow)
                 Qt.callLater(scrollToBottomNow)
         }
