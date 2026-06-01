@@ -86,7 +86,7 @@ private:
     bool isTransmitting = false;
     QByteArray lastSentCommand;
 
-    pttyHandler* ptty = nullptr;
+    vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;
 
     yaesuUdpControl* control = nullptr;

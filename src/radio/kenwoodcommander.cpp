@@ -206,12 +206,12 @@ void kenwoodCommander::commonSetup()
 
 
     if (vsp.toLower() != "none") {
-        qInfo(logRig()) << "Attempting to connect to vsp/pty:" << vsp;
-        ptty = new pttyHandler(vsp,this);
-        // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), port, SLOT(sendData(QByteArray)));        
-        // data from the rig to the ptty:
-        connect(this, SIGNAL(haveDataFromRig(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
+        qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
+        vspPort = new vspHandler(vsp,this);
+        // data from the VSP to the rig:
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), port, SLOT(sendData(QByteArray)));
+        // data from the rig to the VSP:
+        connect(this, SIGNAL(haveDataFromRig(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
     }
 
     if (tcpPort > 0) {

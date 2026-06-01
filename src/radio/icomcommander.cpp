@@ -85,9 +85,9 @@ icomCommander::~icomCommander()
     }
     udp = nullptr;
 
-    if (ptty != nullptr) {
-        delete ptty;
-        ptty = nullptr;
+    if (vspPort != nullptr) {
+        delete vspPort;
+        vspPort = nullptr;
     }
 
     closeWfShare();
@@ -121,14 +121,14 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
 
 
     if (vsp.toLower() != "none") {
-        qInfo(logRig()) << "Attempting to connect to vsp/pty:" << vsp;
-        ptty = new pttyHandler(vsp,this);
-        // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
-        // data from the rig to the ptty:
-        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
-        connect(ptty, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
-        connect(this, SIGNAL(getMoreDebug()), ptty, SLOT(debugThis()));
+        qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
+        vspPort = new vspHandler(vsp,this);
+        // data from the VSP to the rig:
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        // data from the rig to the VSP:
+        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
+        connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
+        connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
     }
 
     if (tcpPort > 0) {
@@ -190,14 +190,14 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     connect(this, SIGNAL(selectedRadio(quint8)), udp, SLOT(setCurrentRadio(quint8)));
 
     if (vsp != "None") {
-        ptty = new pttyHandler(vsp,this);
-        // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
-        // data from the rig to the ptty:
-        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
+        vspPort = new vspHandler(vsp,this);
+        // data from the VSP to the rig:
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        // data from the rig to the VSP:
+        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
 
-        connect(ptty, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
-        connect(this, SIGNAL(getMoreDebug()), ptty, SLOT(debugThis()));
+        connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
+        connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
     }
 
     if (tcpPort > 0) {
@@ -394,10 +394,10 @@ void icomCommander::closeComm()
     }
     udp = nullptr;
 
-    if (ptty != nullptr) {
-        delete ptty;
+    if (vspPort != nullptr) {
+        delete vspPort;
     }
-    ptty = nullptr;
+    vspPort = nullptr;
 
     closeWfShare();
 }

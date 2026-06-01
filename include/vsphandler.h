@@ -1,5 +1,5 @@
-#ifndef PTTYHANDLER_H
-#define PTTYHANDLER_H
+#ifndef VSPHANDLER_H
+#define VSPHANDLER_H
 
 #include <QObject>
 
@@ -16,20 +16,20 @@
 // This class abstracts the comm port in a useful way and connects to
 // the command creator and command parser.
 
-class pttyHandler : public QObject
+class vspHandler : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit pttyHandler(QString portName, QObject* parent = nullptr);
-    pttyHandler(QString portName, quint32 baudRate);
+    explicit vspHandler(QString portName, QObject* parent = nullptr);
+    vspHandler(QString portName, quint32 baudRate);
     bool serialError;
 
-    ~pttyHandler();
+    ~vspHandler();
 
 private slots:
     void receiveDataIn(int fd); // from physical port
-    void receiveDataFromRigToPtty(const QByteArray& data);
+    void receiveDataFromRigToVsp(const QByteArray& data);
     void debugThis();
     void receiveRigCaps(rigCapabilities* rigCaps);
 
@@ -40,7 +40,7 @@ signals:
     void haveStatusUpdate(const QString text);
 
 private:
-    void setupPtty();
+    void setupVsp();
     void openPort();
     void closePort();
 
@@ -78,4 +78,4 @@ private:
     cachingQueue* queue = nullptr;
 };
 
-#endif // PTTYHANDLER_H
+#endif // VSPHANDLER_H

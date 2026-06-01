@@ -322,7 +322,7 @@ SOURCES += \
     src/keyboard.cpp \
     src/logcategories.cpp \
     src/main.cpp \
-    src/pttyhandler.cpp \
+    src/vsphandler.cpp \
     src/radiotransportframe.cpp \
     src/radio/icomcommander.cpp \
     src/radio/icomcivradiotransport.cpp \
@@ -417,7 +417,7 @@ HEADERS  += \
     include/packettypes.h \
     include/prefs.h \
     include/printhex.h \
-    include/pttyhandler.h \
+    include/vsphandler.h \
     include/repeaterattributes.h \
     include/radiotransport.h \
     include/radiotransportframe.h \

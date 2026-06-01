@@ -78,7 +78,7 @@ private:
     bool isTransmitting = false;
     QByteArray lastSentCommand;
 
-    pttyHandler* ptty = nullptr;
+    vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;
     rtpAudio* rtp = nullptr;
     QThread* rtpThread = nullptr;

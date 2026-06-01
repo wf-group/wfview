@@ -9,7 +9,7 @@
 
 #include "wfviewtypes.h"
 #include "commhandler.h"
-#include "pttyhandler.h"
+#include "vsphandler.h"
 #include "icomudphandler.h"
 #include "rigidentities.h"
 #include "repeaterattributes.h"

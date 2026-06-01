@@ -227,7 +227,7 @@ SOURCES += \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
     src/logcategories.cpp \
-    src/pttyhandler.cpp \
+    src/vsphandler.cpp \
     src/tcpserver.cpp \
     src/keyboard.cpp \
     src/rigserver.cpp \
@@ -279,7 +279,7 @@ HEADERS  += \
     include/audiotaper.h \
     include/keyboard.h \
     include/wfviewtypes.h \
-    include/pttyhandler.h \
+    include/vsphandler.h \
     include/radiotransportframe.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \

@@ -116,7 +116,7 @@ private:
     centerSpanData createScopeCenter(uchar s, QString name);
 
     commHandler* comm = nullptr;
-    pttyHandler* ptty = nullptr;
+    vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;
     icomUdpHandler* udp=nullptr;
     RadioTransport* wfShareTransport = nullptr;

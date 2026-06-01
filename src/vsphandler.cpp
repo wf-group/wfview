@@ -1,4 +1,4 @@
-#include "pttyhandler.h"
+#include "vsphandler.h"
 #include "logcategories.h"
 
 #include <QDebug>
@@ -13,18 +13,18 @@
 
 // Copyright 2017-2024 Elliott H. Liggett & Phil Taylor
 
-pttyHandler::pttyHandler(QString pty, QObject* parent) : QObject(parent)
+vspHandler::vspHandler(QString pty, QObject* parent) : QObject(parent)
 {
     //constructor
 
-    this->setObjectName("pttyHandler");
+    this->setObjectName("vspHandler");
     queue = cachingQueue::getInstance();
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
     rigCaps = queue->getRigCaps();
 
     if (pty == "" || pty.toLower() == "none")
     {
-        // Just return if pty is not configured.
+        // Just return if VSP is not configured.
         return;
     }
 
@@ -44,7 +44,7 @@ pttyHandler::pttyHandler(QString pty, QObject* parent) : QObject(parent)
 }
 
 
-void pttyHandler::openPort()
+void vspHandler::openPort()
 {
     serialError = false;
     bool success=false;
@@ -56,7 +56,7 @@ void pttyHandler::openPort()
     success = port->open(QIODevice::ReadWrite);
 
     if (success) {
-        connect(port, &QSerialPort::readyRead, this, std::bind(&pttyHandler::receiveDataIn, this, (int)0));
+        connect(port, &QSerialPort::readyRead, this, std::bind(&vspHandler::receiveDataIn, this, (int)0));
     }
 #else
     // Generic method in Linux/MacOS to find a pty
@@ -84,7 +84,7 @@ void pttyHandler::openPort()
 
         ptReader = new QSocketNotifier(ptfd, QSocketNotifier::Read, this);
         connect(ptReader, &QSocketNotifier::activated,
-                this, &pttyHandler::receiveDataIn);
+                this, &vspHandler::receiveDataIn);
 
         success=true;
     }
@@ -118,12 +118,12 @@ void pttyHandler::openPort()
     isConnected = true;
 }
 
-pttyHandler::~pttyHandler()
+vspHandler::~vspHandler()
 {
     this->closePort();
 }
 
-void pttyHandler::receiveDataFromRigToPtty(const QByteArray& data)
+void vspHandler::receiveDataFromRigToVsp(const QByteArray& data)
 {
 
     int fePos=data.lastIndexOf((char)0xfe);
@@ -156,7 +156,7 @@ void pttyHandler::receiveDataFromRigToPtty(const QByteArray& data)
     }
 }
 
-void pttyHandler::sendDataOut(const QByteArray& writeData)
+void vspHandler::sendDataOut(const QByteArray& writeData)
 {
     qint64 bytesWritten = 0;
 
@@ -178,7 +178,7 @@ void pttyHandler::sendDataOut(const QByteArray& writeData)
     }
 }
 
-void pttyHandler::receiveDataIn(int fd) {
+void vspHandler::receiveDataIn(int fd) {
 
 #ifndef Q_OS_WIN
     ssize_t available = 255; // Read up to 'available' bytes
@@ -281,7 +281,7 @@ void pttyHandler::receiveDataIn(int fd) {
 
 
 
-void pttyHandler::closePort()
+void vspHandler::closePort()
 {
 #ifdef Q_OS_WIN
     if (port != nullptr)
@@ -303,7 +303,7 @@ void pttyHandler::closePort()
 }
 
 
-void pttyHandler::debugThis()
+void vspHandler::debugThis()
 {
     // Do not use, function is for debug only and subject to change.
     qInfo(logSerial()) << "comm debug called.";
@@ -314,7 +314,7 @@ void pttyHandler::debugThis()
 
 
 
-void pttyHandler::printHex(const QByteArray& pdata, bool printVert, bool printHoriz)
+void vspHandler::printHex(const QByteArray& pdata, bool printVert, bool printHoriz)
 {
     qDebug(logSerial()) << "---- Begin hex dump -----:";
     QString sdata("DATA:  ");
@@ -346,11 +346,10 @@ void pttyHandler::printHex(const QByteArray& pdata, bool printVert, bool printHo
 }
 
 
-void pttyHandler::receiveRigCaps(rigCapabilities* caps)
+void vspHandler::receiveRigCaps(rigCapabilities* caps)
 {
     if (caps != nullptr) {
         qInfo(logSerial()) << "Got rigcaps for:" << caps->modelName;
     }
     this->rigCaps = caps;
 }
-
