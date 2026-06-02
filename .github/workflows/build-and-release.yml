@@ -773,7 +773,6 @@ jobs:
           host: mac
           target: desktop
           arch: clang_64
-          modules: qtserialport qtmultimedia qtwebsockets qtquickcontrols2 qtgamepad
 
       - name: Build legacy Intel dependencies
         run: |
@@ -827,6 +826,8 @@ jobs:
                               "QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13")
           text = text.replace("QMAKE_APPLE_DEVICE_ARCHS = x86_64 arm64",
                               "QMAKE_APPLE_DEVICE_ARCHS = x86_64")
+          text = text.replace("DEFINES += USB_CONTROLLER",
+                              "# DEFINES += USB_CONTROLLER")
           project.write_text(text)
           PY
 
