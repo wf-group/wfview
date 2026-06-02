@@ -1152,16 +1152,12 @@ void servermain::setManufacturer(manufacturersType_t man)
     this->rigList.clear();
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
-#ifndef Q_OS_LINUX
-    QString systemRigLocation = QCoreApplication::applicationDirPath();
+#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/../Resources/rigs";
+#elif defined(Q_OS_LINUX)
+    QString systemRigLocation = PREFIX "/share/wfview/rigs";
 #else
-    QString systemRigLocation = PREFIX;
-#endif
-
-#ifdef Q_OS_LINUX
-    systemRigLocation += "/share/wfview/rigs";
-#else
-    systemRigLocation +="/rigs";
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
 #endif
 
     QDir systemRigDir(systemRigLocation);

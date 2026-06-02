@@ -528,7 +528,9 @@ public:
 
     Q_INVOKABLE QUrl defaultRigsFolder() const {
         QString p = QCoreApplication::applicationDirPath();
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+        p += "/../Resources/rigs";
+#elif defined(Q_OS_LINUX)
         p += "/../share/wfview/rigs";
 #else
         p += "/rigs";

@@ -5125,7 +5125,9 @@ void MainController::setManufacturer(manufacturersType_t man)
     this->rigList.clear();
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
-#ifndef Q_OS_LINUX
+#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
+    QString systemRigLocation = QCoreApplication::applicationDirPath() + "/../Resources/rigs";
+#elif !defined(Q_OS_LINUX)
     QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
 #else
     // When running as an AppImage, APPDIR is set and PREFIX is not useful.
