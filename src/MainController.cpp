@@ -2597,7 +2597,7 @@ void MainController::setupUsbControllerDevice()
     usbControllerThread->setObjectName("usb()");
     usbControllerDev->moveToThread(usbControllerThread);
     connect(usbControllerThread, &QThread::started, usbControllerDev,
-            [this, usbMutex, usbDevices, usbButtons, usbKnobs]() {
+            [usbControllerDev, usbMutex, usbDevices, usbButtons, usbKnobs]() {
                 usbControllerDev->init(usbMutex, usbDevices, usbButtons, usbKnobs);
                 usbControllerDev->run();
             });
