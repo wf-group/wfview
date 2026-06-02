@@ -2592,16 +2592,17 @@ void MainController::setupUsbControllerDevice()
     usbDevMap *usbDevices = m_settings->usbDevices();
     QVector<BUTTON> *usbButtons = m_settings->usbButtons();
     QVector<KNOB> *usbKnobs = m_settings->usbKnobs();
+    usbController *usbDev = usbControllerDev;
 
     usbControllerThread = new QThread(this);
     usbControllerThread->setObjectName("usb()");
-    usbControllerDev->moveToThread(usbControllerThread);
-    connect(usbControllerThread, &QThread::started, usbControllerDev,
-            [usbControllerDev, usbMutex, usbDevices, usbButtons, usbKnobs]() {
-                usbControllerDev->init(usbMutex, usbDevices, usbButtons, usbKnobs);
-                usbControllerDev->run();
+    usbDev->moveToThread(usbControllerThread);
+    connect(usbControllerThread, &QThread::started, usbDev,
+            [usbDev, usbMutex, usbDevices, usbButtons, usbKnobs]() {
+                usbDev->init(usbMutex, usbDevices, usbButtons, usbKnobs);
+                usbDev->run();
             });
-    connect(usbControllerThread, &QThread::finished, usbControllerDev, &usbController::deleteLater);
+    connect(usbControllerThread, &QThread::finished, usbDev, &usbController::deleteLater);
     usbControllerThread->start(QThread::LowestPriority);
 }
 
