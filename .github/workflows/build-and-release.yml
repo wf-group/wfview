@@ -582,7 +582,11 @@ jobs:
 
           echo "=== Adding rpath to binary ==="
           BINARY="wfview/wfview.app/Contents/MacOS/wfview"
-          install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY" || true
+          if otool -l "$BINARY" | grep -q "@executable_path/../Frameworks"; then
+            echo "Binary already has @executable_path/../Frameworks rpath"
+          else
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY"
+          fi
 
 
           echo "=== Verifying Library References ==="
