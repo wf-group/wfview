@@ -12,21 +12,23 @@ ApplicationWindow {
     height: 451
     color: palette.window
 
+    readonly property bool _sysTheme: MainController.settings.options["Interface.UseSystemTheme"] === true
+
     palette {
-        window: MainController.settings.options["Color.Window"]
-        windowText: MainController.settings.options["Color.WindowText"]
-        base: MainController.settings.options["Color.Base"]
-        alternateBase: MainController.settings.options["Color.AlternateBase"]
-        text: MainController.settings.options["Color.MainText"]
-        button: MainController.settings.options["Color.Button"]
-        buttonText: MainController.settings.options["Color.ButtonText"]
-        brightText: MainController.settings.options["Color.BrightText"]
-        highlight: MainController.settings.options["Color.Highlight"]
-        highlightedText: MainController.settings.options["Color.HighlightedText"]
-        mid: MainController.settings.options["Color.Mid"]
-        dark: MainController.settings.options["Color.Dark"]
-        light: MainController.settings.options["Color.Light"]
-        placeholderText: MainController.settings.options["Color.PlaceholderText"]
+        window: _sysTheme ? undefined : MainController.settings.options["Color.Window"]
+        windowText: _sysTheme ? undefined : MainController.settings.options["Color.WindowText"]
+        base: _sysTheme ? undefined : MainController.settings.options["Color.Base"]
+        alternateBase: _sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+        text: _sysTheme ? undefined : MainController.settings.options["Color.MainText"]
+        button: _sysTheme ? undefined : MainController.settings.options["Color.Button"]
+        buttonText: _sysTheme ? undefined : MainController.settings.options["Color.ButtonText"]
+        brightText: _sysTheme ? undefined : MainController.settings.options["Color.BrightText"]
+        highlight: _sysTheme ? undefined : MainController.settings.options["Color.Highlight"]
+        highlightedText: _sysTheme ? undefined : MainController.settings.options["Color.HighlightedText"]
+        mid: _sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+        dark: _sysTheme ? undefined : MainController.settings.options["Color.Dark"]
+        light: _sysTheme ? undefined : MainController.settings.options["Color.Light"]
+        placeholderText: _sysTheme ? undefined : MainController.settings.options["Color.PlaceholderText"]
     }
 
     property var cwSenderController: null
@@ -34,6 +36,7 @@ ApplicationWindow {
     visible: cwSenderController ? cwSenderController.visible : false
 
     function applyDisabledPalette() {
+        if (_sysTheme) return
         try {
             palette.disabled.window = MainController.settings.options["Color.Window"]
             palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)

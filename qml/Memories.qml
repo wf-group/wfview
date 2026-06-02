@@ -11,23 +11,25 @@ ApplicationWindow {
     color: palette.window
     transientParent: null
 
+    readonly property bool _sysTheme: MainController.settings.options["Interface.UseSystemTheme"] === true
+
     palette {
-        window: MainController.settings.options["Color.Window"]
-        windowText: MainController.settings.options["Color.WindowText"]
-        base: MainController.settings.options["Color.Base"]
-        alternateBase: MainController.settings.options["Color.AlternateBase"]
-        text: MainController.settings.options["Color.MainText"]
-        button: MainController.settings.options["Color.Button"]
-        buttonText: MainController.settings.options["Color.ButtonText"]
+        window: _sysTheme ? undefined : MainController.settings.options["Color.Window"]
+        windowText: _sysTheme ? undefined : MainController.settings.options["Color.WindowText"]
+        base: _sysTheme ? undefined : MainController.settings.options["Color.Base"]
+        alternateBase: _sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+        text: _sysTheme ? undefined : MainController.settings.options["Color.MainText"]
+        button: _sysTheme ? undefined : MainController.settings.options["Color.Button"]
+        buttonText: _sysTheme ? undefined : MainController.settings.options["Color.ButtonText"]
 
         disabled {
-            window: MainController.settings.options["Color.Window"]
-            windowText: MainController.settings.options["Color.Mid"]
-            base: MainController.settings.options["Color.Base"]
-            alternateBase: MainController.settings.options["Color.AlternateBase"]
-            text: MainController.settings.options["Color.Mid"]
-            button: MainController.settings.options["Color.Button"]
-            buttonText: MainController.settings.options["Color.Mid"]
+            window: _sysTheme ? undefined : MainController.settings.options["Color.Window"]
+            windowText: _sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+            base: _sysTheme ? undefined : MainController.settings.options["Color.Base"]
+            alternateBase: _sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+            text: _sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+            button: _sysTheme ? undefined : MainController.settings.options["Color.Button"]
+            buttonText: _sysTheme ? undefined : MainController.settings.options["Color.Mid"]
         }
     }
 
@@ -73,6 +75,7 @@ ApplicationWindow {
     property bool forceClose: false
 
     function applyDisabledPalette() {
+        if (_sysTheme) return
         try {
             palette.disabled.window = MainController.settings.options["Color.Window"]
             palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)

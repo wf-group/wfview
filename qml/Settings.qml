@@ -29,23 +29,24 @@ ApplicationWindow {
     height: 625
 
     readonly property int contentMargin: 8
+    readonly property bool _sysTheme: controller && controller.options["Interface.UseSystemTheme"] === true
 
     property var controller  // 'required' keyword is Qt 6 only
 
     palette {
-        window: controller ? controller.options["Color.Window"] : undefined
-        windowText: controller ? controller.options["Color.WindowText"] : undefined
-        base: controller ? controller.options["Color.Base"] : undefined
-        alternateBase: controller ? controller.options["Color.AlternateBase"] : undefined
-        text: controller ? controller.options["Color.MainText"] : undefined
-        button: controller ? controller.options["Color.Button"] : undefined
-        buttonText: controller ? controller.options["Color.ButtonText"] : undefined
-        brightText: controller ? controller.options["Color.BrightText"] : undefined
-        highlight: controller ? controller.options["Color.Highlight"] : undefined
-        highlightedText: controller ? controller.options["Color.HighlightedText"] : undefined
-        mid: controller ? controller.options["Color.Mid"] : undefined
-        dark: controller ? controller.options["Color.Dark"] : undefined
-        light: controller ? controller.options["Color.Light"] : undefined
+        window: _sysTheme ? undefined : (controller ? controller.options["Color.Window"] : undefined)
+        windowText: _sysTheme ? undefined : (controller ? controller.options["Color.WindowText"] : undefined)
+        base: _sysTheme ? undefined : (controller ? controller.options["Color.Base"] : undefined)
+        alternateBase: _sysTheme ? undefined : (controller ? controller.options["Color.AlternateBase"] : undefined)
+        text: _sysTheme ? undefined : (controller ? controller.options["Color.MainText"] : undefined)
+        button: _sysTheme ? undefined : (controller ? controller.options["Color.Button"] : undefined)
+        buttonText: _sysTheme ? undefined : (controller ? controller.options["Color.ButtonText"] : undefined)
+        brightText: _sysTheme ? undefined : (controller ? controller.options["Color.BrightText"] : undefined)
+        highlight: _sysTheme ? undefined : (controller ? controller.options["Color.Highlight"] : undefined)
+        highlightedText: _sysTheme ? undefined : (controller ? controller.options["Color.HighlightedText"] : undefined)
+        mid: _sysTheme ? undefined : (controller ? controller.options["Color.Mid"] : undefined)
+        dark: _sysTheme ? undefined : (controller ? controller.options["Color.Dark"] : undefined)
+        light: _sysTheme ? undefined : (controller ? controller.options["Color.Light"] : undefined)
     }
 
     property int connStatus: Number(MainController.connStatus)
@@ -55,7 +56,7 @@ ApplicationWindow {
     // ---- Helpers ----
 
     function applyDisabledPalette() {
-        if (!controller || !controller.options)
+        if (!controller || !controller.options || _sysTheme)
             return
 
         try {

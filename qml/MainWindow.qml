@@ -34,6 +34,7 @@ ApplicationWindow {
     readonly property bool waylandPlatform: String(MainController.platformName()).indexOf("wayland") !== -1
     readonly property var mainControlSpecs: MainController.uiSpecs["mainControls"] || ({})
     readonly property var firstReceiver: MainController.receiverCount > 0 ? MainController.receiver(0) : null
+    readonly property bool _sysTheme: MainController.settings.options["Interface.UseSystemTheme"] === true
 
     property int flowSpacing: mainControlSpacing
     property bool cmdTwoColumns: false
@@ -1075,6 +1076,7 @@ ApplicationWindow {
                             }
 
                             function applyDisabledPalette() {
+                                if (win._sysTheme) return
                                 try {
                                     palette.disabled.window = MainController.settings.options["Color.Window"]
                                     palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
@@ -1096,34 +1098,34 @@ ApplicationWindow {
                             }
 
                             palette {
-                                window: MainController.settings.options["Color.Window"]
-                                windowText: MainController.settings.options["Color.WindowText"]
-                                base: MainController.settings.options["Color.Base"]
-                                alternateBase: MainController.settings.options["Color.AlternateBase"]
-                                text: MainController.settings.options["Color.MainText"]
-                                button: MainController.settings.options["Color.Button"]
-                                buttonText: MainController.settings.options["Color.ButtonText"]
-                                brightText: MainController.settings.options["Color.BrightText"]
-                                highlight: MainController.settings.options["Color.Highlight"]
-                                highlightedText: MainController.settings.options["Color.HighlightedText"]
-                                mid: MainController.settings.options["Color.Mid"]
-                                dark: MainController.settings.options["Color.Dark"]
-                                light: MainController.settings.options["Color.Light"]
+                                window: win._sysTheme ? undefined : MainController.settings.options["Color.Window"]
+                                windowText: win._sysTheme ? undefined : MainController.settings.options["Color.WindowText"]
+                                base: win._sysTheme ? undefined : MainController.settings.options["Color.Base"]
+                                alternateBase: win._sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+                                text: win._sysTheme ? undefined : MainController.settings.options["Color.MainText"]
+                                button: win._sysTheme ? undefined : MainController.settings.options["Color.Button"]
+                                buttonText: win._sysTheme ? undefined : MainController.settings.options["Color.ButtonText"]
+                                brightText: win._sysTheme ? undefined : MainController.settings.options["Color.BrightText"]
+                                highlight: win._sysTheme ? undefined : MainController.settings.options["Color.Highlight"]
+                                highlightedText: win._sysTheme ? undefined : MainController.settings.options["Color.HighlightedText"]
+                                mid: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                dark: win._sysTheme ? undefined : MainController.settings.options["Color.Dark"]
+                                light: win._sysTheme ? undefined : MainController.settings.options["Color.Light"]
 
                                 disabled {
-                                    window: MainController.settings.options["Color.Window"]
-                                    windowText: MainController.settings.options["Color.Mid"]
-                                    base: MainController.settings.options["Color.Base"]
-                                    alternateBase: MainController.settings.options["Color.AlternateBase"]
-                                    text: MainController.settings.options["Color.Mid"]
-                                    button: MainController.settings.options["Color.Button"]
-                                    buttonText: MainController.settings.options["Color.Mid"]
-                                    brightText: MainController.settings.options["Color.Mid"]
-                                    highlight: MainController.settings.options["Color.Dark"]
-                                    highlightedText: MainController.settings.options["Color.Mid"]
-                                    mid: MainController.settings.options["Color.Mid"]
-                                    dark: MainController.settings.options["Color.Dark"]
-                                    light: MainController.settings.options["Color.Light"]
+                                    window: win._sysTheme ? undefined : MainController.settings.options["Color.Window"]
+                                    windowText: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    base: win._sysTheme ? undefined : MainController.settings.options["Color.Base"]
+                                    alternateBase: win._sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+                                    text: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    button: win._sysTheme ? undefined : MainController.settings.options["Color.Button"]
+                                    buttonText: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    brightText: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    highlight: win._sysTheme ? undefined : MainController.settings.options["Color.Dark"]
+                                    highlightedText: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    mid: win._sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+                                    dark: win._sysTheme ? undefined : MainController.settings.options["Color.Dark"]
+                                    light: win._sysTheme ? undefined : MainController.settings.options["Color.Light"]
                                 }
                             }
 
