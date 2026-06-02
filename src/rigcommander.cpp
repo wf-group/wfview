@@ -762,27 +762,26 @@ void rigCommander::determineRigCaps()
     QRegularExpressionMatchIterator i = memFmtEx.globalMatch(rigCaps.memFormat);
     while (i.hasNext()) {
         QRegularExpressionMatch qmatch = i.next();
+        const QString spec = qmatch.captured(QStringLiteral("spec"));
+        const QString pos = qmatch.captured(QStringLiteral("pos"));
+        const QString width = qmatch.captured(QStringLiteral("width"));
 
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        if (qmatch.hasCaptured("spec") && qmatch.hasCaptured("pos") && qmatch.hasCaptured("width")) {
-#endif
-            rigCaps.memParser.append(memParserFormat(qmatch.captured("spec").at(0).toLatin1(),qmatch.captured("pos").toInt(),qmatch.captured("width").toInt()));
+        if (!spec.isNull() && !pos.isNull() && !width.isNull()) {
+            rigCaps.memParser.append(memParserFormat(spec.at(0).toLatin1(), pos.toInt(), width.toInt()));
         }
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        }
-#endif
+    }
 
     QRegularExpressionMatchIterator i2 = memFmtEx.globalMatch(rigCaps.satFormat);
 
     while (i2.hasNext()) {
         QRegularExpressionMatch qmatch = i2.next();
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        if (qmatch.hasCaptured("spec") && qmatch.hasCaptured("pos") && qmatch.hasCaptured("width")) {
-#endif
-            rigCaps.satParser.append(memParserFormat(qmatch.captured("spec").at(0).toLatin1(),qmatch.captured("pos").toInt(),qmatch.captured("width").toInt()));
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-            }
-#endif
+        const QString spec = qmatch.captured(QStringLiteral("spec"));
+        const QString pos = qmatch.captured(QStringLiteral("pos"));
+        const QString width = qmatch.captured(QStringLiteral("width"));
+
+        if (!spec.isNull() && !pos.isNull() && !width.isNull()) {
+            rigCaps.satParser.append(memParserFormat(spec.at(0).toLatin1(), pos.toInt(), width.toInt()));
+        }
     }
 
     // Copy received guid so we can recognise this radio.
