@@ -178,7 +178,6 @@ CONFIG(debug, release|debug) {
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/DebugDLL/
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
@@ -190,7 +189,6 @@ CONFIG(debug, release|debug) {
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
@@ -206,7 +204,6 @@ CONFIG(debug, release|debug) {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/X64/Release/ -lportaudio_x64
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
@@ -217,7 +214,6 @@ CONFIG(debug, release|debug) {
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.8/imports/LibFT4222/dll/i386/LibFT4222.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))

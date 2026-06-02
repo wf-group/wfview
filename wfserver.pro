@@ -31,7 +31,6 @@ CONFIG(debug, release|debug) {
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfserver-debug $$escape_expand(\\n\\t))
       }
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfserver-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
@@ -42,7 +41,6 @@ CONFIG(debug, release|debug) {
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386/LibFT4222.dll) wfserver-debug $$escape_expand(\\n\\t))
       }
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfserver-debug $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
@@ -65,7 +63,6 @@ CONFIG(debug, release|debug) {
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64/LibFT4222-64.dll) wfserver-release $$escape_expand(\\n\\t))
       }
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfserver-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
@@ -76,7 +73,6 @@ CONFIG(debug, release|debug) {
       contains(DEFINES,FTDI_SUPPORT){
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
-        QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386/LibFT4222.dll) wfserver-release $$escape_expand(\\n\\t))
       }
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfserver-release $$escape_expand(\\n\\t))
       QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
