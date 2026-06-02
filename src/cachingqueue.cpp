@@ -111,8 +111,12 @@ void cachingQueue::run()
 
             if (haveItem) {
                 locker.unlock();
-                if (!aborted)
-                    emit haveCommand(item.command, item.param, item.receiver);
+                if (!aborted) {
+                    if (!item.rawData.isEmpty())
+                        emit haveRawCommand(item.rawData, item.receiver);
+                    else
+                        emit haveCommand(item.command, item.param, item.receiver);
+                }
                 locker.relock();  // restore original "mutex held" assumption
             }
 
@@ -207,8 +211,10 @@ void cachingQueue::add(queuePriority prio ,queueItem item, bool unique)
     // If the queue isn't running, no point adding to it!
     if (this->queueInterval != -1)
     {
-        item.command=checkCommandAvailable(item.command,item.param.isValid());
-        if ((item.receiver != 0xff || rigState.receiver == item.receiver) && item.command != funcNone)
+        const bool isRawCommand = !item.rawData.isEmpty();
+        if (!isRawCommand)
+            item.command=checkCommandAvailable(item.command,item.param.isValid());
+        if ((item.receiver != 0xff || rigState.receiver == item.receiver) && (isRawCommand || item.command != funcNone))
         {
             QMutexLocker locker(&mutex);
 
@@ -225,7 +231,7 @@ void cachingQueue::add(queuePriority prio ,queueItem item, bool unique)
                     }
 
                     // Don't immediately request funcTransceiverId, wait for the queue to run
-                    if (item.recurring && item.command != funcTransceiverId) {
+                    if (!isRawCommand && item.recurring && item.command != funcTransceiverId) {
                         // also insert an immediate command to get the current value "now" (removes the need to get rigstate)
                         queueItem it=item;
                         it.recurring=false;
@@ -236,7 +242,7 @@ void cachingQueue::add(queuePriority prio ,queueItem item, bool unique)
                 }
             }
             //Immediately update the cache (even if we aren't sending a value)
-            if (!item.recurring && prio == priorityImmediate)
+            if (!isRawCommand && !item.recurring && prio == priorityImmediate)
             {
                 updateCache(false,item.command,item.param,item.receiver);
             }

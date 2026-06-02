@@ -28,8 +28,8 @@ public:
 
 public slots:
     void process() override;
-    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp) override;
 
     void lanConnected();
     void lanDisconnected();
@@ -62,6 +62,8 @@ public slots:
     // Serial:
     void serialPortError(QSerialPort::SerialPortError err);
     void receiveDataFromRig();
+    void dataFromExternalClient(QByteArray data);
+    void receiveRawExternalCommand(QByteArray data, uchar receiver);
 
 
     void parseData(QByteArray dataInput);
@@ -111,6 +113,7 @@ private:
     bool audioStarted = false;
 
     bool network = false;
+    bool vspQueueEnabled = false;
 
     QByteArray partial;
 

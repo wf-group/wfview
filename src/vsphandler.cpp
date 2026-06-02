@@ -18,9 +18,6 @@ vspHandler::vspHandler(QString pty, QObject* parent) : QObject(parent)
     //constructor
 
     this->setObjectName("vspHandler");
-    queue = cachingQueue::getInstance();
-    connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
-    rigCaps = queue->getRigCaps();
 
     if (pty == "" || pty.toLower() == "none")
     {
@@ -125,35 +122,8 @@ vspHandler::~vspHandler()
 
 void vspHandler::receiveDataFromRigToVsp(const QByteArray& data)
 {
-
-    int fePos=data.lastIndexOf((char)0xfe);
-    if (fePos > 0 && data.length() > fePos+2)
-        fePos=fePos-1;
-    else
-    {
-        qDebug(logSerial()) << "Invalid command";
-        printHex(data,false,true);
-    }
-
-    if (disableTransceive && ((quint8)data[fePos + 2] == 0x00 || (quint8)data[fePos + 3] == 0x00))
-    {
-        // Ignore data that is sent to/from transceive address as client has requested transceive disabled.
-        qDebug(logSerial()) << "Transceive command filtered";
-        return;
-
-    }
-
-    if (isConnected && (quint8)data[fePos + 2] != quint8(0xE1) && (quint8)data[fePos + 3] != quint8(0xE1))
-    {
-        // send to the pseudo port as well
-        // index 2 is dest, 0xE1 is wfview, 0xE0 is assumed to be the other device.
-        // Changed to "Not 0xE1"
-        // 0xE1 = wfview
-        // 0xE0 = pseudo-term host
-        // 0x00 = broadcast to all
-        //qInfo(logSerial()) << "Sending data from radio to pseudo-terminal" << data.toHex(' ');
+    if (isConnected)
         sendDataOut(data);
-    }
 }
 
 void vspHandler::sendDataOut(const QByteArray& writeData)
@@ -208,75 +178,12 @@ void vspHandler::receiveDataIn(int fd) {
     inPortData.resize(got);
 #endif
 
-    if (inPortData.startsWith("\xFE\xFE"))
-    {
-        if (inPortData.endsWith("\xFD"))
-        {
-            // good!
 #ifdef Q_OS_WIN
-            port->commitTransaction();
+    port->commitTransaction();
 #endif
 
-            int lastFE = inPortData.lastIndexOf((char)0xfe);
-            if (civId == 0 && inPortData.length() > lastFE + 2 && (quint8)inPortData[lastFE + 2] > (quint8)0xdf && (quint8)inPortData[lastFE + 2] < (quint8)0xef) {
-                // This is (should be) the remotes CIV id.
-                civId = (quint8)inPortData[lastFE + 2];
-                qInfo(logSerial()) << "pty detected remote CI-V:" << QString("0x%1").arg(civId,0,16);
-            }
-            else if (civId != 0 && inPortData.length() > lastFE + 2 && (quint8)inPortData[lastFE + 2] != civId)
-            {
-                civId = (quint8)inPortData[lastFE + 2];
-                qInfo(logSerial()) << "pty remote CI-V changed:" << QString("0x%1").arg((quint8)civId,0,16);
-            }
-            // filter C-IV transceive command before forwarding on.
-            if (rigCaps != nullptr && rigCaps->commands.contains(funcCIVTransceive) && inPortData.contains(rigCaps->commands.find(funcCIVTransceive).value().data))
-            {
-                //qInfo(logSerial()) << "Filtered transceive command";
-                //printHex(inPortData, false, true);
-                QByteArray reply= QByteArrayLiteral("\xfe\xfe\x00\x00\xfb\xfd");
-                reply[2] = inPortData[3];
-                reply[3] = inPortData[2];
-                sendDataOut(inPortData); // Echo command back
-                sendDataOut(reply);
-                if (!disableTransceive) {
-                    qInfo(logSerial()) << "pty requested CI-V Transceive disable";
-                    disableTransceive = true;
-                }
-            }
-            else if (inPortData.length() > lastFE + 2 && (quint8(inPortData[lastFE + 1]) == civId || quint8(inPortData[lastFE + 2]) == civId))
-            {
-                //qInfo(logSerial()) << "Got data from pseudo-terminal to radio" << inPortData.toHex(' ');
-                emit haveDataFromPort(inPortData);
-                //qDebug(logSerial()) << "Data from pseudo term:";
-                //printHex(inPortData, false, true);
-            }
-
-            if (rolledBack)
-            {
-                // qInfo(logSerial()) << "Rolled back and was successful. Length: " << inPortData.length();
-                //printHex(inPortData, false, true);
-                rolledBack = false;
-            }
-        }
-        else {
-            // did not receive the entire thing so roll back:
-            // qInfo(logSerial()) << "Rolling back transaction. End not detected. Length: " << inPortData.length();
-            //printHex(inPortData, false, true);
-            rolledBack = true;
-#ifdef Q_OS_WIN
-            port->rollbackTransaction();
-        }
-    }
-    else {
-        port->commitTransaction(); // do not emit data, do not keep data.
-        //qInfo(logSerial()) << "Warning: received data with invalid start. Dropping data.";
-        //qInfo(logSerial()) << "THIS SHOULD ONLY HAPPEN ONCE!!";
-        // THIS SHOULD ONLY HAPPEN ONCE!
-    }
-#else
-        }
-    }
-#endif
+    if (!inPortData.isEmpty())
+        emit haveDataFromPort(inPortData);
 }
 
 
@@ -343,13 +250,4 @@ void vspHandler::printHex(const QByteArray& pdata, bool printVert, bool printHor
         qDebug(logSerial()) << sdata;
     }
     qDebug(logSerial()) << "----- End hex dump -----";
-}
-
-
-void vspHandler::receiveRigCaps(rigCapabilities* caps)
-{
-    if (caps != nullptr) {
-        qInfo(logSerial()) << "Got rigcaps for:" << caps->modelName;
-    }
-    this->rigCaps = caps;
 }

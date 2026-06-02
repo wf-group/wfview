@@ -26,14 +26,17 @@ public:
 
 public slots:
     void process() override;
-    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp) override;
     void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                           QString username, QString password, QString calledNumber,
                           audioSetup rxSetup, audioSetup txSetup) override;
     void setLocalAudioVolume(quint8 level) override;
     void dataFromServer(QByteArray data) override;
+    void dataFromVspClient(QByteArray data);
     void dataFromExternalClient(QByteArray data);
+    void dataFromRigToExternalClient(QByteArray data);
+    void receiveRawExternalCommand(QByteArray data, uchar receiver);
     void receiveTxAudioData(const audioPacket &packet) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
@@ -58,6 +61,7 @@ signals:
     // All signals are defined in rigcommander.h as they should be common for all rig types.
     void sidetone(QString text);
     void stopsidetone();
+    void haveDataForVsp(QByteArray data);
 
 private:
     void commonSetup();
@@ -108,6 +112,7 @@ private:
     void prepDataAndSend(QByteArray data);
     funcs lookupExternalCommand(const QByteArray &data, QByteArray *commandData = nullptr,
                                 QByteArray *lookupData = nullptr, int *matchedLength = nullptr) const;
+    bool queueExternalCommand(QByteArray data);
     void recordLastExternalCommand(const QByteArray &data);
     bool detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const;
     void debugMe();
@@ -158,6 +163,8 @@ private:
     quint16 civAddr;
     quint16 incomingCIVAddr; // place to store the incoming CIV.
     bool pttAllowed;
+    bool vspQueueEnabled = false;
+    bool vspTransceiveDisabled = false;
 
     scopeData mainScopeData;
     scopeData subScopeData;

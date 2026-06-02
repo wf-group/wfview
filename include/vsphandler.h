@@ -9,9 +9,7 @@
 #include <QSocketNotifier>
 #include <QtSerialPort/QSerialPort>
 
-#include "rigidentities.h"
 #include "wfviewtypes.h"
-#include "cachingqueue.h"
 
 // This class abstracts the comm port in a useful way and connects to
 // the command creator and command parser.
@@ -31,7 +29,6 @@ private slots:
     void receiveDataIn(int fd); // from physical port
     void receiveDataFromRigToVsp(const QByteArray& data);
     void debugThis();
-    void receiveRigCaps(rigCapabilities* rigCaps);
 
 signals:
     void haveTextMessage(QString message); // status, debug only
@@ -71,11 +68,7 @@ private:
     bool isConnected=false; // port opened
     mutable QMutex mutex;
     void printHex(const QByteArray& pdata, bool printVert, bool printHoriz);
-    bool disableTransceive = false;
     QSocketNotifier *ptReader = nullptr;
-    quint16 civId=0;
-    rigCapabilities* rigCaps = nullptr;
-    cachingQueue* queue = nullptr;
 };
 
 #endif // VSPHANDLER_H

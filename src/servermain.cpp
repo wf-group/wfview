@@ -202,7 +202,7 @@ void servermain::openRig()
             //qInfo(logSystem()) << "Got rig";
             QMetaObject::invokeMethod(radio->rig, [=]() {
                 const quint8 waterfallFormat = prefs.manufacturer == manufIcom ? quint8(1) : radio->waterfallFormat;
-                radio->rig->serialCommSetup(rigList, radio->civAddr, radio->serialPort, radio->baudRate, QString("none"), 0, waterfallFormat);
+                radio->rig->serialCommSetup(rigList, radio->civAddr, radio->serialPort, radio->baudRate, QString("none"), false, 0, waterfallFormat);
             }, Qt::QueuedConnection);
         }
     }

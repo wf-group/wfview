@@ -61,8 +61,8 @@ public slots:
 
     virtual void dataFromServer(QByteArray data);
     virtual void process();
-    virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf);
-    virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf);
+    virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp);
     virtual void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                                   QString username, QString password, QString calledNumber,
                                   audioSetup rxSetup, audioSetup txSetup);
@@ -151,6 +151,7 @@ protected:
 
     double getMeterCal(meter_t meter,int value);
     void determineRigCaps();
+    queuePriority externalCommandPriority(funcs func) const;
 
     void printHex(const QByteArray &pdata);
     void printHex(const QByteArray &pdata, bool printVert, bool printHoriz);

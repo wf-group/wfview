@@ -68,19 +68,20 @@ rigCommander::~rigCommander()
 }
 
 
-void rigCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void rigCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcpPort, quint8 wf)
 {
     Q_UNUSED(rigList)
     Q_UNUSED(rigCivAddr)
     Q_UNUSED(rigSerialPort)
     Q_UNUSED(rigBaudRate)
     Q_UNUSED(vsp)
+    Q_UNUSED(vspUseQueue)
     Q_UNUSED(tcpPort)
     Q_UNUSED(wf)
     qWarning(logRig()) << "commSetup() (serial) not implemented by rig type";
 }
 
-void rigCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void rigCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
 {
     Q_UNUSED(rigList)
     Q_UNUSED(rigCivAddr)
@@ -88,6 +89,7 @@ void rigCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
     Q_UNUSED(rxSetup)
     Q_UNUSED(txSetup)
     Q_UNUSED(vsp)
+    Q_UNUSED(vspUseQueue)
     Q_UNUSED(tcpPort)
     qWarning(logRig()) << "commSetup() (network) not implemented by rig type";
 }
@@ -225,6 +227,19 @@ void rigCommander::getDebug()
 void rigCommander::dataFromServer(QByteArray data)
 {
     emit dataForComm(data);
+}
+
+queuePriority rigCommander::externalCommandPriority(funcs func) const
+{
+    if (func == funcNone)
+        return priorityImmediate;
+
+    for (const auto &periodic : rigCaps.periodic) {
+        if (periodic.func == func && periodic.prioVal > int(priorityNone))
+            return queuePriority(periodic.prioVal);
+    }
+
+    return priorityImmediate;
 }
 
 void rigCommander::receiveTxAudioData(const audioPacket &packet)

@@ -2195,6 +2195,15 @@ ApplicationWindow {
                                 id: ptyDeviceLabel
                                 text: qsTr("Use \"none\" to disable the virtual serial bridge.")
                             }
+                            CheckBox {
+                                id: vspQueueCheck
+                                text: qsTr("Use command queue")
+                                checked: optBool("Radio.VirtualSerialPortUseQueue", false)
+                                enabled: vspCombo.editText.toLowerCase() !== "none"
+                                onClicked: if (controller) controller.setOption("Radio.VirtualSerialPortUseQueue", checked)
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Route virtual serial CAT commands through wfview's command queue where possible.")
+                            }
                             Item { Layout.fillWidth: true }
                         }
 

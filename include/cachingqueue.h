@@ -28,17 +28,19 @@ inline QMap<QString,int> priorityMap = {{"None",0},{"Immediate",1},{"Highest",2}
 // Command with no param is a get by default
 struct queueItem {
     queueItem() : id(nextId++){}
-    queueItem (queueItem const &q): command(q.command), param(q.param), receiver(q.receiver), recurring(q.recurring), id(nextId++) {};
+    queueItem (queueItem const &q): command(q.command), param(q.param), receiver(q.receiver), recurring(q.recurring), rawData(q.rawData), id(nextId++) {};
     queueItem (funcs command, QVariant param, bool recurring, uchar receiver) : command(command), param(param), receiver(receiver), recurring(recurring), id(nextId++) {};
     queueItem (funcs command, QVariant param, bool recurring) : command(command), param(param), receiver(0), recurring(recurring), id(nextId++) {};
     queueItem (funcs command, QVariant param) : command(command), param(param),receiver(0), recurring(0), id(nextId++) {};
     queueItem (funcs command, bool recurring, uchar receiver) : command(command), param(QVariant()), receiver(receiver), recurring(recurring), id(nextId++) {};
     queueItem (funcs command, bool recurring) : command(command), param(QVariant()), receiver(0), recurring(recurring), id(nextId++) {};
     queueItem (funcs command) : command(command), param(QVariant()), receiver(0), recurring(false), id(nextId++){};
+    queueItem (QByteArray rawData, uchar receiver=0) : command(funcNone), param(QVariant()), receiver(receiver), recurring(false), rawData(rawData), id(nextId++) {};
     funcs command;
     QVariant param;
     uchar receiver;
     bool recurring;
+    QByteArray rawData;
     static std::atomic<qint64> nextId;
     qint64 id = nextId++;
     //qint64 id = QDateTime::currentMSecsSinceEpoch();
@@ -48,7 +50,8 @@ struct queueItem {
         return (lhs.command == command &&
                 lhs.receiver == receiver &&
                 lhs.recurring == recurring &&
-                lhs.param.isValid() == param.isValid());
+                lhs.param.isValid() == param.isValid() &&
+                lhs.rawData == rawData);
     }
 };
 
@@ -84,6 +87,7 @@ class cachingQueue : public QThread
 
 signals:
     void haveCommand(funcs func, QVariant param, uchar receiver);
+    void haveRawCommand(QByteArray data, uchar receiver);
     void sendValue(cacheItem item);
     void sendMessage(QString msg);
     void cacheUpdated(cacheItem item);

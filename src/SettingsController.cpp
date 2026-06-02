@@ -28,6 +28,7 @@ static const QStringList radioProfileKeys = {
     QStringLiteral("Radio.SerialPortRadio"),
     QStringLiteral("Radio.SerialPortBaud"),
     QStringLiteral("Radio.VirtualSerialPort"),
+    QStringLiteral("Radio.VirtualSerialPortUseQueue"),
     QStringLiteral("Radio.LocalAFGain"),
     QStringLiteral("Radio.AudioSystem"),
     QStringLiteral("Radio.EnableUSBAudio"),
@@ -1031,6 +1032,7 @@ void SettingsController::load()
     }
 
     prefs.virtualSerialPort = settings->value("VirtualSerialPort", defPrefs.virtualSerialPort).toString();
+    prefs.virtualSerialPortUseQueue = settings->value("VirtualSerialPortUseQueue", defPrefs.virtualSerialPortUseQueue).toBool();
 
 
     prefs.localAFgain = (quint8)settings->value("localAFgain", defPrefs.localAFgain).toUInt();
@@ -1722,6 +1724,7 @@ void SettingsController::save()
     if (prefs.serialPortBaud != 0)
         settings->setValue("SerialPortBaud", prefs.serialPortBaud);
     settings->setValue("VirtualSerialPort", prefs.virtualSerialPort);
+    settings->setValue("VirtualSerialPortUseQueue", prefs.virtualSerialPortUseQueue);
     settings->setValue("localAFgain", prefs.localAFgain);
     settings->setValue("AudioSystem", prefs.audioSystem);
     settings->setValue("EnableUSBAudio", prefs.enableUsbAudio);
@@ -2171,6 +2174,7 @@ void SettingsController::setDefPrefs()
     defPrefs.enableRigCtlD = false;
     defPrefs.rigCtlPort = 4533;
     defPrefs.virtualSerialPort = QString("none");
+    defPrefs.virtualSerialPortUseQueue = false;
     defPrefs.localAFgain = 255;
     defPrefs.mainWflength = 160;
     defPrefs.mainWfTheme = static_cast<int>(WaterfallItem::Theme::Jet);
@@ -3056,6 +3060,9 @@ void SettingsController::buildBindings()
 
     WF_STR("Radio.VirtualSerialPort", prefs.virtualSerialPort,
            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_virtualSerialPort)); });
+
+    WF_BOOL("Radio.VirtualSerialPortUseQueue", prefs.virtualSerialPortUseQueue,
+            [this](){ emit raChanged(prefRaItems(prefRaItem::ra_virtualSerialPortUseQueue)); });
 
     WF_U8("Radio.LocalAFGain", prefs.localAFgain,
           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_localAFgain)); });

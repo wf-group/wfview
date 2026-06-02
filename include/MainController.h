@@ -286,8 +286,8 @@ signals:
     void receiverDetachedChanged(int index, bool detached);
     void detachedChanged();
 
-    void sendSerialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
-    void sendNetworkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendSerialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf);
+    void sendNetworkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp);
     void sendWfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
                               QString username, QString password, QString calledNumber,
                               audioSetup rxSetup, audioSetup txSetup);

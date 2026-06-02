@@ -2830,9 +2830,11 @@ void MainController::openRigConnection()
     else if (prefs->enableLAN)
     {
         udpPrefs->waterfallFormat = prefs->waterfallFormat;
-        emit sendNetworkCommSetup(rigList, prefs->radioCIVAddr, *udpPrefs, prefs->rxSetup, prefs->txSetup, prefs->virtualSerialPort, prefs->tcpPort);
+        emit sendNetworkCommSetup(rigList, prefs->radioCIVAddr, *udpPrefs, prefs->rxSetup, prefs->txSetup,
+                                  prefs->virtualSerialPort, prefs->virtualSerialPortUseQueue, prefs->tcpPort);
     } else {
-        emit sendSerialCommSetup(rigList, prefs->radioCIVAddr, prefs->serialPortRadio, prefs->serialPortBaud,prefs->virtualSerialPort, prefs->tcpPort,prefs->waterfallFormat);
+        emit sendSerialCommSetup(rigList, prefs->radioCIVAddr, prefs->serialPortRadio, prefs->serialPortBaud,
+                                 prefs->virtualSerialPort, prefs->virtualSerialPortUseQueue, prefs->tcpPort,prefs->waterfallFormat);
     }
 }
 
@@ -4325,6 +4327,7 @@ void MainController::setDefPrefs()
     defprefs->enableRigCtlD = false;
     defprefs->rigCtlPort = 4533;
     defprefs->virtualSerialPort = QString("none");
+    defprefs->virtualSerialPortUseQueue = false;
     defprefs->localAFgain = 255;
     defprefs->mainWflength = 160;
     defprefs->mainWfTheme = static_cast<int>(QCPColorGradient::gpJet);
@@ -4724,6 +4727,7 @@ void MainController::loadSettings(QString settingsFile)
     }
 
     prefs->virtualSerialPort = settings->value("VirtualSerialPort", defprefs->virtualSerialPort).toString();
+    prefs->virtualSerialPortUseQueue = settings->value("VirtualSerialPortUseQueue", defprefs->virtualSerialPortUseQueue).toBool();
 
 
     prefs->localAFgain = (quint8)settings->value("localAFgain", defprefs->localAFgain).toUInt();

@@ -72,7 +72,7 @@ yaesuCommander::~yaesuCommander()
 
 }
 
-void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcpPort, quint8 wf)
 {
     // constructor for serial connected rigs
     // As the serial connection is quite simple, no need to use a dedicated class.
@@ -81,6 +81,7 @@ void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     this->rigSerialPort = rigSerialPort;
     this->rigBaudRate = rigBaudRate;
     this->vsp = vsp;
+    this->vspQueueEnabled = vspUseQueue;
     this->tcpPort = tcpPort;
     this->wf = wf;
 
@@ -294,7 +295,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
 
 }
 
-void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
 {
     // constructor for network (LAN) connected rigs
     this->rigList = rigList;
@@ -303,6 +304,7 @@ void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 ri
     this->rxSetup = rxSetup;
     this->txSetup = txSetup;
     this->vsp = vsp;
+    this->vspQueueEnabled = vspUseQueue;
     this->tcpPort = tcpPort;
     this->connType = prefs.connectionType;
 
@@ -445,7 +447,7 @@ void yaesuCommander::commonSetup()
         qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
         vspPort = new vspHandler(vsp,this);
         // data from the VSP to the rig:
-        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), port, SLOT(sendData(QByteArray)));
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         // data from the rig to the VSP:
         connect(this, SIGNAL(haveDataFromRig(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
     }
@@ -454,7 +456,7 @@ void yaesuCommander::commonSetup()
         tcp = new tcpServer(this);
         tcp->startServer(tcpPort);
         // data from the tcp port to the rig:
-        connect(tcp, SIGNAL(receiveData(QByteArray)), port, SLOT(sendData(QByteArray)));
+        connect(tcp, SIGNAL(receiveData(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         connect(this, SIGNAL(haveDataFromRig(QByteArray)), tcp, SLOT(sendData(QByteArray)));
     }
 
@@ -472,8 +474,51 @@ void yaesuCommander::commonSetup()
     rigCaps.commandsReverse.insert(QByteArray("PS"),funcPowerControl);
 
     connect(queue,SIGNAL(haveCommand(funcs,QVariant,uchar)),this,SLOT(receiveCommand(funcs,QVariant,uchar)));
+    connect(queue,SIGNAL(haveRawCommand(QByteArray,uchar)),this,SLOT(receiveRawExternalCommand(QByteArray,uchar)));
 
     emit commReady();
+}
+
+void yaesuCommander::dataFromExternalClient(QByteArray data)
+{
+    if (vspQueueEnabled && queue != nullptr && !data.isEmpty()) {
+        const QList<QByteArray> commands = data.split(';');
+        bool queuedAny = false;
+
+        for (int commandIndex = commands.size() - 1; commandIndex >= 0; --commandIndex) {
+            const QByteArray d = commands.at(commandIndex).trimmed();
+            if (d.isEmpty())
+                continue;
+
+            funcs func = funcNone;
+            int matchedLength = 0;
+            for (int i = d.length(); i > 0; --i) {
+                auto it = rigCaps.commandsReverse.constFind(d.left(i));
+                if (it != rigCaps.commandsReverse.constEnd()) {
+                    func = it.value();
+                    matchedLength = i;
+                    break;
+                }
+            }
+
+            if (func != funcNone && matchedLength == d.size())
+                queue->add(externalCommandPriority(func), func, false, 0);
+            else
+                queue->add(externalCommandPriority(func), queueItem(d + ';', 0));
+            queuedAny = true;
+        }
+
+        if (queuedAny)
+            return;
+    }
+
+    receiveRawExternalCommand(data, 0);
+}
+
+void yaesuCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
+{
+    Q_UNUSED(receiver)
+    dataForRig(data);
 }
 
 void yaesuCommander::dataForRig(QByteArray d)

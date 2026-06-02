@@ -94,7 +94,7 @@ icomCommander::~icomCommander()
 }
 
 
-void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcpPort, quint8 wf)
 {
     // construct
 
@@ -106,6 +106,7 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
 
     this->rigSerialPort = rigSerialPort;
     this->rigBaudRate = rigBaudRate;
+    vspQueueEnabled = vspUseQueue;
     rigCaps.baudRate = rigBaudRate;
 
 
@@ -124,9 +125,10 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
         qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
         vspPort = new vspHandler(vsp,this);
         // data from the VSP to the rig:
-        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
         // data from the rig to the VSP:
-        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
+        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromRigToExternalClient(QByteArray)));
+        connect(this, SIGNAL(haveDataForVsp(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
         connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
         connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
     }
@@ -142,7 +144,7 @@ void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigC
     commonSetup();
 }
 
-void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
 {
     // construct
     // TODO: Bring this parameter and the comm port from the UI.
@@ -152,6 +154,7 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     this->prefs = prefs;
     civAddr = rigCivAddr; // address of the radio
     usingNativeLAN = true;
+    vspQueueEnabled = vspUseQueue;
 
     if (udp != nullptr) {
         closeComm();
@@ -192,9 +195,10 @@ void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     if (vsp != "None") {
         vspPort = new vspHandler(vsp,this);
         // data from the VSP to the rig:
-        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
         // data from the rig to the VSP:
-        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
+        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromRigToExternalClient(QByteArray)));
+        connect(this, SIGNAL(haveDataForVsp(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
 
         connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
         connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
@@ -460,6 +464,7 @@ void icomCommander::commonSetup()
     rigCaps.commandsReverse.insert(QByteArrayLiteral("\x18"),funcPowerControl);
 
     connect(queue,SIGNAL(haveCommand(funcs,QVariant,uchar)),this,SLOT(receiveCommand(funcs,QVariant,uchar)));
+    connect(queue,SIGNAL(haveRawCommand(QByteArray,uchar)),this,SLOT(receiveRawExternalCommand(QByteArray,uchar)));
     oldScopeMode = 0xff;
 
     pttAllowed = true; // This is for developing, set to false for "safe" debugging. Set to true for deployment.
@@ -516,6 +521,28 @@ void icomCommander::dataFromServer(QByteArray data)
     rigCommander::dataFromServer(data);
 }
 
+void icomCommander::dataFromVspClient(QByteArray data)
+{
+    QByteArray commandData;
+    const funcs externalFunc = lookupExternalCommand(data, &commandData);
+    if (externalFunc == funcCIVTransceive) {
+        QByteArray reply = QByteArrayLiteral("\xfe\xfe\x00\x00\xfb\xfd");
+        if (data.size() > 3) {
+            reply[2] = data[3];
+            reply[3] = data[2];
+        }
+        emit haveDataForVsp(data);
+        emit haveDataForVsp(reply);
+        if (!vspTransceiveDisabled) {
+            qInfo(logSerial()) << "pty requested CI-V Transceive disable";
+            vspTransceiveDisabled = true;
+        }
+        return;
+    }
+
+    dataFromExternalClient(data);
+}
+
 void icomCommander::dataFromExternalClient(QByteArray data)
 {
     bool transmit = false;
@@ -523,7 +550,91 @@ void icomCommander::dataFromExternalClient(QByteArray data)
         emit externalPttChanged(transmit);
 
     recordLastExternalCommand(data);
+    if (vspQueueEnabled && queueExternalCommand(data))
+        return;
+
     emit dataForComm(data);
+}
+
+void icomCommander::dataFromRigToExternalClient(QByteArray data)
+{
+    int fePos = data.lastIndexOf(char(0xfe));
+    if (fePos > 0 && data.length() > fePos + 3)
+        fePos--;
+
+    if (fePos < 0 || data.length() <= fePos + 3) {
+        qDebug(logSerial()) << "Invalid CI-V command for VSP";
+        return;
+    }
+
+    if (vspTransceiveDisabled) {
+        if (quint8(data.at(fePos + 2)) == 0x00 || quint8(data.at(fePos + 3)) == 0x00) {
+            qDebug(logSerial()) << "Transceive command filtered";
+            return;
+        }
+    }
+
+    if (quint8(data.at(fePos + 2)) == quint8(0xE1) || quint8(data.at(fePos + 3)) == quint8(0xE1))
+        return;
+
+    emit haveDataForVsp(data);
+}
+
+void icomCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
+{
+    Q_UNUSED(receiver)
+    emit dataForComm(data);
+}
+
+bool icomCommander::queueExternalCommand(QByteArray data)
+{
+    if (queue == nullptr || data.isEmpty())
+        return false;
+
+    QVector<QByteArray> frames;
+    int searchFrom = 0;
+    while (searchFrom < data.size()) {
+        int frameStart = -1;
+        for (int i = searchFrom; i + 1 < data.size(); ++i) {
+            if (quint8(data.at(i)) == 0xfe && quint8(data.at(i + 1)) == 0xfe) {
+                frameStart = i;
+                break;
+            }
+        }
+
+        if (frameStart < 0)
+            break;
+
+        const int frameEnd = data.indexOf(char(0xfd), frameStart + 2);
+        if (frameEnd < 0)
+            break;
+
+        frames.append(data.mid(frameStart, frameEnd - frameStart + 1));
+        searchFrom = frameEnd + 1;
+    }
+
+    if (frames.isEmpty()) {
+        queue->add(priorityImmediate, queueItem(data, 0));
+        return true;
+    }
+
+    for (int frameIndex = frames.size() - 1; frameIndex >= 0; --frameIndex) {
+        const QByteArray frame = frames.at(frameIndex);
+        QByteArray commandData;
+        QByteArray lookupData;
+        int matchedLength = 0;
+        const funcs func = lookupExternalCommand(frame, &commandData, &lookupData, &matchedLength);
+        uchar receiver = 0;
+        if (rigCaps.hasCommand29 && commandData.size() >= 2 && quint8(commandData.at(0)) == 0x29)
+            receiver = quint8(commandData.at(1));
+
+        if (func != funcNone && matchedLength > 0 && lookupData.size() == matchedLength)
+            queue->add(externalCommandPriority(func), func, false, receiver);
+        else
+            queue->add(externalCommandPriority(func), queueItem(frame, receiver));
+    }
+
+    return true;
 }
 
 funcs icomCommander::lookupExternalCommand(const QByteArray &data, QByteArray *commandData,
