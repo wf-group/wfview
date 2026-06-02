@@ -552,6 +552,14 @@ jobs:
           echo "ICE == murderers"
 
 
+          echo "=== Removing unused Qt SQL plugins ==="
+          for plugin_root in "$QT_PLUGIN_PATH" "$QT_ROOT_DIR/plugins"; do
+            if [ -n "$plugin_root" ] && [ -d "$plugin_root/sqldrivers" ]; then
+              rm -rf "$plugin_root/sqldrivers"
+              echo "Removed $plugin_root/sqldrivers"
+            fi
+          done
+
           echo "=== Deploying Qt Frameworks ==="
           macdeployqt wfview/wfview.app -qmldir=$GITHUB_WORKSPACE/wfview/qml
 
