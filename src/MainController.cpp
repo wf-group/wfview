@@ -4452,7 +4452,7 @@ void MainController::setDefPrefs()
             p->plotBackground = QColor(0,0,0,255);
             p->axisColor = QColor(Qt::white);
             p->textColor = QColor(255,255,255,255);
-            p->gridColor = QColor(0,0,0,255);
+            p->gridColor = QColor(0x5E,0x5C,0x64,0xFF);
             p->spectrumFill = QColor("transparent");
             p->spectrumLine = QColor(Qt::yellow);
             p->underlayLine = QColor(0x96,0x33,0xff,0xff);

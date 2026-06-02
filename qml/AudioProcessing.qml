@@ -379,8 +379,8 @@ ApplicationWindow {
                     var plotY = top
                     var plotW = Math.max(1, width - left - right)
                     var plotH = Math.max(1, height - top - bottom)
-                    var bgColor = win.canvasColor(win.palette.base, 1)
-                    var gridColor = win.canvasColor(win.palette.mid, 1)
+                    var bgColor = win.canvasColor(MainController.settings.options["Color.PlotBackground"], 1)
+                    var gridColor = win.canvasColor(MainController.settings.options["Color.Grid"], 1)
                     var textColor = win.canvasColor(win.palette.text, 1)
                     var subtleTextColor = win.canvasColor(win.palette.text, 0.75)
 
