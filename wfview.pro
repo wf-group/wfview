@@ -119,7 +119,7 @@ macx{
     QMAKE_MAC_XCODE_SETTINGS += MY_ENTITLEMENTS
     QMAKE_INFO_PLIST = resources/Info.plist
     rigFiles.files = rigs
-    rigFiles.path = Contents/MacOS
+    rigFiles.path = Contents/Resources
     QMAKE_BUNDLE_DATA += rigFiles
 }
 
