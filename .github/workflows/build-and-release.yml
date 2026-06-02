@@ -651,14 +651,35 @@ jobs:
           # Staple the ticket
           xcrun stapler staple wfview/wfview.app
 
+      - name: Install DMG packaging tool
+        run: python3 -m pip install dmgbuild
+
       - name: Package macOS App
         run: |
-          hdiutil create \
-            -volname "wfview" \
-            -srcfolder "wfview/wfview.app" \
-            -ov \
-            -format UDZO \
-            "wfview.dmg"
+          cat > dmg-settings.py <<'PY'
+          import os
+
+          app = os.path.abspath("wfview/wfview.app")
+
+          files = [app]
+          symlinks = {"Applications": "/Applications"}
+
+          background = "builtin-arrow"
+          window_rect = ((100, 100), (620, 360))
+          icon_size = 128
+          icon_locations = {
+              "wfview.app": (165, 170),
+              "Applications": (455, 170),
+          }
+
+          show_status_bar = False
+          show_tab_view = False
+          show_toolbar = False
+          show_pathbar = False
+          show_sidebar = False
+          PY
+
+          dmgbuild -s dmg-settings.py "wfview" wfview.dmg
 
       - name: Debug Output - Verify Library Linking
         run: |
