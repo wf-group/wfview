@@ -772,6 +772,7 @@ jobs:
           cache: true
           host: mac
           target: desktop
+          arch: clang_64
           modules: qtserialport qtmultimedia qtwebsockets qtquickcontrols2 qtgamepad
 
       - name: Build legacy Intel dependencies
