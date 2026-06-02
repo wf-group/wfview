@@ -1,5 +1,6 @@
 # .github/workflows/build-and-release.yml
-# Build wfview for Windows (x86/x64), Linux (AppImage) and macOS (Universal Qt6 DMG),
+# Build wfview for Windows (x86/x64), Linux (AppImage), macOS Universal Qt6,
+# and legacy Intel macOS Qt5 DMGs,
 # then publish all artifacts under a single release.
 
 name: Build and Release
@@ -9,6 +10,8 @@ permissions:
 
 env:
   QT6_VERSION: 6.10.3
+  QT5_LEGACY_VERSION: 5.15.2
+  MACOS_LEGACY_DEPLOYMENT_TARGET: 10.13
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
@@ -724,6 +727,238 @@ jobs:
           if-no-files-found: warn
 
   # ═══════════════════════════════════════════════════════════════════
+  #  macOS Legacy Intel Qt5 Build
+  # ═══════════════════════════════════════════════════════════════════
+  # Legacy macOS build for Intel Macs using Qt 5.15.2 and a 10.13 deployment target.
+  build-macos-legacy-intel:
+    runs-on: macos-15-intel
+
+    outputs:
+      version_string: ${{ steps.version_info.outputs.version_string }}
+      has_tag: ${{ steps.version_info.outputs.has_tag }}
+
+    env:
+      SYSROOT: ${{ github.workspace }}/legacy_intel_sysroot
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          path: wfview
+
+      - name: Determine version
+        id: version_info
+        working-directory: wfview
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          TAG=$(git tag --points-at HEAD | head -1)
+          if [ -n "$TAG" ]; then
+            VERSION_STRING="$TAG"
+            HAS_TAG=true
+          else
+            VERSION_STRING="$SHORT"
+            HAS_TAG=false
+          fi
+          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
+
+      - name: Install Qt 5.15 for macOS
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT5_LEGACY_VERSION }}
+          cache: true
+          host: mac
+          target: desktop
+          modules: qtserialport qtmultimedia qtwebsockets qtquickcontrols2 qtgamepad
+
+      - name: Build legacy Intel dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p "$SYSROOT"
+
+          git clone --depth=1 https://github.com/xiph/opus.git opus-src
+          cmake -S opus-src -B opus-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}"
+          cmake --build opus-build --target install --config Release
+
+          git clone --depth=1 https://github.com/PortAudio/portaudio.git portaudio-src
+          cmake -S portaudio-src -B portaudio-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DPA_BUILD_STATIC=OFF \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build portaudio-build --target install --config Release
+
+          git clone --depth=1 https://github.com/libusb/hidapi.git hidapi-src
+          cmake -S hidapi-src -B hidapi-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}"
+          cmake --build hidapi-build --target install --config Release
+
+      - name: Prepare wfview dependency layout
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
+          git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
+          git clone --depth=1 --branch 5.0.1 https://gitlab.com/libeigen/eigen.git eigen
+
+          mkdir -p opus
+          ln -s "$SYSROOT/include/opus" opus/include
+
+      - name: Patch wfview.pro for legacy Intel target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          project = Path("wfview/wfview.pro")
+          text = project.read_text()
+          text = text.replace("QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15",
+                              "QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13")
+          text = text.replace("QMAKE_APPLE_DEVICE_ARCHS = x86_64 arm64",
+                              "QMAKE_APPLE_DEVICE_ARCHS = x86_64")
+          project.write_text(text)
+          PY
+
+      - name: Update Info.plist version
+        run: |
+          PLIST="wfview/resources/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version_info.outputs.version_string }}" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version_info.outputs.version_string }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ github.run_number }}" "$PLIST"
+
+      - name: Build wfview legacy Intel app
+        working-directory: wfview
+        run: |
+          set -euo pipefail
+          qmake wfview.pro \
+            CONFIG+=release \
+            CONFIG+=sdk_no_version_check \
+            QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
+            QMAKE_MACOSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            INCLUDEPATH+="$SYSROOT/include" \
+            LIBS+="-L$SYSROOT/lib" \
+            VERSION="${{ steps.version_info.outputs.version_string }}"
+          make -j"$(sysctl -n hw.logicalcpu)"
+
+      - name: Deploy Qt frameworks and third-party libraries
+        run: |
+          set -euo pipefail
+
+          rm -rf "$QT_PLUGIN_PATH/sqldrivers" "$QT_ROOT_DIR/plugins/sqldrivers"
+          macdeployqt wfview/wfview.app -qmldir="$GITHUB_WORKSPACE/wfview/qml"
+
+          FRAMEWORKS="wfview/wfview.app/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"
+          cp "$SYSROOT"/lib/libportaudio*.dylib "$FRAMEWORKS/"
+          cp "$SYSROOT"/lib/libopus*.dylib "$FRAMEWORKS/"
+          cp "$SYSROOT"/lib/libhidapi*.dylib "$FRAMEWORKS/" || true
+
+          BINARY="wfview/wfview.app/Contents/MacOS/wfview"
+          if ! otool -l "$BINARY" | grep -q "@executable_path/../Frameworks"; then
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY"
+          fi
+
+      - name: Import certificate
+        env:
+          CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          echo "$CERTIFICATE_DATA" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Sign application
+        run: |
+          IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
+          APP="wfview/wfview.app"
+          ENTITLEMENTS="wfview/resources/wfview.entitlements"
+
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          find "$APP/Contents/Frameworks" -name "*.framework" | while read fw; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp "$fw"
+          done
+
+          find "$APP/Contents/PlugIns" -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP/Contents/MacOS/wfview"
+
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP"
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Notarize application
+        env:
+          NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
+          NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
+          NOTARY_TEAM: ${{ secrets.MACOS_NOTARY_TEAM }}
+        run: |
+          ditto -c -k --keepParent wfview/wfview.app wfview-legacy.zip
+          xcrun notarytool submit wfview-legacy.zip \
+            --apple-id "$NOTARY_USER" \
+            --password "$NOTARY_PWD" \
+            --team-id "$NOTARY_TEAM" \
+            --wait
+          xcrun stapler staple wfview/wfview.app
+
+      - name: Package legacy Intel DMG
+        run: |
+          set -euo pipefail
+          python3 -m pip install dmgbuild
+
+          cat > dmg-settings.py <<'PY'
+          app = "wfview/wfview.app"
+          files = [app]
+          symlinks = {"Applications": "/Applications"}
+          badge_icon = None
+          background = "builtin-arrow"
+          window_rect = ((100, 100), (620, 360))
+          icon_size = 128
+          icon_locations = {
+              "wfview.app": (165, 135),
+              "Applications": (455, 135),
+          }
+          show_status_bar = False
+          show_tab_view = False
+          show_toolbar = False
+          show_pathbar = False
+          show_sidebar = False
+          PY
+
+          dmgbuild -s dmg-settings.py "wfview Legacy Intel" wfview-macos-legacy-intel.dmg
+
+      - name: Upload legacy Intel macOS DMG artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: wfview-macos-legacy-intel-dmg
+          path: wfview-macos-legacy-intel.dmg
+          if-no-files-found: error
+
+  # ═══════════════════════════════════════════════════════════════════
   #  Linux AppImage Build
   # ═══════════════════════════════════════════════════════════════════
   build-linux-appimage:
@@ -1131,7 +1366,7 @@ jobs:
   # ═══════════════════════════════════════════════════════════════════
   publish-release:
     runs-on: ubuntu-latest
-    needs: [build-windows-x86, build-windows-x64, build-macos, build-linux-appimage]
+    needs: [build-windows-x86, build-windows-x64, build-macos, build-macos-legacy-intel, build-linux-appimage]
     if: needs.build-macos.outputs.has_tag == 'true'
 
     steps:
@@ -1171,6 +1406,12 @@ jobs:
           name: wfview-macos-dmg
           path: artifacts/
 
+      - name: Download legacy Intel macOS DMG artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: wfview-macos-legacy-intel-dmg
+          path: artifacts/
+
       - name: Download Linux installer artifact
         uses: actions/download-artifact@v7
         with:
@@ -1188,6 +1429,7 @@ jobs:
             artifacts/wfview-windows-x64-setup.exe
             artifacts/wfview-windows-x86-setup.exe
             artifacts/wfview-macos.dmg
+            artifacts/wfview-macos-legacy-intel.dmg
             artifacts/wfview-linux-installer.sh
           body: |
             ## wfview ${{ steps.meta.outputs.version_string }}
@@ -1234,6 +1476,18 @@ jobs:
             | **Compatibility** | macOS 12 (Monterey) and newer |
 
             **Install:** Download `wfview-macos.dmg`, open it, and drag wfview to your Applications folder.
+
+            ---
+
+            ### macOS (Intel Legacy / Qt5)
+
+            | Field | Value |
+            |-------|-------|
+            | **Architecture** | Intel x86_64 |
+            | **Framework** | Qt ${{ env.QT5_LEGACY_VERSION }} |
+            | **Compatibility** | macOS 10.13 (High Sierra) and newer on Intel Macs |
+
+            **Install:** Download `wfview-macos-legacy-intel.dmg`, open it, and drag wfview to your Applications folder.
 
             ---
 
