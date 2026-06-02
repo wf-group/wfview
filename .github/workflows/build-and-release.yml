@@ -515,8 +515,12 @@ jobs:
       - name: Set version in Info.plist
         run: |
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" \
+            wfview/resources/Info.plist || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version.outputs.version }}" \
             wfview/resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.bundle_version }}" \
+            wfview/resources/Info.plist || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ steps.version.outputs.bundle_version }}" \
             wfview/resources/Info.plist
 
       - name: Build wfview
