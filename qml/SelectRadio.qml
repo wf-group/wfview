@@ -15,11 +15,59 @@ ApplicationWindow {
     minimumWidth: 590
     minimumHeight: 295
 
+    readonly property bool _sysTheme: MainController.settings.options["Interface.UseSystemTheme"] === true
+
+    palette {
+        window: _sysTheme ? undefined : MainController.settings.options["Color.Window"]
+        windowText: _sysTheme ? undefined : MainController.settings.options["Color.WindowText"]
+        base: _sysTheme ? undefined : MainController.settings.options["Color.Base"]
+        alternateBase: _sysTheme ? undefined : MainController.settings.options["Color.AlternateBase"]
+        text: _sysTheme ? undefined : MainController.settings.options["Color.MainText"]
+        button: _sysTheme ? undefined : MainController.settings.options["Color.Button"]
+        buttonText: _sysTheme ? undefined : MainController.settings.options["Color.ButtonText"]
+        brightText: _sysTheme ? undefined : MainController.settings.options["Color.BrightText"]
+        highlight: _sysTheme ? undefined : MainController.settings.options["Color.Highlight"]
+        highlightedText: _sysTheme ? undefined : MainController.settings.options["Color.HighlightedText"]
+        mid: _sysTheme ? undefined : MainController.settings.options["Color.Mid"]
+        dark: _sysTheme ? undefined : MainController.settings.options["Color.Dark"]
+        light: _sysTheme ? undefined : MainController.settings.options["Color.Light"]
+        placeholderText: _sysTheme ? undefined : MainController.settings.options["Color.PlaceholderText"]
+    }
+
     // This property will be set from MainWindow
     property var selectRadioController: null
 
     // Bind window visibility to controller
     visible: selectRadioController ? selectRadioController.visible : false
+
+    function applyDisabledPalette() {
+        if (_sysTheme) return
+        try {
+            palette.disabled.window = MainController.settings.options["Color.Window"]
+            palette.disabled.windowText = Qt.darker(MainController.settings.options["Color.WindowText"], 2.5)
+            palette.disabled.base = Qt.darker(MainController.settings.options["Color.Base"], 1.1)
+            palette.disabled.alternateBase = Qt.darker(MainController.settings.options["Color.AlternateBase"], 1.1)
+            palette.disabled.text = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.button = Qt.darker(MainController.settings.options["Color.Button"], 1.3)
+            palette.disabled.buttonText = Qt.darker(MainController.settings.options["Color.ButtonText"], 2.5)
+            palette.disabled.brightText = Qt.darker(MainController.settings.options["Color.BrightText"], 2.5)
+            palette.disabled.highlight = Qt.darker(MainController.settings.options["Color.Highlight"], 1.5)
+            palette.disabled.highlightedText = Qt.darker(MainController.settings.options["Color.MainText"], 2.5)
+            palette.disabled.mid = MainController.settings.options["Color.Mid"]
+            palette.disabled.dark = MainController.settings.options["Color.Dark"]
+            palette.disabled.light = Qt.darker(MainController.settings.options["Color.Light"], 1.2)
+            palette.disabled.placeholderText = Qt.darker(MainController.settings.options["Color.PlaceholderText"], 1.5)
+        } catch (e) {
+            // Qt 5 does not expose palette disabled groups to QML.
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            MainController.updateApplicationPalette()
+            applyDisabledPalette()
+        }
+    }
 
     component PlotAxis: QtObject {
         property real min: 0
@@ -178,6 +226,7 @@ ApplicationWindow {
 
     // Close handler
     Component.onCompleted: {
+        applyDisabledPalette()
         closing.connect(function(close) {
             if (selectRadioController) {
                 selectRadioController.visible = false
