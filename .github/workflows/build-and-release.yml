@@ -745,6 +745,7 @@ jobs:
           libudev-dev \
           libpulse-dev \
           libjack-jackd2-dev \
+          libgl1-mesa-dev \
           git \
           file \
           fuse libfuse2 \
