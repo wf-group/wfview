@@ -668,8 +668,8 @@ jobs:
           window_rect = ((100, 100), (620, 360))
           icon_size = 128
           icon_locations = {
-              "wfview.app": (165, 170),
-              "Applications": (455, 170),
+              "wfview.app": (165, 135),
+              "Applications": (455, 135),
           }
 
           show_status_bar = False
