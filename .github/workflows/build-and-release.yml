@@ -600,6 +600,7 @@ jobs:
           otool -l "$BINARY" | grep -A2 LC_RPATH || true
 
       - name: Import certificate
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -612,6 +613,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
 
       - name: Sign application
+        if: steps.version_info.outputs.has_tag == 'true'
         run: |
           IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
           APP="wfview/wfview.app"
@@ -648,6 +650,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
 
       - name: Notarize application
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
           NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
@@ -667,9 +670,11 @@ jobs:
           xcrun stapler staple wfview/wfview.app
 
       - name: Install DMG packaging tool
+        if: steps.version_info.outputs.has_tag == 'true'
         run: python3 -m pip install dmgbuild
 
       - name: Package macOS App
+        if: steps.version_info.outputs.has_tag == 'true'
         run: |
           cat > dmg-settings.py <<'PY'
           import os
@@ -717,9 +722,11 @@ jobs:
           done
 
       - name: Rename macOS DMG
+        if: steps.version_info.outputs.has_tag == 'true'
         run: mv wfview.dmg wfview-macos.dmg
 
       - name: Upload macOS DMG artifact
+        if: steps.version_info.outputs.has_tag == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: wfview-macos-dmg
@@ -874,6 +881,7 @@ jobs:
           fi
 
       - name: Import certificate
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -886,6 +894,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
 
       - name: Sign application
+        if: steps.version_info.outputs.has_tag == 'true'
         run: |
           IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
           APP="wfview/wfview.app"
@@ -916,6 +925,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
 
       - name: Notarize application
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
           NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
@@ -930,6 +940,7 @@ jobs:
           xcrun stapler staple wfview/wfview.app
 
       - name: Package legacy Intel DMG
+        if: steps.version_info.outputs.has_tag == 'true'
         run: |
           set -euo pipefail
           python3 -m pip install dmgbuild
@@ -956,6 +967,7 @@ jobs:
           dmgbuild -s dmg-settings.py "wfview Legacy Intel" wfview-macos-legacy-intel.dmg
 
       - name: Upload legacy Intel macOS DMG artifact
+        if: steps.version_info.outputs.has_tag == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: wfview-macos-legacy-intel-dmg
@@ -1170,6 +1182,7 @@ jobs:
 
     # ─── Assemble makeself payload ──────────────────────────────────────
     - name: Assemble installer payload
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         mkdir -p installer-payload
 
@@ -1339,6 +1352,7 @@ jobs:
 
     # ─── DEBUG: Show payload contents ───────────────────────────────────
     - name: "DEBUG: List installer payload"
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         echo "=== Payload contents ==="
         find installer-payload -type f | sort
@@ -1347,6 +1361,7 @@ jobs:
 
     # ─── Build makeself installer ───────────────────────────────────────
     - name: Create makeself installer
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         makeself \
           --gzip \
@@ -1359,6 +1374,7 @@ jobs:
 
     # ─── Upload artifact ────────────────────────────────────────────────
     - name: Upload installer artifact
+      if: steps.version_info.outputs.has_tag == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: wfview-linux-appimage-installer
