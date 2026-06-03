@@ -367,8 +367,8 @@ private slots:
 #if defined(USB_CONTROLLER)
     void changeFrequency(int value);
     void doShuttle(bool up, quint8 level);
-    void buttonControl(const COMMAND* cmd);
 #endif
+    void buttonControl(const COMMAND* cmd);
 
     void ifChanged(prefIfItems items);
     void colChanged(prefColItems items);

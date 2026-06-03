@@ -2640,6 +2640,7 @@ void MainController::doShuttle(bool up, quint8 level)
     }
     changeFrequency(up ? steps : -steps);
 }
+#endif
 
 void MainController::buttonControl(const COMMAND* cmd)
 {
@@ -2744,7 +2745,6 @@ void MainController::buttonControl(const COMMAND* cmd)
         return;
     }
 }
-#endif
 
 void MainController::connectionHandler()
 {
