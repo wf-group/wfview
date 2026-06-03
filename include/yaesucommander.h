@@ -62,6 +62,7 @@ public slots:
     // Serial:
     void serialPortError(QSerialPort::SerialPortError err);
     void receiveDataFromRig();
+    void dataFromVspClient(QByteArray data);
     void dataFromExternalClient(QByteArray data);
     void receiveRawExternalCommand(QByteArray data, uchar receiver);
 
@@ -79,6 +80,8 @@ signals:
 
 private:
     void commonSetup();
+    void processExternalCommands(const QList<QByteArray> &commands);
+    bool queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand);
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
@@ -116,6 +119,8 @@ private:
     bool vspQueueEnabled = false;
 
     QByteArray partial;
+    QByteArray vspInputBuffer;
+    QByteArray tcpInputBuffer;
 
     connectionType_t connType = connectionUSB;
 

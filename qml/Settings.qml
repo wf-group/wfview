@@ -2184,22 +2184,26 @@ ApplicationWindow {
                                 Accessible.name: "Virtual Serial Port Selector"
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal.")
-                                editable: true
-                                model: [ "none", "rig-pty0", "rig-pty1", "rig-pty2", "rig-pty3" ]
-                                currentIndex: controller ? Math.max(0, find(String(controller.options["Radio.VirtualSerialPort"]))) : 0
-                                editText: controller ? String(controller.options["Radio.VirtualSerialPort"]) : "none"
+                                readonly property var spec: controller ? controller.uiSpecs["VirtualSerialPorts"] : null
+                                readonly property string savedValue: controller ? String(controller.options["Radio.VirtualSerialPort"]) : "none"
+                                editable: spec && spec.editable !== undefined ? spec.editable : true
+                                model: spec ? spec.model : []
+                                textRole: spec ? spec.textRole : "text"
+                                valueRole: spec ? spec.valueRole : "value"
+                                currentIndex: controller ? indexFromValue(vspCombo, savedValue) : -1
+                                editText: currentIndex >= 0 ? currentText : savedValue
                                 onAccepted: if (controller) controller.setOption("Radio.VirtualSerialPort", editText.length ? editText : "none")
-                                onActivated: if (controller) controller.setOption("Radio.VirtualSerialPort", currentText.length ? currentText : "none")
+                                onActivated: if (controller) controller.setOption("Radio.VirtualSerialPort", currentValue !== undefined && currentValue !== null ? currentValue : "none")
                             }
                             Label {
                                 id: ptyDeviceLabel
-                                text: qsTr("Use \"none\" to disable the virtual serial bridge.")
+                                text: vspCombo.spec && vspCombo.spec.hint ? vspCombo.spec.hint : qsTr("Use \"none\" to disable the virtual serial bridge.")
                             }
                             CheckBox {
                                 id: vspQueueCheck
                                 text: qsTr("Use command queue")
                                 checked: optBool("Radio.VirtualSerialPortUseQueue", false)
-                                enabled: vspCombo.editText.toLowerCase() !== "none"
+                                enabled: vspCombo.savedValue.toLowerCase() !== "none"
                                 onClicked: if (controller) controller.setOption("Radio.VirtualSerialPortUseQueue", checked)
                                 ToolTip.visible: hovered
                                 ToolTip.text: qsTr("Route virtual serial CAT commands through wfview's command queue where possible.")

@@ -52,6 +52,7 @@ public slots:
     // Serial:
     void serialPortError(QSerialPort::SerialPortError err);
     void receiveDataFromRig();
+    void dataFromVspClient(QByteArray data);
     void dataFromExternalClient(QByteArray data);
     void receiveRawExternalCommand(QByteArray data, uchar receiver);
 
@@ -69,6 +70,8 @@ private:
     void commonSetup();
     void startRtpAudio(bool localInputEnabled);
     void stopRtpAudio();
+    void processExternalCommands(const QList<QByteArray> &commands);
+    bool queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand);
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
     void recordNetworkCommand(const QByteArray& command);
     void updateNetworkTiming(const QByteArray& command);
@@ -101,6 +104,8 @@ private:
     bool vspQueueEnabled = false;
 
     QByteArray partial;
+    QByteArray vspInputBuffer;
+    QByteArray tcpInputBuffer;
 
     connectionType_t connType = connectionLAN;
 

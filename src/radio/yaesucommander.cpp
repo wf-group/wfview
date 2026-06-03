@@ -447,7 +447,7 @@ void yaesuCommander::commonSetup()
         qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
         vspPort = new vspHandler(vsp,this);
         // data from the VSP to the rig:
-        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
         // data from the rig to the VSP:
         connect(this, SIGNAL(haveDataFromRig(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
     }
@@ -479,16 +479,64 @@ void yaesuCommander::commonSetup()
     emit commReady();
 }
 
+namespace {
+
+QList<QByteArray> takeCompleteTerminatedCommands(QByteArray &buffer, const QByteArray &data)
+{
+    QList<QByteArray> commands;
+    buffer.append(data);
+
+    int terminator = buffer.indexOf(';');
+    while (terminator >= 0) {
+        const QByteArray command = buffer.left(terminator).trimmed();
+        if (!command.isEmpty())
+            commands.append(command);
+        buffer.remove(0, terminator + 1);
+        terminator = buffer.indexOf(';');
+    }
+
+    if (buffer.size() > 4096) {
+        qWarning(logSerial()) << "Dropping unterminated external CAT data";
+        buffer.clear();
+    }
+
+    return commands;
+}
+
+QByteArray joinTerminatedCommands(const QList<QByteArray> &commands)
+{
+    QByteArray data;
+    for (const QByteArray &command : commands) {
+        data.append(command);
+        data.append(';');
+    }
+    return data;
+}
+
+}
+
+void yaesuCommander::dataFromVspClient(QByteArray data)
+{
+    const QList<QByteArray> commands = takeCompleteTerminatedCommands(vspInputBuffer, data);
+    processExternalCommands(commands);
+}
+
 void yaesuCommander::dataFromExternalClient(QByteArray data)
 {
-    if (vspQueueEnabled && queue != nullptr && !data.isEmpty()) {
-        const QList<QByteArray> commands = data.split(';');
+    const QList<QByteArray> commands = takeCompleteTerminatedCommands(tcpInputBuffer, data);
+    processExternalCommands(commands);
+}
+
+void yaesuCommander::processExternalCommands(const QList<QByteArray> &commands)
+{
+    if (commands.isEmpty())
+        return;
+
+    if (vspQueueEnabled && queue != nullptr) {
         bool queuedAny = false;
 
         for (int commandIndex = commands.size() - 1; commandIndex >= 0; --commandIndex) {
-            const QByteArray d = commands.at(commandIndex).trimmed();
-            if (d.isEmpty())
-                continue;
+            const QByteArray d = commands.at(commandIndex);
 
             funcs func = funcNone;
             int matchedLength = 0;
@@ -501,10 +549,22 @@ void yaesuCommander::dataFromExternalClient(QByteArray data)
                 }
             }
 
-            if (func != funcNone && matchedLength == d.size())
+            if (func != funcNone && matchedLength == d.size()) {
                 queue->add(externalCommandPriority(func), func, false, 0);
-            else
+            } else if (func != funcNone && rigCaps.commands.contains(func)) {
+                funcType type = rigCaps.commands.value(func);
+                QByteArray payload = d.mid(matchedLength);
+                uchar receiver = 0;
+                if (type.cmd29 && !payload.isEmpty()) {
+                    receiver = uchar(payload.front() - NUMTOASCII);
+                    payload.remove(0, 1);
+                }
+
+                if (!queueParsedExternalCommand(func, type, payload, receiver, d + ';'))
+                    queue->add(externalCommandPriority(func), queueItem(d + ';', receiver));
+            } else {
                 queue->add(externalCommandPriority(func), queueItem(d + ';', 0));
+            }
             queuedAny = true;
         }
 
@@ -512,7 +572,197 @@ void yaesuCommander::dataFromExternalClient(QByteArray data)
             return;
     }
 
-    receiveRawExternalCommand(data, 0);
+    receiveRawExternalCommand(joinTerminatedCommands(commands), 0);
+}
+
+bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand)
+{
+    Q_UNUSED(rawCommand)
+    if (queue == nullptr || payload.isEmpty())
+        return false;
+
+    QByteArray d = payload;
+    if (type.padr) {
+        for (int i = type.bytes; i > 0; --i) {
+            if (d.size() > 1 && d.back() == '0')
+                d.remove(d.size() - 1, 1);
+            else
+                break;
+        }
+    }
+
+    QVariant value;
+    funcs queueFunc = func;
+    bool ok = false;
+
+    switch (func) {
+    case funcFreqSub:
+        receiver = 1;
+        queueFunc = funcFreq;
+        Q_FALLTHROUGH();
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcFreq:
+    {
+        freqt f;
+        f.Hz = d.toULongLong(&ok);
+        if (ok) {
+            f.MHzDouble = f.Hz / 1000000.0;
+            value.setValue(f);
+        }
+        break;
+    }
+    case funcMode:
+    case funcSelectedMode:
+    case funcUnselectedMode:
+    {
+        if (!d.isEmpty()) {
+            const uchar reg = uchar(d.back());
+            for (auto &m : rigCaps.modes) {
+                if (m.reg == reg) {
+                    value.setValue(m);
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    case funcDataMode:
+    {
+        queueFunc = rigCaps.commands.contains(funcSelectedMode) ? funcSelectedMode : funcMode;
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (!d.isEmpty()) {
+            mi.data = uchar(d.at(0) - NUMTOASCII);
+            value.setValue(mi);
+            ok = true;
+        }
+        break;
+    }
+    case funcIFFilter:
+    {
+        queueFunc = rigCaps.commands.contains(funcSelectedMode) ? funcSelectedMode : funcMode;
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (!d.isEmpty()) {
+            mi.filter = uchar(d.at(0) - NUMTOASCII);
+            value.setValue(mi);
+            ok = true;
+        }
+        break;
+    }
+    case funcAntenna:
+    {
+        if (d.size() >= 2) {
+            antennaInfo ant;
+            ant.antenna = uchar(d.at(0) - NUMTOASCII);
+            ant.rx = bool(d.at(1) - NUMTOASCII);
+            value.setValue(ant);
+            ok = true;
+        }
+        break;
+    }
+    case funcSSBModSource:
+    case funcAMModSource:
+    case funcFMModSource:
+    case funcDataModSource:
+        queueFunc = funcDATAOffMod;
+        Q_FALLTHROUGH();
+    case funcDATAOffMod:
+    case funcDATA1Mod:
+    {
+        const int reg = d.toInt(&ok);
+        if (ok) {
+            ok = false;
+            for (auto &input : rigCaps.inputs) {
+                if (input.reg == reg) {
+                    value.setValue(input);
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    case funcRitStatus:
+    case funcMonitor:
+    case funcCompressor:
+    case funcVox:
+    case funcRepeaterTone:
+    case funcRepeaterTSQL:
+    case funcScopeOnOff:
+    case funcScopeHold:
+    case funcOverflowStatus:
+    case funcSMeterSqlStatus:
+    case funcSplitStatus:
+    case funcTransceiverStatus:
+        value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
+        break;
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcFilterWidth:
+        value.setValue<ushort>(d.mid(0, type.bytes).toUShort(&ok));
+        break;
+    case funcXitFreq:
+    case funcRitFreq:
+    {
+        short val = d.toShort(&ok);
+        value.setValue(QVariant::fromValue<short>(val));
+        break;
+    }
+    case funcAGCTimeConstant:
+    case funcMemorySelect:
+    case funcRfGain:
+    case funcRFPower:
+    case funcMicGain:
+    case funcSquelch:
+    case funcMonitorGain:
+    case funcKeySpeed:
+    case funcScopeRef:
+    case funcScopeEdge:
+    case funcAttenuator:
+    case funcPreamp:
+    case funcNoiseBlanker:
+    case funcNoiseReduction:
+    case funcAGC:
+    case funcPowerControl:
+    case funcFilterShape:
+    case funcRoofingFilter:
+    case funcScopeSpeed:
+    case funcCwPitch:
+    case funcAfGain:
+    case funcBreakIn:
+        value.setValue<uchar>(d.mid(0, type.bytes).toUShort(&ok));
+        break;
+    case funcTunerStatus:
+    {
+        const ushort tuner = d.mid(0, type.bytes).toUShort(&ok);
+        if (ok) {
+            switch (tuner) {
+            case 0:
+                value.setValue<uchar>(0);
+                break;
+            case 1:
+                value.setValue<uchar>(1);
+                break;
+            case 3:
+                value.setValue<uchar>(2);
+                break;
+            default:
+                ok = false;
+                break;
+            }
+        }
+        break;
+    }
+    default:
+        return false;
+    }
+
+    if (!ok || !value.isValid())
+        return false;
+
+    queue->add(externalCommandPriority(queueFunc), queueItem(queueFunc, value, false, receiver));
+    return true;
 }
 
 void yaesuCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)

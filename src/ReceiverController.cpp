@@ -189,7 +189,7 @@ void ReceiverController::updatePassband()
 
     if (!qFuzzyCompare(passbandLow,pbLow) || !qFuzzyCompare(passbandHigh,pbHigh))
     {
-        qInfo() << "New passband" << pbLow << pbHigh;
+        qDebug(logGui()) << "New passband" << pbLow << pbHigh;
         passbandLow = pbLow;
         passbandHigh = pbHigh;
         emit passbandChanged();
@@ -693,7 +693,7 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
     const bool dataValueChanged = confirmed.data != 0xff && mode.data != confirmed.data;
 
     if (modeValueChanged || filterValueChanged || dataValueChanged) {
-        qInfo(logSystem()) << __func__ << QString("Received mode update for %0 (%1): %2 (%3) filter:%4 data:%5")
+        qDebug(logSystem()) << __func__ << QString("Received mode update for %0 (%1): %2 (%3) filter:%4 data:%5")
         .arg((receiver?"Sub":"Main")).arg(QString::number(m.mk)).arg(m.reg).arg(m.name).arg(m.filter).arg(m.data) ;
 
         /*

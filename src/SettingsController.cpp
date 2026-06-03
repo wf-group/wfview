@@ -1,8 +1,11 @@
 #include "SettingsController.h"
 #include "logcategories.h"
 #include "waterfallitem.h" // To get the theme
+#include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QStandardPaths>
 #include <utility>
 
 
@@ -787,6 +790,63 @@ void SettingsController::buildUiSpecs()
     };
 
     values.clear();
+
+#ifdef Q_OS_WIN
+    values.append(QVariantMap{
+        {"text",  tr("None")},
+        {"value", QStringLiteral("none")}
+    });
+
+    for (auto &a: QSerialPortInfo::availablePorts()) {
+        values.append(QVariantMap{
+            {"text",  a.portName()},
+            {"value", a.portName()}
+        });
+    }
+
+    uiSpecs["VirtualSerialPorts"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", 0},
+        {"model", values},
+        {"visible", true},
+        {"editable", false},
+        {"hint", tr("Select one of a virtual serial port pair")}
+    };
+#else
+#ifdef Q_OS_MAC
+    const QString vspDirectory = QStandardPaths::standardLocations(QStandardPaths::DownloadLocation).value(0, QDir::homePath());
+#else
+    const QString vspDirectory = QDir::homePath();
+#endif
+    const QString vspBaseName = vspDirectory + QStringLiteral("/rig-pty");
+
+    for (int i = 1; i < 8; ++i) {
+        const QString label = QStringLiteral("rig-pty%1").arg(i);
+        const QString path = vspBaseName + QString::number(i);
+        values.append(QVariantMap{
+            {"text", label},
+            {"value", path},
+            {"enabled", !QFile::exists(path)}
+        });
+    }
+
+    values.append(QVariantMap{
+        {"text",  tr("None")},
+        {"value", QStringLiteral("none")},
+        {"enabled", true}
+    });
+
+    uiSpecs["VirtualSerialPorts"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", 0},
+        {"model", values},
+        {"visible", true},
+        {"editable", true},
+        {"hint", tr("pty devices located in: %1").arg(vspDirectory)}
+    };
+#endif
 
     emit uiSpecsChanged();
 }

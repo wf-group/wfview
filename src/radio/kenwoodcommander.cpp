@@ -211,7 +211,7 @@ void kenwoodCommander::commonSetup()
         qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
         vspPort = new vspHandler(vsp,this);
         // data from the VSP to the rig:
-        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
         // data from the rig to the VSP:
         connect(this, SIGNAL(haveDataFromRig(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
     }
@@ -259,16 +259,64 @@ void kenwoodCommander::commonSetup()
     emit commReady();
 }
 
+namespace {
+
+QList<QByteArray> takeCompleteTerminatedCommands(QByteArray &buffer, const QByteArray &data)
+{
+    QList<QByteArray> commands;
+    buffer.append(data);
+
+    int terminator = buffer.indexOf(';');
+    while (terminator >= 0) {
+        const QByteArray command = buffer.left(terminator).trimmed();
+        if (!command.isEmpty())
+            commands.append(command);
+        buffer.remove(0, terminator + 1);
+        terminator = buffer.indexOf(';');
+    }
+
+    if (buffer.size() > 4096) {
+        qWarning(logSerial()) << "Dropping unterminated external CAT data";
+        buffer.clear();
+    }
+
+    return commands;
+}
+
+QByteArray joinTerminatedCommands(const QList<QByteArray> &commands)
+{
+    QByteArray data;
+    for (const QByteArray &command : commands) {
+        data.append(command);
+        data.append(';');
+    }
+    return data;
+}
+
+}
+
+void kenwoodCommander::dataFromVspClient(QByteArray data)
+{
+    const QList<QByteArray> commands = takeCompleteTerminatedCommands(vspInputBuffer, data);
+    processExternalCommands(commands);
+}
+
 void kenwoodCommander::dataFromExternalClient(QByteArray data)
 {
-    if (vspQueueEnabled && queue != nullptr && !data.isEmpty()) {
-        const QList<QByteArray> commands = data.split(';');
+    const QList<QByteArray> commands = takeCompleteTerminatedCommands(tcpInputBuffer, data);
+    processExternalCommands(commands);
+}
+
+void kenwoodCommander::processExternalCommands(const QList<QByteArray> &commands)
+{
+    if (commands.isEmpty())
+        return;
+
+    if (vspQueueEnabled && queue != nullptr) {
         bool queuedAny = false;
 
         for (int commandIndex = commands.size() - 1; commandIndex >= 0; --commandIndex) {
-            const QByteArray d = commands.at(commandIndex).trimmed();
-            if (d.isEmpty())
-                continue;
+            const QByteArray d = commands.at(commandIndex);
 
             funcs func = funcNone;
             int matchedLength = 0;
@@ -281,10 +329,16 @@ void kenwoodCommander::dataFromExternalClient(QByteArray data)
                 }
             }
 
-            if (func != funcNone && matchedLength == d.size())
+            if (func != funcNone && matchedLength == d.size()) {
                 queue->add(externalCommandPriority(func), func, false, 0);
-            else
+            } else if (func != funcNone && rigCaps.commands.contains(func)) {
+                const funcType type = rigCaps.commands.value(func);
+                const QByteArray payload = d.mid(matchedLength);
+                if (!queueParsedExternalCommand(func, type, payload, 0, d + ';'))
+                    queue->add(externalCommandPriority(func), queueItem(d + ';', 0));
+            } else {
                 queue->add(externalCommandPriority(func), queueItem(d + ';', 0));
+            }
             queuedAny = true;
         }
 
@@ -292,7 +346,178 @@ void kenwoodCommander::dataFromExternalClient(QByteArray data)
             return;
     }
 
-    receiveRawExternalCommand(data, 0);
+    receiveRawExternalCommand(joinTerminatedCommands(commands), 0);
+}
+
+bool kenwoodCommander::queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand)
+{
+    Q_UNUSED(rawCommand)
+    if (queue == nullptr || payload.isEmpty())
+        return false;
+
+    QByteArray d = payload;
+    QVariant value;
+    funcs queueFunc = func;
+    bool ok = false;
+
+    switch (func) {
+    case funcUnselectedFreq:
+    case funcSelectedFreq:
+    {
+        freqt f;
+        f.Hz = d.toULongLong(&ok);
+        if (ok) {
+            f.MHzDouble = f.Hz / 1000000.0;
+            value.setValue(f);
+        }
+        break;
+    }
+    case funcUnselectedMode:
+    case funcSelectedMode:
+    {
+        if (!d.isEmpty()) {
+            const uchar reg = uchar(d.at(0) - NUMTOASCII);
+            for (auto &m : rigCaps.modes) {
+                if (m.reg == reg) {
+                    value.setValue(m);
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    case funcDataMode:
+    {
+        queueFunc = funcSelectedMode;
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (!d.isEmpty()) {
+            mi.data = uchar(d.at(0) - NUMTOASCII);
+            value.setValue(mi);
+            ok = true;
+        }
+        break;
+    }
+    case funcIFFilter:
+    {
+        queueFunc = funcSelectedMode;
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (!d.isEmpty()) {
+            mi.filter = uchar(d.at(0) - NUMTOASCII);
+            value.setValue(mi);
+            ok = true;
+        }
+        break;
+    }
+    case funcAntenna:
+    {
+        if (d.size() >= 2) {
+            antennaInfo ant;
+            ant.antenna = uchar(d.at(0) - NUMTOASCII);
+            ant.rx = bool(d.at(1) - NUMTOASCII);
+            value.setValue(ant);
+            ok = true;
+        }
+        break;
+    }
+    case funcDATAOffMod:
+    case funcDATA1Mod:
+    {
+        const int reg = d.toInt(&ok);
+        if (ok) {
+            ok = false;
+            for (auto &input : rigCaps.inputs) {
+                if (input.reg == reg) {
+                    value.setValue(input);
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        break;
+    }
+    case funcSetTransmit:
+        queueFunc = funcTransceiverStatus;
+        value.setValue(true);
+        ok = true;
+        break;
+    case funcSetReceive:
+        queueFunc = funcTransceiverStatus;
+        value.setValue(false);
+        ok = true;
+        break;
+    case funcMonitor:
+    case funcRitStatus:
+    case funcCompressor:
+    case funcVox:
+    case funcRepeaterTone:
+    case funcRepeaterTSQL:
+    case funcScopeOnOff:
+    case funcScopeHold:
+    case funcOverflowStatus:
+    case funcSMeterSqlStatus:
+    case funcSplitStatus:
+        value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
+        break;
+    case funcIFShift:
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcFilterWidth:
+        value.setValue<ushort>(d.mid(0, type.bytes).toUShort(&ok));
+        break;
+    case funcAGCTimeConstant:
+    case funcMemorySelect:
+    case funcRfGain:
+    case funcMicGain:
+    case funcRFPower:
+    case funcSquelch:
+    case funcMonitorGain:
+    case funcKeySpeed:
+    case funcScopeRef:
+    case funcScopeEdge:
+    case funcAttenuator:
+    case funcPreamp:
+    case funcNoiseBlanker:
+    case funcNoiseReduction:
+    case funcAGC:
+    case funcPowerControl:
+    case funcLANModLevel:
+    case funcFilterShape:
+    case funcRoofingFilter:
+    case funcAfGain:
+    case funcBreakIn:
+        value.setValue<uchar>(d.mid(0, type.bytes).toUShort(&ok));
+        break;
+    case funcTunerStatus:
+    {
+        const ushort tuner = d.mid(0, type.bytes).toUShort(&ok);
+        if (ok) {
+            switch (tuner) {
+            case 100:
+                value.setValue<uchar>(0);
+                break;
+            case 110:
+                value.setValue<uchar>(1);
+                break;
+            case 111:
+                value.setValue<uchar>(2);
+                break;
+            default:
+                ok = false;
+                break;
+            }
+        }
+        break;
+    }
+    default:
+        return false;
+    }
+
+    if (!ok || !value.isValid())
+        return false;
+
+    queue->add(externalCommandPriority(queueFunc), queueItem(queueFunc, value, false, receiver));
+    return true;
 }
 
 void kenwoodCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)

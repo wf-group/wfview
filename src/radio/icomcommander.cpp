@@ -27,6 +27,11 @@
 
 namespace {
 
+QString civDebugHex(const QByteArray &data)
+{
+    return QString::fromLatin1(data.toHex(' ')).toUpper();
+}
+
 void applyIaxStatsToNetworkStatus(const IaxStats &stats, networkStatus *status)
 {
     if (status == nullptr)
@@ -465,6 +470,7 @@ void icomCommander::commonSetup()
 
     connect(queue,SIGNAL(haveCommand(funcs,QVariant,uchar)),this,SLOT(receiveCommand(funcs,QVariant,uchar)));
     connect(queue,SIGNAL(haveRawCommand(QByteArray,uchar)),this,SLOT(receiveRawExternalCommand(QByteArray,uchar)));
+    connect(queue, &cachingQueue::cacheUpdated, this, &icomCommander::receiveExternalCacheUpdate, Qt::UniqueConnection);
     oldScopeMode = 0xff;
 
     pttAllowed = true; // This is for developing, set to false for "safe" debugging. Set to true for deployment.
@@ -523,28 +529,88 @@ void icomCommander::dataFromServer(QByteArray data)
 
 void icomCommander::dataFromVspClient(QByteArray data)
 {
+    qDebug(logVsp()).noquote()
+        << QStringLiteral("Icom VSP IN chunk bytes=%1 hex=%2")
+               .arg(data.size())
+               .arg(civDebugHex(data));
+
+    const QVector<QByteArray> frames = takeCompleteExternalFrames(vspInputBuffer, data);
+    for (const QByteArray &frame : frames) {
+        logExternalFrame("VSP IN", frame, lookupExternalCommand(frame), 0, QStringLiteral("complete-frame"));
+        processExternalFrame(frame, true);
+    }
+}
+
+void icomCommander::dataFromExternalClient(QByteArray data)
+{
+    const QVector<QByteArray> frames = takeCompleteExternalFrames(tcpInputBuffer, data);
+    for (const QByteArray &frame : frames)
+        processExternalFrame(frame, false);
+}
+
+QVector<QByteArray> icomCommander::takeCompleteExternalFrames(QByteArray &buffer, const QByteArray &data)
+{
+    QVector<QByteArray> frames;
+    buffer.append(data);
+
+    while (!buffer.isEmpty()) {
+        int frameStart = -1;
+        for (int i = 0; i + 1 < buffer.size(); ++i) {
+            if (quint8(buffer.at(i)) == 0xfe && quint8(buffer.at(i + 1)) == 0xfe) {
+                frameStart = i;
+                break;
+            }
+        }
+
+        if (frameStart < 0) {
+            if (buffer.size() > 4096) {
+                qWarning(logVsp()) << "Dropping unterminated external CI-V data";
+                buffer.clear();
+            }
+            break;
+        }
+
+        if (frameStart > 0)
+            buffer.remove(0, frameStart);
+
+        const int frameEnd = buffer.indexOf(char(0xfd), 2);
+        if (frameEnd < 0) {
+            if (buffer.size() > 4096) {
+                qWarning(logVsp()) << "Dropping oversized external CI-V frame";
+                buffer.clear();
+            }
+            break;
+        }
+
+        frames.append(buffer.left(frameEnd + 1));
+        buffer.remove(0, frameEnd + 1);
+    }
+
+    return frames;
+}
+
+void icomCommander::processExternalFrame(const QByteArray &data, bool fromVsp)
+{
     QByteArray commandData;
     const funcs externalFunc = lookupExternalCommand(data, &commandData);
-    if (externalFunc == funcCIVTransceive) {
+    if (fromVsp && externalFunc == funcCIVTransceive) {
         QByteArray reply = QByteArrayLiteral("\xfe\xfe\x00\x00\xfb\xfd");
         if (data.size() > 3) {
             reply[2] = data[3];
             reply[3] = data[2];
         }
+        logExternalFrame("VSP IN", data, externalFunc, 0, QStringLiteral("handled-transceive-disable"));
         emit haveDataForVsp(data);
+        logExternalFrame("VSP OUT", data, externalFunc, 0, QStringLiteral("echo-transceive-disable"));
         emit haveDataForVsp(reply);
+        logExternalFrame("VSP OUT", reply, externalFunc, 0, QStringLiteral("ack-transceive-disable"));
         if (!vspTransceiveDisabled) {
-            qInfo(logSerial()) << "pty requested CI-V Transceive disable";
+            qInfo(logVsp()) << "pty requested CI-V Transceive disable";
             vspTransceiveDisabled = true;
         }
         return;
     }
 
-    dataFromExternalClient(data);
-}
-
-void icomCommander::dataFromExternalClient(QByteArray data)
-{
     bool transmit = false;
     if (detectExternalTransmitStatus(data, &transmit))
         emit externalPttChanged(transmit);
@@ -553,6 +619,10 @@ void icomCommander::dataFromExternalClient(QByteArray data)
     if (vspQueueEnabled && queueExternalCommand(data))
         return;
 
+    if (fromVsp)
+        logExternalFrame("VSP IN", data, externalFunc, 0,
+                         vspQueueEnabled ? QStringLiteral("raw-pass-through-queue-failed")
+                                         : QStringLiteral("raw-pass-through-queue-disabled"));
     emit dataForComm(data);
 }
 
@@ -563,13 +633,13 @@ void icomCommander::dataFromRigToExternalClient(QByteArray data)
         fePos--;
 
     if (fePos < 0 || data.length() <= fePos + 3) {
-        qDebug(logSerial()) << "Invalid CI-V command for VSP";
+        qDebug(logVsp()) << "Invalid CI-V command for VSP";
         return;
     }
 
     if (vspTransceiveDisabled) {
         if (quint8(data.at(fePos + 2)) == 0x00 || quint8(data.at(fePos + 3)) == 0x00) {
-            qDebug(logSerial()) << "Transceive command filtered";
+            qDebug(logVsp()) << "Transceive command filtered";
             return;
         }
     }
@@ -577,6 +647,7 @@ void icomCommander::dataFromRigToExternalClient(QByteArray data)
     if (quint8(data.at(fePos + 2)) == quint8(0xE1) || quint8(data.at(fePos + 3)) == quint8(0xE1))
         return;
 
+    logExternalFrame("VSP OUT", data, lookupExternalCommand(data), 0, QStringLiteral("radio-reply"));
     emit haveDataForVsp(data);
 }
 
@@ -614,6 +685,7 @@ bool icomCommander::queueExternalCommand(QByteArray data)
     }
 
     if (frames.isEmpty()) {
+        logExternalFrame("VSP IN", data, funcNone, 0, QStringLiteral("queued-raw-no-complete-frame"));
         queue->add(priorityImmediate, queueItem(data, 0));
         return true;
     }
@@ -628,12 +700,510 @@ bool icomCommander::queueExternalCommand(QByteArray data)
         if (rigCaps.hasCommand29 && commandData.size() >= 2 && quint8(commandData.at(0)) == 0x29)
             receiver = quint8(commandData.at(1));
 
-        if (func != funcNone && matchedLength > 0 && lookupData.size() == matchedLength)
-            queue->add(externalCommandPriority(func), func, false, receiver);
-        else
+        if (func != funcNone && matchedLength > 0 && isExternalReadCommand(func, lookupData, matchedLength, &receiver)) {
+            const funcs cacheFunc = externalCacheFunc(func);
+            const cacheItem cache = queue->getCache(cacheFunc, receiver);
+            PendingExternalRead pending;
+            pending.requestFrame = frame;
+            pending.commandData = commandData;
+            pending.requestedFunc = func;
+            pending.cacheFunc = cacheFunc;
+            pending.receiver = receiver;
+            pending.created = QDateTime::currentDateTime();
+            if (isExternalCacheFresh(cache) && sendExternalCacheReply(pending, cache, QStringLiteral("reply-cache-hit")))
+                continue;
+
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-read priority=%1").arg(int(externalCommandPriority(cacheFunc))),
+                             cache);
+            pendingExternalReads.append(pending);
+        } else if (func != funcNone && matchedLength > 0 &&
+                   queueParsedExternalCommand(func, commandData, lookupData, matchedLength, receiver, frame)) {
+            // Parsed set command has been added to the queue.
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-parsed-set priority=%1").arg(int(externalCommandPriority(func))));
+            sendExternalAck(frame, func, receiver, QStringLiteral("ack-parsed-set"));
+        } else if (func != funcNone && matchedLength > 0 &&
+                   queueExternalActionCommand(func, receiver, frame)) {
+            // Action command has been added to the queue and acknowledged to the external client.
+        } else {
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-raw priority=%1").arg(int(externalCommandPriority(func))));
             queue->add(externalCommandPriority(func), queueItem(frame, receiver));
+        }
     }
 
+    return true;
+}
+
+funcs icomCommander::externalCacheFunc(funcs func) const
+{
+    switch (func) {
+    case funcFreqGet:
+    case funcFreqTR:
+        if (rigCaps.commands.contains(funcFreq))
+            return funcFreq;
+        if (rigCaps.commands.contains(funcSelectedFreq))
+            return funcSelectedFreq;
+        return func;
+    case funcModeGet:
+    case funcModeTR:
+    case funcDataModeWithFilter:
+        if (rigCaps.commands.contains(funcMode))
+            return funcMode;
+        if (rigCaps.commands.contains(funcSelectedMode))
+            return funcSelectedMode;
+        return func;
+    default:
+        return func;
+    }
+}
+
+bool icomCommander::isExternalCacheFresh(const cacheItem &cache) const
+{
+    if (cache.command == funcNone || !cache.value.isValid() || !cache.reply.isValid())
+        return false;
+
+    const qint64 ageMs = cache.reply.msecsTo(QDateTime::currentDateTime());
+    return ageMs >= 0 && ageMs <= 20000;
+}
+
+bool icomCommander::sendExternalCacheReply(const PendingExternalRead &pending, const cacheItem &cache, const QString &action)
+{
+    if (pending.requestFrame.size() < 4 || pending.commandData.isEmpty() || !cache.value.isValid())
+        return false;
+
+    QByteArray reply;
+    reply.append(char(0xfe));
+    reply.append(char(0xfe));
+    reply.append(pending.requestFrame.at(3));
+    reply.append(pending.requestFrame.at(2));
+    reply.append(pending.commandData);
+
+    switch (pending.requestedFunc) {
+    case funcFreq:
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcFreqGet:
+    case funcFreqTR:
+    case funcTXFreq:
+        if (!cache.value.canConvert<freqt>())
+            return false;
+        reply.append(makeFreqPayload(cache.value.value<freqt>()));
+        break;
+
+    case funcMode:
+    case funcModeGet:
+    case funcModeTR:
+    case funcSelectedMode:
+    case funcUnselectedMode:
+    case funcDataModeWithFilter:
+    {
+        if (!cache.value.canConvert<modeInfo>())
+            return false;
+        const modeInfo mode = cache.value.value<modeInfo>();
+        reply.append(char(mode.reg));
+        if (mode.filter != 0)
+            reply.append(char(mode.filter));
+        break;
+    }
+
+    default:
+        if (cache.value.canConvert<bool>()) {
+            reply.append(char(cache.value.value<bool>() ? 1 : 0));
+        } else if (cache.value.canConvert<uchar>()) {
+            uchar value = cache.value.value<uchar>();
+            if (pending.requestedFunc == funcRoofingFilter || pending.requestedFunc == funcFilterShape)
+                value = value % 10;
+            reply.append(bcdEncodeChar(value));
+        } else if (cache.value.canConvert<ushort>()) {
+            const ushort value = cache.value.value<ushort>();
+            if (pending.requestedFunc == funcFilterWidth) {
+                reply.append(makeFilterWidth(value, pending.receiver));
+            } else if (pending.requestedFunc == funcKeySpeed) {
+                const ushort level = round((value - 6) * 6.071);
+                reply.append(bcdEncodeInt(level));
+            } else if (pending.requestedFunc == funcCwPitch) {
+                const ushort level = ceil((value - 300) * (255.0 / 600.0));
+                reply.append(bcdEncodeInt(level));
+            } else {
+                reply.append(bcdEncodeInt(value));
+            }
+        } else {
+            return false;
+        }
+        break;
+    }
+
+    reply.append(char(0xfd));
+    logExternalFrame("VSP OUT", reply, pending.requestedFunc, pending.receiver, action, cache);
+    emit haveDataForVsp(reply);
+    return true;
+}
+
+bool icomCommander::sendExternalAck(const QByteArray &requestFrame, funcs func, uchar receiver, const QString &action)
+{
+    if (requestFrame.size() < 4)
+        return false;
+
+    QByteArray reply;
+    reply.append(char(0xfe));
+    reply.append(char(0xfe));
+    reply.append(requestFrame.at(3));
+    reply.append(requestFrame.at(2));
+    reply.append(char(0xfb));
+    reply.append(char(0xfd));
+
+    logExternalFrame("VSP OUT", reply, func, receiver, action);
+    emit haveDataForVsp(reply);
+    return true;
+}
+
+bool icomCommander::queueExternalActionCommand(funcs func, uchar receiver, const QByteArray &rawFrame)
+{
+    if (queue == nullptr)
+        return false;
+
+    switch (func) {
+    case funcVFOMainSelect:
+    case funcVFOSubSelect:
+    case funcVFOASelect:
+    case funcVFOBSelect:
+    case funcVFODualWatchOn:
+    case funcVFODualWatchOff:
+        logExternalFrame("VSP IN", rawFrame, func, receiver,
+                         QStringLiteral("queued-action priority=%1").arg(int(externalCommandPriority(func))));
+        queue->add(externalCommandPriority(func), queueItem(func, false, receiver));
+        sendExternalAck(rawFrame, func, receiver, QStringLiteral("ack-action"));
+        return true;
+    default:
+        return false;
+    }
+}
+
+void icomCommander::receiveExternalCacheUpdate(cacheItem item)
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    for (int i = pendingExternalReads.size() - 1; i >= 0; --i) {
+        const PendingExternalRead pending = pendingExternalReads.at(i);
+        if (pending.created.msecsTo(now) > 5000) {
+            logExternalFrame("VSP IN", pending.requestFrame, pending.requestedFunc, pending.receiver,
+                             QStringLiteral("pending-read-expired"));
+            pendingExternalReads.removeAt(i);
+            continue;
+        }
+
+        if (pending.cacheFunc != item.command || pending.receiver != item.receiver)
+            continue;
+
+        if (sendExternalCacheReply(pending, item, QStringLiteral("reply-cache-update")))
+            pendingExternalReads.removeAt(i);
+    }
+}
+
+void icomCommander::logExternalFrame(const char *direction, const QByteArray &data, funcs func, uchar receiver,
+                                     const QString &action, const cacheItem &cache) const
+{
+    QString funcName = QStringLiteral("None");
+    if (func >= funcNone && func < funcLastFunc)
+        funcName = funcString[func];
+
+    QString cacheText = QStringLiteral("cache=n/a");
+    if (cache.command != funcNone) {
+        const qint64 ageMs = cache.reply.isValid()
+                                 ? cache.reply.msecsTo(QDateTime::currentDateTime())
+                                 : -1;
+        const bool hasValue = cache.value.isValid();
+        const bool fresh = hasValue && ageMs >= 0 && ageMs <= 20000;
+        cacheText = QStringLiteral("cache=%1 ageMs=%2 valueValid=%3")
+                        .arg(fresh ? QStringLiteral("hit") : (hasValue ? QStringLiteral("stale") : QStringLiteral("miss")))
+                        .arg(ageMs)
+                        .arg(hasValue ? QStringLiteral("yes") : QStringLiteral("no"));
+    }
+
+    qDebug(logVsp()).noquote()
+        << QStringLiteral("Icom %1 func=%2 receiver=%3 action=%4 %5 bytes=%6 hex=%7")
+               .arg(QString::fromLatin1(direction))
+               .arg(funcName)
+               .arg(receiver)
+               .arg(action)
+               .arg(cacheText)
+               .arg(data.size())
+               .arg(civDebugHex(data));
+}
+
+bool icomCommander::queueParsedExternalCommand(funcs func, const QByteArray &commandData, const QByteArray &lookupData, int matchedLength, uchar receiver, const QByteArray &rawFrame)
+{
+    Q_UNUSED(commandData)
+    Q_UNUSED(rawFrame)
+    if (queue == nullptr || matchedLength <= 0 || lookupData.size() <= matchedLength)
+        return false;
+
+    QByteArray payload = lookupData.mid(matchedLength);
+    QVariant value;
+    funcs queueFunc = func;
+    uchar vfo = 0;
+    bool ok = true;
+
+    switch (func) {
+    case funcFreq:
+        if (payload.isEmpty())
+            return false;
+        receiver = uchar(payload.at(0));
+        payload.remove(0, 1);
+        if (payload.isEmpty())
+            return false;
+        Q_FALLTHROUGH();
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcFreqGet:
+    case funcFreqTR:
+    case funcTXFreq:
+        if (payload.size() < 5)
+            return false;
+        if (func == funcFreqTR || func == funcFreqGet) {
+            if (rigCaps.commands.contains(funcFreq))
+                queueFunc = funcFreq;
+            else if (rigCaps.commands.contains(funcSelectedFreq))
+                queueFunc = funcSelectedFreq;
+        } else if (func == funcUnselectedFreq) {
+            vfo = 1;
+        }
+        value.setValue(parseFreqData(payload, vfo));
+        break;
+
+    case funcMode:
+        if (payload.isEmpty())
+            return false;
+        receiver = uchar(payload.at(0));
+        payload.remove(0, 1);
+        if (payload.isEmpty())
+            return false;
+        Q_FALLTHROUGH();
+    case funcModeGet:
+    case funcModeTR:
+    case funcSelectedMode:
+    case funcUnselectedMode:
+    case funcDataModeWithFilter:
+    {
+        funcs originalFunc = func;
+        if (func == funcModeTR || func == funcModeGet || func == funcDataModeWithFilter) {
+            if (rigCaps.commands.contains(funcMode))
+                queueFunc = funcMode;
+            else if (rigCaps.commands.contains(funcSelectedMode))
+                queueFunc = funcSelectedMode;
+        } else if (func == funcUnselectedMode) {
+            vfo = 1;
+        }
+
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (originalFunc == funcDataModeWithFilter) {
+            if (payload.size() < 2)
+                return false;
+            mi.filter = bcdHexToUChar(payload.at(1));
+            mi.data = bcdHexToUChar(payload.at(0));
+        } else {
+            if (!payload.isEmpty())
+                mi.reg = bcdHexToUChar(payload.at(0));
+            if (payload.size() == 2)
+                mi.filter = uchar(payload.at(1));
+            if (payload.size() >= 3) {
+                mi.data = uchar(payload.at(1));
+                mi.filter = uchar(payload.at(2));
+            }
+        }
+        if (mi.filter == 0 || mi.filter == 0xff)
+            mi.filter = 1;
+        mi = parseMode(mi.reg, mi.data, mi.filter, receiver, vfo);
+        mi.VFO = selVFO_t(receiver);
+        value.setValue(mi);
+        break;
+    }
+
+    case funcTuningStep:
+    case funcAttenuator:
+    case funcQuickSplit:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0)));
+        break;
+
+    case funcSplitStatus:
+        if (payload.isEmpty())
+            return false;
+        value.setValue(static_cast<duplexMode_t>(uchar(payload.at(0))));
+        break;
+
+    case funcAntenna:
+    {
+        if (payload.isEmpty())
+            return false;
+        antennaInfo ant;
+        ant.antenna = bcdHexToUChar(payload.at(0));
+        ant.rx = payload.size() > 1 ? bool(payload.at(1)) : false;
+        value.setValue(ant);
+        break;
+    }
+
+    case funcAfGain:
+        if (payload.size() < 2)
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0), payload.at(1)));
+        break;
+
+    case funcKeySpeed:
+    {
+        if (payload.size() < 2)
+            return false;
+        const uchar level = bcdHexToUChar(payload.at(0), payload.at(1));
+        value.setValue<ushort>(round((level / 6.071) + 6));
+        break;
+    }
+    case funcCwPitch:
+    {
+        if (payload.size() < 2)
+            return false;
+        const uchar level = bcdHexToUChar(payload.at(0), payload.at(1));
+        value.setValue<ushort>(round((((600.0 / 255.0) * level) + 300) / 5.0) * 5.0);
+        break;
+    }
+
+    case funcRfGain:
+    case funcSquelch:
+    case funcAPFLevel:
+    case funcNRLevel:
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcIFShift:
+    case funcRFPower:
+    case funcMicGain:
+    case funcNotchFilter:
+    case funcCompressorLevel:
+    case funcBreakInDelay:
+    case funcNBLevel:
+    case funcDigiSelShift:
+    case funcDriveGain:
+    case funcMonitorGain:
+    case funcVoxGain:
+    case funcAntiVoxGain:
+    case funcBackLightLevel:
+    case funcBeepLevel:
+    case funcBeepMain:
+    case funcBeepSub:
+    case funcRFSQLControl:
+    case funcTXDelayHF:
+    case funcTXDelay50m:
+    case funcTimeOutTimer:
+    case funcTimeOutCIV:
+        if (payload.size() < 2)
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0), payload.at(1)));
+        break;
+
+    case funcAGC:
+    case funcAGCTimeConstant:
+    case funcBreakIn:
+    case funcPreamp:
+    case funcManualNotchWidth:
+    case funcSSBTXBandwidth:
+    case funcRoofingFilter:
+    case funcFilterShape:
+    case funcSSBRXBass:
+    case funcSSBRXTreble:
+    case funcAMRXBass:
+    case funcAMRXTreble:
+    case funcFMRXBass:
+    case funcFMRXTreble:
+    case funcSSBTXBass:
+    case funcSSBTXTreble:
+    case funcAMTXBass:
+    case funcAMTXTreble:
+    case funcFMTXBass:
+    case funcFMTXTreble:
+    case funcBandEdgeBeep:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0)));
+        break;
+
+    case funcMainSubTracking:
+    case funcSatelliteMode:
+    case funcNoiseBlanker:
+    case funcAudioPeakFilter:
+    case funcNoiseReduction:
+    case funcAutoNotch:
+    case funcRepeaterTone:
+    case funcRepeaterTSQL:
+    case funcRepeaterDTCS:
+    case funcRepeaterCSQL:
+    case funcCompressor:
+    case funcMonitor:
+    case funcVox:
+    case funcManualNotch:
+    case funcDigiSel:
+    case funcTwinPeakFilter:
+    case funcDialLock:
+    case funcOverflowStatus:
+    case funcSMeterSqlStatus:
+    case funcVariousSql:
+    case funcRXAntenna:
+    case funcIPPlus:
+    case funcBeepLevelLimit:
+    case funcBeepConfirmation:
+    case funcRitStatus:
+    case funcXitStatus:
+    case funcTransceiverStatus:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<bool>(bool(payload.at(0)));
+        break;
+
+    case funcTunerStatus:
+        if (payload.isEmpty())
+            return false;
+        switch (uchar(payload.at(0))) {
+        case 0:
+            value.setValue<uchar>(0);
+            break;
+        case 1:
+            value.setValue<uchar>(1);
+            break;
+        case 2:
+            value.setValue<uchar>(2);
+            break;
+        default:
+            ok = false;
+            break;
+        }
+        break;
+
+    case funcDATAOffMod:
+    case funcDATA1Mod:
+    case funcDATA2Mod:
+    case funcDATA3Mod:
+    {
+        if (payload.isEmpty())
+            return false;
+        const uchar reg = bcdHexToUChar(payload.at(0));
+        ok = false;
+        for (auto &input : rigCaps.inputs) {
+            if (input.reg == reg) {
+                value.setValue(input);
+                ok = true;
+                break;
+            }
+        }
+        break;
+    }
+
+    default:
+        return false;
+    }
+
+    if (!ok || !value.isValid())
+        return false;
+
+    queue->add(priorityImmediate, queueItem(queueFunc, value, false, receiver));
     return true;
 }
 
@@ -691,6 +1261,44 @@ funcs icomCommander::lookupExternalCommand(const QByteArray &data, QByteArray *c
     }
 
     return funcNone;
+}
+
+bool icomCommander::isExternalReadCommand(funcs func, const QByteArray &lookupData, int matchedLength, uchar *receiver) const
+{
+    if (matchedLength <= 0 || lookupData.size() < matchedLength)
+        return false;
+
+    if (lookupData.size() == matchedLength) {
+        switch (func) {
+        case funcVFOMainSelect:
+        case funcVFOSubSelect:
+        case funcVFOASelect:
+        case funcVFOBSelect:
+        case funcVFODualWatchOn:
+        case funcVFODualWatchOff:
+            return false;
+        default:
+            return true;
+        }
+    }
+
+    const QByteArray payload = lookupData.mid(matchedLength);
+    if (payload.size() != 1)
+        return false;
+
+    const uchar selectedReceiver = uchar(payload.at(0));
+    if (selectedReceiver > 1)
+        return false;
+
+    switch (func) {
+    case funcFreq:
+    case funcMode:
+        if (receiver)
+            *receiver = selectedReceiver;
+        return true;
+    default:
+        return false;
+    }
 }
 
 void icomCommander::recordLastExternalCommand(const QByteArray &data)

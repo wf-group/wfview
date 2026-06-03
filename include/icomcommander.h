@@ -64,6 +64,15 @@ signals:
     void haveDataForVsp(QByteArray data);
 
 private:
+    struct PendingExternalRead {
+        QByteArray requestFrame;
+        QByteArray commandData;
+        funcs requestedFunc = funcNone;
+        funcs cacheFunc = funcNone;
+        uchar receiver = 0;
+        QDateTime created;
+    };
+
     void commonSetup();
 
     void parseData(QByteArray data); // new data come here
@@ -112,7 +121,19 @@ private:
     void prepDataAndSend(QByteArray data);
     funcs lookupExternalCommand(const QByteArray &data, QByteArray *commandData = nullptr,
                                 QByteArray *lookupData = nullptr, int *matchedLength = nullptr) const;
+    bool isExternalReadCommand(funcs func, const QByteArray &lookupData, int matchedLength, uchar *receiver = nullptr) const;
+    QVector<QByteArray> takeCompleteExternalFrames(QByteArray &buffer, const QByteArray &data);
+    void processExternalFrame(const QByteArray &data, bool fromVsp);
+    bool queueParsedExternalCommand(funcs func, const QByteArray &commandData, const QByteArray &lookupData, int matchedLength, uchar receiver, const QByteArray &rawFrame);
     bool queueExternalCommand(QByteArray data);
+    funcs externalCacheFunc(funcs func) const;
+    bool isExternalCacheFresh(const cacheItem &cache) const;
+    bool sendExternalCacheReply(const PendingExternalRead &pending, const cacheItem &cache, const QString &action);
+    bool sendExternalAck(const QByteArray &requestFrame, funcs func, uchar receiver, const QString &action);
+    bool queueExternalActionCommand(funcs func, uchar receiver, const QByteArray &rawFrame);
+    void receiveExternalCacheUpdate(cacheItem item);
+    void logExternalFrame(const char *direction, const QByteArray &data, funcs func, uchar receiver,
+                          const QString &action, const cacheItem &cache = cacheItem()) const;
     void recordLastExternalCommand(const QByteArray &data);
     bool detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const;
     void debugMe();
@@ -144,6 +165,9 @@ private:
     QByteArray payloadSuffix;
 
     QByteArray rigData;
+    QByteArray vspInputBuffer;
+    QByteArray tcpInputBuffer;
+    QVector<PendingExternalRead> pendingExternalReads;
 
     QByteArray spectrumLine;
     //double spectrumStartFreq;

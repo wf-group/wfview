@@ -62,11 +62,11 @@ struct cacheItem {
     //cacheItem (cacheItem const &c): command(c.command), req(c.req), reply(c.reply), value(c.value), receiver(c.receiver) {};
     cacheItem (funcs command, QVariant value, uchar receiver=0) : command(command), req(QDateTime()), reply(QDateTime()), value(value), receiver(receiver){};
 
-    funcs command;
+    funcs command = funcNone;
     QDateTime req;
     QDateTime reply;
     QVariant value;
-    uchar receiver;
+    uchar receiver = 0;
     uchar retries=0;
 
     /*
