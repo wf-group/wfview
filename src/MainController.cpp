@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QEvent>
 #include <QGuiApplication>
+#include <QInputMethod>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMutexLocker>
@@ -109,6 +110,18 @@ static int fixedFrequencyShortcutHz(const QString& sequence, int configuredValue
         return qMax(1, qAbs(configuredValue));
 
     return 0;
+}
+
+static bool focusedControlAcceptsTextInput()
+{
+    if (!QGuiApplication::focusObject())
+        return false;
+
+    QInputMethod *inputMethod = QGuiApplication::inputMethod();
+    if (!inputMethod)
+        return false;
+
+    return inputMethod->queryFocusObject(Qt::ImEnabled, QVariant()).toBool();
 }
 
 MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
@@ -665,6 +678,9 @@ bool MainController::eventFilter(QObject* watched, QEvent* event)
 
     auto* keyEvent = static_cast<QKeyEvent*>(event);
     if (keyEvent->key() == Qt::Key_unknown)
+        return QObject::eventFilter(watched, event);
+
+    if (focusedControlAcceptsTextInput())
         return QObject::eventFilter(watched, event);
 
     const int shortcutKey = int(keyEvent->modifiers() & (Qt::ShiftModifier
