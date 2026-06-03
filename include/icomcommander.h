@@ -126,7 +126,6 @@ private:
     void processExternalFrame(const QByteArray &data, bool fromVsp);
     bool queueParsedExternalCommand(funcs func, const QByteArray &commandData, const QByteArray &lookupData, int matchedLength, uchar receiver, const QByteArray &rawFrame);
     bool queueExternalCommand(QByteArray data);
-    funcs externalCacheFunc(funcs func) const;
     bool isExternalCacheFresh(const cacheItem &cache) const;
     bool sendExternalCacheReply(const PendingExternalRead &pending, const cacheItem &cache, const QString &action);
     bool sendExternalAck(const QByteArray &requestFrame, funcs func, uchar receiver, const QString &action);

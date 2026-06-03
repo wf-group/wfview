@@ -701,14 +701,43 @@ bool icomCommander::queueExternalCommand(QByteArray data)
             receiver = quint8(commandData.at(1));
 
         if (func != funcNone && matchedLength > 0 && isExternalReadCommand(func, lookupData, matchedLength, &receiver)) {
-            const funcs cacheFunc = externalCacheFunc(func);
-            const cacheItem cache = queue->getCache(cacheFunc, receiver);
+            funcs cacheFunc = func;
+            uchar cacheReceiver = receiver;
+            switch (func) {
+            case funcFreq:
+            case funcSelectedFreq:
+            case funcUnselectedFreq:
+            case funcFreqGet:
+            case funcFreqTR:
+            case funcTXFreq:
+            {
+                const vfoCommandType vfoCommand = queue->getVfoCommand(vfoA, receiver, false);
+                cacheFunc = vfoCommand.freqFunc;
+                cacheReceiver = vfoCommand.receiver;
+                break;
+            }
+            case funcMode:
+            case funcModeGet:
+            case funcModeTR:
+            case funcSelectedMode:
+            case funcUnselectedMode:
+            case funcDataModeWithFilter:
+            {
+                const vfoCommandType vfoCommand = queue->getVfoCommand(vfoA, receiver, false);
+                cacheFunc = vfoCommand.modeFunc;
+                cacheReceiver = vfoCommand.receiver;
+                break;
+            }
+            default:
+                break;
+            }
+            const cacheItem cache = queue->getCache(cacheFunc, cacheReceiver);
             PendingExternalRead pending;
             pending.requestFrame = frame;
             pending.commandData = commandData;
             pending.requestedFunc = func;
             pending.cacheFunc = cacheFunc;
-            pending.receiver = receiver;
+            pending.receiver = cacheReceiver;
             pending.created = QDateTime::currentDateTime();
             if (isExternalCacheFresh(cache) && sendExternalCacheReply(pending, cache, QStringLiteral("reply-cache-hit")))
                 continue;
@@ -734,29 +763,6 @@ bool icomCommander::queueExternalCommand(QByteArray data)
     }
 
     return true;
-}
-
-funcs icomCommander::externalCacheFunc(funcs func) const
-{
-    switch (func) {
-    case funcFreqGet:
-    case funcFreqTR:
-        if (rigCaps.commands.contains(funcFreq))
-            return funcFreq;
-        if (rigCaps.commands.contains(funcSelectedFreq))
-            return funcSelectedFreq;
-        return func;
-    case funcModeGet:
-    case funcModeTR:
-    case funcDataModeWithFilter:
-        if (rigCaps.commands.contains(funcMode))
-            return funcMode;
-        if (rigCaps.commands.contains(funcSelectedMode))
-            return funcSelectedMode;
-        return func;
-    default:
-        return func;
-    }
 }
 
 bool icomCommander::isExternalCacheFresh(const cacheItem &cache) const
