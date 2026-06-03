@@ -784,7 +784,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}"
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DBUILD_SHARED_LIBS=ON
           cmake --build opus-build --target install --config Release
 
           git clone --depth=1 https://github.com/PortAudio/portaudio.git portaudio-src
@@ -802,7 +803,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}"
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DBUILD_SHARED_LIBS=ON
           cmake --build hidapi-build --target install --config Release
 
       - name: Prepare wfview dependency layout
