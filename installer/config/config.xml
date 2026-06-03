@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Installer>
+	<Name>wfview (x64)</Name>
+	<Version>2.21</Version>
+	<Title>Welcome to the wfview v2.21 (x64) installer</Title>
+	<Publisher>wfview project</Publisher>
+	<StartMenuDir>wfview (x64)</StartMenuDir>
+	<TargetDir>@ApplicationsDir@/wfview</TargetDir>
+	<RemoveTargetDir>false</RemoveTargetDir>
+	<MaintenanceToolName>wfviewMaintenanceTool</MaintenanceToolName>
+</Installer>
