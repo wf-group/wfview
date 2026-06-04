@@ -170,6 +170,12 @@ void rigServer::dataForServer(QByteArray d)
     return;
 }
 
+void rigServer::receiveScopeData(QByteArray d)
+{
+    Q_UNUSED(d)
+    qWarning(logRigServer()) << "receiveScopeData() not implemented by server type";
+    return;
+}
 
 void rigServer::receiveAudioData(const audioPacket& d)
 {

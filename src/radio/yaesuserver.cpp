@@ -3,10 +3,49 @@
 #include "yaesuserver.h"
 
 #include <QRandomGenerator>
+#include <cstddef>
 #include <cstring>
 #include <utility>
 
 #include "logcategories.h"
+
+namespace {
+quint8 codecForYaesuAudio(yaesuAudioFormat format, quint8 channels)
+{
+    switch (format) {
+    case MuLaw:
+        return channels == 2 ? quint8(32) : quint8(1);
+    case OpusAudio:
+        return channels == 2 ? quint8(65) : quint8(64);
+    case AdpcmAudio:
+        return quint8(128);
+    case ShortLE:
+    case ShortBE:
+    case UnknownAudio:
+    default:
+        return channels == 2 ? quint8(16) : quint8(4);
+    }
+}
+
+quint16 frameBytesForCodec(quint8 codec)
+{
+    switch (codec) {
+    case 1:
+        return 160;
+    case 4:
+    case 32:
+        return 320;
+    case 16:
+        return 640;
+    case 64:
+    case 65:
+    case 128:
+        return sizeof(yaesuAudioData::pcmData);
+    default:
+        return 320;
+    }
+}
+}
 
 yaesuServer::yaesuServer(SERVERCONFIG* config, rigServer* parent) :
     rigServer(config,parent)
@@ -62,6 +101,8 @@ yaesuServer::~yaesuServer()
 
 void yaesuServer::dataForServer(QByteArray d)
 {
+    rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
+
     if (d.isEmpty()) {
         return;
     }
@@ -71,7 +112,7 @@ void yaesuServer::dataForServer(QByteArray d)
     frame.hdr.device = UsbCat;
     frame.hdr.msgtype = R2C_Data;
     frame.hdr.len = sizeof(frame.data.packet_id) + sizeof(frame.data.reserved) + quint16(d.size());
-    frame.data.packet_id = txCatPacketId++;
+    frame.data.packet_id = ++txCatPacketId;
     memcpy(frame.data.data, d.constData(), qMin(d.size(), int(sizeof(frame.data.data))));
 
     const qsizetype len = sizeof(frame) - sizeof(frame.data.data) + qMin(d.size(), int(sizeof(frame.data.data)));
@@ -80,13 +121,89 @@ void yaesuServer::dataForServer(QByteArray d)
         if (client == nullptr || !client->authenticated || client->catPort == 0) {
             continue;
         }
+        if (sender != nullptr && memcmp(sender->getGUID(), client->guid, GUIDLEN) && config->rigs.size() > 1) {
+            continue;
+        }
         sendCatFrame(client->ipAddress, client->catPort, &frame, len);
+    }
+}
+
+void yaesuServer::receiveScopeData(QByteArray d)
+{
+    rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
+
+    if (d.isEmpty()) {
+        return;
+    }
+
+    yaesuR2C_ScopeDataFrame frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.hdr.device = Scope;
+    frame.hdr.msgtype = R2C_Data;
+    frame.hdr.len = sizeof(frame.data);
+    memcpy(frame.data, d.constData(), qMin(d.size(), int(sizeof(frame.data))));
+
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        CLIENT* client = it.value();
+        if (client == nullptr || !client->authenticated || client->scopePort == 0) {
+            continue;
+        }
+        if (sender != nullptr && memcmp(sender->getGUID(), client->guid, GUIDLEN) && config->rigs.size() > 1) {
+            continue;
+        }
+        sendScopeFrame(client->ipAddress, client->scopePort, &frame, sizeof(frame));
     }
 }
 
 void yaesuServer::receiveAudioData(const audioPacket& d)
 {
-    Q_UNUSED(d)
+    rigCommander* sender = qobject_cast<rigCommander*>(QObject::sender());
+    quint8 guid[GUIDLEN];
+    if (sender != nullptr) {
+        memcpy(guid, sender->getGUID(), GUIDLEN);
+    } else {
+        memcpy(guid, d.guid, GUIDLEN);
+    }
+
+    if (d.data.isEmpty()) {
+        return;
+    }
+
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        CLIENT* client = it.value();
+        if (client == nullptr || !client->authenticated || client->audioPort == 0) {
+            continue;
+        }
+        if (memcmp(guid, client->guid, GUIDLEN) && config->rigs.size() > 1) {
+            continue;
+        }
+
+        int pos = 0;
+        while (pos < d.data.size()) {
+            const QByteArray partial = d.data.mid(pos, client->audioFrameBytes);
+            pos += partial.size();
+
+            yaesuR2C_AudioData frame;
+            memset(&frame, 0, sizeof(frame));
+            frame.hdr.device = UsbAudio;
+            frame.hdr.msgtype = R2C_Data;
+            frame.data.seqNum = client->audioSeq++;
+            frame.data.channels = client->audioChannels;
+            frame.data.format = client->audioFormat;
+            frame.data.sampleRate = client->audioSampleRate;
+            frame.data.resendMode = 0x01;
+            frame.data.playbackLatency = 1500;
+            frame.data.recordLatency = 1500;
+            frame.data.playbackVol = 100;
+            frame.data.recordVol = 100;
+            frame.data.pcmDataLen = quint16(partial.size());
+            frame.hdr.len = sizeof(frame) - sizeof(frame.hdr) - sizeof(frame.data.pcmData) + frame.data.pcmDataLen;
+            memcpy(frame.data.pcmData, partial.constData(), partial.size());
+
+            const qsizetype len = sizeof(frame) - sizeof(frame.data.pcmData) + frame.data.pcmDataLen;
+            sendAudioFrame(client->ipAddress, client->audioPort, &frame, len);
+        }
+    }
 }
 
 void yaesuServer::incomingControl()
@@ -181,7 +298,9 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
     {
         if (decoded.size() >= int(sizeof(yaesuC2R_LogoutFrame))) {
             const auto* logout = reinterpret_cast<const yaesuC2R_LogoutFrame*>(decoded.constData());
-            delete clients.take(logout->session);
+            CLIENT* client = clients.take(logout->session);
+            releaseAudioForClient(client);
+            delete client;
             sendResult(controlSocket, datagram.address, datagram.port, ScuLan, R2C_LogoutReply, 1);
         }
         break;
@@ -204,18 +323,41 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
         }
         break;
     }
+    case C2R_Close:
+    {
+        if (decoded.size() >= int(sizeof(yaesuSessionFrame))) {
+            const auto* close = reinterpret_cast<const yaesuSessionFrame*>(decoded.constData());
+            CLIENT* client = clientForSession(close->session);
+            if (client != nullptr) {
+                if (header->device == UsbCat) {
+                    client->catPort = 0;
+                } else if (header->device == UsbAudio) {
+                    releaseAudioForClient(client);
+                } else if (header->device == Scope) {
+                    client->scopePort = 0;
+                }
+                sendResult(controlSocket, datagram.address, datagram.port, header->device, R2C_CloseReply, 1);
+            }
+        }
+        break;
+    }
     case C2R_Data:
     {
-        if (decoded.size() >= int(sizeof(yaesuControlCommandFrame))) {
-            const auto* command = reinterpret_cast<const yaesuControlCommandFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(command->session);
-            if (client != nullptr && !strncmp(command->text, "putfile catcmd_table", 20)) {
+        const int minDataSize = int(sizeof(yaesuFrameHeader) + sizeof(quint32));
+        if (decoded.size() >= minDataSize) {
+            const quint32 session = *reinterpret_cast<const quint32*>(decoded.constData() + sizeof(yaesuFrameHeader));
+            CLIENT* client = clientForSession(session);
+            const int shortTextOffset = int(sizeof(yaesuFrameHeader) + sizeof(quint32) + sizeof(quint32));
+            const QByteArray commandText = decoded.size() > shortTextOffset
+                                               ? decoded.mid(shortTextOffset)
+                                               : QByteArray();
+            if (client != nullptr && commandText.startsWith("putfile catcmd_table")) {
                 yaesuControlCommandFrame ready;
                 memset(&ready, 0, sizeof(ready));
                 ready.hdr.device = ScuLan;
                 ready.hdr.msgtype = R2C_Data;
                 ready.hdr.len = sizeof(ready) - sizeof(ready.hdr);
-                ready.session = command->session;
+                ready.session = session;
                 memcpy(ready.text, "Ready", 5);
                 sendControlFrame(datagram.address, datagram.port, &ready, sizeof(ready));
             } else if (client != nullptr) {
@@ -224,7 +366,7 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
                 receive.hdr.device = ScuLan;
                 receive.hdr.msgtype = R2C_Data;
                 receive.hdr.len = sizeof(receive) - sizeof(receive.hdr);
-                receive.session = command->session;
+                receive.session = session;
                 memcpy(receive.text, "Receive", 7);
                 sendControlFrame(datagram.address, datagram.port, &receive, sizeof(receive));
             }
@@ -263,9 +405,20 @@ void yaesuServer::processCat(const PendingDatagram& datagram)
     }
     case C2R_CatRate:
         break;
+    case C2R_Close:
+    {
+        CLIENT* client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::catPort);
+        if (client != nullptr) {
+            client->catPort = 0;
+        }
+        sendResult(catSocket, datagram.address, datagram.port, UsbCat, R2C_CloseReply, 1);
+        break;
+    }
     case C2R_Data:
     {
-        if (decoded.size() >= int(sizeof(yaesuC2R_CatDataFrame))) {
+        const int minCatDataSize = int(sizeof(yaesuFrameHeader) + sizeof(quint32) +
+                                       sizeof(quint16) + sizeof(quint16));
+        if (decoded.size() >= minCatDataSize) {
             const auto* frame = reinterpret_cast<const yaesuC2R_CatDataFrame*>(decoded.constData());
             CLIENT* client = clientForSession(frame->session);
             if (client == nullptr) {
@@ -276,7 +429,21 @@ void yaesuServer::processCat(const PendingDatagram& datagram)
                 const qsizetype dataLen = decoded.size() - qsizetype(sizeof(frame->hdr)) - qsizetype(sizeof(frame->session)) -
                                           qsizetype(sizeof(frame->data.packet_id)) - qsizetype(sizeof(frame->data.reserved));
                 if (dataLen > 0) {
-                    emit haveDataFromServer(QByteArray(reinterpret_cast<const char*>(frame->data.data), dataLen));
+                    const QByteArray catData(reinterpret_cast<const char*>(frame->data.data), dataLen);
+                    foreach (RIGCONFIG* radio, config->rigs) {
+                        if (radio->rig == nullptr) {
+                            continue;
+                        }
+                        if (!memcmp(radio->guid, client->guid, sizeof(radio->guid)) || config->rigs.size() == 1) {
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+                            QMetaObject::invokeMethod(radio->rig, [radio, catData]() {
+                                radio->rig->dataFromServer(catData);
+                            }, Qt::QueuedConnection);
+#else
+                            emit haveDataFromServer(catData);
+#endif
+                        }
+                    }
                 }
             }
         }
@@ -301,12 +468,43 @@ void yaesuServer::processAudio(const PendingDatagram& datagram)
     const auto* header = reinterpret_cast<const yaesuFrameHeader*>(decoded.constData());
     switch (header->msgtype) {
     case C2R_Connect:
+        if (decoded.size() >= int(sizeof(yaesuResultFrame))) {
+            const auto* connect = reinterpret_cast<const yaesuResultFrame*>(decoded.constData());
+            CLIENT* client = clientForSession(connect->result);
+            if (client != nullptr) {
+                client->audioPort = datagram.port;
+            }
+        }
         sendResult(audioSocket, datagram.address, datagram.port, UsbAudio, R2C_ConnectReply, 1);
         break;
     case C2R_HealthCheck:
         sendHealth(audioSocket, datagram.address, datagram.port, UsbAudio);
         break;
+    case C2R_Close:
+    {
+        CLIENT* client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::audioPort);
+        releaseAudioForClient(client);
+        sendResult(audioSocket, datagram.address, datagram.port, UsbAudio, R2C_CloseReply, 1);
+        break;
+    }
     case C2R_Data:
+        if (decoded.size() >= int(sizeof(yaesuFrameHeader) + sizeof(quint32))) {
+            const quint32 session = *reinterpret_cast<const quint32*>(decoded.constData() + sizeof(yaesuFrameHeader));
+            CLIENT* client = clientForSession(session);
+            if (client == nullptr) {
+                client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::audioPort);
+            }
+            if (client != nullptr) {
+                client->audioPort = datagram.port;
+                const int minAudioDataSize = int(sizeof(yaesuFrameHeader) + sizeof(quint32) +
+                                                 offsetof(yaesuAudioData, pcmData));
+                if (decoded.size() >= minAudioDataSize) {
+                    const auto* frame = reinterpret_cast<const yaesuC2R_AudioData*>(decoded.constData());
+                    updateClientAudioFormat(client, frame->data);
+                    requestAudioForClient(client);
+                }
+            }
+        }
         break;
     default:
         qDebug(logRigServer()) << "Yaesu audio ignored message" << header->msgtype << "device" << header->device;
@@ -324,15 +522,94 @@ void yaesuServer::processScope(const PendingDatagram& datagram)
     const auto* header = reinterpret_cast<const yaesuFrameHeader*>(decoded.constData());
     switch (header->msgtype) {
     case C2R_Connect:
+        if (decoded.size() >= int(sizeof(yaesuResultFrame))) {
+            const auto* connect = reinterpret_cast<const yaesuResultFrame*>(decoded.constData());
+            CLIENT* client = clientForSession(connect->result);
+            if (client != nullptr) {
+                client->scopePort = datagram.port;
+            }
+        }
         sendResult(scopeSocket, datagram.address, datagram.port, Scope, R2C_ConnectReply, 1);
         break;
     case C2R_HealthCheck:
         sendHealth(scopeSocket, datagram.address, datagram.port, Scope);
         break;
+    case C2R_Close:
+    {
+        CLIENT* client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::scopePort);
+        if (client != nullptr) {
+            client->scopePort = 0;
+        }
+        sendResult(scopeSocket, datagram.address, datagram.port, Scope, R2C_CloseReply, 1);
+        break;
+    }
     default:
         qDebug(logRigServer()) << "Yaesu scope ignored message" << header->msgtype << "device" << header->device;
         break;
     }
+}
+
+void yaesuServer::updateClientAudioFormat(CLIENT* client, const yaesuAudioData& data)
+{
+    if (client == nullptr) {
+        return;
+    }
+
+    const quint8 channels = data.channels == 2 ? quint8(2) : quint8(1);
+    client->audioChannels = channels;
+    switch (data.format) {
+    case MuLaw:
+    case OpusAudio:
+    case AdpcmAudio:
+        client->audioFormat = data.format;
+        break;
+    case ShortLE:
+    case ShortBE:
+    case UnknownAudio:
+    default:
+        client->audioFormat = ShortLE;
+        break;
+    }
+    client->audioSampleRate = data.sampleRate != 0 ? data.sampleRate : quint32(16000);
+    client->audioCodec = codecForYaesuAudio(client->audioFormat, client->audioChannels);
+    client->audioFrameBytes = frameBytesForCodec(client->audioCodec);
+}
+
+void yaesuServer::requestAudioForClient(CLIENT* client)
+{
+    if (client == nullptr || !client->authenticated) {
+        return;
+    }
+
+    emit requestRxAudioForGuid(QByteArray(reinterpret_cast<const char*>(client->guid), GUIDLEN),
+                               client->audioCodec,
+                               client->audioSampleRate);
+}
+
+void yaesuServer::releaseAudioForClient(CLIENT* client)
+{
+    if (client == nullptr || client->audioPort == 0) {
+        return;
+    }
+
+    const QByteArray guid(reinterpret_cast<const char*>(client->guid), GUIDLEN);
+    client->audioPort = 0;
+    if (!hasAudioClientForGuid(reinterpret_cast<const quint8*>(guid.constData()))) {
+        emit releaseRxAudioForGuid(guid);
+    }
+}
+
+bool yaesuServer::hasAudioClientForGuid(const quint8* guid) const
+{
+    for (CLIENT* client : clients) {
+        if (client == nullptr || !client->authenticated || client->audioPort == 0) {
+            continue;
+        }
+        if (guid == nullptr || !memcmp(client->guid, guid, GUIDLEN) || config->rigs.size() == 1) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool yaesuServer::authenticate(const yaesuC2R_LoginFrame* login) const

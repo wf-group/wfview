@@ -106,6 +106,7 @@ signals:
     // UDP:
     void haveChangeLatency(quint16 value);
     void haveDataForServer(QByteArray outData);
+    void haveScopeDataForServer(QByteArray outData);
     void haveAudioData(audioPacket data);
     void initUdpHandler();
     void haveSetVolume(quint8 level);

@@ -562,7 +562,9 @@ enum yaesuAudioFormat : quint8 {
     UnknownAudio = 0,
     ShortLE = 1,
     ShortBE = 2,
-    MuLaw = 3
+    MuLaw = 3,
+    OpusAudio = 4,
+    AdpcmAudio = 5
 };
 
 
@@ -681,4 +683,3 @@ struct yaesuEncodedFrame {
 
 
 #endif // PACKETTYPES_H
-

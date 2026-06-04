@@ -39,6 +39,7 @@ public:
 public slots:
 	void init();
 	void dataForServer(QByteArray);
+	void receiveScopeData(QByteArray);
 	void receiveAudioData(const audioPacket &data);
 
 private:
@@ -52,11 +53,17 @@ private:
         quint16 catPort = 0;
         quint16 audioPort = 0;
         quint16 scopePort = 0;
+        quint8 audioCodec = 4;
+        quint8 audioChannels = 1;
+        yaesuAudioFormat audioFormat = ShortLE;
+        quint32 audioSampleRate = 16000;
+        quint16 audioFrameBytes = 320;
         QByteArray clientName;
 		QDateTime	timeConnected;
 		QDateTime lastHeard;
-		bool isStreaming;
-		quint16 txBufferLen;
+        bool isStreaming;
+        quint16 txBufferLen;
+        quint16 audioSeq = 1;
         quint8 guid[GUIDLEN];
 
 	};
@@ -75,6 +82,10 @@ private:
     void processCat(const PendingDatagram& datagram);
     void processAudio(const PendingDatagram& datagram);
     void processScope(const PendingDatagram& datagram);
+    void updateClientAudioFormat(CLIENT* client, const yaesuAudioData& data);
+    void requestAudioForClient(CLIENT* client);
+    void releaseAudioForClient(CLIENT* client);
+    bool hasAudioClientForGuid(const quint8* guid) const;
     bool authenticate(const yaesuC2R_LoginFrame* login) const;
     CLIENT* clientForSession(quint32 session);
     CLIENT* clientForEndpoint(const QHostAddress& address, quint16 port, quint16 CLIENT::*memberPort);

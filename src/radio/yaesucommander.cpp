@@ -163,6 +163,8 @@ void yaesuCommander::haveScopeData(QByteArray in)
         return;
     }
 
+    emit haveScopeDataForServer(in);
+
     yaesu_scope_data_t d = (yaesu_scope_data_t)in.data();
 
     for (unsigned int i=0; i< sizeof(d->wf1);i++) {
@@ -771,6 +773,11 @@ void yaesuCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
     dataForRig(data);
 }
 
+void yaesuCommander::dataFromServer(QByteArray data)
+{
+    receiveRawExternalCommand(data, 0);
+}
+
 void yaesuCommander::dataForRig(QByteArray d)
 {
     if (portConnected) {
@@ -898,6 +905,7 @@ void yaesuCommander::receiveDataFromRig()
 {
     if (portConnected) {
         const QByteArray in = port->readAll();
+        emit haveDataForServer(in);
         parseData(in);
         emit haveDataFromRig(in);
     }
@@ -905,6 +913,7 @@ void yaesuCommander::receiveDataFromRig()
 
 void yaesuCommander::receiveCatDataFromRig(QByteArray in)
 {
+    emit haveDataForServer(in);
     parseData(in);
     emit haveDataFromRig(in);
 }

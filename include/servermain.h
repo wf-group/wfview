@@ -206,6 +206,8 @@ private:
     void setServerToPrefs();
     void startWfShareStation();
     void flushWfShareTxBuffer();
+    void ensureNativeServerRxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate);
+    void stopNativeServerRxAudio(RIGCONFIG *radio);
     void ensureWfShareRxAudio(RIGCONFIG *radio);
     void ensureWfShareTxAudio(RIGCONFIG *radio);
     void sendWfShareAudio(const audioPacket &packet);

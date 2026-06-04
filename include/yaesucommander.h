@@ -50,6 +50,7 @@ public slots:
     void handleNewData(const QByteArray& data) override;
     void receiveBaudRate(quint32 baudrate) override;
     void receiveTxAudioData(const audioPacket &packet) override;
+    void dataFromServer(QByteArray data) override;
 
     void receiveCatDataFromRig(QByteArray in);
     void receiveScopeDataFromRig(QByteArray in);

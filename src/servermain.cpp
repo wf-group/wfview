@@ -309,7 +309,7 @@ void servermain::receiveCommReady()
 
     for (RIGCONFIG* radio : serverConfig.rigs)
     {
-        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
+        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !radio->rigAvailable && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
         {
 
             qInfo(logSystem()) << "Received CommReady!! ";
@@ -363,7 +363,7 @@ void servermain::receiveRigCaps(rigCapabilities* rigCaps)
     for (RIGCONFIG* radio : serverConfig.rigs)
     {
 
-        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !radio->rigAvailable && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
+        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
         {
 
             qDebug(logSystem()) << "Rig name: " << rigCaps->modelName;
@@ -494,6 +494,7 @@ void servermain::setServerToPrefs()
             if (radio->rig != Q_NULLPTR) {
                 connect(radio->rig, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)));
                 connect(radio->rig, SIGNAL(haveDataForServer(QByteArray)), server, SLOT(dataForServer(QByteArray)));
+                connect(radio->rig, SIGNAL(haveScopeDataForServer(QByteArray)), server, SLOT(receiveScopeData(QByteArray)));
                 connect(server, SIGNAL(haveDataFromServer(QByteArray)), radio->rig, SLOT(dataFromServer(QByteArray)));
                 //connect(this, SIGNAL(sendRigCaps(rigCapabilities)), server, SLOT(receiveRigCaps(rigCapabilities)));
             }
@@ -501,10 +502,113 @@ void servermain::setServerToPrefs()
     }
 
     connect(server, SIGNAL(haveNetworkStatus(networkStatus)), this, SLOT(receiveStatusUpdate(networkStatus)));
+    connect(server, &rigServer::requestRxAudioForGuid, this, [this](const QByteArray &guid, quint8 codec, quint32 sampleRate) {
+        for (RIGCONFIG *radio : serverConfig.rigs) {
+            if (radio == Q_NULLPTR) {
+                continue;
+            }
+
+            const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
+            if (guidMatches || serverConfig.rigs.size() == 1) {
+                ensureNativeServerRxAudio(radio, codec, sampleRate);
+            }
+        }
+    }, Qt::QueuedConnection);
+    connect(server, &rigServer::releaseRxAudioForGuid, this, [this](const QByteArray &guid) {
+        for (RIGCONFIG *radio : serverConfig.rigs) {
+            if (radio == Q_NULLPTR) {
+                continue;
+            }
+
+            const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
+            if (guidMatches || serverConfig.rigs.size() == 1) {
+                stopNativeServerRxAudio(radio);
+            }
+        }
+    }, Qt::QueuedConnection);
 
     serverThread->start();
 
     emit initServer();
+}
+
+void servermain::ensureNativeServerRxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate)
+{
+    if (!serverConfig.enabled || prefs.manufacturer != manufYaesu || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (codec == 0) {
+        codec = 4;
+    }
+    if (sampleRate == 0) {
+        sampleRate = 16000;
+    }
+
+    if (radio->rxaudio == Q_NULLPTR) {
+        radio->rxAudioSetup.codec = codec;
+        radio->rxAudioSetup.sampleRate = sampleRate;
+        radio->rxAudioSetup.latency = 150;
+        radio->rxAudioSetup.blockSize = 10;
+        radio->rxAudioSetup.isinput = true;
+        memcpy(radio->rxAudioSetup.guid, radio->guid, GUIDLEN);
+
+        qInfo(logAudio()) << "Starting server RX audio input"
+                          << "device" << radio->rxAudioSetup.name
+                          << "codec" << radio->rxAudioSetup.codec
+                          << "sampleRate" << radio->rxAudioSetup.sampleRate;
+    } else if (radio->rxAudioSetup.codec != codec || radio->rxAudioSetup.sampleRate != sampleRate) {
+        qWarning(logAudio()) << "Ignoring Yaesu server RX audio format change while audio is active"
+                             << "active codec" << radio->rxAudioSetup.codec
+                             << "active sampleRate" << radio->rxAudioSetup.sampleRate
+                             << "requested codec" << codec
+                             << "requested sampleRate" << sampleRate;
+    }
+
+    if (radio->rxaudio == Q_NULLPTR) {
+        if (radio->rxAudioSetup.type == qtAudio) {
+            radio->rxaudio = new audioHandlerQtInput();
+        } else if (radio->rxAudioSetup.type == portAudio) {
+            radio->rxaudio = new audioHandlerPaInput();
+        } else if (radio->rxAudioSetup.type == rtAudio) {
+            radio->rxaudio = new audioHandlerRtInput();
+        } else {
+            qCritical(logAudio()) << "Unsupported native server receive audio handler selected" << radio->rxAudioSetup.type;
+            return;
+        }
+
+        radio->rxAudioThread = new QThread(this);
+        radio->rxAudioThread->setObjectName(QStringLiteral("nativeServerRxAudio()"));
+        radio->rxaudio->moveToThread(radio->rxAudioThread);
+        radio->rxAudioThread->start(QThread::TimeCriticalPriority);
+        connect(radio->rxAudioThread, SIGNAL(finished()), radio->rxaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+        QMetaObject::invokeMethod(radio->rxaudio, [radio]() {
+            radio->rxaudio->init(radio->rxAudioSetup);
+        }, Qt::QueuedConnection);
+#else
+        QMetaObject::invokeMethod(radio->rxaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->rxAudioSetup));
+#endif
+    }
+
+    if (server != Q_NULLPTR) {
+        connect(radio->rxaudio, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)), Qt::UniqueConnection);
+    }
+}
+
+void servermain::stopNativeServerRxAudio(RIGCONFIG *radio)
+{
+    if (radio == Q_NULLPTR || radio->rxaudio == Q_NULLPTR || radio->rxAudioThread == Q_NULLPTR) {
+        return;
+    }
+
+    qInfo(logAudio()) << "Stopping server RX audio input";
+    radio->rxaudio->dispose();
+    radio->rxAudioThread->quit();
+    radio->rxAudioThread->wait();
+    radio->rxaudio = Q_NULLPTR;
+    radio->rxAudioThread = Q_NULLPTR;
 }
 
 void servermain::ensureWfShareRxAudio(RIGCONFIG *radio)
@@ -551,9 +655,6 @@ void servermain::ensureWfShareRxAudio(RIGCONFIG *radio)
 #endif
     }
 
-    if (server != Q_NULLPTR) {
-        connect(radio->rxaudio, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)), Qt::UniqueConnection);
-    }
     connect(radio->rxaudio, &audioHandlerBase::haveAudioData, this, &servermain::sendWfShareAudio, Qt::UniqueConnection);
 }
 

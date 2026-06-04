@@ -109,14 +109,17 @@ public:
 public slots:
     virtual void init();
     virtual void dataForServer(QByteArray);
+    virtual void receiveScopeData(QByteArray);
     virtual void receiveAudioData(const audioPacket &data);
 
     void receiveRigCaps(rigCapabilities* caps);
 
 signals:
 	void haveDataFromServer(QByteArray);
-	void haveAudioData(audioPacket data);
+    void haveAudioData(audioPacket data);
 	void haveNetworkStatus(networkStatus);
+    void requestRxAudioForGuid(QByteArray guid, quint8 codec, quint32 sampleRate);
+    void releaseRxAudioForGuid(QByteArray guid);
 
 	void setupTxAudio(audioSetup);
 	void setupRxAudio(audioSetup);

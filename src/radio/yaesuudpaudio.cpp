@@ -34,28 +34,42 @@ void yaesuUdpAudio::init()
         Do this in init as cannot emit() from constructor
     */
 
-    switch (this->rxSetup.codec)
-    {
-#if defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#endif
+    switch (this->rxSetup.codec) {
+    case 1:
+        audioSize = 160;
+        audioChannels = 1;
+        audioCodec = MuLaw;
+        break;
     case 4:
         audioSize = 320;
         audioChannels = 1;
-    case 16:
+        audioCodec = ShortLE;
         break;
-    case 1:
-        audioChannels = 1;
-        audioSize = 160;
+    case 16:
+        audioSize = 640;
+        audioChannels = 2;
+        audioCodec = ShortLE;
+        break;
     case 32:
-        if (this->rxSetup.codec==32)
-            audioSize = 320;
+        audioSize = 320;
+        audioChannels = 2;
         audioCodec = MuLaw;
         break;
-#if defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
+    case 64:
+        audioSize = sizeof(yaesuAudioData::pcmData);
+        audioChannels = 1;
+        audioCodec = OpusAudio;
+        break;
+    case 65:
+        audioSize = sizeof(yaesuAudioData::pcmData);
+        audioChannels = 2;
+        audioCodec = OpusAudio;
+        break;
+    case 128:
+        audioSize = sizeof(yaesuAudioData::pcmData);
+        audioChannels = 1;
+        audioCodec = AdpcmAudio;
+        break;
     default:
         qInfo(logUdp()) << "Unsupported audio codec";
         emit haveNetworkError(errorType(true, remoteAddr.toString(), "Unsupported audio codec"));
