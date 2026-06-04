@@ -139,6 +139,7 @@ public:
 
 	void sendTrackedPacket(QByteArray d);
 	void purgeOldEntries();
+    quint32 endpointId(const QHostAddress& address, quint16 port) const;
 
 	QTimer* areYouThereTimer = nullptr; // Send are-you-there packets every second until a response is received.
 	QTimer* pingTimer = nullptr; // Start sending pings immediately.

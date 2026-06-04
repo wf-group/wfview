@@ -312,7 +312,7 @@ struct preferences {
 
     // Radio:
     manufacturersType_t manufacturer;
-    quint8 radioCIVAddr;
+    quint16 radioCIVAddr;
     bool CIVisRadioModel;
     pttType_t pttType;
     int polling_ms;

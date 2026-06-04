@@ -14,14 +14,25 @@ void icomUdpBase::init(quint16 lport)
     {
         localPort = udp->localPort();
         qInfo(logUdp()) << "UDP Stream bound to local port:" << localPort << " remote port:" << port;
-        uint32_t addr = localIP.toIPv4Address();
-        myId = (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (localPort & 0xffff);
+        myId = endpointId(localIP, localPort);
 
         retransmitTimer = new QTimer(this);
         connect(retransmitTimer, &QTimer::timeout, this, &icomUdpBase::sendRetransmitRequest);
         retransmitTimer->start(RETRANSMIT_PERIOD);
         mono.start(); // Start monotonic timer
     }
+}
+
+quint32 icomUdpBase::endpointId(const QHostAddress& address, quint16 port) const
+{
+    if (address.protocol() == QAbstractSocket::IPv4Protocol) {
+        const quint32 addr = address.toIPv4Address();
+        return (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (port & 0xffff);
+    }
+
+    const quint32 high = qHash(address.toString()) & 0xffff;
+    const quint32 id = (high << 16) | (port & 0xffff);
+    return id == 0 ? port : id;
 }
 
 icomUdpBase::~icomUdpBase()

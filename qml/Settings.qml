@@ -1913,17 +1913,22 @@ ApplicationWindow {
                                     TextField {
                                         id: serverControlPortText
                                         text: controller ? String(controller.options["Server.ControlPort"]) : "50001"
-                                        Layout.preferredWidth: 130
+                                        Layout.preferredWidth: 90
                                         inputMethodHints: Qt.ImhDigitsOnly
                                         validator: IntValidator { bottom: 1; top: 65535 }
                                         onEditingFinished: commitIntegerOption("Server.ControlPort", serverControlPortText, 1, 65535)
                                     }
 
-                                    Label { id: serverCATPortLabel; text: qsTr("CAT Port") }
+                                    Label {
+                                        id: serverCATPortLabel
+                                        text: manufacturerCombo.currentValue === 0 ? qsTr("CI-V Port") : qsTr("CAT Port")
+                                        visible: manufacturerCombo.currentValue !== 1
+                                    }
                                     TextField {
                                         id: serverCivPortText
+                                        visible: manufacturerCombo.currentValue !== 1
                                         text: controller ? String(controller.options["Server.CivPort"]) : "50002"
-                                        Layout.preferredWidth: 130
+                                        Layout.preferredWidth: 90
                                         inputMethodHints: Qt.ImhDigitsOnly
                                         validator: IntValidator { bottom: 1; top: 65535 }
                                         onEditingFinished: commitIntegerOption("Server.CivPort", serverCivPortText, 1, 65535)
@@ -1933,13 +1938,51 @@ ApplicationWindow {
                                     TextField {
                                         id: serverAudioPortText
                                         text: controller ? String(controller.options["Server.AudioPort"]) : "50003"
-                                        Layout.preferredWidth: 130
+                                        Layout.preferredWidth: 90
                                         inputMethodHints: Qt.ImhDigitsOnly
                                         validator: IntValidator { bottom: 1; top: 65535 }
                                         onEditingFinished: commitIntegerOption("Server.AudioPort", serverAudioPortText, 1, 65535)
                                     }
 
+                                    Label {
+                                        id: serverScopePortLabel
+                                        text: qsTr("Scope Port")
+                                        visible: manufacturerCombo.currentValue === 2
+                                    }
+                                    TextField {
+                                        id: serverScopePortText
+                                        visible: manufacturerCombo.currentValue === 2
+                                        text: controller ? String(controller.options["Server.ScopePort"]) : "50004"
+                                        Layout.preferredWidth: 90
+                                        inputMethodHints: Qt.ImhDigitsOnly
+                                        validator: IntValidator { bottom: 1; top: 65535 }
+                                        onEditingFinished: commitIntegerOption("Server.ScopePort", serverScopePortText, 1, 65535)
+                                    }
+
                                     Item { Layout.fillWidth: true }
+                                }
+
+                                RowLayout {
+                                    spacing: 8
+
+                                    Label { text: qsTr("Listen Interface") }
+                                    ComboBox {
+                                        id: serverListenAddressCombo
+                                        model: controller ? controller.serverListenAddressOptions() : []
+                                        textRole: "text"
+                                        valueRole: "value"
+                                        currentIndex: controller ? indexFromValue(serverListenAddressCombo, controller.options["Server.ListenAddress"]) : -1
+                                        enabled: window.connStatus !== 2
+                                        Layout.preferredWidth: 340
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Select the interface used by the built-in UDP server.")
+                                        onActivated: if (controller) controller.setOption("Server.ListenAddress", currentValue)
+                                    }
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: qsTr("Automatic prefers a non-loopback IPv4 address, then falls back to IPv6.")
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
 
                                 // server audio routing row

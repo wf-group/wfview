@@ -53,8 +53,8 @@ public:
 
 signals:
     // Basic to rig:
-    void setCIVAddr(unsigned char newRigCIVAddr);
-    void setRigID(unsigned char rigID);
+    void setCIVAddr(quint16 newRigCIVAddr);
+    void setRigID(quint16 rigID);
     void setPTTType(pttType_t ptt);
 
     // Power
@@ -161,8 +161,8 @@ signals:
     void sayFrequency();
     void sayMode();
     void sayAll();
-    void sendCommSetup(unsigned char rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
-    void sendCommSetup(unsigned char rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendCommSetup(quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
+    void sendCommSetup(quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
     void sendCloseComm();
     void sendChangeLatency(quint16 latency);
     void initServer();
@@ -245,7 +245,7 @@ private:
 
     struct preferences {
         manufacturersType_t manufacturer;
-        unsigned char radioCIVAddr;
+        quint16 radioCIVAddr;
         bool CIVisRadioModel;
         bool pttType;
         QString serialPortRadio;

@@ -23,6 +23,8 @@ When running the Windows GUI build from PowerShell through `cmd /c`, wrap the wh
 cmd /c 'call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" x64 && cd /d "C:\Users\phil.taylor\source\repos\wfview\wfview-build" && "C:\Qt\6.10.2\msvc2022_64\bin\qmake.exe" ..\wfview.pro && "C:\Qt\Tools\QtCreator\bin\jom\jom.exe" -j %NUMBER_OF_PROCESSORS%'
 ```
 
+When launching wfview or wfserver for manual testing, start the GUI visibly unless the user explicitly asks otherwise. Do not force-kill `wfview.exe`; close it through the application/window so radio disconnect messages and cleanup handlers run. A forced process kill can leave radios or servers waiting for timeout.
+
 ## Coding Style & Naming Conventions
 
 Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant controller or QML component. Do not reformat bundled libraries, `old-source/`, generated build trees, or third-party DSP/audio code. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.

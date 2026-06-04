@@ -4,6 +4,7 @@
 #include <QObject>
 
 #include <QDebug>
+#include <QHostAddress>
 
 #include "packettypes.h"
 #include "rigidentities.h"
@@ -64,6 +65,8 @@ struct SERVERCONFIG {
 	quint16 controlPort;
 	quint16 civPort;
 	quint16 audioPort;
+    quint16 scopePort;
+    QString listenAddress;
 	int audioOutput;
 	int audioInput;
 	quint8 resampleQuality;
@@ -80,13 +83,15 @@ enum prefServerItem {
     s_controlPort = 1 << 3,
     s_civPort = 1 << 4,
     s_audioPort = 1 << 5,
-    s_audioOutput = 1 << 6,
-    s_audioInput = 1 << 7,
-    s_resampleQuality = 1 << 8,
-    s_baudRate = 1 << 9,
-    s_users = 1 << 10,
-    s_rigs = 1 << 11,
-    s_all = 1 << 12
+    s_scopePort = 1 << 6,
+    s_audioOutput = 1 << 7,
+    s_audioInput = 1 << 8,
+    s_resampleQuality = 1 << 9,
+    s_baudRate = 1 << 10,
+    s_users = 1 << 11,
+    s_rigs = 1 << 12,
+    s_listenAddress = 1 << 13,
+    s_all = 1 << 14
 };
 
 Q_DECLARE_FLAGS(prefServerItems, prefServerItem)
@@ -120,6 +125,9 @@ protected:
 	SERVERCONFIG *config;
     cachingQueue *queue;
     networkStatus status;
+    QHostAddress serverListenAddress() const;
+    QString serverListenHardwareAddress(const QHostAddress& address) const;
+    quint32 serverEndpointId(const QHostAddress& address, quint16 port) const;
 
 private:
     // rigServer should have no private vars as it is only ever subclassed.

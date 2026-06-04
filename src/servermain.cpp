@@ -251,7 +251,7 @@ void servermain::makeRig()
             connect(this, SIGNAL(sendCloseComm()), radio->rig, SLOT(closeComm()));
             connect(this, SIGNAL(sendChangeLatency(quint16)), radio->rig, SLOT(changeLatency(quint16)));
             //connect(this, SIGNAL(getRigCIV()), radio->rig, SLOT(findRigs()));
-            //connect(this, SIGNAL(setRigID(unsigned char)), radio->rig, SLOT(setRigID(unsigned char)));
+            //connect(this, SIGNAL(setRigID(quint16)), radio->rig, SLOT(setRigID(quint16)));
             connect(radio->rig, SIGNAL(commReady()), this, SLOT(receiveCommReady()));
 
             //connect(this, SIGNAL(requestRigState()), radio->rig, SLOT(sendState()));
@@ -259,7 +259,7 @@ void servermain::makeRig()
             //connect(radio->rig, SIGNAL(stateInfo(rigstate*)), this, SLOT(receiveStateInfo(rigstate*)));
 
             //Other connections
-            connect(this, SIGNAL(setCIVAddr(unsigned char)), radio->rig, SLOT(setCIVAddr(unsigned char)));
+            connect(this, SIGNAL(setCIVAddr(quint16)), radio->rig, SLOT(setCIVAddr(quint16)));
 
             //connect(radio->rig, SIGNAL(havePTTStatus(bool)), this, SLOT(receivePTTstatus(bool)));
             //connect(this, SIGNAL(setPTT(bool)), radio->rig, SLOT(setPTT(bool)));
@@ -494,7 +494,7 @@ void servermain::setServerToPrefs()
             if (radio->rig != Q_NULLPTR) {
                 connect(radio->rig, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)));
                 connect(radio->rig, SIGNAL(haveDataForServer(QByteArray)), server, SLOT(dataForServer(QByteArray)));
-                //connect(server, SIGNAL(haveDataFromServer(QByteArray)), radio->rig, SLOT(dataFromServer(QByteArray)));
+                connect(server, SIGNAL(haveDataFromServer(QByteArray)), radio->rig, SLOT(dataFromServer(QByteArray)));
                 //connect(this, SIGNAL(sendRigCaps(rigCapabilities)), server, SLOT(receiveRigCaps(rigCapabilities)));
             }
         }
@@ -900,6 +900,8 @@ void servermain::loadSettings()
         settings->setValue("ServerControlPort", udpDefPrefs.controlLANPort);
         settings->setValue("ServerCivPort", udpDefPrefs.serialLANPort);
         settings->setValue("ServerAudioPort", udpDefPrefs.audioLANPort);
+        settings->setValue("ServerScopePort", udpDefPrefs.scopeLANPort);
+        settings->setValue("ServerListenAddress", QString());
 
         settings->beginWriteArray("Users");
         settings->setArrayIndex(0);
@@ -924,7 +926,7 @@ void servermain::loadSettings()
     for (int i = 0; i < numRadios; i++) {
         settings->setArrayIndex(i);
         RIGCONFIG* tempPrefs = new RIGCONFIG();
-        tempPrefs->civAddr = (unsigned char)settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toInt();
+        tempPrefs->civAddr = settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toUInt();
 
         tempPrefs->pttType = (pttType_t)settings->value("PTTType", defPrefs.pttType).toInt();
         // Workaround for old config option
@@ -1048,6 +1050,8 @@ void servermain::loadSettings()
     serverConfig.controlPort = settings->value("ServerControlPort", 50001).toInt();
     serverConfig.civPort = settings->value("ServerCivPort", 50002).toInt();
     serverConfig.audioPort = settings->value("ServerAudioPort", 50003).toInt();
+    serverConfig.scopePort = settings->value("ServerScopePort", 50004).toInt();
+    serverConfig.listenAddress = settings->value("ServerListenAddress", QString()).toString();
     prefs.wfShareEnabled = settings->value("WfShareEnabled", defPrefs.wfShareEnabled).toBool();
     prefs.wfShareHost = settings->value("WfShareHost", defPrefs.wfShareHost).toString();
     prefs.wfSharePort = settings->value("WfSharePort", defPrefs.wfSharePort).toUInt();
@@ -1185,11 +1189,11 @@ void servermain::setManufacturer(manufacturersType_t man)
             rigSettings->beginGroup("Rig");
             manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
-                uchar civ = rigSettings->value("CIVAddress",0).toInt();
+                quint16 civ = rigSettings->value("CIVAddress",0).toUInt();
                 QString model = rigSettings->value("Model","").toString();
                 QString path = systemRigDir.absoluteFilePath(rig);
 
-                qDebug() << QString("Found Rig %0 with CI-V address of 0x%1 and version %2").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2);
+                qDebug() << QString("Found Rig %0 with CI-V address of %1 and version %2").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2);
                 // Any user modified rig files will override system provided ones.
                 this->rigList.insert(civ,rigInfo(civ,model,path,ver));
             }
@@ -1222,7 +1226,7 @@ void servermain::setManufacturer(manufacturersType_t man)
 
             manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
-                uchar civ = rigSettings->value("CIVAddress",0).toInt();
+                quint16 civ = rigSettings->value("CIVAddress",0).toUInt();
                 QString model = rigSettings->value("Model","").toString();
                 QString path = userRigDir.absoluteFilePath(rig);
 
@@ -1231,11 +1235,11 @@ void servermain::setManufacturer(manufacturersType_t man)
                 if (it != this->rigList.end())
                 {
                     if (ver >= it.value().version) {
-                        qInfo() << QString("Found User Rig %0 with CI-V address of 0x%1 and newer or same version than system one (%2>=%3)").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2).arg(it.value().version,0,'f',2);
+                        qInfo() << QString("Found User Rig %0 with CI-V address of %1 and newer or same version than system one (%2>=%3)").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2).arg(it.value().version,0,'f',2);
                         this->rigList.insert(civ,rigInfo(civ,model,path,ver));
                     }
                 } else {
-                    qInfo() << QString("Found New User Rig %0 with CI-V address of 0x%1 version %2").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2);
+                    qInfo() << QString("Found New User Rig %0 with CI-V address of %1 version %2").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2);
                     this->rigList.insert(civ,rigInfo(civ,model,path,ver));
                 }
                 // Any user modified rig files will override system provided ones.

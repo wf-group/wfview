@@ -20,77 +20,60 @@ void icomServer::init()
 
     srand(time(NULL)); // Generate random 
     //timeStarted.start();
-    // Convoluted way to find the external IP address, there must be a better way????
-    QString localhostname = QHostInfo::localHostName();
-    QList<QHostAddress> hostList = QHostInfo::fromName(localhostname).addresses();
-    foreach (const auto &address, hostList)
-    {
-        if (address.protocol() == QAbstractSocket::IPv4Protocol && address.isLoopback() == false)
-        {
-            localIP = QHostAddress(address.toString());
-        }
-    }
+    localIP = serverListenAddress();
+    const QString macTemp = serverListenHardwareAddress(localIP);
 
-    QString macTemp;
-    foreach (const auto &netInterface, QNetworkInterface::allInterfaces())
-    {
-        // Return only the first non-loopback MAC Address
-        if (!(netInterface.flags() & QNetworkInterface::IsLoopBack)) {
-            macTemp = netInterface.hardwareAddress();
-        }
-    }
-
-    memcpy(&macAddress, macTemp.toLocal8Bit(), 6);
+    memset(macAddress, 0x00, sizeof(macAddress));
+    const QByteArray macBytes = macTemp.toLocal8Bit();
+    memcpy(macAddress, macBytes.constData(), qMin<int>(sizeof(macAddress), macBytes.size()));
     memcpy(&macAddress, QByteArrayLiteral("\x00\x90\xc7").constData(), 3);
 
-    uint32_t addr = localIP.toIPv4Address();
-
-    qInfo(logRigServer()) << "My IP Address:" << QHostAddress(addr).toString();
+    qInfo(logRigServer()) << "Server listen address:" << localIP.toString();
 
 
-    controlId = (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (config->controlPort & 0xffff);
-    civId = (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (config->civPort & 0xffff);
-    audioId = (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (config->audioPort & 0xffff);
+    controlId = serverEndpointId(localIP, config->controlPort);
+    civId = serverEndpointId(localIP, config->civPort);
+    audioId = serverEndpointId(localIP, config->audioPort);
 
     udpControl = new QUdpSocket(this);
 
-    if (!udpControl->bind(config->controlPort))
+    if (!udpControl->bind(localIP, config->controlPort))
     {
         // We couldn't bind to the selected port.
-        qCritical(logUdp()) << "**** Unable to bind to UDP Control port" << config->controlPort << "Cannot continue! ****";
+        qCritical(logUdp()) << "**** Unable to bind to UDP Control address/port" << localIP.toString() << config->controlPort << "Cannot continue! ****";
         return;
     }
     else
     {
-        qInfo(logRigServer()) << "Server Bound Control to: " << config->controlPort;
+        qInfo(logRigServer()) << "Server Bound Control to:" << localIP.toString() << config->controlPort;
         QUdpSocket::connect(udpControl, &QUdpSocket::readyRead, this, &icomServer::controlReceived);
     }
 
     udpCiv = new QUdpSocket(this);
 
-    if (!udpCiv->bind(config->civPort))
+    if (!udpCiv->bind(localIP, config->civPort))
     {
         // We couldn't bind to the selected port.
-        qCritical(logUdp()) << "**** Unable to bind to UDP CI-V port" << config->civPort << "Cannot continue! ****";
+        qCritical(logUdp()) << "**** Unable to bind to UDP CI-V address/port" << localIP.toString() << config->civPort << "Cannot continue! ****";
         return;
     }
     else
     {
-        qInfo(logRigServer()) << "Server Bound CI-V to: " << config->civPort;
+        qInfo(logRigServer()) << "Server Bound CI-V to:" << localIP.toString() << config->civPort;
         QUdpSocket::connect(udpCiv, &QUdpSocket::readyRead, this, &icomServer::civReceived);
     }
 
     icomUdpAudio = new QUdpSocket(this);
 
-    if (!icomUdpAudio->bind(config->audioPort))
+    if (!icomUdpAudio->bind(localIP, config->audioPort))
     {
         // We couldn't bind to the selected port.
-        qCritical(logUdp()) << "**** Unable to bind to UDP Audio port" << config->audioPort << "Cannot continue! ****";
+        qCritical(logUdp()) << "**** Unable to bind to UDP Audio address/port" << localIP.toString() << config->audioPort << "Cannot continue! ****";
         return;
     }
     else
     {
-        qInfo(logRigServer()) << "Server Bound Audio to: " << config->audioPort;
+        qInfo(logRigServer()) << "Server Bound Audio to:" << localIP.toString() << config->audioPort;
         QUdpSocket::connect(icomUdpAudio, &QUdpSocket::readyRead, this, &icomServer::audioReceived);
     }
 

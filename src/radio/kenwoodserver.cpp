@@ -15,13 +15,14 @@ void kenwoodServer::init()
 
     server = new QTcpServer(this);
 
-    if (!server->listen(QHostAddress::Any, config->controlPort)) {
-        qInfo(logRigServer()) << "could not start on port " << config->controlPort;
+    const QHostAddress listenAddress = serverListenAddress();
+    if (!server->listen(listenAddress, config->controlPort)) {
+        qInfo(logRigServer()) << "could not start on" << listenAddress.toString() << "port" << config->controlPort;
         return;
     }
     else
     {
-        qInfo(logRigServer()) << "started on port " << config->controlPort;
+        qInfo(logRigServer()) << "started on" << listenAddress.toString() << "port" << config->controlPort;
     }
     connect(server, &QTcpServer::newConnection, this, &kenwoodServer::newConnection);
 }

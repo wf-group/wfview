@@ -9,6 +9,9 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QSerialPortInfo>
+#include <QNetworkInterface>
+#include <QHostAddress>
+#include <QAbstractSocket>
 #include <QAbstractTableModel>
 #include <QAbstractListModel>
 #include <QString>
@@ -704,6 +707,7 @@ public:
     Q_INVOKABLE void resetShortcutsToDefault();
     Q_INVOKABLE int shortcutAppCommandIndex(const QString& command) const;
     Q_INVOKABLE int shortcutRadioCommandIndex(const QString& command) const;
+    Q_INVOKABLE QVariantList serverListenAddressOptions() const;
     Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);

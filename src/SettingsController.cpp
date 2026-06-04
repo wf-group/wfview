@@ -496,6 +496,61 @@ QString SettingsController::defaultRadioProfileDescription() const
     return manufacturer;
 }
 
+QVariantList SettingsController::serverListenAddressOptions() const
+{
+    QVariantList options;
+    options.append(QVariantMap{
+        { QStringLiteral("text"), tr("Automatic (IPv4 preferred)") },
+        { QStringLiteral("value"), QString() }
+    });
+
+    QStringList seen;
+    QVariantList ipv6Options;
+    const QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface& netInterface : interfaces) {
+        const QNetworkInterface::InterfaceFlags flags = netInterface.flags();
+        if (!(flags & QNetworkInterface::IsUp) ||
+            !(flags & QNetworkInterface::IsRunning) ||
+            (flags & QNetworkInterface::IsLoopBack)) {
+            continue;
+        }
+
+        const QList<QNetworkAddressEntry> entries = netInterface.addressEntries();
+        for (const QNetworkAddressEntry& entry : entries) {
+            const QHostAddress address = entry.ip();
+            if (address.isLoopback() || address.isNull()) {
+                continue;
+            }
+
+            const QString value = address.toString();
+            if (seen.contains(value))
+                continue;
+
+            seen.append(value);
+            QVariantMap item{
+                { QStringLiteral("text"), QStringLiteral("%1 (%2)").arg(netInterface.humanReadableName(), value) },
+                { QStringLiteral("value"), value }
+            };
+            if (address.protocol() == QAbstractSocket::IPv4Protocol)
+                options.append(item);
+            else if (address.protocol() == QAbstractSocket::IPv6Protocol)
+                ipv6Options.append(item);
+        }
+    }
+    for (const QVariant& item : std::as_const(ipv6Options))
+        options.append(item);
+
+    const QString current = serverConfig.listenAddress.trimmed();
+    if (!current.isEmpty() && !seen.contains(current)) {
+        options.append(QVariantMap{
+            { QStringLiteral("text"), tr("Unavailable (%1)").arg(current) },
+            { QStringLiteral("value"), current }
+        });
+    }
+
+    return options;
+}
+
 void SettingsController::loadRadioProfiles()
 {
     m_radioProfiles.clear();
@@ -1378,6 +1433,8 @@ void SettingsController::load()
     serverConfig.controlPort = settings->value("ServerControlPort", udpDefPrefs.controlLANPort).toInt();
     serverConfig.civPort = settings->value("ServerCivPort", udpDefPrefs.serialLANPort).toInt();
     serverConfig.audioPort = settings->value("ServerAudioPort", udpDefPrefs.audioLANPort).toInt();
+    serverConfig.scopePort = settings->value("ServerScopePort", udpDefPrefs.scopeLANPort).toInt();
+    serverConfig.listenAddress = settings->value("ServerListenAddress", QString()).toString();
 
     serverConfig.users.clear();
 
@@ -1995,6 +2052,8 @@ void SettingsController::save()
     settings->setValue("ServerControlPort", serverConfig.controlPort);
     settings->setValue("ServerCivPort", serverConfig.civPort);
     settings->setValue("ServerAudioPort", serverConfig.audioPort);
+    settings->setValue("ServerScopePort", serverConfig.scopePort);
+    settings->setValue("ServerListenAddress", serverConfig.listenAddress);
     if (!serverConfig.rigs.first()->txAudioSetup.name.isEmpty())
         settings->setValue("ServerAudioOutput", serverConfig.rigs.first()->txAudioSetup.name);
     if (!serverConfig.rigs.first()->rxAudioSetup.name.isEmpty())
@@ -2193,6 +2252,7 @@ void SettingsController::resetToDefaults()
     prefs = defPrefs;
     udpPrefs = udpDefPrefs;
     serverConfig.enabled = false;
+    serverConfig.listenAddress.clear();
     serverConfig.users.clear();
 
     if (m_clusterModel) {
@@ -3094,8 +3154,8 @@ void SettingsController::buildBindings()
     WF_ENUM_I32("Radio.Manufacturer", prefs.manufacturer, manufacturersType_t,
                 [this](){ emit raChanged(prefRaItems(prefRaItem::ra_manufacturer)); });
 
-    WF_U8("Radio.CIVAddr", prefs.radioCIVAddr,
-          [this](){ emit raChanged(prefRaItems(prefRaItem::ra_radioCIVAddr)); });
+    WF_U16("Radio.CIVAddr", prefs.radioCIVAddr,
+           [this](){ emit raChanged(prefRaItems(prefRaItem::ra_radioCIVAddr)); });
 
     WF_BOOL("Radio.CIVisRadioModel", prefs.CIVisRadioModel,
             [this](){ emit raChanged(prefRaItems(prefRaItem::ra_CIVisRadioModel)); });
@@ -3427,6 +3487,12 @@ void SettingsController::buildBindings()
 
     WF_I32("Server.AudioPort", serverConfig.audioPort,
            [this](){ emit serverChanged(prefServerItems(prefServerItem::s_audioPort)); });
+
+    WF_I32("Server.ScopePort", serverConfig.scopePort,
+           [this](){ emit serverChanged(prefServerItems(prefServerItem::s_scopePort)); });
+
+    WF_STR("Server.ListenAddress", serverConfig.listenAddress,
+           [this](){ emit serverChanged(prefServerItems(prefServerItem::s_listenAddress)); });
 
     WF_BIND("Server.AudioInput", QVariant(serverConfig.rigs.isEmpty() ? QString() : serverConfig.rigs.first()->rxAudioSetup.name), {
         if (serverConfig.rigs.isEmpty())

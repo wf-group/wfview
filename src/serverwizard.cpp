@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <QCoreApplication>
 #include <QSettings>
@@ -13,6 +14,9 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QHostInfo>
+#include <QHostAddress>
+#include <QAbstractSocket>
+#include <QNetworkInterface>
 #include <QSerialPortInfo>
 #include <QUuid>
 #include <QFontMetrics>
@@ -124,6 +128,113 @@ int promptPort(const QString& label, int def)
     }
 }
 
+QString manufacturerName(manufacturersType_t manufacturer)
+{
+    switch (manufacturer) {
+    case manufIcom:
+        return QStringLiteral("Icom");
+    case manufKenwood:
+        return QStringLiteral("Kenwood");
+    case manufYaesu:
+        return QStringLiteral("Yaesu");
+    default:
+        return QStringLiteral("Icom");
+    }
+}
+
+manufacturersType_t normalizeManufacturer(int value)
+{
+    switch (value) {
+    case manufIcom:
+    case manufKenwood:
+    case manufYaesu:
+        return static_cast<manufacturersType_t>(value);
+    default:
+        return manufIcom;
+    }
+}
+
+manufacturersType_t promptManufacturer(manufacturersType_t existingManufacturer, bool replaceAll)
+{
+    const manufacturersType_t defaultManufacturer = replaceAll ? manufIcom : existingManufacturer;
+
+    std::cout << "\nRadio manufacturer:\n";
+    std::cout << "  [0] Icom\n";
+    std::cout << "  [1] Kenwood\n";
+    std::cout << "  [2] Yaesu\n";
+    if (!replaceAll) {
+        std::cout << "  [K] keep current (" << manufacturerName(existingManufacturer).toStdString() << ")\n";
+    }
+
+    while (true) {
+        const QString s = prompt(QString("Enter selection [%1]: ").arg(static_cast<int>(defaultManufacturer)));
+        if (s.isEmpty()) {
+            return defaultManufacturer;
+        }
+        if (!replaceAll && s.compare("k", Qt::CaseInsensitive) == 0) {
+            return existingManufacturer;
+        }
+
+        bool ok = false;
+        const int value = s.toInt(&ok);
+        if (ok && value >= static_cast<int>(manufIcom) && value <= static_cast<int>(manufYaesu)) {
+            return static_cast<manufacturersType_t>(value);
+        }
+
+        std::cout << "Enter 0, 1, or 2.\n";
+    }
+}
+
+int defaultControlPort(manufacturersType_t manufacturer)
+{
+    switch (manufacturer) {
+    case manufKenwood:
+        return 60000;
+    case manufYaesu:
+        return 50000;
+    case manufIcom:
+    default:
+        return 50001;
+    }
+}
+
+int defaultCivPort(manufacturersType_t manufacturer)
+{
+    switch (manufacturer) {
+    case manufYaesu:
+        return 50001;
+    case manufIcom:
+    case manufKenwood:
+    default:
+        return 50002;
+    }
+}
+
+int defaultAudioPort(manufacturersType_t manufacturer)
+{
+    switch (manufacturer) {
+    case manufKenwood:
+        return 60001;
+    case manufYaesu:
+        return 50002;
+    case manufIcom:
+    default:
+        return 50003;
+    }
+}
+
+int defaultScopePort(manufacturersType_t manufacturer)
+{
+    switch (manufacturer) {
+    case manufYaesu:
+        return 50003;
+    case manufIcom:
+    case manufKenwood:
+    default:
+        return 50004;
+    }
+}
+
 QString resolveSettingsPath(const QString& settingsFile)
 {
     if (settingsFile.isNull() || settingsFile.isEmpty()) {
@@ -194,6 +305,86 @@ int selectAudioDevice(const QString& header, const QStringList& items, const QSt
     }
 }
 
+QString selectListenAddress(const QString& existingAddress, bool replaceAll)
+{
+    struct ListenOption {
+        QString label;
+        QString value;
+    };
+
+    QList<ListenOption> options;
+    QList<ListenOption> ipv6Options;
+    QStringList seen;
+    const QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface& netInterface : interfaces) {
+        const QNetworkInterface::InterfaceFlags flags = netInterface.flags();
+        if (!(flags & QNetworkInterface::IsUp) ||
+            !(flags & QNetworkInterface::IsRunning) ||
+            (flags & QNetworkInterface::IsLoopBack)) {
+            continue;
+        }
+
+        const QList<QNetworkAddressEntry> entries = netInterface.addressEntries();
+        for (const QNetworkAddressEntry& entry : entries) {
+            const QHostAddress address = entry.ip();
+            if (address.isLoopback() || address.isNull()) {
+                continue;
+            }
+
+            const QString value = address.toString();
+            if (seen.contains(value))
+                continue;
+
+            seen.append(value);
+            ListenOption option{
+                QStringLiteral("%1 (%2)").arg(netInterface.humanReadableName(), value),
+                value
+            };
+            if (address.protocol() == QAbstractSocket::IPv4Protocol)
+                options.append(option);
+            else if (address.protocol() == QAbstractSocket::IPv6Protocol)
+                ipv6Options.append(option);
+        }
+    }
+    for (const ListenOption& option : std::as_const(ipv6Options))
+        options.append(option);
+
+    std::cout << "\nServer listen interface.\n";
+    std::cout << "  [A] automatic (prefer a non-loopback IPv4 interface, then IPv6)\n";
+    for (int i = 0; i < options.size(); ++i) {
+        std::cout << "  [" << i << "] " << options[i].label.toStdString() << "\n";
+    }
+    if (!replaceAll) {
+        const QString current = existingAddress.trimmed().isEmpty()
+                                    ? QStringLiteral("automatic")
+                                    : existingAddress.trimmed();
+        std::cout << "  [K] keep current (" << current.toStdString() << ")\n";
+    }
+
+    while (true) {
+        const QString s = prompt("Enter selection: ");
+        if (s.isEmpty() || s.compare("a", Qt::CaseInsensitive) == 0) {
+            return QString();
+        }
+        if (!replaceAll && s.compare("k", Qt::CaseInsensitive) == 0) {
+            return existingAddress;
+        }
+
+        bool ok = false;
+        const int v = s.toInt(&ok);
+        if (ok && v >= 0 && v < options.size()) {
+            return options[v].value;
+        }
+
+        QHostAddress manual(s);
+        if (!manual.isNull() && !manual.isLoopback()) {
+            return manual.toString();
+        }
+
+        std::cout << "Invalid selection. Enter A, a listed number, or an IPv4/IPv6 address.\n";
+    }
+}
+
 } // namespace
 
 namespace serverwizard {
@@ -239,6 +430,8 @@ int run(const QString& settingsFile)
     }
 
     const int existingAudioSystem = existing->value("AudioSystem", 0).toInt();
+    const manufacturersType_t existingManufacturer =
+        normalizeManufacturer(existing->value("Manufacturer", static_cast<int>(manufIcom)).toInt());
     int existingNumRadios = existing->beginReadArray("Radios");
     existing->setArrayIndex(0);
     const QString existingSerialPort = existing->value("SerialPortRadio", "auto").toString();
@@ -257,6 +450,8 @@ int run(const QString& settingsFile)
     const int existingControlPort = existing->value("ServerControlPort", 50001).toInt();
     const int existingCivPort = existing->value("ServerCivPort", 50002).toInt();
     const int existingAudioPort = existing->value("ServerAudioPort", 50003).toInt();
+    const int existingScopePort = existing->value("ServerScopePort", 50004).toInt();
+    const QString existingListenAddress = existing->value("ServerListenAddress", QString()).toString();
     const bool existingWfShareEnabled = existing->value("WfShareEnabled", false).toBool();
     const QString existingWfShareHost = existing->value("WfShareHost", "pbx.wfshare.org").toString();
     const int existingWfSharePort = existing->value("WfSharePort", 4569).toInt();
@@ -271,6 +466,9 @@ int run(const QString& settingsFile)
     const int existingUserType = existing->value("UserType", 0).toInt();
     existing->endArray();
     existing->endGroup();
+
+    const manufacturersType_t manufacturer = promptManufacturer(existingManufacturer, replaceAll);
+    const QString manufacturerLabel = manufacturerName(manufacturer);
 
     // --- Serial port ---
     QStringList portLabels;
@@ -295,7 +493,7 @@ int run(const QString& settingsFile)
     for (int i = 0; i < portLabels.size(); ++i) {
         std::cout << "  [" << i << "] " << portLabels[i].toStdString() << "\n";
     }
-    std::cout << "  [A] auto  (wfserver auto-detects an Icom serial port at startup)\n";
+    std::cout << "  [A] auto  (wfserver auto-detects a serial radio at startup)\n";
     std::cout << "  [M] Enter a serial port path manually\n";
     if (!replaceAll) {
         std::cout << "  [K] keep current (" << existingSerialPort.toStdString() << ")\n";
@@ -420,49 +618,64 @@ int run(const QString& settingsFile)
     }
 
     // --- Rig name ---
-    std::cout << "\nRig name (recommended: the radio model number, e.g. IC-7300).\n";
+    const QString rigExample = manufacturer == manufKenwood
+                                   ? QStringLiteral("TS-890")
+                                   : (manufacturer == manufYaesu ? QStringLiteral("FT-710") : QStringLiteral("IC-7300"));
+    std::cout << "\nRig name (recommended: the radio model number, e.g. "
+              << rigExample.toStdString() << ").\n";
     std::cout << "No spaces, printable ASCII, max 16 characters.\n";
     QString rigName = replaceAll
                           ? promptConstrained("Rig name: ", 16, false)
                           : promptConstrainedDefault("Rig name", existingRigName, 16, false);
 
-    // --- CI-V address ---
-    std::cout << "\nCI-V address.\n";
-    std::cout << "It is strongly recommended to enable CI-V Transceive on the radio\n";
-    std::cout << "and then set the CI-V address in wfserver to auto. To manually\n";
-    std::cout << "define the CI-V address, type it here. You may type it as an integer\n";
-    std::cout << "(ie, \"152\"), or a hexadecimal value (ie, \"0x98\" or \"h98\").\n";
     int civAddr = -1; // -1 => auto (do not write)
-    while (true) {
-        const QString civDefaultText = (!replaceAll && existingCivVariant.isValid())
-                                           ? existingCivVariant.toString()
-                                           : QStringLiteral("auto");
-        QString s = prompt(QString("CI-V address [%1]: ").arg(civDefaultText));
-        if (s.isEmpty() || s.compare("auto", Qt::CaseInsensitive) == 0) {
-            if (!replaceAll && existingCivVariant.isValid() && s.isEmpty()) {
-                civAddr = existingCivVariant.toInt();
-            } else {
-                civAddr = -1;
+    if (manufacturer == manufIcom) {
+        // --- CI-V address ---
+        std::cout << "\nCI-V address.\n";
+        std::cout << "It is strongly recommended to enable CI-V Transceive on the radio\n";
+        std::cout << "and then set the CI-V address in wfserver to auto. To manually\n";
+        std::cout << "define the CI-V address, type it here. You may type it as an integer\n";
+        std::cout << "(ie, \"152\"), or a hexadecimal value (ie, \"0x98\" or \"h98\").\n";
+        while (true) {
+            const QString civDefaultText = (!replaceAll && existingCivVariant.isValid())
+                                               ? existingCivVariant.toString()
+                                               : QStringLiteral("auto");
+            QString s = prompt(QString("CI-V address [%1]: ").arg(civDefaultText));
+            if (s.isEmpty() || s.compare("auto", Qt::CaseInsensitive) == 0) {
+                if (!replaceAll && existingCivVariant.isValid() && s.isEmpty()) {
+                    civAddr = existingCivVariant.toInt();
+                } else {
+                    civAddr = -1;
+                }
+                break;
             }
-            break;
+            QString norm = s;
+            int base = 10;
+            if (norm.startsWith("0x", Qt::CaseInsensitive)) {
+                norm = norm.mid(2);
+                base = 16;
+            } else if (norm.startsWith("h", Qt::CaseInsensitive)) {
+                norm = norm.mid(1);
+                base = 16;
+            }
+            bool ok = false;
+            int v = norm.toInt(&ok, base);
+            if (ok && v >= 0 && v <= 255) {
+                civAddr = v;
+                break;
+            }
+            std::cout << "Enter a value 0-255 (decimal, 0xNN, or hNN), or 'auto'.\n";
         }
-        QString norm = s;
-        int base = 10;
-        if (norm.startsWith("0x", Qt::CaseInsensitive)) {
-            norm = norm.mid(2);
-            base = 16;
-        } else if (norm.startsWith("h", Qt::CaseInsensitive)) {
-            norm = norm.mid(1);
-            base = 16;
-        }
-        bool ok = false;
-        int v = norm.toInt(&ok, base);
-        if (ok && v >= 0 && v <= 255) {
-            civAddr = v;
-            break;
-        }
-        std::cout << "Enter a value 0-255 (decimal, 0xNN, or hNN), or 'auto'.\n";
     }
+
+    const int manufacturerDefaultControlPort = defaultControlPort(manufacturer);
+    const int manufacturerDefaultCivPort = defaultCivPort(manufacturer);
+    const int manufacturerDefaultAudioPort = defaultAudioPort(manufacturer);
+    const int manufacturerDefaultScopePort = defaultScopePort(manufacturer);
+    const int baseControlPort = replaceAll ? manufacturerDefaultControlPort : existingControlPort;
+    const int baseCivPort = replaceAll ? manufacturerDefaultCivPort : existingCivPort;
+    const int baseAudioPort = replaceAll ? manufacturerDefaultAudioPort : existingAudioPort;
+    const int baseScopePort = replaceAll ? manufacturerDefaultScopePort : existingScopePort;
 
     // --- Waterfall format ---
     std::cout << "\nWaterfall format:\n";
@@ -480,9 +693,19 @@ int run(const QString& settingsFile)
 
     // --- Network ports ---
     std::cout << "\nNetwork ports (UDP, press Enter to accept defaults):\n";
-    int controlPort = promptPort("Control port", replaceAll ? 50001 : existingControlPort);
-    int civPort     = promptPort("CI-V port",    replaceAll ? 50002 : existingCivPort);
-    int audioPort   = promptPort("Audio port",   replaceAll ? 50003 : existingAudioPort);
+    int controlPort = promptPort("Control port", baseControlPort);
+    int civPort = baseCivPort;
+    if (manufacturer == manufIcom) {
+        civPort = promptPort("CI-V port", baseCivPort);
+    } else if (manufacturer == manufYaesu) {
+        civPort = promptPort("CAT port", baseCivPort);
+    }
+    int audioPort = promptPort("Audio port", baseAudioPort);
+    int scopePort = baseScopePort;
+    if (manufacturer == manufYaesu) {
+        scopePort = promptPort("Scope port", baseScopePort);
+    }
+    const QString listenAddress = selectListenAddress(existingListenAddress, replaceAll);
 
     // --- wfshare ---
     std::cout << "\nwfshare remote access:\n";
@@ -573,7 +796,8 @@ int run(const QString& settingsFile)
     std::cout << "\n[General]\n";
     std::cout << "  AudioSystem      = " << static_cast<int>(audioSystem)
               << "  (" << backendLabel(audioSystem) << ")\n";
-    std::cout << "  Manufacturer     = " << static_cast<int>(manufIcom) << "\n";
+    std::cout << "  Manufacturer     = " << static_cast<int>(manufacturer)
+              << "  (" << manufacturerLabel.toStdString() << ")\n";
     std::cout << "\n[Radios]\n";
     std::cout << "  SerialPortRadio  = " << serialPort.toStdString() << "\n";
     std::cout << "  SerialPortBaud   = " << baud << "\n";
@@ -583,14 +807,25 @@ int run(const QString& settingsFile)
     std::cout << "  AudioInput       = " << rxName.toStdString() << "\n";
     std::cout << "  AudioOutput      = " << txName.toStdString() << "\n";
     std::cout << "  RigName          = " << rigName.toStdString() << "\n";
-    std::cout << "  RigCIVuInt       = "
-              << (civAddr < 0 ? std::string("<NONE> (auto)") : std::to_string(civAddr)) << "\n";
+    if (manufacturer == manufIcom) {
+        std::cout << "  RigCIVuInt       = "
+                  << (civAddr < 0 ? std::string("<NONE> (auto)") : std::to_string(civAddr)) << "\n";
+    }
     std::cout << "  WaterfallFormat  = " << waterfallFormat << "\n";
     std::cout << "\n[Server]\n";
     std::cout << "  ServerEnabled    = true\n";
     std::cout << "  ServerControlPort= " << controlPort << "\n";
-    std::cout << "  ServerCivPort    = " << civPort << "\n";
+    if (manufacturer == manufIcom) {
+        std::cout << "  ServerCivPort    = " << civPort << "\n";
+    } else if (manufacturer == manufYaesu) {
+        std::cout << "  ServerCatPort    = " << civPort << "\n";
+    }
     std::cout << "  ServerAudioPort  = " << audioPort << "\n";
+    if (manufacturer == manufYaesu) {
+        std::cout << "  ServerScopePort  = " << scopePort << "\n";
+    }
+    std::cout << "  ServerListenAddr = "
+              << (listenAddress.trimmed().isEmpty() ? "automatic" : listenAddress.toStdString()) << "\n";
     std::cout << "  WfShareEnabled   = " << (wfShareEnabled ? "true" : "false") << "\n";
     std::cout << "  WfShareDirect    = " << (wfShareDirectEnabled ? "true" : "false") << "\n";
     if (wfShareEnabled) {
@@ -622,7 +857,7 @@ int run(const QString& settingsFile)
     }
 
     s->setValue("AudioSystem", static_cast<int>(audioSystem));
-    s->setValue("Manufacturer", static_cast<int>(manufIcom));
+    s->setValue("Manufacturer", static_cast<int>(manufacturer));
 
     auto writeRadioValues = [&](const QString& prefix) {
         if (civAddr >= 0) {
@@ -655,6 +890,8 @@ int run(const QString& settingsFile)
     s->setValue("ServerControlPort", controlPort);
     s->setValue("ServerCivPort", civPort);
     s->setValue("ServerAudioPort", audioPort);
+    s->setValue("ServerScopePort", scopePort);
+    s->setValue("ServerListenAddress", listenAddress);
     s->setValue("WfShareEnabled", wfShareEnabled);
     s->setValue("WfShareHost", wfShareHost);
     s->setValue("WfSharePort", wfSharePort);

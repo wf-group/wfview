@@ -33,6 +33,7 @@ icomUdpHandler::icomUdpHandler(udpPreferences prefs, audioSetup rx, audioSetup t
     if (!radioIP.setAddress(prefs.ipAddress))
     {
         QHostInfo remote = QHostInfo::fromName(prefs.ipAddress);
+        QHostAddress firstIPv6;
         for(const auto &addr: remote.addresses())
         {
             if (addr.protocol() == QAbstractSocket::IPv4Protocol) {
@@ -40,6 +41,13 @@ icomUdpHandler::icomUdpHandler(udpPreferences prefs, audioSetup rx, audioSetup t
                 qInfo(logUdp()) << "Got IP Address :" << prefs.ipAddress << ": " << addr.toString();
                 break;
             }
+            if (addr.protocol() == QAbstractSocket::IPv6Protocol && firstIPv6.isNull()) {
+                firstIPv6 = addr;
+            }
+        }
+        if (radioIP.isNull() && !firstIPv6.isNull()) {
+            radioIP = firstIPv6;
+            qInfo(logUdp()) << "Got IPv6 Address :" << prefs.ipAddress << ": " << firstIPv6.toString();
         }
         if (radioIP.isNull())
         { 
@@ -53,9 +61,20 @@ icomUdpHandler::icomUdpHandler(udpPreferences prefs, audioSetup rx, audioSetup t
     QList<QHostAddress> hostList = QHostInfo::fromName(localhostname).addresses();
     for(const auto &address: hostList)
     {
-        if (address.protocol() == QAbstractSocket::IPv4Protocol && address.isLoopback() == false)
+        if (address.protocol() == radioIP.protocol() && address.isLoopback() == false)
         {
             localIP = QHostAddress(address.toString());
+            break;
+        }
+    }
+    if (localIP.isNull()) {
+        for(const auto &address: hostList)
+        {
+            if (address.protocol() == QAbstractSocket::IPv4Protocol && address.isLoopback() == false)
+            {
+                localIP = QHostAddress(address.toString());
+                break;
+            }
         }
     }
 

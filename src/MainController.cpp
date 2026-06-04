@@ -5230,6 +5230,8 @@ void MainController::loadSettings(QString settingsFile)
     serverConfig.controlPort = settings->value("ServerControlPort", udpDefprefs->controlLANPort).toInt();
     serverConfig.civPort = settings->value("ServerCivPort", udpDefprefs->serialLANPort).toInt();
     serverConfig.audioPort = settings->value("ServerAudioPort", udpDefprefs->audioLANPort).toInt();
+    serverConfig.scopePort = settings->value("ServerScopePort", udpDefprefs->scopeLANPort).toInt();
+    serverConfig.listenAddress = settings->value("ServerListenAddress", QString()).toString();
 
     serverConfig.users.clear();
 
