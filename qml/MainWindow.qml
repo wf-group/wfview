@@ -21,6 +21,7 @@ ApplicationWindow {
     property var lastConnectedGeometry: null
     property bool startupGeometryPending: false
     property bool connectedGeometryRestored: false
+    property int startupGeometryRestoreAttempts: 0
     property bool wasRadioConnected: false
     readonly property int contentHorizontalPadding: 8
     readonly property int contentTopPadding: 4
@@ -270,16 +271,32 @@ ApplicationWindow {
 
     Timer {
         id: startupGeometryTimer
-        interval: 300
+        interval: 150
         repeat: false
         onTriggered: {
             if (win.waylandPlatform) {
                 win.startupGeometryPending = false
                 return
             }
-            if (win.startupGeometryPending && win.radioConnected && win.savedStartupGeometry && win.savedStartupGeometry.valid) {
-                win.applyWindowGeometry(win.savedStartupGeometry)
+
+            if (!win.startupGeometryPending || !win.radioConnected
+                    || !win.savedStartupGeometry || !win.savedStartupGeometry.valid)
+                return
+
+            if (MainController.receiverCount <= 0 && win.startupGeometryRestoreAttempts < 20) {
+                win.startupGeometryRestoreAttempts += 1
+                win.scheduleStartupGeometryRestore()
+                return
+            }
+
+            win.applyWindowGeometry(win.savedStartupGeometry)
+
+            if (win.startupGeometryRestoreAttempts < 8) {
+                win.startupGeometryRestoreAttempts += 1
+                win.scheduleStartupGeometryRestore()
+            } else {
                 win.startupGeometryPending = false
+                win.connectedGeometryRestored = true
             }
         }
     }
@@ -304,6 +321,7 @@ ApplicationWindow {
                 win.rememberConnectedWindowGeometry()
             win.connectedGeometryRestored = false
             win.startupGeometryPending = Boolean(win.savedStartupGeometry && win.savedStartupGeometry.valid)
+            win.startupGeometryRestoreAttempts = 0
             Qt.callLater(win.shrinkDisconnectedWindow)
         }
         win.wasRadioConnected = win.radioConnected
@@ -814,11 +832,13 @@ ApplicationWindow {
 
         var g = win.lastConnectedGeometry && win.lastConnectedGeometry.valid ? win.lastConnectedGeometry
                                                                              : win.savedStartupGeometry
-        win.connectedGeometryRestored = true
         if (g && g.valid) {
             win.savedStartupGeometry = g
             win.startupGeometryPending = true
+            win.startupGeometryRestoreAttempts = 0
             win.scheduleStartupGeometryRestore()
+        } else {
+            win.connectedGeometryRestored = true
         }
     }
 
