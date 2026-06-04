@@ -502,6 +502,27 @@ void yaesuServer::processAudio(const PendingDatagram& datagram)
                     const auto* frame = reinterpret_cast<const yaesuC2R_AudioData*>(decoded.constData());
                     updateClientAudioFormat(client, frame->data);
                     requestAudioForClient(client);
+                    if (frame->data.pcmDataLen > 0) {
+                        const quint16 payloadLen = qMin<quint16>(frame->data.pcmDataLen, sizeof(frame->data.pcmData));
+                        if (client->txBufferLen == 0) {
+                            qDebug(logAudio()) << "Yaesu server received TX audio"
+                                               << "codec" << client->audioCodec
+                                               << "sampleRate" << client->audioSampleRate
+                                               << "channels" << client->audioChannels
+                                               << "bytes" << payloadLen;
+                        }
+                        client->txBufferLen = payloadLen;
+                        audioPacket packet;
+                        packet.seq = frame->data.seqNum;
+                        packet.time = QTime::currentTime();
+                        packet.sent = 0;
+                        packet.data = QByteArray(reinterpret_cast<const char*>(frame->data.pcmData), payloadLen);
+                        memcpy(packet.guid, client->guid, GUIDLEN);
+                        packet.sampleRate = client->audioSampleRate;
+                        packet.channels = client->audioChannels;
+                        packet.codec = client->audioCodec;
+                        emit haveAudioData(packet);
+                    }
                 }
             }
         }
@@ -580,7 +601,11 @@ void yaesuServer::requestAudioForClient(CLIENT* client)
     if (client == nullptr || !client->authenticated) {
         return;
     }
+    if (client->isStreaming) {
+        return;
+    }
 
+    client->isStreaming = true;
     emit requestRxAudioForGuid(QByteArray(reinterpret_cast<const char*>(client->guid), GUIDLEN),
                                client->audioCodec,
                                client->audioSampleRate);
@@ -594,6 +619,7 @@ void yaesuServer::releaseAudioForClient(CLIENT* client)
 
     const QByteArray guid(reinterpret_cast<const char*>(client->guid), GUIDLEN);
     client->audioPort = 0;
+    client->isStreaming = false;
     if (!hasAudioClientForGuid(reinterpret_cast<const quint8*>(guid.constData()))) {
         emit releaseRxAudioForGuid(guid);
     }

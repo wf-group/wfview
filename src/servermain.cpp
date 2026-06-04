@@ -511,6 +511,7 @@ void servermain::setServerToPrefs()
             const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
             if (guidMatches || serverConfig.rigs.size() == 1) {
                 ensureNativeServerRxAudio(radio, codec, sampleRate);
+                ensureNativeServerTxAudio(radio, codec, sampleRate);
             }
         }
     }, Qt::QueuedConnection);
@@ -523,7 +524,32 @@ void servermain::setServerToPrefs()
             const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
             if (guidMatches || serverConfig.rigs.size() == 1) {
                 stopNativeServerRxAudio(radio);
+                stopNativeServerTxAudio(radio);
             }
+        }
+    }, Qt::QueuedConnection);
+    connect(server, &rigServer::haveAudioData, this, [this](audioPacket packet) {
+        if (!serverConfig.enabled || prefs.manufacturer != manufYaesu) {
+            return;
+        }
+
+        RIGCONFIG *radio = serverConfig.rigs.isEmpty() ? Q_NULLPTR : serverConfig.rigs.first();
+        for (RIGCONFIG *candidate : serverConfig.rigs) {
+            if (candidate != Q_NULLPTR && !memcmp(candidate->guid, packet.guid, GUIDLEN)) {
+                radio = candidate;
+                break;
+            }
+        }
+
+        if (radio == Q_NULLPTR) {
+            qWarning(logAudio()) << "Yaesu server received TX audio but no rig is available";
+            return;
+        }
+
+        ensureNativeServerTxAudio(radio, packet.codec, packet.sampleRate);
+        if (radio->txaudio != Q_NULLPTR) {
+            QMetaObject::invokeMethod(radio->txaudio, "incomingAudio",
+                                      Qt::QueuedConnection, Q_ARG(audioPacket, packet));
         }
     }, Qt::QueuedConnection);
 
@@ -609,6 +635,81 @@ void servermain::stopNativeServerRxAudio(RIGCONFIG *radio)
     radio->rxAudioThread->wait();
     radio->rxaudio = Q_NULLPTR;
     radio->rxAudioThread = Q_NULLPTR;
+}
+
+void servermain::ensureNativeServerTxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate)
+{
+    if (!serverConfig.enabled || prefs.manufacturer != manufYaesu || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (codec == 0) {
+        codec = 4;
+    }
+    if (sampleRate == 0) {
+        sampleRate = 16000;
+    }
+
+    if (radio->txaudio != Q_NULLPTR) {
+        if (radio->txAudioSetup.codec != codec || radio->txAudioSetup.sampleRate != sampleRate) {
+            qWarning(logAudio()) << "Ignoring Yaesu server TX audio format change while audio is active"
+                                 << "active codec" << radio->txAudioSetup.codec
+                                 << "active sampleRate" << radio->txAudioSetup.sampleRate
+                                 << "requested codec" << codec
+                                 << "requested sampleRate" << sampleRate;
+        }
+        return;
+    }
+
+    radio->txAudioSetup.codec = codec;
+    radio->txAudioSetup.sampleRate = sampleRate;
+    radio->txAudioSetup.latency = radio->txAudioSetup.latency == 0 ? quint16(150) : radio->txAudioSetup.latency;
+    radio->txAudioSetup.isinput = false;
+    memcpy(radio->txAudioSetup.guid, radio->guid, GUIDLEN);
+
+    qInfo(logAudio()) << "Starting server TX audio output"
+                      << "device" << radio->txAudioSetup.name
+                      << "codec" << radio->txAudioSetup.codec
+                      << "sampleRate" << radio->txAudioSetup.sampleRate;
+
+    if (radio->txAudioSetup.type == qtAudio) {
+        radio->txaudio = new audioHandlerQtOutput();
+    } else if (radio->txAudioSetup.type == portAudio) {
+        radio->txaudio = new audioHandlerPaOutput();
+    } else if (radio->txAudioSetup.type == rtAudio) {
+        radio->txaudio = new audioHandlerRtOutput();
+    } else {
+        qCritical(logAudio()) << "Unsupported native server transmit audio handler selected" << radio->txAudioSetup.type;
+        return;
+    }
+
+    radio->txAudioThread = new QThread(this);
+    radio->txAudioThread->setObjectName(QStringLiteral("nativeServerTxAudio()"));
+    radio->txaudio->moveToThread(radio->txAudioThread);
+    radio->txAudioThread->start(QThread::TimeCriticalPriority);
+    connect(radio->txAudioThread, SIGNAL(finished()), radio->txaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+    QMetaObject::invokeMethod(radio->txaudio, [radio]() {
+        radio->txaudio->init(radio->txAudioSetup);
+    }, Qt::QueuedConnection);
+#else
+    QMetaObject::invokeMethod(radio->txaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->txAudioSetup));
+#endif
+}
+
+void servermain::stopNativeServerTxAudio(RIGCONFIG *radio)
+{
+    if (radio == Q_NULLPTR || radio->txaudio == Q_NULLPTR || radio->txAudioThread == Q_NULLPTR) {
+        return;
+    }
+
+    qInfo(logAudio()) << "Stopping server TX audio output";
+    radio->txaudio->dispose();
+    radio->txAudioThread->quit();
+    radio->txAudioThread->wait();
+    radio->txaudio = Q_NULLPTR;
+    radio->txAudioThread = Q_NULLPTR;
 }
 
 void servermain::ensureWfShareRxAudio(RIGCONFIG *radio)

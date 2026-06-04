@@ -61,7 +61,7 @@ private:
         QByteArray clientName;
 		QDateTime	timeConnected;
 		QDateTime lastHeard;
-        bool isStreaming;
+        bool isStreaming = false;
         quint16 txBufferLen;
         quint16 audioSeq = 1;
         quint8 guid[GUIDLEN];
