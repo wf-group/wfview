@@ -57,8 +57,16 @@ void MeterItem::mouseDoubleClickEvent(QMouseEvent *event)
 
 void MeterItem::paint(QPainter *p)
 {
-    if (!m_haveExtremities)
+    if (!m_haveExtremities) {
+        if (!m_warningText.isEmpty()) {
+            p->setPen(m_lowTextColor);
+            QFont f = p->font();
+            f.setPointSize(qMax(6, m_fontSize));
+            p->setFont(f);
+            p->drawText(boundingRect().toRect(), Qt::AlignCenter, m_warningText);
+        }
         return;
+    }
 
     p->setRenderHint(QPainter::SmoothPixmapTransform, true);
 
@@ -314,6 +322,10 @@ void MeterItem::setMeterExtremities(double min, double max, double redline)
     m_scaleMax = max;
     m_scaleRedline = redline;
     m_haveExtremities = true;
+    if (!m_warningText.isEmpty()) {
+        m_warningText.clear();
+        emit warningTextChanged();
+    }
     emit scaleChanged();
     markScaleDirty();
 }
@@ -326,6 +338,16 @@ void MeterItem::clearMeterExtremities()
     m_haveExtremities = false;
     m_scaleReady = false;
     emit scaleChanged();
+    update();
+}
+
+void MeterItem::setWarningText(const QString &text)
+{
+    if (m_warningText == text)
+        return;
+
+    m_warningText = text;
+    emit warningTextChanged();
     update();
 }
 

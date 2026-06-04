@@ -128,10 +128,13 @@ ApplicationWindow {
 
         function applyExtremities() {
             const ext = MainController.optionalMeterExtremities(meterChoice)
-            if (ext.valid)
+            if (ext.valid) {
                 optionalMeter.setMeterExtremities(ext.low, ext.high, ext.red)
-            else
+                optionalMeter.warningText = ""
+            } else {
                 optionalMeter.clearMeterExtremities()
+                optionalMeter.warningText = ext.calibrationMissing ? qsTr("No calibration found") : ""
+            }
         }
 
         Meter {

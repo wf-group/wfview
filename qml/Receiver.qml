@@ -174,12 +174,16 @@ Control {
                         const ext = MainController.optionalMeterExtremities(type)
                         if (ext.valid) {
                             smeter.setMeterExtremities(ext.low, ext.high, ext.red)
+                            smeter.warningText = ""
                         } else if (type === 1 || type === 17) {
                             smeter.setMeterExtremities(-54, 60, 0)
+                            smeter.warningText = ""
                         } else if (type === 3) {
                             smeter.setMeterExtremities(1, 6, 3)
+                            smeter.warningText = ""
                         } else {
                             smeter.clearMeterExtremities()
+                            smeter.warningText = ext.calibrationMissing ? qsTr("No calibration found") : ""
                         }
                     }
                     Component.onCompleted: applyExtremities()

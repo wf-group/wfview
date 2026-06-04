@@ -29,6 +29,7 @@ class MeterItem : public QQuickPaintedItem
     Q_PROPERTY(bool reverseCompMeter READ reverseCompMeter WRITE setReverseCompMeter NOTIFY reverseCompMeterChanged)
     Q_PROPERTY(bool useGradients READ useGradients WRITE setUseGradients NOTIFY useGradientsChanged)
     Q_PROPERTY(bool drawLabels READ drawLabels WRITE setDrawLabels NOTIFY drawLabelsChanged)
+    Q_PROPERTY(QString warningText READ warningText WRITE setWarningText NOTIFY warningTextChanged)
     Q_PROPERTY(QColor scaleTextColor READ scaleTextColor WRITE setScaleTextColor NOTIFY scaleColorsChanged)
     Q_PROPERTY(QColor scaleLineColor READ scaleLineColor WRITE setScaleLineColor NOTIFY scaleColorsChanged)
     Q_PROPERTY(QColor scaleHighTextColor READ scaleHighTextColor WRITE setScaleHighTextColor NOTIFY scaleColorsChanged)
@@ -70,6 +71,9 @@ public:
     bool drawLabels() const { return m_drawLabels; }
     void setDrawLabels(bool d);
 
+    QString warningText() const { return m_warningText; }
+    void setWarningText(const QString &text);
+
     QColor scaleTextColor() const { return m_lowTextColor; }
     void setScaleTextColor(const QColor &color);
 
@@ -97,6 +101,7 @@ signals:
     void reverseCompMeterChanged();
     void useGradientsChanged();
     void drawLabelsChanged();
+    void warningTextChanged();
     void scaleColorsChanged();
 
 protected:
@@ -124,6 +129,7 @@ private:
     bool m_reverseCompMeter = true;
     bool m_useGradients = true;
     bool m_drawLabels = true;
+    QString m_warningText;
 
     int m_fontSize = 6;
     int m_labelWidth = 0;

@@ -857,6 +857,7 @@ QVariantMap MainController::optionalMeterExtremities(int meterType) const
     double high = 255.0;
     double red = 241.0;
     bool valid = false;
+    bool calibrationMissing = false;
 
     switch (type) {
     case meterNone:
@@ -892,11 +893,14 @@ QVariantMap MainController::optionalMeterExtremities(int meterType) const
                 high = qMax(high, it->second);
             }
             valid = high > low;
+        } else if (rigCaps && type > meterNone && type < meterUnknown && isOptionalMeterAvailable(int(type))) {
+            calibrationMissing = true;
         }
         break;
     }
 
     ext["valid"] = valid;
+    ext["calibrationMissing"] = calibrationMissing;
     ext["low"] = low;
     ext["high"] = high;
     ext["red"] = red;
