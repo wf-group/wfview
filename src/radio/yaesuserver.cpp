@@ -420,7 +420,7 @@ QByteArray yaesuServer::decodeFrame(const QByteArray& encoded) const
     for (qsizetype i = 0; i < dataLen; ++i) {
         quint8 ib = quint8(i);
         ib = ~ib + 1;
-        decoded[i] = char(encKey ^ ib ^ frame->encodedData[i]);
+        decoded[int(i)] = char(encKey ^ ib ^ frame->encodedData[i]);
     }
     return decoded;
 }
