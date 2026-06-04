@@ -17,6 +17,12 @@ make -j
 
 For Qt 6, use the platform qmake variant, for example `qmake6 ../wfview.pro`. Build the server with `qmake ../wfserver.pro && make -j`. Install only after a successful build with `sudo make install`. See `INSTALL.md` for distro-specific packages.
 
+When running the Windows GUI build from PowerShell through `cmd /c`, wrap the whole `cmd /c` script in single quotes and quote each Windows path inside it. Do not use nested double quotes around the whole command, because `cmd` will report `The filename, directory name, or volume label syntax is incorrect.` before qmake runs:
+
+```powershell
+cmd /c 'call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" x64 && cd /d "C:\Users\phil.taylor\source\repos\wfview\wfview-build" && "C:\Qt\6.10.2\msvc2022_64\bin\qmake.exe" ..\wfview.pro && "C:\Qt\Tools\QtCreator\bin\jom\jom.exe" -j %NUMBER_OF_PROCESSORS%'
+```
+
 ## Coding Style & Naming Conventions
 
 Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant controller or QML component. Do not reformat bundled libraries, `old-source/`, generated build trees, or third-party DSP/audio code. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.

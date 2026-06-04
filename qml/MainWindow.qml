@@ -431,6 +431,15 @@ ApplicationWindow {
     }
 
     Loader {
+        id: repeaterLoader
+        active: false
+        sourceComponent: Component {
+            RepeaterSetup {
+            }
+        }
+    }
+
+    Loader {
         id: selectRadioLoader
         active: false
         source: "qrc:/qml/SelectRadio.qml"
@@ -509,6 +518,10 @@ ApplicationWindow {
             memoriesLoader.item.close()
             return
         }
+        if (repeaterLoader.item && repeaterLoader.item.visible && repeaterLoader.item.active) {
+            repeaterLoader.item.close()
+            return
+        }
         if (selectRadioLoader.item && selectRadioLoader.item.visible && selectRadioLoader.item.active) {
             MainController.selectRadio.visible = false
             return
@@ -543,6 +556,20 @@ ApplicationWindow {
                 memoriesLoader.item.visible = true
                 memoriesLoader.item.raise()
                 memoriesLoader.item.requestActivate()
+            }
+        })
+    }
+
+    function openRepeaterWindow() {
+        if (!win.radioConnected || !(mainControlSpecs.canRepeater ?? false))
+            return
+        if (!repeaterLoader.active)
+            repeaterLoader.active = true
+        Qt.callLater(function() {
+            if (repeaterLoader.item) {
+                repeaterLoader.item.visible = true
+                repeaterLoader.item.raise()
+                repeaterLoader.item.requestActivate()
             }
         })
     }
@@ -851,6 +878,10 @@ ApplicationWindow {
         if (memoriesLoader.item) {
             memoriesLoader.item.forceClose = true
             memoriesLoader.item.close()
+        }
+        if (repeaterLoader.item) {
+            repeaterLoader.item.forceClose = true
+            repeaterLoader.item.close()
         }
         if (selectRadioLoader.item) {
             MainController.selectRadio.visible = false
@@ -1590,10 +1621,9 @@ ApplicationWindow {
                     Button {
                         text: qsTr("Rpt/Split")
                         Layout.preferredWidth: 120
-                        enabled: false
-                        visible: false
-                        ToolTip.visible: hovered
-                        ToolTip.text: qsTr("Repeater setup has not been ported to QML yet.")
+                        enabled: win.radioConnected && (mainControlSpecs.canRepeater ?? false)
+                        visible: win.radioConnected && (mainControlSpecs.canRepeater ?? false)
+                        onClicked: win.openRepeaterWindow()
                     }
                     Button {
                         text: qsTr("Memories")

@@ -17,6 +17,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <algorithm>
+#include <cmath>
 #include <memory>
 
 static QVariantList spectrumToVariantList(const QVector<double>& bins)
@@ -1239,6 +1240,16 @@ void MainController::buildUiSpecs()
         {"canVox", rigCaps->hasTransmit && rigCaps->commands.contains(funcVox)},
         {"canSendCW", rigCaps->hasTransmit && rigCaps->commands.contains(funcSendCW)},
         {"canMemories", rigCaps->commands.contains(funcMemoryContents)},
+        {"canRepeater", rigCaps->commands.contains(funcSplitStatus)
+                        || rigCaps->commands.contains(funcToneSquelchType)
+                        || rigCaps->commands.contains(funcRepeaterTone)
+                        || rigCaps->commands.contains(funcRepeaterTSQL)
+                        || rigCaps->commands.contains(funcRepeaterDTCS)
+                        || rigCaps->commands.contains(funcToneFreq)
+                        || rigCaps->commands.contains(funcTSQLFreq)
+                        || rigCaps->commands.contains(funcDTCSCode)
+                        || rigCaps->commands.contains(funcReadFreqOffset)
+                        || rigCaps->commands.contains(funcSendFreqOffset)},
         {"canMonitor", rigCaps->hasTransmit && rigCaps->commands.contains(funcMonitor)},
         {"txPower", rangeSpec(funcRFPower, 0, 255, true)},
         {"monitorGain", rangeSpec(funcMonitorGain, 0, 255, true)},
@@ -1478,6 +1489,331 @@ void MainController::setSplitEnabled(bool enabled)
 
     if (rigCaps && rigCaps->commands.contains(funcSplitStatus)) {
         queue->add(priorityImmediate, queueItem(funcSplitStatus, QVariant::fromValue(enabled), false));
+    }
+}
+
+QVariantMap MainController::repeaterState() const
+{
+    QVariantMap caps;
+    caps["duplex"] = rigCaps && rigCaps->commands.contains(funcSplitStatus);
+    caps["repeaterDuplex"] = rigCaps && rigCaps->commands.contains(funcToneSquelchType);
+    caps["toneMode"] = rigCaps && (rigCaps->commands.contains(funcToneSquelchType)
+                                   || rigCaps->commands.contains(funcRepeaterTone)
+                                   || rigCaps->commands.contains(funcRepeaterTSQL)
+                                   || rigCaps->commands.contains(funcRepeaterDTCS));
+    caps["tone"] = rigCaps && (rigCaps->commands.contains(funcToneFreq)
+                               || rigCaps->commands.contains(funcRepeaterTone)
+                               || rigCaps->commands.contains(funcToneSquelchType));
+    caps["tsql"] = rigCaps && (rigCaps->commands.contains(funcTSQLFreq)
+                               || rigCaps->commands.contains(funcRepeaterTSQL)
+                               || rigCaps->commands.contains(funcToneSquelchType));
+    caps["dtcs"] = rigCaps && (rigCaps->commands.contains(funcDTCSCode)
+                               || rigCaps->commands.contains(funcRepeaterDTCS));
+    caps["radioOffset"] = rigCaps && (rigCaps->commands.contains(funcReadFreqOffset)
+                                      || rigCaps->commands.contains(funcSendFreqOffset));
+    caps["quickSplit"] = rigCaps && rigCaps->commands.contains(funcQuickSplit);
+    caps["secondaryVfo"] = rigCaps && rigCaps->commands.contains(funcVFOMainSelect);
+
+    QVariantMap state;
+    state["available"] = rigCaps != nullptr && caps.values().contains(true);
+    state["capabilities"] = caps;
+    state["duplexMode"] = int(m_repeaterDuplexMode);
+    state["toneMode"] = int(m_repeaterToneMode);
+    state["tone"] = m_repeaterTone;
+    state["tsql"] = m_repeaterTsql;
+    state["dtcs"] = m_repeaterDtcs;
+    state["dtcsTxInvert"] = m_repeaterDtcsTxInvert;
+    state["dtcsRxInvert"] = m_repeaterDtcsRxInvert;
+    state["offsetMHz"] = QString::number(m_repeaterOffsetHz / double(1000000), 'f', 6);
+    state["mainFrequencyMHz"] = m_repeaterHaveMainFrequency
+                                    ? QString::number(m_repeaterMainFrequency.Hz / double(1000000), 'f', 6)
+                                    : QString();
+    state["quickSplit"] = m_repeaterQuickSplit;
+    state["warnNotFm"] = m_repeaterWarnNotFm;
+
+    state["dmSplitOff"] = int(dmSplitOff);
+    state["dmSplitOn"] = int(dmSplitOn);
+    state["dmSimplex"] = int(dmSimplex);
+    state["dmDupMinus"] = int(dmDupMinus);
+    state["dmDupPlus"] = int(dmDupPlus);
+    state["dmDupAutoOn"] = int(dmDupAutoOn);
+    state["ratrNN"] = int(ratrNN);
+    state["ratrTN"] = int(ratrTN);
+    state["ratrTT"] = int(ratrTT);
+    state["ratrDD"] = int(ratrDD);
+    return state;
+}
+
+QVariantList MainController::repeaterToneOptions() const
+{
+    QVariantList values;
+    if (!rigCaps)
+        return values;
+
+    for (const auto& tone : rigCaps->ctcss) {
+        values.append(QVariantMap{
+            {"text", tone.name},
+            {"value", int(tone.tone)}
+        });
+    }
+    return values;
+}
+
+QVariantList MainController::repeaterDtcsOptions() const
+{
+    QVariantList values;
+    if (!rigCaps)
+        return values;
+
+    for (const auto& tone : rigCaps->dtcs) {
+        values.append(QVariantMap{
+            {"text", tone.name},
+            {"value", int(tone.tone)}
+        });
+    }
+    return values;
+}
+
+void MainController::refreshRepeaterState()
+{
+    if (!rigCaps || !queue)
+        return;
+
+    if (rigCaps->commands.contains(funcSplitStatus))
+        queue->add(priorityImmediate, funcSplitStatus, false);
+    if (rigCaps->commands.contains(funcToneSquelchType))
+        queue->add(priorityImmediate, funcToneSquelchType, false);
+    else {
+        if (rigCaps->commands.contains(funcRepeaterTone))
+            queue->add(priorityImmediate, funcRepeaterTone, false);
+        if (rigCaps->commands.contains(funcRepeaterTSQL))
+            queue->add(priorityImmediate, funcRepeaterTSQL, false);
+    }
+    if (rigCaps->commands.contains(funcToneFreq))
+        queue->add(priorityImmediate, funcToneFreq, false);
+    if (rigCaps->commands.contains(funcTSQLFreq))
+        queue->add(priorityImmediate, funcTSQLFreq, false);
+    if (rigCaps->commands.contains(funcDTCSCode))
+        queue->add(priorityImmediate, funcDTCSCode, false);
+    if (rigCaps->commands.contains(funcReadFreqOffset))
+        queue->add(priorityImmediate, funcReadFreqOffset, false);
+    if (rigCaps->commands.contains(funcQuickSplit))
+        queue->add(priorityImmediate, funcQuickSplit, false);
+}
+
+void MainController::setRepeaterDuplex(int mode)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcSplitStatus))
+        return;
+
+    const auto dm = duplexMode_t(mode);
+    m_repeaterDuplexMode = dm;
+    const bool split = dm != dmSplitOff;
+    if (m_splitEnabled != split) {
+        m_splitEnabled = split;
+        emit splitEnabledChanged();
+    }
+    emit repeaterStateChanged();
+    queue->add(priorityImmediate, queueItem(funcSplitStatus, QVariant::fromValue(dm), false));
+}
+
+void MainController::setRepeaterAccessMode(rptAccessTxRx_t mode, bool secondaryVfo)
+{
+    if (!rigCaps)
+        return;
+
+    if (rigCaps->commands.contains(funcToneSquelchType)) {
+        rptrAccessData data;
+        data.accessMode = mode;
+        data.useSecondaryVFO = secondaryVfo;
+        queue->add(priorityImmediate, queueItem(funcToneSquelchType, QVariant::fromValue(data), false));
+        return;
+    }
+
+    if (mode == ratrTN && rigCaps->commands.contains(funcRepeaterTone)) {
+        queue->add(priorityImmediate, queueItem(funcRepeaterTone, QVariant::fromValue(true), false, uchar(secondaryVfo)));
+    } else if (mode == ratrTT && rigCaps->commands.contains(funcRepeaterTSQL)) {
+        queue->add(priorityImmediate, queueItem(funcRepeaterTSQL, QVariant::fromValue(true), false, uchar(secondaryVfo)));
+    } else if (mode == ratrNN) {
+        if (rigCaps->commands.contains(funcRepeaterTone))
+            queue->add(priorityImmediate, queueItem(funcRepeaterTone, QVariant::fromValue(false), false, uchar(secondaryVfo)));
+        if (rigCaps->commands.contains(funcRepeaterTSQL))
+            queue->add(priorityImmediate, queueItem(funcRepeaterTSQL, QVariant::fromValue(false), false, uchar(secondaryVfo)));
+    }
+}
+
+void MainController::setRepeaterToneMode(int mode, bool secondaryVfo)
+{
+    const auto accessMode = rptAccessTxRx_t(mode);
+    updateRepeaterToneMode(accessMode);
+    setRepeaterAccessMode(accessMode, secondaryVfo);
+}
+
+toneInfo MainController::toneFromList(const std::vector<toneInfo>& tones, int tone, bool secondaryVfo) const
+{
+    for (auto item : tones) {
+        if (int(item.tone) == tone) {
+            item.useSecondaryVFO = secondaryVfo;
+            return item;
+        }
+    }
+
+    toneInfo fallback{short(tone)};
+    fallback.useSecondaryVFO = secondaryVfo;
+    return fallback;
+}
+
+void MainController::setRepeaterToneFrequency(int tone, bool secondaryVfo)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcToneFreq))
+        return;
+
+    m_repeaterTone = tone;
+    emit repeaterStateChanged();
+    queue->add(priorityImmediate, queueItem(funcToneFreq, QVariant::fromValue(toneFromList(rigCaps->ctcss, tone, secondaryVfo)), false, uchar(secondaryVfo)));
+}
+
+void MainController::setRepeaterTsqlFrequency(int tone, bool secondaryVfo)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcTSQLFreq))
+        return;
+
+    m_repeaterTsql = tone;
+    emit repeaterStateChanged();
+    queue->add(priorityImmediate, queueItem(funcTSQLFreq, QVariant::fromValue(toneFromList(rigCaps->ctcss, tone, secondaryVfo)), false, uchar(secondaryVfo)));
+}
+
+void MainController::setRepeaterDtcsCode(int tone, bool txInvert, bool rxInvert)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcDTCSCode))
+        return;
+
+    toneInfo code = toneFromList(rigCaps->dtcs, tone);
+    code.tinv = txInvert;
+    code.rinv = rxInvert;
+    m_repeaterDtcs = tone;
+    m_repeaterDtcsTxInvert = txInvert;
+    m_repeaterDtcsRxInvert = rxInvert;
+    emit repeaterStateChanged();
+    queue->add(priorityImmediate, queueItem(funcDTCSCode, QVariant::fromValue(code), false));
+}
+
+quint64 MainController::parseRepeaterFrequencyHz(const QString& text, double multiplier, const QString& fieldName) const
+{
+    bool ok = false;
+    const double value = text.trimmed().toDouble(&ok);
+    if (!ok || value <= 0.0) {
+        qWarning(logRptr()) << "Invalid repeater" << fieldName << text;
+        return 0;
+    }
+
+    return quint64(std::llround(value * multiplier));
+}
+
+void MainController::setRepeaterOffsetMHz(const QString& mhz)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcSendFreqOffset))
+        return;
+
+    freqt offset;
+    offset.Hz = parseRepeaterFrequencyHz(mhz, 1000000.0, QStringLiteral("offset"));
+    if (offset.Hz == 0) {
+        setFooterMessageText(tr("Invalid repeater offset"));
+        return;
+    }
+
+    offset.MHzDouble = offset.Hz / double(1000000);
+    offset.VFO = activeVFO;
+    updateRepeaterOffset(offset);
+    queue->add(priorityImmediate, queueItem(funcSendFreqOffset, QVariant::fromValue(offset), false));
+}
+
+void MainController::setRepeaterSplitFromOffsetKHz(const QString& khz, bool plus, bool autoEnableSplit)
+{
+    if (!rigCaps || !queue)
+        return;
+    if (!m_repeaterHaveMainFrequency || m_repeaterMainFrequency.Hz == 0) {
+        setFooterMessageText(tr("Cannot set split before a receive frequency is available"));
+        return;
+    }
+
+    const quint64 offsetHz = parseRepeaterFrequencyHz(khz, 1000.0, QStringLiteral("split offset"));
+    if (offsetHz == 0) {
+        setFooterMessageText(tr("Invalid split offset"));
+        return;
+    }
+
+    freqt tx;
+    tx.Hz = plus ? m_repeaterMainFrequency.Hz + offsetHz : m_repeaterMainFrequency.Hz - offsetHz;
+    tx.MHzDouble = tx.Hz / double(1000000);
+    tx.VFO = inactiveVFO;
+    m_repeaterLastSplitPlus = plus;
+
+    if (autoEnableSplit)
+        setRepeaterDuplex(int(dmSplitOn));
+
+    const uchar targetReceiver = uchar(rigCaps->numReceiver > 1);
+    const vfo_t txVfo = rigCaps->numVFO > 1 ? vfoB : vfoSub;
+    const auto cmd = queue->getVfoCommand(txVfo, targetReceiver, true);
+    if (cmd.freqFunc != funcNone)
+        queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
+}
+
+void MainController::setRepeaterSplitTxFrequencyMHz(const QString& mhz, bool autoEnableSplit)
+{
+    if (!rigCaps || !queue)
+        return;
+
+    freqt tx;
+    tx.Hz = parseRepeaterFrequencyHz(mhz, 1000000.0, QStringLiteral("split transmit frequency"));
+    if (tx.Hz == 0) {
+        setFooterMessageText(tr("Invalid split transmit frequency"));
+        return;
+    }
+
+    tx.MHzDouble = tx.Hz / double(1000000);
+    tx.VFO = inactiveVFO;
+
+    if (autoEnableSplit)
+        setRepeaterDuplex(int(dmSplitOn));
+
+    const uchar targetReceiver = uchar(rigCaps->numReceiver > 1);
+    const vfo_t txVfo = rigCaps->numVFO > 1 ? vfoB : vfoSub;
+    const auto cmd = queue->getVfoCommand(txVfo, targetReceiver, true);
+    if (cmd.freqFunc != funcNone)
+        queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
+}
+
+void MainController::setRepeaterQuickSplit(bool enabled)
+{
+    if (!rigCaps || !rigCaps->commands.contains(funcQuickSplit))
+        return;
+
+    m_repeaterQuickSplit = enabled;
+    emit repeaterStateChanged();
+    queue->add(priorityImmediate, queueItem(funcQuickSplit, QVariant::fromValue(enabled), false));
+}
+
+void MainController::updateRepeaterToneMode(rptAccessTxRx_t mode)
+{
+    if (mode == ratrTONEon)
+        mode = ratrTN;
+    else if (mode == ratrTSQLon)
+        mode = ratrTT;
+    else if (mode == ratrTONEoff || mode == ratrTSQLoff)
+        mode = ratrNN;
+
+    if (m_repeaterToneMode != mode) {
+        m_repeaterToneMode = mode;
+        emit repeaterStateChanged();
+    }
+}
+
+void MainController::updateRepeaterOffset(freqt offset)
+{
+    if (m_repeaterOffsetHz != offset.Hz) {
+        m_repeaterOffsetHz = offset.Hz;
+        emit repeaterStateChanged();
     }
 }
 
@@ -3404,9 +3740,23 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         updateCurrentModSource(false);
         ++m_modSourceRevision;
         emit modSourcesChanged();
+        m_repeaterDuplexMode = dmSplitOff;
+        m_repeaterToneMode = ratrNN;
+        m_repeaterTone = rigCaps->ctcss.empty() ? 670 : int(rigCaps->ctcss.front().tone);
+        m_repeaterTsql = m_repeaterTone;
+        m_repeaterDtcs = rigCaps->dtcs.empty() ? 23 : int(rigCaps->dtcs.front().tone);
+        m_repeaterDtcsTxInvert = false;
+        m_repeaterDtcsRxInvert = false;
+        m_repeaterOffsetHz = 0;
+        m_repeaterQuickSplit = false;
+        m_repeaterWarnNotFm = false;
+        m_repeaterHaveMainFrequency = false;
+        emit repeaterStateChanged();
+        emit repeaterModelsChanged();
 
         getInitialRigState();
         buildUiSpecs();
+        refreshRepeaterState();
     }
     else
     {
@@ -3416,6 +3766,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         setRigModelName(QString());
         connStatus = connectionStatus_t::connDisconnected;
         updateAudioRouteState();
+        emit repeaterStateChanged();
+        emit repeaterModelsChanged();
     }
 
     emit connStatusChanged();
@@ -3714,13 +4066,19 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcFreqTR:
     case funcFreq:
     case funcSelectedFreq:
+    {
+        const freqt frequency = val.value.value<freqt>();
         if (vfo == 0)
-            receivers[val.receiver]->setFrequencyA(val.value.value<freqt>().Hz,false);
+            receivers[val.receiver]->setFrequencyA(frequency.Hz,false);
         else
-            receivers[val.receiver]->setFrequencyB(val.value.value<freqt>().Hz,false);
-        //if (val.receiver==0 || vfo == 0)
-        //    rpt->handleUpdateCurrentMainFrequency(val.value.value<freqt>());
+            receivers[val.receiver]->setFrequencyB(frequency.Hz,false);
+        if (val.receiver == 0 && vfo == 0 && !m_transmitting) {
+            m_repeaterMainFrequency = frequency;
+            m_repeaterHaveMainFrequency = true;
+            emit repeaterStateChanged();
+        }
         break;
+    }
     case funcModeGet:
     case funcModeTR:
         // These commands don't include filter, so queue an immediate request for filter
@@ -3737,6 +4095,13 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->receiveMode(m,vfo);
         if (val.receiver == currentReceiver && vfo == 0) {
             m_cwSender->handleCurrentModeUpdate(m.mk);
+        }
+        if (val.receiver == 0 && vfo == 0 && !m_transmitting) {
+            const bool warn = m.mk != modeUnknown && m.mk != modeFM;
+            if (m_repeaterWarnNotFm != warn) {
+                m_repeaterWarnNotFm = warn;
+                emit repeaterStateChanged();
+            }
         }
         //qDebug() << funcString[val.command] << "receiver:" << val.receiver << "vfo:" << vfo << "mk:" << m.mk << "name:" << m.name << "data:" << m.data << "filter:" << m.filter;
 
@@ -3815,23 +4180,32 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcScanning:
         break;
     case funcReadFreqOffset:
+        updateRepeaterOffset(val.value.value<freqt>());
         break;
     case funcSplitStatus:
     {
-        const bool enabled = val.value.value<duplexMode_t>() != dmSplitOff;
+        const auto mode = val.value.value<duplexMode_t>();
+        m_repeaterDuplexMode = mode;
+        const bool enabled = mode != dmSplitOff;
         if (m_splitEnabled != enabled) {
             m_splitEnabled = enabled;
             emit splitEnabledChanged();
         }
+        emit repeaterStateChanged();
         for (const auto &receiver : std::as_const(receivers))
             receiver->setSplitEnabled(enabled, false);
-        //rpt->receiveDuplexMode(val.value.value<duplexMode_t>());
         //receivers[val.receiver]->setSplit(val.value.value<duplexMode_t>()==dmSplitOn?true:false);
         break;
     }
     case funcQuickSplit:
-        //rpt->receiveQuickSplit(val.value.value<bool>());
+    {
+        const bool enabled = val.value.value<bool>();
+        if (m_repeaterQuickSplit != enabled) {
+            m_repeaterQuickSplit = enabled;
+            emit repeaterStateChanged();
+        }
         break;
+    }
     case funcTuningStep:
     {
         auto it = std::find_if(rigCaps->steps.begin(), rigCaps->steps.end(),
@@ -4042,10 +4416,10 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcAutoNotch:
         break;
     case funcRepeaterTone:
-        //rpt->handleRptAccessMode(rptAccessTxRx_t((val.value.value<bool>())?ratrTONEon:ratrTONEoff));
+        updateRepeaterToneMode(val.value.value<bool>() ? ratrTONEon : ratrTONEoff);
         break;
     case funcRepeaterTSQL:
-        //rpt->handleRptAccessMode(rptAccessTxRx_t((val.value.value<bool>())?ratrTSQLon:ratrTSQLoff));
+        updateRepeaterToneMode(val.value.value<bool>() ? ratrTSQLon : ratrTSQLoff);
         break;
     case funcRepeaterDTCS:
         break;
@@ -4104,6 +4478,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         //}
         break;
     case funcToneSquelchType:
+        updateRepeaterToneMode(val.value.value<rptrAccessData>().accessMode);
         break;
     case funcIPPlus:
         receivers[val.receiver]->setIpPlus(val.value.value<bool>(),false);
@@ -4188,15 +4563,20 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     // 0x1b register
     case funcToneFreq:
-        //rpt->handleTone(val.value.value<toneInfo>().tone);
+        m_repeaterTone = val.value.value<toneInfo>().tone;
+        emit repeaterStateChanged();
         break;
     case funcTSQLFreq:
-        //rpt->handleTSQL(val.value.value<toneInfo>().tone);
+        m_repeaterTsql = val.value.value<toneInfo>().tone;
+        emit repeaterStateChanged();
         break;
     case funcDTCSCode:
     {
-        //toneInfo t = val.value.value<toneInfo>();
-        //rpt->handleDTCS(t.tone,t.rinv,t.tinv);
+        toneInfo t = val.value.value<toneInfo>();
+        m_repeaterDtcs = t.tone;
+        m_repeaterDtcsTxInvert = t.tinv;
+        m_repeaterDtcsRxInvert = t.rinv;
+        emit repeaterStateChanged();
         break;
     }
     case funcCSQLCode:

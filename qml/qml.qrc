@@ -7,6 +7,7 @@
         <file>Settings.qml</file>
         <file>Debug.qml</file>
         <file>Memories.qml</file>
+        <file>RepeaterSetup.qml</file>
         <file>AboutBox.qml</file>
         <file>SelectRadio.qml</file>
         <file>CWSender.qml</file>

@@ -955,7 +955,7 @@ void ControllerController::restoreSettings(const QString &devicePath, const QUrl
 
     // Validate the backup file
     QSettings settings(filePath, QSettings::IniFormat);
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     settings.setIniCodec("UTF-8");
 #endif
     QString version = settings.value("Version", "").toString();

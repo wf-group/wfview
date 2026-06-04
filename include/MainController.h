@@ -88,6 +88,9 @@ public:
     Q_PROPERTY(bool voxEnabled READ voxEnabled WRITE setVoxEnabled NOTIFY voxEnabledChanged)
     Q_PROPERTY(double optionalMeter2Level READ optionalMeter2Level NOTIFY optionalMetersChanged)
     Q_PROPERTY(double optionalMeter3Level READ optionalMeter3Level NOTIFY optionalMetersChanged)
+    Q_PROPERTY(QVariantMap repeaterState READ repeaterState NOTIFY repeaterStateChanged)
+    Q_PROPERTY(QVariantList repeaterToneModel READ repeaterToneOptions NOTIFY repeaterModelsChanged)
+    Q_PROPERTY(QVariantList repeaterDtcsModel READ repeaterDtcsOptions NOTIFY repeaterModelsChanged)
 
     Q_DECLARE_FLAGS(prefIfItems, prefIfItem)
     Q_DECLARE_FLAGS(prefRsItems, prefRsItem)
@@ -249,6 +252,18 @@ public:
     Q_INVOKABLE int modSourceReg(int dataMode) const;
     Q_INVOKABLE bool modSourceSupported(int dataMode) const;
     Q_INVOKABLE void setModSource(int dataMode, int reg);
+    Q_INVOKABLE QVariantList repeaterToneOptions() const;
+    Q_INVOKABLE QVariantList repeaterDtcsOptions() const;
+    Q_INVOKABLE void refreshRepeaterState();
+    Q_INVOKABLE void setRepeaterDuplex(int mode);
+    Q_INVOKABLE void setRepeaterToneMode(int mode, bool secondaryVfo = false);
+    Q_INVOKABLE void setRepeaterToneFrequency(int tone, bool secondaryVfo = false);
+    Q_INVOKABLE void setRepeaterTsqlFrequency(int tone, bool secondaryVfo = false);
+    Q_INVOKABLE void setRepeaterDtcsCode(int tone, bool txInvert, bool rxInvert);
+    Q_INVOKABLE void setRepeaterOffsetMHz(const QString& mhz);
+    Q_INVOKABLE void setRepeaterSplitFromOffsetKHz(const QString& khz, bool plus, bool autoEnableSplit);
+    Q_INVOKABLE void setRepeaterSplitTxFrequencyMHz(const QString& mhz, bool autoEnableSplit);
+    Q_INVOKABLE void setRepeaterQuickSplit(bool enabled);
     Q_INVOKABLE QString platformName() const;
     Q_INVOKABLE void syncRadioClock();
     Q_INVOKABLE void connectCluster();
@@ -338,6 +353,8 @@ signals:
     void voxEnabledChanged();
     void optionalMetersChanged();
     void clusterOutputTextChanged();
+    void repeaterStateChanged();
+    void repeaterModelsChanged();
 
 public slots:
     void onRadioPacket(const QByteArray &packet);
@@ -401,6 +418,7 @@ private:
     void configureOptionalMeter(int slot, meter_t meterType);
     void receiveOptionalMeter(meter_t meterType, double level);
     QVariantMap uiSpecs;
+    QVariantMap repeaterState() const;
 
     //void setDefPrefs();
     //void loadSettings(QString file); // Look for saved preferences
@@ -444,6 +462,11 @@ private:
     AudioRouteState currentAudioRoute() const;
     void updateAudioRouteState();
     void tuneFrequencyHz(qint64 hzDelta, int receiver = -1);
+    quint64 parseRepeaterFrequencyHz(const QString& text, double multiplier, const QString& fieldName) const;
+    toneInfo toneFromList(const std::vector<toneInfo>& tones, int tone, bool secondaryVfo = false) const;
+    void setRepeaterAccessMode(rptAccessTxRx_t mode, bool secondaryVfo = false);
+    void updateRepeaterToneMode(rptAccessTxRx_t mode);
+    void updateRepeaterOffset(freqt offset);
 
 
     QString windowTitle = "wfview";
@@ -522,6 +545,19 @@ private:
     bool m_splitEnabled = false;
     bool m_compressorEnabled = false;
     bool m_voxEnabled = false;
+    duplexMode_t m_repeaterDuplexMode = dmSplitOff;
+    rptAccessTxRx_t m_repeaterToneMode = ratrNN;
+    int m_repeaterTone = 670;
+    int m_repeaterTsql = 670;
+    int m_repeaterDtcs = 23;
+    bool m_repeaterDtcsTxInvert = false;
+    bool m_repeaterDtcsRxInvert = false;
+    quint64 m_repeaterOffsetHz = 0;
+    bool m_repeaterQuickSplit = false;
+    bool m_repeaterWarnNotFm = false;
+    freqt m_repeaterMainFrequency;
+    bool m_repeaterHaveMainFrequency = false;
+    bool m_repeaterLastSplitPlus = false;
     double m_optionalMeter2Level = 0.0;
     double m_optionalMeter3Level = 0.0;
     QTimer radioClockSyncTimer;
