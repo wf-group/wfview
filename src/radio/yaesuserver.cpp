@@ -45,6 +45,11 @@ quint16 frameBytesForCodec(quint8 codec)
         return 320;
     }
 }
+
+bool packetizedCodec(quint8 codec)
+{
+    return codec == 64 || codec == 65 || codec == 128;
+}
 }
 
 yaesuServer::yaesuServer(SERVERCONFIG* config, rigServer* parent) :
@@ -178,9 +183,17 @@ void yaesuServer::receiveAudioData(const audioPacket& d)
             continue;
         }
 
+        if (packetizedCodec(client->audioCodec) && d.data.size() > int(sizeof(yaesuAudioData::pcmData))) {
+            qWarning(logRigServer()) << "Yaesu server encoded RX audio packet too large"
+                                     << d.data.size() << "bytes codec" << client->audioCodec;
+            continue;
+        }
+
         int pos = 0;
         while (pos < d.data.size()) {
-            const QByteArray partial = d.data.mid(pos, client->audioFrameBytes);
+            const QByteArray partial = packetizedCodec(client->audioCodec)
+                                           ? d.data
+                                           : d.data.mid(pos, client->audioFrameBytes);
             pos += partial.size();
 
             yaesuR2C_AudioData frame;
@@ -202,6 +215,8 @@ void yaesuServer::receiveAudioData(const audioPacket& d)
 
             const qsizetype len = sizeof(frame) - sizeof(frame.data.pcmData) + frame.data.pcmDataLen;
             sendAudioFrame(client->ipAddress, client->audioPort, &frame, len);
+            if (packetizedCodec(client->audioCodec))
+                break;
         }
     }
 }

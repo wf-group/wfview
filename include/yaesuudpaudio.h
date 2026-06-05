@@ -73,9 +73,12 @@ private:
     audioSetup rxSetup;
     audioSetup txSetup;
 
-    yaesuAudioFormat audioCodec = ShortLE;
-    quint16 audioSize = 640;
-    quint8 audioChannels = 2;
+    yaesuAudioFormat rxAudioCodec = ShortLE;
+    quint16 rxAudioSize = 640;
+    quint8 rxAudioChannels = 2;
+    yaesuAudioFormat txAudioCodec = ShortLE;
+    quint16 txAudioSize = 640;
+    quint8 txAudioChannels = 2;
     quint16 seqPrefix = 0;
 
     audioHandlerBase* rxaudio = nullptr;
