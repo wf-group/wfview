@@ -97,7 +97,7 @@ linux:LIBS += -lpulse -lpulse-simple -lrtaudio -lpthread
 
 win32:INCLUDEPATH += $$PWD/../portaudio/include
 
-win32:LIBS += -lopus -lole32 -luser32
+win32:LIBS += -lopus -lole32 -luser32 -ladvapi32
 !win32:LIBS += -lportaudio
 
 # The following define makes your compiler emit warnings if you use

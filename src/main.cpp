@@ -23,12 +23,15 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <csignal>
+#include <conio.h>
+#include <ntsecapi.h>
 #else
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
 #endif
 
+#include <cstring>
 #include <iostream>
 
 // Include lots of our headers
@@ -96,7 +99,513 @@ QScopedPointer<QFile>   m_logFile;
 QMutex logMutex;
 servermain* w=nullptr;
 
+void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
+
+static int startWfserverRuntime(QCoreApplication* app, const QString& settingsFile, const QString& logFilename,
+                                const QString& version, bool serviceMode);
+
 #ifdef Q_OS_WIN
+static constexpr const wchar_t* WFSERVER_SERVICE_NAME = L"wfserver";
+static constexpr const wchar_t* WFSERVER_SERVICE_DISPLAY_NAME = L"wfserver";
+
+static SERVICE_STATUS_HANDLE serviceStatusHandle = nullptr;
+static SERVICE_STATUS serviceStatus = {};
+static QCoreApplication* serviceApp = nullptr;
+static QVector<QByteArray> serviceArgStorage;
+static QVector<char*> serviceArgv;
+
+static bool isWindowsServiceRunArg(int argc, char* argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--service=run") == 0)
+            return true;
+        if (std::strcmp(argv[i], "--service") == 0 && i + 1 < argc && std::strcmp(argv[i + 1], "run") == 0)
+            return true;
+    }
+    return false;
+}
+
+static QString wfserverVersionText()
+{
+    return QString("wfserver version: %1 (Git:%2 on %3 at %4 by %5@%6)\nOperating System: %7 (%8)\nBuild Qt Version %9. Current Qt Version: %10\n")
+        .arg(QString(WFVIEW_VERSION))
+        .arg(GITSHORT).arg(__DATE__).arg(__TIME__).arg(UNAME).arg(HOST)
+        .arg(QSysInfo::prettyProductName()).arg(QSysInfo::buildCpuArchitecture())
+        .arg(QT_VERSION_STR).arg(qVersion());
+}
+
+static QString serviceDefaultLogFilename()
+{
+    const QDateTime date = QDateTime::currentDateTime();
+    const QString temp = QStandardPaths::standardLocations(QStandardPaths::TempLocation).value(0, QDir::tempPath());
+    return QString("%1/wfserver-%2.log").arg(temp, date.toString("yyyyMMddhhmmss"));
+}
+
+static void parseCommonServerArgs(int argc, char* argv[], QString* settingsFile, QString* logFilename)
+{
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromLocal8Bit(argv[i]);
+        if ((arg == QStringLiteral("-d")) || (arg == QStringLiteral("--debug"))) {
+            debugMode = true;
+        } else if (((arg == QStringLiteral("-l")) || (arg == QStringLiteral("--logfile"))) && i + 1 < argc) {
+            *logFilename = QString::fromLocal8Bit(argv[++i]);
+        } else if (((arg == QStringLiteral("-s")) || (arg == QStringLiteral("--settings"))) && i + 1 < argc) {
+            *settingsFile = QString::fromLocal8Bit(argv[++i]);
+        }
+    }
+}
+
+static void setServiceStatus(DWORD state, DWORD win32ExitCode = NO_ERROR, DWORD waitHint = 0)
+{
+    if (serviceStatusHandle == nullptr)
+        return;
+
+    serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+    serviceStatus.dwCurrentState = state;
+    serviceStatus.dwWin32ExitCode = win32ExitCode;
+    serviceStatus.dwWaitHint = waitHint;
+    serviceStatus.dwControlsAccepted = (state == SERVICE_RUNNING) ? (SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN) : 0;
+    serviceStatus.dwCheckPoint = (state == SERVICE_START_PENDING || state == SERVICE_STOP_PENDING)
+                                     ? serviceStatus.dwCheckPoint + 1
+                                     : 0;
+    SetServiceStatus(serviceStatusHandle, &serviceStatus);
+}
+
+static DWORD WINAPI serviceControlHandler(DWORD control, DWORD, LPVOID, LPVOID)
+{
+    if (control == SERVICE_CONTROL_STOP || control == SERVICE_CONTROL_SHUTDOWN) {
+        setServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 5000);
+        if (serviceApp != nullptr) {
+            QMetaObject::invokeMethod(serviceApp, []() {
+                QCoreApplication::quit();
+            }, Qt::QueuedConnection);
+        }
+        return NO_ERROR;
+    }
+
+    return ERROR_CALL_NOT_IMPLEMENTED;
+}
+
+static void WINAPI serviceMain(DWORD, LPWSTR*)
+{
+    serviceStatusHandle = RegisterServiceCtrlHandlerExW(WFSERVER_SERVICE_NAME, serviceControlHandler, nullptr);
+    if (serviceStatusHandle == nullptr)
+        return;
+
+    serviceStatus = {};
+    setServiceStatus(SERVICE_START_PENDING, NO_ERROR, 5000);
+    int argc = serviceArgv.size();
+    QCoreApplication app(argc, serviceArgv.data());
+    app.setApplicationName("wfserver");
+    app.setOrganizationName("wfview");
+    app.setOrganizationDomain("wfview.org");
+    serviceApp = &app;
+
+    QString settingsFile;
+    QString logFilename = serviceDefaultLogFilename();
+    parseCommonServerArgs(argc, serviceArgv.data(), &settingsFile, &logFilename);
+
+    const int rc = startWfserverRuntime(&app, settingsFile, logFilename, wfserverVersionText(), true);
+    serviceApp = nullptr;
+    setServiceStatus(SERVICE_STOPPED, DWORD(rc));
+}
+
+static QString windowsErrorString(DWORD err = GetLastError())
+{
+    LPWSTR buffer = nullptr;
+    const DWORD len = FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                     nullptr, err, 0, reinterpret_cast<LPWSTR>(&buffer), 0, nullptr);
+    QString message = len > 0 ? QString::fromWCharArray(buffer).trimmed() : QStringLiteral("Windows error %1").arg(err);
+    if (buffer != nullptr)
+        LocalFree(buffer);
+    return message;
+}
+
+static QString quoteServiceArgument(const QString& value)
+{
+    QString escaped = value;
+    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
+    return QStringLiteral("\"%1\"").arg(escaped);
+}
+
+static QString currentWindowsAccount()
+{
+    const QString domain = qEnvironmentVariable("USERDOMAIN");
+    const QString user = qEnvironmentVariable("USERNAME");
+    if (!domain.isEmpty() && !user.isEmpty())
+        return QStringLiteral("%1\\%2").arg(domain, user);
+    return user;
+}
+
+static LSA_UNICODE_STRING lsaString(const wchar_t* text)
+{
+    LSA_UNICODE_STRING result = {};
+    result.Buffer = const_cast<PWSTR>(text);
+    result.Length = USHORT(wcslen(text) * sizeof(wchar_t));
+    result.MaximumLength = result.Length + sizeof(wchar_t);
+    return result;
+}
+
+static int grantServiceLogonRight(const QString& account)
+{
+    DWORD sidSize = 0;
+    DWORD domainSize = 0;
+    SID_NAME_USE sidType = SidTypeUnknown;
+    const std::wstring accountName = account.toStdWString();
+
+    LookupAccountNameW(nullptr, accountName.c_str(), nullptr, &sidSize, nullptr, &domainSize, &sidType);
+    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+        std::cerr << "Unable to resolve service account " << account.toStdString()
+                  << ": " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    QByteArray sidBuffer(int(sidSize), Qt::Uninitialized);
+    std::wstring domain(domainSize, L'\0');
+    if (!LookupAccountNameW(nullptr,
+                            accountName.c_str(),
+                            reinterpret_cast<PSID>(sidBuffer.data()),
+                            &sidSize,
+                            domain.data(),
+                            &domainSize,
+                            &sidType)) {
+        std::cerr << "Unable to resolve service account " << account.toStdString()
+                  << ": " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    LSA_OBJECT_ATTRIBUTES attributes = {};
+    LSA_HANDLE policy = nullptr;
+    NTSTATUS status = LsaOpenPolicy(nullptr, &attributes, POLICY_CREATE_ACCOUNT | POLICY_LOOKUP_NAMES, &policy);
+    if (status != 0) {
+        std::cerr << "Unable to open local security policy: "
+                  << windowsErrorString(LsaNtStatusToWinError(status)).toStdString() << "\n";
+        return -1;
+    }
+
+    LSA_UNICODE_STRING right = lsaString(L"SeServiceLogonRight");
+    status = LsaAddAccountRights(policy, reinterpret_cast<PSID>(sidBuffer.data()), &right, 1);
+    LsaClose(policy);
+
+    if (status != 0) {
+        std::cerr << "Unable to grant 'Log on as a service' to " << account.toStdString()
+                  << ": " << windowsErrorString(LsaNtStatusToWinError(status)).toStdString() << "\n";
+        return -1;
+    }
+
+    return 0;
+}
+
+static QString readPasswordFromConsole(const QString& prompt)
+{
+    std::cout << prompt.toStdString();
+    std::cout.flush();
+
+    QString password;
+    for (;;) {
+        const int ch = _getch();
+        if (ch == '\r' || ch == '\n') {
+            std::cout << "\n";
+            break;
+        }
+        if (ch == '\b') {
+            if (!password.isEmpty())
+                password.chop(1);
+            continue;
+        }
+        if (ch == 0 || ch == 0xe0) {
+            _getch();
+            continue;
+        }
+        password.append(QChar(char(ch)));
+    }
+
+    return password;
+}
+
+static QString serviceBinaryPath(const QString& settingsFile)
+{
+    QStringList args;
+    args << quoteServiceArgument(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()))
+         << QStringLiteral("--service")
+         << QStringLiteral("run");
+
+    if (!settingsFile.isEmpty()) {
+        args << QStringLiteral("--settings") << quoteServiceArgument(settingsFile);
+    }
+
+    return args.join(QLatin1Char(' '));
+}
+
+static int installWindowsService(const QString& settingsFile, bool localSystem, QString account, QString password)
+{
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
+    if (scm == nullptr) {
+        std::cerr << "Unable to open Service Control Manager: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    if (!localSystem) {
+        if (account.isEmpty())
+            account = currentWindowsAccount();
+        if (password.isEmpty())
+            password = readPasswordFromConsole(QStringLiteral("Password for %1: ").arg(account));
+        if (grantServiceLogonRight(account) != 0) {
+            CloseServiceHandle(scm);
+            return -1;
+        }
+    }
+
+    const QString binPath = serviceBinaryPath(settingsFile);
+    SC_HANDLE service = CreateServiceW(scm,
+                                       WFSERVER_SERVICE_NAME,
+                                       WFSERVER_SERVICE_DISPLAY_NAME,
+                                       SERVICE_ALL_ACCESS,
+                                       SERVICE_WIN32_OWN_PROCESS,
+                                       SERVICE_AUTO_START,
+                                       SERVICE_ERROR_NORMAL,
+                                       reinterpret_cast<LPCWSTR>(binPath.utf16()),
+                                       nullptr,
+                                       nullptr,
+                                       nullptr,
+                                       localSystem ? nullptr : reinterpret_cast<LPCWSTR>(account.utf16()),
+                                       localSystem ? nullptr : reinterpret_cast<LPCWSTR>(password.utf16()));
+
+    if (service == nullptr) {
+        const DWORD err = GetLastError();
+        if (err == ERROR_SERVICE_EXISTS) {
+            service = OpenServiceW(scm, WFSERVER_SERVICE_NAME, SERVICE_CHANGE_CONFIG);
+            if (service != nullptr) {
+                const BOOL changed = ChangeServiceConfigW(service,
+                                                          SERVICE_WIN32_OWN_PROCESS,
+                                                          SERVICE_AUTO_START,
+                                                          SERVICE_ERROR_NORMAL,
+                                                          reinterpret_cast<LPCWSTR>(binPath.utf16()),
+                                                          nullptr,
+                                                          nullptr,
+                                                          nullptr,
+                                                          localSystem ? nullptr : reinterpret_cast<LPCWSTR>(account.utf16()),
+                                                          localSystem ? nullptr : reinterpret_cast<LPCWSTR>(password.utf16()),
+                                                          WFSERVER_SERVICE_DISPLAY_NAME);
+                if (!changed) {
+                    const DWORD changeErr = GetLastError();
+                    CloseServiceHandle(service);
+                    CloseServiceHandle(scm);
+                    std::cerr << "Unable to update wfserver service: " << windowsErrorString(changeErr).toStdString() << "\n";
+                    return -1;
+                }
+                CloseServiceHandle(service);
+                CloseServiceHandle(scm);
+                if (localSystem)
+                    std::cout << "Updated wfserver service as LocalSystem.\n";
+                else
+                    std::cout << "Updated wfserver service as " << account.toStdString() << ".\n";
+                return 0;
+            }
+        }
+
+        CloseServiceHandle(scm);
+        std::cerr << "Unable to install wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+    if (localSystem)
+        std::cout << "Installed wfserver service as LocalSystem.\n";
+    else
+        std::cout << "Installed wfserver service as " << account.toStdString() << ".\n";
+    return 0;
+}
+
+static int removeWindowsService()
+{
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (scm == nullptr) {
+        std::cerr << "Unable to open Service Control Manager: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    SC_HANDLE service = OpenServiceW(scm, WFSERVER_SERVICE_NAME, DELETE | SERVICE_STOP | SERVICE_QUERY_STATUS);
+    if (service == nullptr) {
+        const DWORD err = GetLastError();
+        CloseServiceHandle(scm);
+        std::cerr << "Unable to open wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    SERVICE_STATUS_PROCESS status = {};
+    DWORD bytesNeeded = 0;
+    if (QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<LPBYTE>(&status), sizeof(status), &bytesNeeded)
+        && status.dwCurrentState != SERVICE_STOPPED) {
+        SERVICE_STATUS ignored = {};
+        ControlService(service, SERVICE_CONTROL_STOP, &ignored);
+    }
+
+    const BOOL ok = DeleteService(service);
+    const DWORD err = GetLastError();
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+
+    if (!ok) {
+        std::cerr << "Unable to remove wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    std::cout << "Removed wfserver service.\n";
+    return 0;
+}
+
+static int startWindowsService()
+{
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (scm == nullptr) {
+        std::cerr << "Unable to open Service Control Manager: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    SC_HANDLE service = OpenServiceW(scm, WFSERVER_SERVICE_NAME, SERVICE_START);
+    if (service == nullptr) {
+        const DWORD err = GetLastError();
+        CloseServiceHandle(scm);
+        std::cerr << "Unable to open wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    const BOOL ok = StartServiceW(service, 0, nullptr);
+    const DWORD err = GetLastError();
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+
+    if (!ok && err != ERROR_SERVICE_ALREADY_RUNNING) {
+        std::cerr << "Unable to start wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    std::cout << "Started wfserver service.\n";
+    return 0;
+}
+
+static int stopWindowsService()
+{
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (scm == nullptr) {
+        std::cerr << "Unable to open Service Control Manager: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    SC_HANDLE service = OpenServiceW(scm, WFSERVER_SERVICE_NAME, SERVICE_STOP | SERVICE_QUERY_STATUS);
+    if (service == nullptr) {
+        const DWORD err = GetLastError();
+        CloseServiceHandle(scm);
+        std::cerr << "Unable to open wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    SERVICE_STATUS status = {};
+    const BOOL ok = ControlService(service, SERVICE_CONTROL_STOP, &status);
+    const DWORD err = GetLastError();
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+
+    if (!ok && err != ERROR_SERVICE_NOT_ACTIVE) {
+        std::cerr << "Unable to stop wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    std::cout << "Stopped wfserver service.\n";
+    return 0;
+}
+
+static int statusWindowsService()
+{
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    if (scm == nullptr) {
+        std::cerr << "Unable to open Service Control Manager: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    SC_HANDLE service = OpenServiceW(scm, WFSERVER_SERVICE_NAME, SERVICE_QUERY_STATUS);
+    if (service == nullptr) {
+        const DWORD err = GetLastError();
+        CloseServiceHandle(scm);
+        std::cerr << "Unable to open wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    SERVICE_STATUS_PROCESS status = {};
+    DWORD bytesNeeded = 0;
+    const BOOL ok = QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, reinterpret_cast<LPBYTE>(&status), sizeof(status), &bytesNeeded);
+    const DWORD err = GetLastError();
+    CloseServiceHandle(service);
+    CloseServiceHandle(scm);
+
+    if (!ok) {
+        std::cerr << "Unable to query wfserver service: " << windowsErrorString(err).toStdString() << "\n";
+        return -1;
+    }
+
+    QString state;
+    switch (status.dwCurrentState) {
+    case SERVICE_STOPPED: state = QStringLiteral("stopped"); break;
+    case SERVICE_START_PENDING: state = QStringLiteral("start pending"); break;
+    case SERVICE_STOP_PENDING: state = QStringLiteral("stop pending"); break;
+    case SERVICE_RUNNING: state = QStringLiteral("running"); break;
+    case SERVICE_CONTINUE_PENDING: state = QStringLiteral("continue pending"); break;
+    case SERVICE_PAUSE_PENDING: state = QStringLiteral("pause pending"); break;
+    case SERVICE_PAUSED: state = QStringLiteral("paused"); break;
+    default: state = QStringLiteral("unknown"); break;
+    }
+
+    std::cout << "wfserver service is " << state.toStdString() << ".\n";
+    return 0;
+}
+
+static int handleWindowsServiceCommand(const QString& command, const QString& settingsFile,
+                                       bool serviceLocalSystem, const QString& serviceAccount,
+                                       const QString& servicePassword)
+{
+    if (command == QStringLiteral("install"))
+        return installWindowsService(settingsFile, serviceLocalSystem, serviceAccount, servicePassword);
+    if (command == QStringLiteral("install-system"))
+        return installWindowsService(settingsFile, true, QString(), QString());
+    if (command == QStringLiteral("remove") || command == QStringLiteral("uninstall"))
+        return removeWindowsService();
+    if (command == QStringLiteral("start"))
+        return startWindowsService();
+    if (command == QStringLiteral("stop"))
+        return stopWindowsService();
+    if (command == QStringLiteral("status"))
+        return statusWindowsService();
+
+    std::cerr << "Unknown --service command. Use install, remove, start, stop, status, or run.\n";
+    return -1;
+}
+
+static int runWindowsService(int argc, char* argv[])
+{
+    serviceArgStorage.clear();
+    serviceArgv.clear();
+    serviceArgStorage.reserve(argc);
+    serviceArgv.reserve(argc);
+    for (int i = 0; i < argc; ++i)
+        serviceArgStorage.append(QByteArray(argv[i]));
+    for (QByteArray& arg : serviceArgStorage)
+        serviceArgv.append(arg.data());
+
+    SERVICE_TABLE_ENTRYW serviceTable[] = {
+        { const_cast<LPWSTR>(WFSERVER_SERVICE_NAME), serviceMain },
+        { nullptr, nullptr }
+    };
+
+    if (!StartServiceCtrlDispatcherW(serviceTable)) {
+        std::cerr << "Unable to start wfserver as a Windows service: " << windowsErrorString().toStdString() << "\n";
+        return -1;
+    }
+
+    return 0;
+}
+
 bool __stdcall cleanup(DWORD sig)
  #else
 static void cleanup(int sig)
@@ -110,7 +619,6 @@ static void cleanup(int sig)
 #endif
     case SIGTERM:
         qInfo() << "terminate signal caught";
-        if (w!=nullptr) w->deleteLater();
         QCoreApplication::quit();
         break;
     default:
@@ -122,6 +630,56 @@ static void cleanup(int sig)
  #else
     return;
  #endif
+}
+
+static int startWfserverRuntime(QCoreApplication* app, const QString& settingsFile, const QString& logFilename,
+                                const QString& version, bool serviceMode)
+{
+    // Set the logging file before doing anything else.
+    m_logFile.reset(new QFile(logFilename));
+    // Open the file logging
+    if (!m_logFile.data()->open(QFile::WriteOnly | QFile::Truncate | QFile::Text)) {
+        std::cerr << "Unable to open log file: " << logFilename.toStdString() << std::endl;
+    }
+    // Set handler
+    qInstallMessageHandler(messageHandler);
+
+    qInfo(logSystem()) << version;
+
+#ifdef Q_OS_WIN
+    if (serviceMode) {
+        setServiceStatus(SERVICE_RUNNING);
+    } else {
+        SetConsoleCtrlHandler((PHANDLER_ROUTINE)cleanup, TRUE);
+    }
+#else
+    Q_UNUSED(serviceMode)
+    signal(SIGINT, cleanup);
+    signal(SIGTERM, cleanup);
+    signal(SIGKILL, cleanup);
+#endif
+
+    keyboard* kb = Q_NULLPTR;
+    if (!serviceMode) {
+        kb = new keyboard();
+        kb->start();
+    }
+
+    w = new servermain(settingsFile);
+    QObject::connect(app, &QCoreApplication::aboutToQuit, app, []() {
+        delete w;
+        w = nullptr;
+    }, Qt::DirectConnection);
+
+    const int result = app->exec();
+
+    if (kb != Q_NULLPTR) {
+        kb->quit();
+        kb->wait();
+        delete kb;
+    }
+
+    return result;
 }
 
 
@@ -164,10 +722,14 @@ void messageHandler(QtMsgType type, const QMessageLogContext& context, const QSt
 int main(int argc, char *argv[])
 {
 
+#if defined(BUILD_WFSERVER) && defined(Q_OS_WIN)
+    if (isWindowsServiceRunArg(argc, argv))
+        return runWindowsService(argc, argv);
+#endif
+
 #ifdef BUILD_WFSERVER
     QCoreApplication a(argc, argv);
     a.setApplicationName("wfserver");
-    keyboard* kb = Q_NULLPTR;
 #else
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
@@ -267,12 +829,19 @@ int main(int argc, char *argv[])
     QString currentArg;
 #ifdef BUILD_WFSERVER
     bool runSetup = false;
+    QString serviceCommand;
+    QString serviceAccount;
+    QString servicePassword;
+    bool serviceLocalSystem = false;
 #endif
 
 
     const QString helpText = QString("\nUsage: -l --logfile filename.log, -s --settings filename.ini, -c --clearconfig CONFIRM, -b --background (not Windows), -d --debug, -v --version"
 #ifdef BUILD_WFSERVER
                                      ", --setup (interactive config wizard; modify or replace settings)"
+#ifdef Q_OS_WIN
+                                     ", --service install|install-system|remove|start|stop|status|run"
+#endif
 #endif
                                      "\n"); // TODO...
 #ifdef BUILD_WFSERVER
@@ -388,6 +957,38 @@ int main(int argc, char *argv[])
         {
             runSetup = true;
         }
+#ifdef Q_OS_WIN
+        else if (currentArg == "--service")
+        {
+            if (c + 1 < argc)
+            {
+                serviceCommand = QString::fromLocal8Bit(argv[c + 1]).toLower();
+                c += 1;
+            }
+            else
+            {
+                serviceCommand = QStringLiteral("status");
+            }
+        }
+        else if (currentArg.startsWith(QLatin1String("--service=")))
+        {
+            serviceCommand = currentArg.mid(QStringLiteral("--service=").size()).toLower();
+        }
+        else if ((currentArg == "--service-account") && c + 1 < argc)
+        {
+            serviceAccount = QString::fromLocal8Bit(argv[c + 1]);
+            c += 1;
+        }
+        else if ((currentArg == "--service-password") && c + 1 < argc)
+        {
+            servicePassword = QString::fromLocal8Bit(argv[c + 1]);
+            c += 1;
+        }
+        else if (currentArg == "--service-system")
+        {
+            serviceLocalSystem = true;
+        }
+#endif
 #endif
         else if ((currentArg == "-?") || (currentArg == "--help"))
         {
@@ -435,27 +1036,17 @@ int main(int argc, char *argv[])
         return serverwizard::run(settingsFile);
     }
 
-    // Set the logging file before doing anything else.
-    m_logFile.reset(new QFile(logFilename));
-    // Open the file logging
-    if (!m_logFile.data()->open(QFile::WriteOnly | QFile::Truncate | QFile::Text)) {
-        std::cerr << "Unable to open log file: " << logFilename.toStdString() << std::endl;
+#ifdef Q_OS_WIN
+    if (!serviceCommand.isEmpty()) {
+        if (serviceCommand == QStringLiteral("run")) {
+            std::cerr << "--service run must be started by the Windows Service Control Manager.\n";
+            return -1;
+        }
+        return handleWindowsServiceCommand(serviceCommand, settingsFile, serviceLocalSystem, serviceAccount, servicePassword);
     }
-    // Set handler
-    qInstallMessageHandler(messageHandler);
+#endif
 
-    qInfo(logSystem()) << version;
-
- #ifdef Q_OS_WIN
-    SetConsoleCtrlHandler((PHANDLER_ROUTINE)cleanup, TRUE);
- #else
-    signal(SIGINT, cleanup);
-    signal(SIGTERM, cleanup);
-    signal(SIGKILL, cleanup);
- #endif
-    kb = new keyboard();
-    kb->start();
-    w = new servermain(settingsFile);
+    return startWfserverRuntime(&a, settingsFile, logFilename, version, false);
 #else
 
     // Load logging window and install message handler as early as possible
