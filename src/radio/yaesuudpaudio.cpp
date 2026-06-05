@@ -2,31 +2,57 @@
 #include "logcategories.h"
 
 namespace {
-void yaesuAudioFormatForCodec(quint8 codec, yaesuAudioFormat* format, quint16* size, quint8* channels)
+quint16 yaesuFrameBytes(quint8 codec, quint32 sampleRate, quint8 channels)
+{
+    if (sampleRate == 0)
+        sampleRate = 16000;
+
+    quint64 bytes = 0;
+    switch (codec) {
+    case 1:
+    case 32:
+        bytes = (quint64(sampleRate) * channels) / 100;
+        break;
+    case 4:
+    case 16:
+        bytes = (quint64(sampleRate) * channels * 2) / 100;
+        break;
+    case 64:
+    case 65:
+    case 128:
+        return sizeof(yaesuAudioData::pcmData);
+    default:
+        return 0;
+    }
+
+    return quint16(qBound<quint64>(1, bytes, sizeof(yaesuAudioData::pcmData)));
+}
+
+void yaesuAudioFormatForCodec(quint8 codec, quint32 sampleRate, yaesuAudioFormat* format, quint16* size, quint8* channels)
 {
     if (format == nullptr || size == nullptr || channels == nullptr)
         return;
 
     switch (codec) {
     case 1:
-        *size = 160;
         *channels = 1;
         *format = MuLaw;
+        *size = yaesuFrameBytes(codec, sampleRate, *channels);
         break;
     case 4:
-        *size = 320;
         *channels = 1;
         *format = ShortLE;
+        *size = yaesuFrameBytes(codec, sampleRate, *channels);
         break;
     case 16:
-        *size = 640;
         *channels = 2;
         *format = ShortLE;
+        *size = yaesuFrameBytes(codec, sampleRate, *channels);
         break;
     case 32:
-        *size = 320;
         *channels = 2;
         *format = MuLaw;
+        *size = yaesuFrameBytes(codec, sampleRate, *channels);
         break;
     case 64:
         *size = sizeof(yaesuAudioData::pcmData);
@@ -90,8 +116,8 @@ void yaesuUdpAudio::init()
         Do this in init as cannot emit() from constructor
     */
 
-    yaesuAudioFormatForCodec(this->rxSetup.codec, &rxAudioCodec, &rxAudioSize, &rxAudioChannels);
-    yaesuAudioFormatForCodec(this->txSetup.codec, &txAudioCodec, &txAudioSize, &txAudioChannels);
+    yaesuAudioFormatForCodec(this->rxSetup.codec, this->rxSetup.sampleRate, &rxAudioCodec, &rxAudioSize, &rxAudioChannels);
+    yaesuAudioFormatForCodec(this->txSetup.codec, this->txSetup.sampleRate, &txAudioCodec, &txAudioSize, &txAudioChannels);
 
     if (rxAudioCodec == UnknownAudio || txAudioCodec == UnknownAudio) {
         qInfo(logUdp()) << "Unsupported audio codec";

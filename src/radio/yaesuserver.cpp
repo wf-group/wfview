@@ -27,23 +27,34 @@ quint8 codecForYaesuAudio(yaesuAudioFormat format, quint8 channels)
     }
 }
 
-quint16 frameBytesForCodec(quint8 codec)
+quint16 frameBytesForCodec(quint8 codec, quint32 sampleRate)
 {
+    if (sampleRate == 0)
+        sampleRate = 16000;
+
+    quint64 bytes = 0;
     switch (codec) {
     case 1:
-        return 160;
+        bytes = quint64(sampleRate) / 100;
+        break;
     case 4:
-    case 32:
-        return 320;
+        bytes = (quint64(sampleRate) * 2) / 100;
+        break;
     case 16:
-        return 640;
+        bytes = (quint64(sampleRate) * 2 * 2) / 100;
+        break;
+    case 32:
+        bytes = (quint64(sampleRate) * 2) / 100;
+        break;
     case 64:
     case 65:
     case 128:
         return sizeof(yaesuAudioData::pcmData);
     default:
-        return 320;
+        return 0;
     }
+
+    return quint16(qBound<quint64>(1, bytes, sizeof(yaesuAudioData::pcmData)));
 }
 
 bool packetizedCodec(quint8 codec)
@@ -608,7 +619,7 @@ void yaesuServer::updateClientAudioFormat(CLIENT* client, const yaesuAudioData& 
     }
     client->audioSampleRate = data.sampleRate != 0 ? data.sampleRate : quint32(16000);
     client->audioCodec = codecForYaesuAudio(client->audioFormat, client->audioChannels);
-    client->audioFrameBytes = frameBytesForCodec(client->audioCodec);
+    client->audioFrameBytes = frameBytesForCodec(client->audioCodec, client->audioSampleRate);
 }
 
 void yaesuServer::requestAudioForClient(CLIENT* client)

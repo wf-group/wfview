@@ -132,7 +132,6 @@ void yaesuUdpControl::incomingUdp(void* buf, size_t bufLen)
             break;
         case R2C_HealthReply:
         {
-            qInfo(logUdp()) << "Got health reply";
             // This is a response to our ping request so measure latency
             status.networkLatency += lastPingSentTime.msecsTo(QDateTime::currentDateTime());
             status.networkLatency /= 2;
