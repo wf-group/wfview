@@ -15,6 +15,7 @@ private slots:
     void init();
     void queuesShortFormMorseText();
     void queuesLongFormMorseText();
+    void queuesNumericMorseText();
     void preservesMorseSpacing_data();
     void preservesMorseSpacing();
     void queuesStopMorse();
@@ -120,6 +121,13 @@ void RigCtlDTest::queuesLongFormMorseText()
     const QByteArray response = sendRigctlLine("\\send_morse CQ TEST");
     QVERIFY2(response.contains("RPRT 0"), response.constData());
     QCOMPARE(queuedMorseText(), QStringLiteral("CQ TEST"));
+}
+
+void RigCtlDTest::queuesNumericMorseText()
+{
+    const QByteArray response = sendRigctlLine("\\send_morse 73");
+    QVERIFY2(response.contains("RPRT 0"), response.constData());
+    QCOMPARE(queuedMorseText(), QStringLiteral("73"));
 }
 
 void RigCtlDTest::preservesMorseSpacing_data()
