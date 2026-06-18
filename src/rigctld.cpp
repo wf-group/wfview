@@ -291,6 +291,29 @@ static const commandStruct commands_list[] =
     { 0x00, "", funcNone, typeNone},
 };
 
+static QStringList getCommandParams(const commandStruct& cmd, bool longCommand, const QString& commandLine, QStringList splitCommand)
+{
+    if ((cmd.flags & ARG_IN_LINE) == ARG_IN_LINE)
+    {
+        const int commandLength = longCommand ? static_cast<int>(strlen(cmd.str)) : 1;
+        QString inlineText = commandLine.mid(commandLength);
+        if (inlineText.startsWith(' '))
+        {
+            inlineText.remove(0, 1);
+        }
+
+        if (inlineText.isEmpty())
+        {
+            return {};
+        }
+
+        return { inlineText };
+    }
+
+    splitCommand.removeFirst();
+    return splitCommand;
+}
+
 
 
 
@@ -472,15 +495,7 @@ void rigCtlClient::socketReadyRead()
             if ((longCommand && !strncmp(command[0].toLocal8Bit(), commands_list[i].str,MAXNAMESIZE)) ||
                    (!longCommand && !commands.isNull() && commands[0].toLatin1() == commands_list[i].sstr))
             {
-                if ((commands_list[i].flags & ARG_IN_LINE ) == ARG_IN_LINE && !longCommand)
-                {
-                    command[0].remove(0,1);
-                    command.removeAll({});
-                }
-                else
-                {
-                    command.removeFirst(); // Remove the actual command so it only contains params
-                }
+                command = getCommandParams(commands_list[i], longCommand, commands, command);
                 found = true;
                 if (extended && commands_list[i].sstr != 0xf0){
                     // First we need to repeat the original command back:
@@ -1570,15 +1585,7 @@ int rigCtlClient::getCommand(QStringList& response, bool extended, const command
         case typeString:
         {
             // Stop sending CW if a blank command is received.
-            // If 2nd letter of fullcmd is space , send space.
-            if ( fullcmd.mid(1,1) == ' ' )
-            {
-                queue->add(priorityImmediate, queueItem(func, QString(" "),false,0));
-            }
-            else
-            {
-                queue->add(priorityImmediate, queueItem(func, QString(),false,0));
-            }
+            queue->add(priorityImmediate, queueItem(func, QString(),false,0));
             break;
         }
         default:
