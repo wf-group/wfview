@@ -34,6 +34,7 @@ void rigServer::receiveRigCaps(rigCapabilities* caps)
             // Matching rig, fill-in missing details
             qInfo(logRigServer()) << "Received new rigCaps for:" << caps->modelName << "CIV:" << QString::number(caps->modelID,16);
             rig->rigAvailable = true;
+            rig->rigCaps = caps;
             rig->modelName = caps->modelName;
             rig->civAddr = caps->modelID;
             if (rig->rigName == "<NONE>") {
