@@ -175,7 +175,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}") else (qmake wfview.pro CONFIG+=release)
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -369,7 +369,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}") else (qmake wfview.pro CONFIG+=release)
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
