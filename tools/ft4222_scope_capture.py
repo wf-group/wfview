@@ -16,6 +16,7 @@ Typical use:
   sudo python3 tools/ft4222_scope_capture.py --frames 50
 
 Useful options:
+  --init                            Send ASCII INIT before reading
   --out ft710_marscap_capture.bin   Raw concatenated SPI reads
   --summary ft710_marscap_summary.csv
   --read-size 4096                  wfview's expected frame size
@@ -31,6 +32,7 @@ import ctypes
 import csv
 import datetime as _dt
 import os
+import platform
 import sys
 import time
 from pathlib import Path
@@ -54,11 +56,30 @@ class Ft4222CaptureError(RuntimeError):
     pass
 
 
-def _load_library(names: list[str]) -> ctypes.CDLL:
+def _candidate_paths(names: list[str]) -> list[str]:
+    roots = [
+        Path.cwd(),
+        Path.cwd() / "wfview-build" / "wfview-release",
+        Path.cwd() / "wfserver-build" / "wfserver-release",
+        Path.cwd().parent / "LibFT4222-v1.4.7" / "imports" / "LibFT4222" / "dll" / "amd64",
+        Path.cwd().parent / "LibFT4222-v1.4.7" / "imports" / "ftd2xx" / "dll" / "amd64",
+    ]
+    paths = names[:]
+    for root in roots:
+        for name in names:
+            paths.append(str(root / name))
+    return paths
+
+
+def _dll_loader():
+    return ctypes.WinDLL if platform.system() == "Windows" else ctypes.CDLL
+
+
+def _load_library(names: list[str]):
     last_error: Exception | None = None
-    for name in names:
+    for name in _candidate_paths(names):
         try:
-            return ctypes.CDLL(name)
+            return _dll_loader()(name)
         except OSError as exc:
             last_error = exc
     raise Ft4222CaptureError(
@@ -71,6 +92,8 @@ def _load_library(names: list[str]) -> ctypes.CDLL:
 def load_libraries() -> tuple[ctypes.CDLL, ctypes.CDLL]:
     ft4222 = _load_library(
         [
+            "LibFT4222-64.dll",
+            "LibFT4222.dll",
             "libft4222.so",
             "libft4222.so.1.4.4.44",
             "/usr/local/lib/libft4222.so",
@@ -84,6 +107,8 @@ def load_libraries() -> tuple[ctypes.CDLL, ctypes.CDLL]:
 
     ftd2xx = _load_library(
         [
+            "ftd2xx.dll",
+            "ftd2xx64.dll",
             "libftd2xx.so",
             "/usr/local/lib/libftd2xx.so",
             "/usr/lib/libftd2xx.so",
@@ -122,6 +147,15 @@ def configure_functions(ft4222: ctypes.CDLL, ftd2xx: ctypes.CDLL) -> None:
         ctypes.c_bool,
     ]
     ft4222.FT4222_SPIMaster_SingleRead.restype = ctypes.c_ulong
+    if hasattr(ft4222, "FT4222_SPIMaster_SingleWrite"):
+        ft4222.FT4222_SPIMaster_SingleWrite.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_ubyte),
+            ctypes.c_ushort,
+            ctypes.POINTER(ctypes.c_ushort),
+            ctypes.c_bool,
+        ]
+        ft4222.FT4222_SPIMaster_SingleWrite.restype = ctypes.c_ulong
     ft4222.FT4222_SetClock.argtypes = [ctypes.c_void_p, ctypes.c_int]
     ft4222.FT4222_SetClock.restype = ctypes.c_ulong
 
@@ -164,6 +198,28 @@ def hexdump_prefix(data: bytes, length: int = 16) -> str:
     return data[:length].hex(" ")
 
 
+def write_spi(ft4222: ctypes.CDLL, handle: ctypes.c_void_p, payload: bytes) -> int:
+    if not payload:
+        return 0
+    if not hasattr(ft4222, "FT4222_SPIMaster_SingleWrite"):
+        raise Ft4222CaptureError("FT4222_SPIMaster_SingleWrite is not available in the loaded library")
+
+    actual = ctypes.c_ushort()
+    buffer = (ctypes.c_ubyte * len(payload)).from_buffer_copy(payload)
+    check_status(
+        "FT4222_SPIMaster_SingleWrite",
+        ft4222.FT4222_SPIMaster_SingleWrite(
+            handle,
+            buffer,
+            len(payload),
+            ctypes.byref(actual),
+            True,
+        ),
+        FT4222_OK,
+    )
+    return actual.value
+
+
 def capture(args: argparse.Namespace) -> int:
     if args.read_size < 1 or args.read_size > 65535:
         raise Ft4222CaptureError("--read-size must be between 1 and 65535")
@@ -182,6 +238,10 @@ def capture(args: argparse.Namespace) -> int:
     print(f"Read size:  {args.read_size} bytes")
 
     handle = open_device(ft4222, ftd2xx, args.description)
+    if args.init:
+        written = write_spi(ft4222, handle, b"INIT")
+        print(f"Wrote SPI init: INIT ({written} bytes)")
+
     buffer_type = ctypes.c_ubyte * args.read_size
     buffer = buffer_type()
     actual = ctypes.c_ushort()
@@ -285,6 +345,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--seconds", type=float, default=None, help="optional maximum capture duration")
     parser.add_argument("--read-size", type=int, default=4096, help="bytes per SPI read")
     parser.add_argument("--description", default="FT4222 A", help="FTDI device description")
+    parser.add_argument("--init", action="store_true", help="send ASCII INIT over SPI before reading")
     parser.add_argument("--out", default=f"ft4222_scope_{timestamp}.bin", help="raw binary output file")
     parser.add_argument(
         "--summary",
