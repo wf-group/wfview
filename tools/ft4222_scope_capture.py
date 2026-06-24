@@ -251,6 +251,7 @@ def capture(args: argparse.Namespace) -> int:
     sync_ok = 0
     sync_bad = 0
     short_reads = 0
+    nonzero_bytes = 0
     started = _dt.datetime.now(_dt.timezone.utc).isoformat()
 
     try:
@@ -281,6 +282,7 @@ def capture(args: argparse.Namespace) -> int:
                 now = time.monotonic()
                 data = bytes(buffer[: actual.value])
                 raw.write(data)
+                nonzero_bytes += sum(1 for byte in data if byte)
 
                 ends_sync = data.endswith(SYNC)
                 offsets = []
@@ -329,6 +331,12 @@ def capture(args: argparse.Namespace) -> int:
     print(f"Frames ending sync:  {sync_ok}")
     print(f"Frames missing sync: {sync_bad}")
     print(f"Short reads:         {short_reads}")
+    print(f"Non-zero bytes:      {nonzero_bytes}")
+    if nonzero_bytes == 0:
+        print()
+        print("WARNING: Capture contains only zero bytes.")
+        print("This usually means no active FT4222 scope data was captured.")
+        print("Please do not send this empty capture unless specifically requested.")
     print()
     print("Please send these files for analysis:")
     print(f"  {out_path}")
