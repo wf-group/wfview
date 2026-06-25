@@ -10,6 +10,9 @@ wfview-debug
 wfserver-debug
 wfview-release
 wfserver-release
+tests-build/
+wfview-build/
+wfserver-build/
 ui_*
 portaudio_x86.dll
 qcustomplot2.dll

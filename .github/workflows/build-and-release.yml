@@ -1190,11 +1190,143 @@ jobs:
         retention-days: 30
 
   # ═══════════════════════════════════════════════════════════════════
-  #  Publish Release (after all builds succeed)
+  #  Linux ARM64 AppImage Build (Raspberry Pi OS Bookworm 64-bit+)
   # ═══════════════════════════════════════════════════════════════════
+  build-linux-arm64-bookworm-appimage:
+    runs-on: ubuntu-24.04-arm
+    # Build inside Debian 12 so the AppImage targets Raspberry Pi OS
+    # Bookworm 64-bit and newer. Keep this Qt5 while master/v2 Linux
+    # builds are still Qt5.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version_info
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          TAG=$(git tag --points-at HEAD | head -1)
+          if [ -n "$TAG" ]; then
+            VERSION_STRING="$TAG"
+          else
+            VERSION_STRING="$SHORT"
+          fi
+          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_STRING"
+
+      - name: Build ARM64 AppImage in Debian Bookworm
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -e VERSION_STRING="${{ steps.version_info.outputs.version_string }}" \
+            -e GIT_SHORT="${{ steps.version_info.outputs.git_short }}" \
+            -v "$PWD:/work" \
+            -w /work \
+            debian:12 \
+            bash -lc '
+              set -euo pipefail
+              export DEBIAN_FRONTEND=noninteractive
+
+              apt-get update
+              apt-get -y install \
+                build-essential \
+                ca-certificates \
+                wget \
+                file \
+                fuse libfuse2 \
+                patchelf \
+                qt5-qmake \
+                qtbase5-dev \
+                libqt5serialport5 libqt5serialport5-dev \
+                libqt5multimedia5 libqt5multimedia5-plugins qtmultimedia5-dev \
+                libqt5gamepad5 libqt5gamepad5-dev \
+                libqt5websockets5 libqt5websockets5-dev \
+                libhidapi-dev \
+                libopus-dev \
+                libeigen3-dev \
+                libportaudio2 libportaudiocpp0 portaudio19-dev \
+                librtaudio-dev \
+                libudev-dev \
+                libpulse-dev \
+                libjack-jackd2-dev \
+                libqcustomplot-dev
+
+              qmake --version
+              qmake wfview.pro CONFIG+=release PREFIX=/usr VERSION="$VERSION_STRING"
+              make -j"$(nproc)"
+
+              file wfview
+              ldd wfview | grep "not found" && exit 1 || true
+
+              rm -rf AppDir wfview-linux-arm64-bookworm.AppImage \
+                linuxdeploy linuxdeploy-plugin-qt wfview*.AppImage
+
+              mkdir -p AppDir/usr/bin
+              mkdir -p AppDir/usr/share/applications
+              mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+              mkdir -p AppDir/usr/share/metainfo
+              mkdir -p AppDir/usr/share/wfview/rigs
+              mkdir -p AppDir/usr/share/wfview/qdarkstyle
+
+              cp wfview                                   AppDir/usr/bin/
+              cp resources/wfview.desktop                 AppDir/usr/share/applications/
+              cp resources/icons/bitmap/wfview.png        AppDir/usr/share/icons/hicolor/256x256/apps/
+              cp resources/org.wfview.wfview.metainfo.xml AppDir/usr/share/metainfo/ || true
+              cp -r rigs/*                                AppDir/usr/share/wfview/rigs/
+              cp -r qdarkstyle/*                          AppDir/usr/share/wfview/qdarkstyle/
+              cp resources/wfview.desktop                 AppDir/
+              cp resources/icons/bitmap/wfview.png        AppDir/
+
+              wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage" \
+                -O linuxdeploy
+              wget -q "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-aarch64.AppImage" \
+                -O linuxdeploy-plugin-qt
+              chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+              export ARCH=aarch64
+              export APPIMAGE_EXTRACT_AND_RUN=1
+              export QMAKE="$(command -v qmake)"
+              export PATH="$(pwd):$PATH"
+
+              LIBJACK=$(ldconfig -p | awk "/libjack\\.so\\.0/{print \$NF; exit}")
+              LIBJACK_ARG=""
+              if [ -n "$LIBJACK" ]; then
+                LIBJACK_ARG="--library=$LIBJACK"
+              fi
+
+              ./linuxdeploy \
+                --appdir AppDir \
+                --desktop-file AppDir/usr/share/applications/wfview.desktop \
+                --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
+                $LIBJACK_ARG \
+                --plugin qt \
+                --output appimage
+
+              APPIMAGE_FILE=$(ls wfview*.AppImage 2>/dev/null | head -1)
+              if [ -z "$APPIMAGE_FILE" ]; then
+                echo "AppImage was not created"
+                exit 1
+              fi
+              mv "$APPIMAGE_FILE" wfview-linux-arm64-bookworm.AppImage
+              file wfview-linux-arm64-bookworm.AppImage
+              ls -lh wfview-linux-arm64-bookworm.AppImage
+            '
+
+      - name: Upload ARM64 Bookworm AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wfview-linux-arm64-bookworm-appimage
+          path: wfview-linux-arm64-bookworm.AppImage
+          retention-days: 30
+
+  # Publish Release (after all builds succeed)
   publish-release:
     runs-on: ubuntu-latest
-    needs: [build-windows-x86, build-windows-x64, build-macos, build-linux-appimage]
+    needs: [build-windows-x86, build-windows-x64, build-macos, build-linux-appimage, build-linux-arm64-bookworm-appimage]
     if: needs.build-macos.outputs.has_tag == 'true'
 
     steps:
@@ -1240,6 +1372,12 @@ jobs:
           name: wfview-linux-appimage-installer
           path: artifacts/
 
+      - name: Download Linux ARM64 Bookworm AppImage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wfview-linux-arm64-bookworm-appimage
+          path: artifacts/
+
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
@@ -1252,6 +1390,7 @@ jobs:
             artifacts/wfview-windows-x86-setup.exe
             artifacts/wfview-macos.dmg
             artifacts/wfview-linux-installer.sh
+            artifacts/wfview-linux-arm64-bookworm.AppImage
           body: |
             ## wfview ${{ steps.meta.outputs.version_string }}
 
@@ -1339,6 +1478,23 @@ jobs:
             **Requirements:** FUSE must be available to run AppImages. On Ubuntu/Debian:
             ```bash
             sudo apt install libfuse2
+            ```
+
+            ---
+
+            ### Linux ARM64 (AppImage / Qt5)
+
+            | Field | Value |
+            |-------|-------|
+            | **Architecture** | arm64 / aarch64 |
+            | **Target OS** | Raspberry Pi OS Bookworm 64-bit and newer |
+            | **Framework** | Qt 5 |
+
+            **Install:** Download `wfview-linux-arm64-bookworm.AppImage`, make it executable, and run it:
+
+            ```bash
+            chmod +x wfview-linux-arm64-bookworm.AppImage
+            ./wfview-linux-arm64-bookworm.AppImage
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
