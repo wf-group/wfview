@@ -1256,6 +1256,8 @@ jobs:
                 libjack-jackd2-dev \
                 libqcustomplot-dev
 
+              git config --global --add safe.directory /work
+
               qmake --version
               qmake wfview.pro CONFIG+=release PREFIX=/usr VERSION="$VERSION_STRING"
               make -j"$(nproc)"
