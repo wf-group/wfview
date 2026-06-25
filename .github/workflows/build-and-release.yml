@@ -1235,6 +1235,7 @@ jobs:
               apt-get -y install \
                 build-essential \
                 ca-certificates \
+                git \
                 wget \
                 file \
                 fuse libfuse2 \
