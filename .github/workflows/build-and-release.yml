@@ -36,15 +36,18 @@ jobs:
           TAG=$(git -C wfview tag --points-at HEAD | head -1)
           if [ -n "$TAG" ]; then
             VERSION_STRING="$TAG"
+            VERSION_NUMBER="${TAG#v}"
             HAS_TAG=true
           else
             VERSION_STRING="$SHORT"
+            VERSION_NUMBER="$SHORT"
             HAS_TAG=false
           fi
           echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
           echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
           echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
+          echo "Version: $VERSION_STRING numeric=$VERSION_NUMBER (has_tag=$HAS_TAG)"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -194,7 +197,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}") else (qmake wfview.pro CONFIG+=release)
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release)
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -211,7 +214,7 @@ jobs:
         if: steps.version_info.outputs.has_tag == 'true'
         shell: pwsh
         run: |
-          $VERSION = "${{ steps.version_info.outputs.version_string }}"
+          $VERSION = "${{ steps.version_info.outputs.version_number }}"
           $DATE = Get-Date -Format 'yyyy-MM-dd'
           $PKG_DIR = "wfview\installer\packages\org.wfview.wfview"
 
@@ -270,15 +273,18 @@ jobs:
           TAG=$(git -C wfview tag --points-at HEAD | head -1)
           if [ -n "$TAG" ]; then
             VERSION_STRING="$TAG"
+            VERSION_NUMBER="${TAG#v}"
             HAS_TAG=true
           else
             VERSION_STRING="$SHORT"
+            VERSION_NUMBER="$SHORT"
             HAS_TAG=false
           fi
           echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
           echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
           echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
+          echo "Version: $VERSION_STRING numeric=$VERSION_NUMBER (has_tag=$HAS_TAG)"
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -416,7 +422,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_string }}") else (qmake wfview.pro CONFIG+=release)          
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release)
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -433,7 +439,7 @@ jobs:
         if: steps.version_info.outputs.has_tag == 'true'
         shell: pwsh
         run: |
-          $VERSION = "${{ steps.version_info.outputs.version_string }}"
+          $VERSION = "${{ steps.version_info.outputs.version_number }}"
           $DATE = Get-Date -Format 'yyyy-MM-dd'
           $PKG_DIR = "wfview\installer\packages\org.wfview.wfview"
 
