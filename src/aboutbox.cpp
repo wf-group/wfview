@@ -15,7 +15,7 @@ aboutbox::aboutbox(QWidget *parent) :
     ui->topText->setText("wfview version " + QString(WFVIEW_VERSION));
 
     QString head = QString("<html><head></head><body>");
-    QString copyright = QString("Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://gitlab.com/eliggett/wfview/-/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.");
+    QString copyright = QString("Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://github.com/wf-group/wfview/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.");
     QString scm = QString("<br/><br/>Source code and issues managed by Roeland Jansen, PA3MET");
     QString doctest = QString("<br/><br/>Testing and development mentorship from Jim Nijkamp, PA8E.");
 
@@ -35,7 +35,7 @@ aboutbox::aboutbox(QWidget *parent) :
 
     QString docs = QString("<br/><br/>Be sure to check the <a href=\"https://wfview.org/wfview-user-manual/\"  style=\"color: cyan;\">User Manual</a> and <a href=\"https://forum.wfview.org/\"  style=\"color: cyan;\">the Forum</a> if you have any questions.");
     QString support = QString("<br/><br/>For support, please visit <a href=\"https://forum.wfview.org/\">the official wfview support forum</a>.");
-    QString gitcodelink = QString("<a href=\"https://gitlab.com/eliggett/wfview/-/tree/%1\"  style=\"color: cyan;\">").arg(GITSHORT);
+    QString gitcodelink = QString("<a href=\"https://github.com/wf-group/wfview/tree/%1\"  style=\"color: cyan;\">").arg(GITSHORT);
 
     QString buildInfo = QString("<br/><br/>Build " + gitcodelink + QString(GITSHORT) + "</a> on " + QString(__DATE__) + " at " + __TIME__ + " by " + UNAME + "@" + HOST);
     QString end = QString("</body></html>");
@@ -89,7 +89,7 @@ aboutbox::aboutbox(QWidget *parent) :
         "*\n"
         "* This code is used within wfview and was modified\n"
         "* You can download the source code from here: \n"
-        "* https://gitlab.com/eliggett/wfview/\n"
+        "* https://github.com/wf-group/wfview/\n"
         "*\n"
         "* Copyright 2010 Moe Wheatley AE4JY \n"
         "* Copyright 2012-2017 Alexandru Csete OZ9AEC\n"
