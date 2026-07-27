@@ -16,7 +16,7 @@ jobs:
   #  Windows 32bit Qt5 Build
   # ═══════════════════════════════════════════════════════════════════
   build-windows-x86:
-    runs-on: windows-latest
+    runs-on: windows-2022
     outputs:
       version_string: ${{ steps.version_info.outputs.version_string }}
       has_tag: ${{ steps.version_info.outputs.has_tag }}
@@ -253,7 +253,7 @@ jobs:
   #  Windows 64bit Qt6 Build
   # ═══════════════════════════════════════════════════════════════════
   build-windows-x64:
-    runs-on: windows-latest
+    runs-on: windows-2022
     outputs:
       version_string: ${{ steps.version_info.outputs.version_string }}
       has_tag: ${{ steps.version_info.outputs.has_tag }}
@@ -480,7 +480,7 @@ jobs:
   #  macOS Universal Qt6 Build
   # ═══════════════════════════════════════════════════════════════════
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     outputs:
       version_string: ${{ steps.version_info.outputs.version_string }}
       has_tag: ${{ steps.version_info.outputs.has_tag }}
