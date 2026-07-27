@@ -20,7 +20,7 @@ Item {
     // Helper function to build the about text
     function buildAboutText() {
         let head = "<html><head></head><body>";
-        let copyright = "Copyright 2017-2024 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://gitlab.com/eliggett/wfview/-/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.";
+        let copyright = "Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://github.com/wf-group/wfview/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.";
         let scm = "<br/><br/>Source code and issues managed by Roeland Jansen, PA3MET";
         let doctest = "<br/><br/>Testing and development mentorship from Jim Nijkamp, PA8E.";
         
@@ -81,7 +81,7 @@ Item {
             "*\n" +
             "* This code is used within wfview and was modified\n" +
             "* You can download the source code from here: \n" +
-            "* https://gitlab.com/eliggett/wfview/\n" +
+            "* https://github.com/wf-group/wfview/\n" +
             "*\n" +
             "* Copyright 2010 Moe Wheatley AE4JY \n" +
             "* Copyright 2012-2017 Alexandru Csete OZ9AEC\n" +
@@ -151,7 +151,7 @@ Item {
     }
     
     function buildInfoText() {
-        let gitcodelink = "<a href=\"https://gitlab.com/eliggett/wfview/-/tree/" + gitShort + "\"  style=\"color: cyan;\">";
+        let gitcodelink = "<a href=\"https://github.com/wf-group/wfview/tree/" + gitShort + "\"  style=\"color: cyan;\">";
         return "<br/><br/>Build " + gitcodelink + gitShort + "</a> on " + buildDate + " at " + buildTime + " by " + buildUser + "@" + buildHost;
     }
     
