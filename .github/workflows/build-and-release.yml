@@ -1186,6 +1186,15 @@ jobs:
         ./wfview.AppImage --appimage-list 2>/dev/null | head -40 || true
         echo "..."
 
+    # ─── Upload raw AppImage for test builds ────────────────────────────
+    - name: Upload AppImage (test build)
+      if: steps.version_info.outputs.has_tag != 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-appimage-${{ steps.version_info.outputs.version_string }}
+        path: wfview.AppImage
+        retention-days: 7
+
     # ─── Assemble makeself payload ──────────────────────────────────────
     - name: Assemble installer payload
       if: steps.version_info.outputs.has_tag == 'true'
