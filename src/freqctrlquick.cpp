@@ -734,6 +734,7 @@ void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
     {
         if (inRect(m_DigitInfo[i].dQRect, pt)) // if in i'th digit
         {
+            emit wheelTuning();
             if (numSteps > 0)
                 incFreq();
             else if (numSteps < 0)

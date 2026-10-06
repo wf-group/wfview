@@ -158,6 +158,7 @@ public:
 
 signals:
     void newFrequency(qint64 freq);     // emitted when frequency has changed
+    void wheelTuning();                 // emitted before a scroll-wheel frequency change
     void rangeChanged();
     void resetLowerDigitsChanged();
     void tuningStepChanged();

@@ -2,6 +2,7 @@
 #define RECEIVERCONTROLLER_H
 
 #include <QObject>
+#include <QDeadlineTimer>
 
 
 #include "spectrumitem.h"
@@ -206,6 +207,9 @@ public:
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
     Q_INVOKABLE void tuneSteps(int steps, int modifiers = 0, bool uniqueQueue = false);
     Q_INVOKABLE void tuneToFrequencyMHz(double freqMHz);
+    // Scroll tuning: drop stale radio frequency reports so they don't
+    // overwrite the frequency the user is scrolling to.
+    Q_INVOKABLE void holdFrequencyUpdates(bool vfoB = false);
     Q_INVOKABLE void resizePassband(double lowFreqMHz, double highFreqMHz);
     Q_INVOKABLE void dragPbt(int action, double deltaMHz);
     Q_INVOKABLE void resetPbt();
@@ -272,6 +276,9 @@ public slots:
 
     void setFrequencyA(quint64 f, bool u=true);
     void setFrequencyB(quint64 f, bool u=true);
+    // Frequency reported by the radio; ignored while a scroll hold is active.
+    void receiveFrequencyA(quint64 f);
+    void receiveFrequencyB(quint64 f);
 
     void setBand(availableBands b, bool u=true);
     void setMemoryMode(bool enabled, bool u=true);
@@ -472,6 +479,12 @@ private:
     // These need to be settable
     bool tuningFloorZeros=false;
     quint64 stepSize = 100;
+
+    // After scroll tuning, radio reports are dropped until the radio reports
+    // the frequency we are showing, or this timeout passes since the last scroll.
+    static constexpr int freqHoldMs = 1000;
+    QDeadlineTimer freqHoldA;   // default-constructed timers are expired
+    QDeadlineTimer freqHoldB;
 
     meter_t m_meterType = meterS;
     double m_meter = 0.0;

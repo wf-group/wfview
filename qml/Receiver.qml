@@ -426,6 +426,10 @@ Control {
 
                                 visible: controller && ((controller.uiFlags & ReceiverController.ShowVFOA) !== 0)
 
+                                onWheelTuning: {
+                                    if (controller)
+                                        controller.holdFrequencyUpdates(false)
+                                }
                                 onNewFrequency: function(freq) {
                                     controller.setFrequencyA(freq, true)
                                     controller.frequencyAChanged()
@@ -528,6 +532,10 @@ Control {
 
                                 visible: controller && ((controller.uiFlags & ReceiverController.ShowVFOB) !== 0)
 
+                                onWheelTuning: {
+                                    if (controller)
+                                        controller.holdFrequencyUpdates(true)
+                                }
                                 onNewFrequency: function(freq) {
                                     controller.setFrequencyB(freq, true)
                                     controller.frequencyBChanged()

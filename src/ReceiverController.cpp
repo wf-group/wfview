@@ -396,6 +396,9 @@ void ReceiverController::onWheelTune(int angleDeltaY, int modifiers)
     //if (freqLock)
     //    return;
 
+    if (angleDeltaY != 0)
+        holdFrequencyUpdates(false);
+
     // Convert angle delta to "steps" like QWidget wheel notches.
     // Typical mouse wheel: 120 per notch.
     const int steps = angleDeltaY / 120;
@@ -464,6 +467,34 @@ void ReceiverController::tuneToFrequencyMHz(double freqMHz)
         return;
 
     setFrequencyA(hz, true);
+}
+
+void ReceiverController::holdFrequencyUpdates(bool vfoB)
+{
+    if (vfoB)
+        freqHoldB.setRemainingTime(freqHoldMs, Qt::PreciseTimer);
+    else
+        freqHoldA.setRemainingTime(freqHoldMs, Qt::PreciseTimer);
+}
+
+void ReceiverController::receiveFrequencyA(quint64 f)
+{
+    if (!freqHoldA.hasExpired()) {
+        if (f != frequencyA)
+            return;     // stale report from earlier in the scroll
+        freqHoldA = QDeadlineTimer();   // radio has caught up
+    }
+    setFrequencyA(f, false);
+}
+
+void ReceiverController::receiveFrequencyB(quint64 f)
+{
+    if (!freqHoldB.hasExpired()) {
+        if (f != frequencyB)
+            return;
+        freqHoldB = QDeadlineTimer();
+    }
+    setFrequencyB(f, false);
 }
 
 void ReceiverController::resizePassband(double lowFreqMHz, double highFreqMHz)

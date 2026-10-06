@@ -4078,9 +4078,9 @@ void MainController::receiveValueFromQueue(cacheItem val)
     {
         const freqt frequency = val.value.value<freqt>();
         if (vfo == 0)
-            receivers[val.receiver]->setFrequencyA(frequency.Hz,false);
+            receivers[val.receiver]->receiveFrequencyA(frequency.Hz);
         else
-            receivers[val.receiver]->setFrequencyB(frequency.Hz,false);
+            receivers[val.receiver]->receiveFrequencyB(frequency.Hz);
         if (val.receiver == 0 && vfo == 0 && !m_transmitting) {
             m_repeaterMainFrequency = frequency;
             m_repeaterHaveMainFrequency = true;
