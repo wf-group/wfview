@@ -2474,6 +2474,11 @@ void MainController::quitApplication()
 
 void MainController::ctChanged(SettingsController::prefCtItems items)
 {
+    if (items.testFlag(prefCtItem::ct_niceTS)) {
+        for (auto *r : std::as_const(receivers)) {
+            if (r) r->setTuningFloorZeros(prefs->niceTS);
+        }
+    }
 #if defined(USB_CONTROLLER)
     if (items.testFlag(prefCtItem::ct_enableUSBControllers)) {
         if (!prefs->enableUSBControllers)
@@ -2481,8 +2486,6 @@ void MainController::ctChanged(SettingsController::prefCtItems items)
         else
             setupUsbControllerDevice();
     }
-#else
-    Q_UNUSED(items)
 #endif
 }
 
@@ -3703,6 +3706,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
             auto *rc = new ReceiverController(i, prefs->region, this);   // UI thread only
             rc->setColors(m_settings->getCurrentColorPreset());
+            rc->setTuningFloorZeros(prefs->niceTS);
+            rc->receiveStepSize(stepSize);
             m_settings->ensureReceiverSettings(i);
             const QVariantMap receiverPrefs = m_settings->receiverSettings(i);
             rc->setScopeDisplaySettings(receiverPrefs.value("PlotFloor").toInt(),
@@ -4218,7 +4223,9 @@ void MainController::receiveValueFromQueue(cacheItem val)
                                });
         if (it != rigCaps->steps.end() && it->hz != stepSize && it->num != 0) {
             stepSize = it->hz;
-            receivers[val.receiver]->receiveStepSize(it->hz);
+            for (auto *r : std::as_const(receivers)) {
+                if (r) r->receiveStepSize(stepSize);
+            }
             emit stepSizeChanged();
         }
         break;

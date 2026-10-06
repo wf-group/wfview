@@ -282,7 +282,7 @@ void SpectrumItem::mousePressEvent(QMouseEvent *event)
     for (const SpotLayout &layout : std::as_const(spotLayouts)) {
         if (layout.rect.contains(pos)) {
             hit = &layout;
-            emit tuneRequested(hit->spot.frequency);
+            emit spotTuneRequested(hit->spot.frequency);
             event->accept();
             return;
         }

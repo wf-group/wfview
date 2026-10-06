@@ -142,6 +142,7 @@ signals:
     void underlayModeChanged();
     void underlayBufferSizeChanged();
     void tuneRequested(double freqMHz);
+    void spotTuneRequested(double freqMHz);
     void spotsChanged();
     void overflowChanged();
     void outOfRangeChanged();

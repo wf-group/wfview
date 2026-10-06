@@ -1267,7 +1267,7 @@ ApplicationWindow {
 
                             CheckBox {
                                 id: tuningFloorZerosChk
-                                checked: optBool("Controls.NiceTS", false)
+                                checked: optBool("Controls.NiceTS", true)
                                 onClicked: if (controller) controller.setOption("Controls.NiceTS", checked)
 
                                 text: qsTr("When tuning, set lower digits to zero")

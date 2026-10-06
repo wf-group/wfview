@@ -453,6 +453,19 @@ void ReceiverController::tuneSteps(int steps, int modifiers, bool uniqueQueue)
     }
 }
 
+void ReceiverController::tuneToFrequencyMHz(double freqMHz)
+{
+    // Click/drag tuning from the spectrum or waterfall.
+    if (freqMHz <= 0.0)
+        return;
+
+    const quint64 hz = roundFrequency(quint64(std::llround(freqMHz * 1E6)), stepSize);
+    if (hz == 0)
+        return;
+
+    setFrequencyA(hz, true);
+}
+
 void ReceiverController::resizePassband(double lowFreqMHz, double highFreqMHz)
 {
     if (mode.bwMin <= 0 || mode.bwMax <= 0)
@@ -1225,7 +1238,6 @@ void ReceiverController::setFrequencyA(quint64 f, bool u)
         updatePassband();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoA,receiver,true);
-            f = roundFrequency(f,stepSize);
             freqt fr;
             fr.Hz = f;
             fr.MHzDouble = double(f / 1000000.0);
@@ -1268,7 +1280,6 @@ void ReceiverController::setFrequencyB(quint64 f, bool u)
         emit frequencyBChanged();
         if (u) {
             vfoCommandType t = queue->getVfoCommand(vfoB,receiver,true);
-            f = roundFrequency(f,stepSize);
             freqt fr;
             fr.Hz = f;
             fr.MHzDouble = double(f / 1000000.0);
@@ -1873,24 +1884,43 @@ void ReceiverController::storeBsr()
 
 quint64 ReceiverController::roundFrequency(quint64 frequency, unsigned int tsHz)
 {
-    return roundFrequency(frequency, 0, tsHz);
+    // Absolute tuning (click/drag): snap to the nearest multiple of the tuning step.
+    if (!tuningFloorZeros || tsHz < 2)
+        return frequency;
+
+    const quint64 remainder = frequency % tsHz;
+    return (remainder >= tsHz / 2) ? frequency + tsHz - remainder : frequency - remainder;
 }
 
 quint64 ReceiverController::roundFrequency(quint64 frequency, int steps, unsigned int tsHz)
 {
-    if(steps > 0)
+    // Relative tuning (wheel, knob, USB controller): move by steps * tsHz.
+    // With tuningFloorZeros, land on a multiple of tsHz, e.g. 14.2956678 MHz
+    // with a 1 kHz step goes to 14.296000 (up) or 14.295000 (down).
+    if (tsHz < 1)
+        tsHz = 1;
+
+    const quint64 delta = quint64(std::abs(steps)) * tsHz;
+
+    if (!tuningFloorZeros)
     {
-        frequency = frequency + (quint64)(steps*tsHz);
-    } else if (steps < 0) {
-        frequency = frequency - std::min((quint64)(abs(steps)*tsHz), frequency);
+        if (steps > 0)
+            return frequency + delta;
+        return frequency - std::min(delta, frequency);
     }
 
-    quint64 rounded = frequency;
+    const quint64 remainder = frequency % tsHz;
+    const quint64 floored = frequency - remainder;
 
-    if(tuningFloorZeros)
+    if (steps > 0)
+        return floored + delta;
+
+    if (steps < 0)
     {
-        rounded = ((frequency % tsHz) > tsHz/2) ? frequency + tsHz - frequency%tsHz : frequency - frequency%tsHz;
+        // When off-grid, the first step down is to the floor itself.
+        const quint64 down = remainder ? delta - tsHz : delta;
+        return floored - std::min(down, floored);
     }
 
-    return rounded;
+    return floored;
 }

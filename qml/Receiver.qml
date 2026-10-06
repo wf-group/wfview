@@ -329,8 +329,12 @@ Control {
                     peakDecay: MainController.settings ? Number(MainController.settings.options["Interface.PeakDecay"]) : 50
                     underlayBufferSize: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayBufferSize"]) : 80
                     onTuneRequested: function(freq) {
-                        controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
+                        controller.tuneToFrequencyMHz(freq)   // honours "set lower digits to zero"
                         controller.frequencyAChanged() // Signal the controller that frequency has changed
+                    }
+                    onSpotTuneRequested: function(freq) {
+                        controller.setFrequencyA(Math.round(freq*1000000.0),true)   // spots tune exactly
+                        controller.frequencyAChanged()
                     }
                     onPassbandResizeRequested: function(lowFreq, highFreq) {
                         if (controller)
@@ -361,7 +365,7 @@ Control {
                     ceiling: controller ? controller.plotCeiling : 160
                     smooth: controller ? (controller.waterfallSmooth || controller.waterfallAntiAlias) : true
                     onTuneRequested: function(freq) {
-                        controller.setFrequencyA(freq*1000000.0,true)   // or controller.setFrequencyHz(freq)
+                        controller.tuneToFrequencyMHz(freq)   // honours "set lower digits to zero"
                         controller.frequencyAChanged() // Signal the controller that frequency has changed
                     }
                     onProcessingTimeNs: function(ns) {
@@ -417,6 +421,8 @@ Control {
                                       : 0
 
                                 frequency: controller ? controller.frequencyA : 0
+                                resetLowerDigits: controller ? controller.tuningFloorZeros : false
+                                tuningStep: MainController ? MainController.stepSize : 0
 
                                 visible: controller && ((controller.uiFlags & ReceiverController.ShowVFOA) !== 0)
 
@@ -517,6 +523,8 @@ Control {
                                       : 0
 
                                 frequency: controller ? controller.frequencyB : 0
+                                resetLowerDigits: controller ? controller.tuningFloorZeros : false
+                                tuningStep: MainController ? MainController.stepSize : 0
 
                                 visible: controller && ((controller.uiFlags & ReceiverController.ShowVFOB) !== 0)
 

@@ -19,6 +19,7 @@ class ReceiverController : public QObject
     Q_PROPERTY(QString title READ getTitle WRITE setTitle NOTIFY titleChanged)
     Q_PROPERTY(quint64 frequencyA READ getFrequencyA WRITE setFrequencyA NOTIFY frequencyAChanged)
     Q_PROPERTY(quint64 frequencyB READ getFrequencyB WRITE setFrequencyB NOTIFY frequencyBChanged)
+    Q_PROPERTY(bool tuningFloorZeros READ getTuningFloorZeros NOTIFY tuningFloorZerosChanged)
     Q_PROPERTY(uchar scopeMode READ getScopeMode WRITE setScopeMode NOTIFY scopeModeChanged)
     Q_PROPERTY(uchar scopeSpan READ getScopeSpan WRITE setScopeSpan NOTIFY scopeSpanChanged)
     Q_PROPERTY(uchar scopeEdge READ getScopeEdge WRITE setScopeEdge NOTIFY scopeEdgeChanged)
@@ -204,6 +205,7 @@ public:
 
     Q_INVOKABLE void onWheelTune(int angleDeltaY, int modifiers);
     Q_INVOKABLE void tuneSteps(int steps, int modifiers = 0, bool uniqueQueue = false);
+    Q_INVOKABLE void tuneToFrequencyMHz(double freqMHz);
     Q_INVOKABLE void resizePassband(double lowFreqMHz, double highFreqMHz);
     Q_INVOKABLE void dragPbt(int action, double deltaMHz);
     Q_INVOKABLE void resetPbt();
@@ -288,6 +290,13 @@ public slots:
     void receiveMeter(meter_t meter, double level);
 
     void receiveStepSize(quint64 s) { stepSize = s;}
+    void setTuningFloorZeros(bool tf) {
+        if (tuningFloorZeros != tf) {
+            tuningFloorZeros = tf;
+            emit tuningFloorZerosChanged();
+        }
+    }
+    bool getTuningFloorZeros() const { return tuningFloorZeros; }
 
     void setBsrReg(uchar r) {
         if (bsr.reg != r)
@@ -354,6 +363,7 @@ signals:
 
     void passbandChanged();
     void frequencyAChanged();
+    void tuningFloorZerosChanged();
     void frequencyBChanged();
     void drawerTitleChanged();
 

@@ -77,7 +77,7 @@ FreqCtrlQuick::FreqCtrlQuick()
     m_LastLeadZeroPos = 0;
     m_LRMouseFreqSel = false;
     m_ActiveEditDigit = -1;
-    m_ResetLowerDigits = true;
+    m_ResetLowerDigits = false;
     m_InvertScrolling = false;
     const int fontid = QFontDatabase::addApplicationFont(":/resources/frequency.ttf");
     const QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontid);
@@ -1280,12 +1280,7 @@ void FreqCtrlQuick::incFreq()
         if (m_DigitInfo[m_ActiveEditDigit].editmode)
         {
             m_freq += m_DigitInfo[m_ActiveEditDigit].incval;
-            if (m_ResetLowerDigits)
-            {
-                /* Set digits below the active one to 0 */
-                m_freq = m_freq - m_freq %
-                                      m_DigitInfo[m_ActiveEditDigit].weight;
-            }
+            zeroBelowTuningStep();
             setFrequency(m_freq);
             m_LastEditDigit = m_ActiveEditDigit;
         }
@@ -1345,17 +1340,25 @@ void FreqCtrlQuick::decFreq()
         if (m_DigitInfo[m_ActiveEditDigit].editmode)
         {
             m_freq -= m_DigitInfo[m_ActiveEditDigit].incval;
-            if (m_ResetLowerDigits)
-            {
-                /* digits below the active one are reset to 0 */
-                m_freq = m_freq - m_freq %
-                                      m_DigitInfo[m_ActiveEditDigit].weight;
-            }
-
+            zeroBelowTuningStep();
             setFrequency(m_freq);
             m_LastEditDigit = m_ActiveEditDigit;
         }
     }
+}
+
+// When enabled, set digits below the tuning step to zero, but only when the
+// active digit is at or above the tuning step and below the MHz digit.
+void FreqCtrlQuick::zeroBelowTuningStep()
+{
+    if (!m_ResetLowerDigits || m_TuningStep < 2 || m_ActiveEditDigit < 0)
+        return;
+
+    const qint64 weight = m_DigitInfo[m_ActiveEditDigit].weight;
+    if (weight < m_TuningStep || weight >= 1000000)
+        return;
+
+    m_freq -= m_freq % m_TuningStep;
 }
 
 // Clear the selected digit and the digits below (i.e. set them to 0)

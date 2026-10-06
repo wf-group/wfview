@@ -48,6 +48,7 @@ class FreqCtrlQuick : public QQuickPaintedItem
     Q_PROPERTY(qint64 minFrequency READ getMinFrequency WRITE setMinFrequency NOTIFY rangeChanged)
     Q_PROPERTY(qint64 maxFrequency READ getMaxFrequency WRITE setMaxFrequency NOTIFY rangeChanged)
     Q_PROPERTY(bool resetLowerDigits READ getResetLowerDigits WRITE setResetLowerDigits NOTIFY resetLowerDigitsChanged)
+    Q_PROPERTY(qint64 tuningStep READ getTuningStep WRITE setTuningStep NOTIFY tuningStepChanged)
     Q_PROPERTY(bool invertScrolling READ getInvertScrolling WRITE setInvertScrolling NOTIFY invertScrollingChanged)
     Q_PROPERTY(int unit READ getUnitInt WRITE setUnitInt NOTIFY unitChanged)
     Q_PROPERTY(QColor digitColor READ getDigitColor WRITE setDigitColor NOTIFY colorsChanged)
@@ -109,6 +110,7 @@ public:
     }
 
     bool getResetLowerDigits() const { return m_ResetLowerDigits; }
+    qint64 getTuningStep() const { return m_TuningStep; }
     bool getInvertScrolling() const { return m_InvertScrolling; }
 
     FctlUnit getUnit() const { return m_Unit; }
@@ -140,13 +142,25 @@ public:
     QChar getDsep() const { return dsep;}
     QChar getGsep() const { return gsep;}
 
-    void setResetLowerDigits(bool reset) { m_ResetLowerDigits = reset; }
+    void setResetLowerDigits(bool reset) {
+        if (m_ResetLowerDigits != reset) {
+            m_ResetLowerDigits = reset;
+            emit resetLowerDigitsChanged();
+        }
+    }
+    void setTuningStep(qint64 step) {
+        if (m_TuningStep != step) {
+            m_TuningStep = step;
+            emit tuningStepChanged();
+        }
+    }
     void setInvertScrolling(bool invert) { m_InvertScrolling = invert; }
 
 signals:
     void newFrequency(qint64 freq);     // emitted when frequency has changed
     void rangeChanged();
     void resetLowerDigitsChanged();
+    void tuningStepChanged();
     void invertScrollingChanged();
     void unitChanged();
     void colorsChanged();
@@ -202,6 +216,7 @@ private:
     void decDigit();
     void incFreq();
     void decFreq();
+    void zeroBelowTuningStep();
     void clearFreq();
     void cursorHome();
     void cursorEnd();
@@ -219,6 +234,7 @@ private:
     bool        m_DirectEntryFilterInstalled = false;
 
     bool        m_ResetLowerDigits = false;
+    qint64      m_TuningStep = 0;
     bool        m_InvertScrolling = false;
 
     int         m_FirstEditableDigit = 0;
