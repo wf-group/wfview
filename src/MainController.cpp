@@ -4757,6 +4757,7 @@ void MainController::setDefPrefs()
     defprefs->compMeterReverse = false;
     defprefs->region = "1";
     defprefs->showBands = true;
+    defprefs->miniRxButtons = true;
     defprefs->manufacturer = manufIcom;
     defprefs->useUTC = false;
     defprefs->setRadioTime = false;
@@ -5040,6 +5041,7 @@ void MainController::loadSettings(QString settingsFile)
     prefs->region = settings->value("Region",defprefs->region).toString();
     //bandbtns->setRegion(prefs->region);
     prefs->showBands = settings->value("ShowBands",defprefs->showBands).toBool();
+    prefs->miniRxButtons = settings->value("MiniRxButtons",defprefs->miniRxButtons).toBool();
 
     //ui->rigCreatorBtn->setEnabled(prefs->rigCreatorEnable);
 

@@ -1479,6 +1479,15 @@ ApplicationWindow {
                                 checked: optBool("Interface.ShowBands", true)
                                 onClicked: if (controller) controller.setOption("Interface.ShowBands", checked)
                             }
+
+                            CheckBox {
+                                id: miniRxButtonsChk
+                                text: qsTr("Mini RX Buttons")
+                                checked: optBool("Interface.MiniRxButtons", true)
+                                onClicked: if (controller) controller.setOption("Interface.MiniRxButtons", checked)
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Use compact menu buttons to open the Bands and RX Settings panels")
+                            }
                             Item { Layout.fillWidth: true }
                         }
 

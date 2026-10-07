@@ -17,6 +17,8 @@ Control {
     property alias sidePanelOpen: sidePanel.open
     property bool restoringReceiverUiState: true
     property bool receiverFullScreen: false
+    readonly property bool miniRxButtons: boolReceiverSettingValue(
+        MainController.settings ? MainController.settings.options["Interface.MiniRxButtons"] : undefined, true)
 
     signal requestDetach(var globalPos)
     signal fullScreenRequested(bool enabled)
@@ -155,7 +157,7 @@ Control {
                 Meter {
                     id: smeter
                     anchors.left: parent.left
-                    anchors.leftMargin: 36
+                    anchors.leftMargin: bandDrawerButton.x + bandDrawerButton.width + 5
                     anchors.top: parent.top
                     anchors.topMargin: 2
                     width: 300
@@ -236,7 +238,9 @@ Control {
 
                         // keep it out of the meter area when things get tight
                         readonly property int leftLimit: smeter.x + smeter.width + 8
-                        readonly property int maxW: Math.max(0, header.width - leftLimit - 8)
+                        // and clear of the receiver settings button on the right
+                        readonly property int rightLimit: header.width - drawerButton.width - 12
+                        readonly property int maxW: Math.max(0, rightLimit - leftLimit)
 
                         width: Math.min(titleText.implicitWidth + 12, maxW)
                         height: Math.max(titleText.implicitHeight + 6, 18)
@@ -282,13 +286,23 @@ Control {
 
                 ToolButton {
                     id: bandDrawerButton
-                    text: qsTr("\u2630")
-                    anchors.top: parent.top
+                    text: root.miniRxButtons ? qsTr("\u2630") : qsTr("Bands")
+                    anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
-                    anchors.margins: 3
-                    width: 28
-                    height: 24
+                    anchors.leftMargin: 3
+                    width: root.miniRxButtons ? 28 : implicitWidth
+                    height: header.height - 4
+                    verticalPadding: 2
                     z: 10
+
+                    // Fusion only draws a ToolButton outline on hover, so keep
+                    // it visible when it's a text button.
+                    Binding {
+                        target: bandDrawerButton.background
+                        property: "visible"
+                        value: true
+                        when: !root.miniRxButtons
+                    }
                     onClicked: {
                         bandPanel.open = !bandPanel.open
                         bandPanel.slide = bandPanel.open ? bandPanel.width : 0
@@ -2069,10 +2083,20 @@ Control {
 
         ToolButton {
             id: drawerButton
-            text: qsTr("\u2630")
-            anchors.top: parent.top
+            text: root.miniRxButtons ? qsTr("\u2630") : qsTr("RX Settings")
             anchors.right: parent.right
-            anchors.margins: 6
+            anchors.rightMargin: 6
+            // Vertically centered on the receiver header
+            y: contentLayout.y + header.y + (header.height - height) / 2
+            height: header.height - 4
+            verticalPadding: 2
+
+            Binding {
+                target: drawerButton.background
+                property: "visible"
+                value: true
+                when: !root.miniRxButtons
+            }
             onClicked: {
                 sidePanel.open = !sidePanel.open
                 sidePanel.slide = sidePanel.open ? sidePanel.width : 0

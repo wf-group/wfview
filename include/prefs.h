@@ -309,6 +309,7 @@ struct preferences {
     int frequencyUnits = 3;
     QString region;
     bool showBands;
+    bool miniRxButtons = true;
 
     // Radio:
     manufacturersType_t manufacturer;
