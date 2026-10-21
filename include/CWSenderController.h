@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QList>
+#include <QTimer>
 #include "wfviewtypes.h"
 #include "cachingqueue.h"
 #include "rigcommander.h"
@@ -35,6 +37,18 @@ class CWSenderController : public QObject
     Q_PROPERTY(bool receiveVisible READ receiveVisible WRITE setReceiveVisible NOTIFY receiveVisibleChanged)
     Q_PROPERTY(bool canSendCW READ canSendCW NOTIFY canSendCWChanged)
 
+    // CW decoder. Each control is only offered when the rig file defines its command.
+    Q_PROPERTY(bool cwDecodeAvailable READ cwDecodeAvailable NOTIFY cwCapsChanged)
+    Q_PROPERTY(bool cwDecodeActive READ cwDecodeActive NOTIFY cwDecodeActiveChanged)
+    Q_PROPERTY(bool cwDecodeBusy READ cwDecodeBusy NOTIFY cwDecodeBusyChanged)
+    Q_PROPERTY(bool cwDecodeThresholdAvailable READ cwDecodeThresholdAvailable NOTIFY cwCapsChanged)
+    Q_PROPERTY(int cwDecodeThresholdMin READ cwDecodeThresholdMin NOTIFY cwCapsChanged)
+    Q_PROPERTY(int cwDecodeThresholdMax READ cwDecodeThresholdMax NOTIFY cwCapsChanged)
+    Q_PROPERTY(int cwDecodeThreshold READ cwDecodeThreshold WRITE setCwDecodeThreshold NOTIFY cwDecodeThresholdChanged)
+    Q_PROPERTY(bool cwDecodeFilterAvailable READ cwDecodeFilterAvailable NOTIFY cwCapsChanged)
+    Q_PROPERTY(int cwDecodeFilter READ cwDecodeFilter WRITE setCwDecodeFilter NOTIFY cwDecodeFilterChanged)
+    Q_PROPERTY(bool cwAutoTuneAvailable READ cwAutoTuneAvailable NOTIFY cwCapsChanged)
+
 public:
     explicit CWSenderController(QObject* parent = nullptr);
     ~CWSenderController();
@@ -58,6 +72,16 @@ public:
     bool macroEditMode() const { return m_macroEditMode; }
     bool receiveVisible() const { return m_receiveVisible; }
     bool canSendCW() const { return m_canSendCW; }
+    bool cwDecodeAvailable() const { return m_cwDecodeAvailable; }
+    bool cwDecodeActive() const { return m_cwDecodeActive; }
+    bool cwDecodeBusy() const { return m_cwDecodeBusy; }
+    bool cwDecodeThresholdAvailable() const { return m_cwDecodeThresholdAvailable; }
+    int cwDecodeThresholdMin() const { return m_cwDecodeThresholdMin; }
+    int cwDecodeThresholdMax() const { return m_cwDecodeThresholdMax; }
+    int cwDecodeThreshold() const { return m_cwDecodeThreshold; }
+    bool cwDecodeFilterAvailable() const { return m_cwDecodeFilterAvailable; }
+    int cwDecodeFilter() const { return m_cwDecodeFilter; }
+    bool cwAutoTuneAvailable() const { return m_cwAutoTuneAvailable; }
     
     // Property setters
     void setVisible(bool visible);
@@ -75,6 +99,8 @@ public:
     void setSequenceNumber(int val);
     void setMacroEditMode(bool val);
     void setReceiveVisible(bool val);
+    void setCwDecodeThreshold(int val);
+    void setCwDecodeFilter(int val);
     void loadSettings(bool cutNumbers, bool sendImmediate, bool sidetoneEnabled, int sidetoneLevel, const QStringList& macros);
     
     // Macro management
@@ -91,6 +117,11 @@ public:
     Q_INVOKABLE void textChanged(const QString& text);
     Q_INVOKABLE void appendReceiveText(const QString& text);
     Q_INVOKABLE void appendTranscriptText(const QString& text);
+    // Turns the radio's CW decoder on or off, stepping through any commands it depends on.
+    // cwDecodeActive follows the radio's confirmed state, not this request.
+    Q_INVOKABLE void setCwDecode(bool on);
+    // Asks the radio to tune onto the CW signal. Momentary, so there is no state to follow.
+    Q_INVOKABLE void cwAutoTune();
     
 public slots:
     void handleKeySpeed(quint8 wpm);
@@ -103,6 +134,10 @@ public slots:
     void receive(QString text);
     void receiveEnabled(bool en);
     void receiveRigCaps(rigCapabilities* caps);
+    void handleCwDecodeEnable(bool on);
+    void handleCwDecodeDisplay(bool on);
+    void handleCwDecodeThreshold(quint8 val);
+    void handleCwDecodeFilter(quint8 val);
     
 signals:
     // Window signals
@@ -126,6 +161,11 @@ signals:
     void maxCharsChanged();
     void canSendCWChanged();
     void keyerSettingsChanged();
+    void cwCapsChanged();
+    void cwDecodeActiveChanged();
+    void cwDecodeBusyChanged();
+    void cwDecodeThresholdChanged();
+    void cwDecodeFilterChanged();
     
     // Text update signals for QML
     void receiveTextAppended(QString text);
@@ -146,6 +186,18 @@ private:
     void setStatusMessage(const QString& msg);
     void updateTextColor(const QString& text);
     QString processMacroText(const QString& macroText);
+
+    // CW decoder sequencing
+    struct CwDecodeStep {
+        funcs func;
+        bool value;
+    };
+    void queryCwDecodeState();
+    void runCwDecodeStep();
+    void cwDecodeStepTimeout();
+    void finishCwDecodeSequence();
+    void setCwDecodeBusy(bool busy);
+    void updateCwDecodeActive();
     
     // UI state
     bool m_visible;
@@ -166,6 +218,25 @@ private:
     bool m_macroEditMode;
     bool m_receiveVisible;
     bool m_canSendCW;
+
+    // CW decoder state
+    bool m_cwDecodeAvailable = false;
+    bool m_cwDecodeHasDisplay = false; // the rig needs CW Decode Display on before the decoder works
+    bool m_cwDecodeActive = false;
+    bool m_cwDecodeBusy = false;
+    bool m_cwDecodeEnableOn = false;
+    bool m_cwDecodeDisplayOn = false;
+    bool m_cwDecodeThresholdAvailable = false;
+    int m_cwDecodeThresholdMin = 1;
+    int m_cwDecodeThresholdMax = 30;
+    int m_cwDecodeThreshold = 10;
+    bool m_cwDecodeFilterAvailable = false;
+    int m_cwDecodeFilter = 0;
+    bool m_cwAutoTuneAvailable = false;
+    QList<CwDecodeStep> m_cwDecodeSteps;
+    int m_cwDecodeStepIndex = 0;
+    int m_cwDecodeRetries = 0;
+    QTimer m_cwDecodeTimer;
     
     // Macro storage
     QString m_macroText[11]; // 1-10 indexed

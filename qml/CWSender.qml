@@ -57,6 +57,35 @@ ApplicationWindow {
         }
     }
     
+    // Scrollback limits for the receive and transcript panes. When either
+    // limit is exceeded the oldest text is trimmed back to 90% of the limit.
+    readonly property int maxTextLines: 2000
+    readonly property int maxTextChars: 200000
+
+    // Text arrives a few characters at a time (decoded CW, immediate-send
+    // words), so insert inline rather than as a new paragraph per call.
+    function appendLimited(area, text) {
+        area.insert(area.length, text)
+
+        var t = area.text
+        var cut = 0
+        if (t.length > maxTextChars)
+            cut = t.length - Math.floor(maxTextChars * 0.9)
+
+        var lines = t.split("\n").length
+        if (lines > maxTextLines) {
+            var drop = lines - Math.floor(maxTextLines * 0.9)
+            var pos = -1
+            for (var i = 0; i < drop && (pos = t.indexOf("\n", pos + 1)) >= 0; ++i) {}
+            if (pos >= 0)
+                cut = Math.max(cut, pos + 1)
+        }
+
+        if (cut > 0)
+            area.remove(0, cut)
+        area.cursorPosition = area.length
+    }
+
     Component.onCompleted: {
         applyDisabledPalette()
         closing.connect(function(close) {
@@ -71,11 +100,11 @@ ApplicationWindow {
         target: cwSenderController
         
         function onReceiveTextAppended(text) {
-            receiveText.append(text)
+            cwSenderWindow.appendLimited(receiveText, text)
         }
         
         function onTranscriptTextAppended(text) {
-            transcriptText.append(text)
+            cwSenderWindow.appendLimited(transcriptText, text)
         }
         
         function onTextColorChanged(color) {
@@ -110,22 +139,34 @@ ApplicationWindow {
         anchors.margins: 10
         spacing: 5
         
-        // Top section: Receive and Transcript text
-        RowLayout {
+        // Top section: Receive and Transcript text, split by a draggable
+        // handle. Pane widths only change when the handle is dragged (or the
+        // window resized), never in response to the text content.
+        SplitView {
+            id: textSplitView
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 5
+            orientation: Qt.Horizontal
+
+            handle: Rectangle {
+                implicitWidth: 6
+                color: SplitHandle.pressed ? cwSenderWindow.palette.highlight
+                     : SplitHandle.hovered ? cwSenderWindow.palette.mid
+                     : cwSenderWindow.palette.window
+            }
             
             // Receive text (only visible if enabled)
             ScrollView {
                 id: receiveScrollView
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                SplitView.preferredWidth: textSplitView.width / 2
+                SplitView.minimumWidth: 100
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 visible: cwSenderController ? cwSenderController.receiveVisible : false
                 
                 TextArea {
                     id: receiveText
                     readOnly: true
+                    textFormat: TextEdit.PlainText
                     wrapMode: TextArea.Wrap
                     font.family: "Courier"
                     font.pixelSize: 12
@@ -136,12 +177,14 @@ ApplicationWindow {
             
             // Transcript text
             ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                SplitView.fillWidth: true
+                SplitView.minimumWidth: 100
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                 
                 TextArea {
                     id: transcriptText
                     readOnly: true
+                    textFormat: TextEdit.PlainText
                     wrapMode: TextArea.Wrap
                     font.family: "Courier"
                     font.pixelSize: 12
@@ -206,6 +249,18 @@ ApplicationWindow {
                     }
                 }
             }
+
+            Button {
+                text: qsTr("Auto Tune")
+                visible: cwSenderController ? cwSenderController.cwAutoTuneAvailable : false
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Ask the radio to tune onto the CW signal being received.")
+                onClicked: {
+                    if (cwSenderController) {
+                        cwSenderController.cwAutoTune()
+                    }
+                }
+            }
         }
         
         // Settings row
@@ -235,6 +290,24 @@ ApplicationWindow {
                 }
             }
             
+            CheckBox {
+                text: qsTr("CW Decode")
+                visible: cwSenderController ? cwSenderController.cwDecodeAvailable : false
+                enabled: cwSenderController ? !cwSenderController.cwDecodeBusy : false
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Turn the radio's CW decoder on or off. Decoded text appears in the left pane.")
+                // Shows the radio's confirmed state; clicking asks the controller to change it.
+                checked: cwSenderController ? cwSenderController.cwDecodeActive : false
+                onToggled: {
+                    if (cwSenderController) {
+                        cwSenderController.setCwDecode(checked)
+                        checked = Qt.binding(function() {
+                            return cwSenderController ? cwSenderController.cwDecodeActive : false
+                        })
+                    }
+                }
+            }
+
             CheckBox {
                 text: qsTr("Edit Macros")
                 checked: cwSenderController ? cwSenderController.macroEditMode : false
@@ -285,30 +358,49 @@ ApplicationWindow {
             }
             
             Label { text: qsTr("Dash Ratio:") }
-            SpinBox {
-                from: 25
-                to: 45
-                stepSize: 1
-                editable: true
-                inputMethodHints: Qt.ImhFormattedNumbersOnly
-                // The default validator only accepts integers, which would
-                // reject the "3.0" style text shown here.
-                validator: DoubleValidator {
-                    bottom: 2.5
-                    top: 4.5
-                    decimals: 1
-                    notation: DoubleValidator.StandardNotation
+            RowLayout {
+                spacing: 10
+
+                SpinBox {
+                    from: 25
+                    to: 45
+                    stepSize: 1
+                    editable: true
+                    inputMethodHints: Qt.ImhFormattedNumbersOnly
+                    // The default validator only accepts integers, which would
+                    // reject the "3.0" style text shown here.
+                    validator: DoubleValidator {
+                        bottom: 2.5
+                        top: 4.5
+                        decimals: 1
+                        notation: DoubleValidator.StandardNotation
+                    }
+                    value: cwSenderController ? (cwSenderController.dashRatio * 10) : 30
+                    textFromValue: function(value, locale) {
+                        return Number(value / 10).toLocaleString(locale, "f", 1)
+                    }
+                    valueFromText: function(text, locale) {
+                        return Math.round(Number.fromLocaleString(locale, text) * 10)
+                    }
+                    onValueModified: {
+                        if (cwSenderController) {
+                            cwSenderController.dashRatio = value / 10.0
+                        }
+                    }
                 }
-                value: cwSenderController ? (cwSenderController.dashRatio * 10) : 30
-                textFromValue: function(value, locale) {
-                    return Number(value / 10).toLocaleString(locale, "f", 1)
+
+                Label {
+                    text: qsTr("CW Decode Filter:")
+                    visible: cwSenderController ? cwSenderController.cwDecodeFilterAvailable : false
                 }
-                valueFromText: function(text, locale) {
-                    return Math.round(Number.fromLocaleString(locale, text) * 10)
-                }
-                onValueModified: {
-                    if (cwSenderController) {
-                        cwSenderController.dashRatio = value / 10.0
+                ComboBox {
+                    visible: cwSenderController ? cwSenderController.cwDecodeFilterAvailable : false
+                    model: [qsTr("Off"), qsTr("Normal"), qsTr("Narrow")]
+                    currentIndex: cwSenderController ? cwSenderController.cwDecodeFilter : 0
+                    onActivated: function(index) {
+                        if (cwSenderController) {
+                            cwSenderController.cwDecodeFilter = index
+                        }
                     }
                 }
             }
@@ -353,17 +445,51 @@ ApplicationWindow {
                 }
             }
             
-            Slider {
-                WheelArea {}
+            RowLayout {
                 Layout.fillWidth: true
-                from: 0
-                to: 100
-                value: cwSenderController ? cwSenderController.sidetoneLevel : 50
-                enabled: cwSenderController ? cwSenderController.sidetoneEnable && cwSenderController.sidetoneAvailable : false
-                onValueChanged: {
-                    if (cwSenderController) {
-                        cwSenderController.sidetoneLevel = value
+                // Last item in the grid: take the empty cells to the right too.
+                Layout.columnSpan: 3
+                spacing: 10
+
+                Slider {
+                    WheelArea {}
+                    Layout.fillWidth: true
+                    from: 0
+                    to: 100
+                    value: cwSenderController ? cwSenderController.sidetoneLevel : 50
+                    enabled: cwSenderController ? cwSenderController.sidetoneEnable && cwSenderController.sidetoneAvailable : false
+                    onValueChanged: {
+                        if (cwSenderController) {
+                            cwSenderController.sidetoneLevel = value
+                        }
                     }
+                }
+
+                Label {
+                    text: qsTr("Decode Threshold:")
+                    visible: cwSenderController ? cwSenderController.cwDecodeThresholdAvailable : false
+                }
+                Slider {
+                    id: decodeThresholdSlider
+                    WheelArea {}
+                    Layout.fillWidth: true
+                    visible: cwSenderController ? cwSenderController.cwDecodeThresholdAvailable : false
+                    // The range comes from the rig file's CW Decode Threshold command.
+                    from: cwSenderController ? cwSenderController.cwDecodeThresholdMin : 1
+                    to: cwSenderController ? cwSenderController.cwDecodeThresholdMax : 30
+                    stepSize: 1
+                    snapMode: Slider.SnapAlways
+                    value: cwSenderController ? cwSenderController.cwDecodeThreshold : 10
+                    onMoved: {
+                        if (cwSenderController) {
+                            cwSenderController.cwDecodeThreshold = Math.round(value)
+                        }
+                    }
+                }
+                Label {
+                    visible: decodeThresholdSlider.visible
+                    text: Math.round(decodeThresholdSlider.value)
+                    Layout.preferredWidth: 20
                 }
             }
         }

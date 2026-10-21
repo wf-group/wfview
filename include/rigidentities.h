@@ -342,6 +342,7 @@ struct rigCapabilities {
 
     bool hasAdvancedRptrToneCmds = false;
     bool hasQuickSplitCommand = false;
+    bool cwDecodeRequiresDisplay = false; // CW Decode Enable only works while CW Decode Display is on
 
     bool hasCommand29 = false;
     bool absoluteVFOFreq = false; // Selected/Unselected Freq address VFO A/B rather than the active VFO

@@ -6,6 +6,8 @@ namespace
 // Used when the rig file has no CW Pitch command.
 constexpr int defaultPitchMin = 300;
 constexpr int defaultPitchMax = 900;
+// How long to wait for the radio to confirm each CW decoder step.
+constexpr int cwDecodeStepTimeoutMs = 1500;
 }
 
 CWSenderController::CWSenderController(QObject* parent)
@@ -38,6 +40,10 @@ CWSenderController::CWSenderController(QObject* parent)
     m_tone->setRatio(m_dashRatio);
     m_tone->setFrequency(m_pitch);
     m_tone->setLevel(m_sidetoneLevel);
+
+    m_cwDecodeTimer.setSingleShot(true);
+    m_cwDecodeTimer.setInterval(cwDecodeStepTimeoutMs);
+    connect(&m_cwDecodeTimer, &QTimer::timeout, this, &CWSenderController::cwDecodeStepTimeout);
 
     m_queue = cachingQueue::getInstance();
     if (m_queue) {
@@ -109,6 +115,33 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
         setStatusMessage("CW sending is not supported by the current radio.");
     else if (m_statusMessage == "CW sending is not supported by the current radio.")
         setStatusMessage(QString());
+
+    // CW decoder. The decoder needs a CW Decode Enable command; CW Decode Display is
+    // only stepped through when the rig file says the decoder depends on it.
+    m_cwDecodeTimer.stop();
+    m_cwDecodeSteps.clear();
+    setCwDecodeBusy(false);
+    m_cwDecodeAvailable = m_rigCaps && m_rigCaps->commands.contains(funcCWDecodeEnable);
+    m_cwDecodeHasDisplay = m_cwDecodeAvailable && m_rigCaps->cwDecodeRequiresDisplay
+                           && m_rigCaps->commands.contains(funcCWDecodeDisplay);
+    m_cwDecodeEnableOn = false;
+    m_cwDecodeDisplayOn = false;
+
+    m_cwDecodeThresholdAvailable = m_rigCaps && m_rigCaps->commands.contains(funcCWDecodeThreshold);
+    if (m_cwDecodeThresholdAvailable) {
+        const funcType cmd = m_rigCaps->commands.value(funcCWDecodeThreshold);
+        if (cmd.maxVal > cmd.minVal) {
+            m_cwDecodeThresholdMin = cmd.minVal;
+            m_cwDecodeThresholdMax = cmd.maxVal;
+        }
+    }
+    m_cwDecodeFilterAvailable = m_rigCaps && m_rigCaps->commands.contains(funcCWDecodeFilter);
+    m_cwAutoTuneAvailable = m_rigCaps && m_rigCaps->commands.contains(funcCWAutoTune);
+    emit cwCapsChanged();
+    updateCwDecodeActive();
+
+    if (m_visible)
+        queryCwDecodeState();
 }
 
 CWSenderController::~CWSenderController()
@@ -123,8 +156,10 @@ void CWSenderController::setVisible(bool visible)
     if (m_visible != visible) {
         m_visible = visible;
         emit visibleChanged();
-        if (m_visible)
+        if (m_visible) {
             emit getCWSettings();
+            queryCwDecodeState();
+        }
     }
 }
 
@@ -239,6 +274,27 @@ void CWSenderController::setReceiveVisible(bool val)
     if (m_receiveVisible != val) {
         m_receiveVisible = val;
         emit receiveVisibleChanged();
+    }
+}
+
+void CWSenderController::setCwDecodeThreshold(int val)
+{
+    val = qBound(m_cwDecodeThresholdMin, val, m_cwDecodeThresholdMax);
+    if (m_cwDecodeThreshold != val) {
+        m_cwDecodeThreshold = val;
+        if (m_queue && m_cwDecodeThresholdAvailable)
+            m_queue->addUnique(priorityImmediate, queueItem(funcCWDecodeThreshold, QVariant::fromValue<uchar>(uchar(val))));
+        emit cwDecodeThresholdChanged();
+    }
+}
+
+void CWSenderController::setCwDecodeFilter(int val)
+{
+    if (m_cwDecodeFilter != val && val >= 0) {
+        m_cwDecodeFilter = val;
+        if (m_queue && m_cwDecodeFilterAvailable)
+            m_queue->addUnique(priorityImmediate, queueItem(funcCWDecodeFilter, QVariant::fromValue<uchar>(uchar(val))));
+        emit cwDecodeFilterChanged();
     }
 }
 
@@ -487,7 +543,163 @@ void CWSenderController::receiveEnabled(bool en)
     setReceiveVisible(en);
 }
 
+void CWSenderController::setCwDecode(bool on)
+{
+    if (!m_cwDecodeAvailable || !m_queue || m_cwDecodeBusy)
+        return;
+
+    // On: any prerequisite first, then the decoder. Off: the reverse, so the
+    // decoder doesn't come back by itself when the prerequisite is next turned on.
+    m_cwDecodeSteps.clear();
+    if (on) {
+        if (m_cwDecodeHasDisplay)
+            m_cwDecodeSteps.append(CwDecodeStep{funcCWDecodeDisplay, true});
+        m_cwDecodeSteps.append(CwDecodeStep{funcCWDecodeEnable, true});
+    } else {
+        m_cwDecodeSteps.append(CwDecodeStep{funcCWDecodeEnable, false});
+        if (m_cwDecodeHasDisplay)
+            m_cwDecodeSteps.append(CwDecodeStep{funcCWDecodeDisplay, false});
+    }
+
+    m_cwDecodeStepIndex = 0;
+    m_cwDecodeRetries = 0;
+    setCwDecodeBusy(true);
+    runCwDecodeStep();
+}
+
+void CWSenderController::cwAutoTune()
+{
+    if (!m_cwAutoTuneAvailable || !m_queue)
+        return;
+    if (m_currentMode != modeCW && m_currentMode != modeCW_R) {
+        setStatusMessage("Note: Mode needs to be set to CW or CW-R to auto tune.");
+        return;
+    }
+    m_queue->add(priorityImmediate, queueItem(funcCWAutoTune, QVariant::fromValue<uchar>(1)));
+}
+
+void CWSenderController::handleCwDecodeEnable(bool on)
+{
+    m_cwDecodeEnableOn = on;
+    if (m_cwDecodeBusy && m_cwDecodeStepIndex < m_cwDecodeSteps.size()) {
+        const CwDecodeStep& step = m_cwDecodeSteps.at(m_cwDecodeStepIndex);
+        if (step.func == funcCWDecodeEnable && step.value == on) {
+            m_cwDecodeStepIndex++;
+            m_cwDecodeRetries = 0;
+            runCwDecodeStep();
+        }
+    }
+    updateCwDecodeActive();
+}
+
+void CWSenderController::handleCwDecodeDisplay(bool on)
+{
+    m_cwDecodeDisplayOn = on;
+    if (m_cwDecodeBusy && m_cwDecodeStepIndex < m_cwDecodeSteps.size()) {
+        const CwDecodeStep& step = m_cwDecodeSteps.at(m_cwDecodeStepIndex);
+        if (step.func == funcCWDecodeDisplay && step.value == on) {
+            m_cwDecodeStepIndex++;
+            m_cwDecodeRetries = 0;
+            runCwDecodeStep();
+        }
+    } else if (on && m_cwDecodeHasDisplay && m_queue) {
+        // The decoder state can only be read while the display is on, and the
+        // radio may have changed it (e.g. from the front panel).
+        m_queue->add(priorityImmediate, funcCWDecodeEnable);
+    }
+    updateCwDecodeActive();
+}
+
+void CWSenderController::handleCwDecodeThreshold(quint8 val)
+{
+    if (val != m_cwDecodeThreshold && val >= m_cwDecodeThresholdMin && val <= m_cwDecodeThresholdMax) {
+        m_cwDecodeThreshold = val;
+        emit cwDecodeThresholdChanged();
+    }
+}
+
+void CWSenderController::handleCwDecodeFilter(quint8 val)
+{
+    if (val != m_cwDecodeFilter) {
+        m_cwDecodeFilter = val;
+        emit cwDecodeFilterChanged();
+    }
+}
+
 // Private methods
+void CWSenderController::queryCwDecodeState()
+{
+    if (!m_queue)
+        return;
+    if (m_cwDecodeAvailable) {
+        // With a prerequisite, the decoder is read once the display reports on.
+        m_queue->add(priorityImmediate, m_cwDecodeHasDisplay ? funcCWDecodeDisplay : funcCWDecodeEnable);
+    }
+    if (m_cwDecodeThresholdAvailable)
+        m_queue->add(priorityImmediate, funcCWDecodeThreshold);
+    if (m_cwDecodeFilterAvailable)
+        m_queue->add(priorityImmediate, funcCWDecodeFilter);
+}
+
+void CWSenderController::runCwDecodeStep()
+{
+    if (m_cwDecodeStepIndex >= m_cwDecodeSteps.size()) {
+        finishCwDecodeSequence();
+        return;
+    }
+
+    // Set the value, then read it back: not every radio confirms a set.
+    const CwDecodeStep& step = m_cwDecodeSteps.at(m_cwDecodeStepIndex);
+    m_queue->add(priorityImmediate, queueItem(step.func, QVariant::fromValue<bool>(step.value)));
+    m_queue->add(priorityImmediate, step.func);
+    m_cwDecodeTimer.start();
+}
+
+void CWSenderController::cwDecodeStepTimeout()
+{
+    if (!m_cwDecodeBusy)
+        return;
+    if (m_cwDecodeRetries < 1) {
+        m_cwDecodeRetries++;
+        qInfo(logCW()) << "No reply from radio for" << funcString[m_cwDecodeSteps.at(m_cwDecodeStepIndex).func] << "- retrying";
+        runCwDecodeStep();
+        return;
+    }
+
+    qWarning(logCW()) << "Radio did not confirm" << funcString[m_cwDecodeSteps.at(m_cwDecodeStepIndex).func];
+    setStatusMessage("The radio did not respond to the CW decoder command.");
+    m_cwDecodeSteps.clear();
+    setCwDecodeBusy(false);
+    queryCwDecodeState();
+}
+
+void CWSenderController::finishCwDecodeSequence()
+{
+    m_cwDecodeTimer.stop();
+    m_cwDecodeSteps.clear();
+    setCwDecodeBusy(false);
+    if (m_statusMessage == "The radio did not respond to the CW decoder command.")
+        setStatusMessage(QString());
+}
+
+void CWSenderController::setCwDecodeBusy(bool busy)
+{
+    if (m_cwDecodeBusy != busy) {
+        m_cwDecodeBusy = busy;
+        emit cwDecodeBusyChanged();
+    }
+}
+
+void CWSenderController::updateCwDecodeActive()
+{
+    const bool active = m_cwDecodeAvailable && m_cwDecodeEnableOn
+                        && (!m_cwDecodeHasDisplay || m_cwDecodeDisplayOn);
+    if (m_cwDecodeActive != active) {
+        m_cwDecodeActive = active;
+        emit cwDecodeActiveChanged();
+    }
+}
+
 void CWSenderController::setStatusMessage(const QString& msg)
 {
     m_statusMessage = msg;

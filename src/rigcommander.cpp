@@ -336,6 +336,7 @@ void rigCommander::determineRigCaps()
     rigCaps.hasEthernet = settings->value("HasEthernet",false).toBool();
     rigCaps.hasWiFi = settings->value("HasWiFi",false).toBool();
     rigCaps.hasQuickSplitCommand = settings->value("HasQuickSplit",false).toBool();
+    rigCaps.cwDecodeRequiresDisplay = settings->value("CWDecodeRequiresDisplay",false).toBool();
     rigCaps.hasDD = settings->value("HasDD",false).toBool();
     rigCaps.hasDV = settings->value("HasDV",false).toBool();
     rigCaps.hasTransmit = settings->value("HasTransmit",false).toBool();

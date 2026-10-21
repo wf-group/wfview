@@ -6352,7 +6352,25 @@ void MainController::receiveValueFromQueue(cacheItem val)
         // We could indicate the rig being powered-on somehow?
         break;
     case funcCWDecode:
-        //cw->receive(val.value.value<QString>());
+        if (m_cwSender)
+            m_cwSender->receive(val.value.value<QString>());
+        break;
+    case funcCWDecodeEnable:
+        if (m_cwSender)
+            m_cwSender->handleCwDecodeEnable(val.value.value<bool>());
+        break;
+    case funcCWDecodeDisplay:
+        if (m_cwSender)
+            m_cwSender->handleCwDecodeDisplay(val.value.value<bool>());
+        break;
+    case funcCWDecodeThreshold:
+        if (m_cwSender)
+            m_cwSender->handleCwDecodeThreshold(val.value.value<uchar>());
+        break;
+    case funcCWDecodeFilter:
+        if (m_cwSender)
+            m_cwSender->handleCwDecodeFilter(val.value.value<uchar>());
+        break;
     default:
         //qWarning(logSystem()) << "Unhandled command received from rigcommander()" << funcString[val.command] << "Contact support!";
         break;

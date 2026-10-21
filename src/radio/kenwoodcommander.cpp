@@ -988,7 +988,16 @@ void kenwoodCommander::parseData(QByteArray data)
         case funcOverflowStatus:
         case funcSMeterSqlStatus:
         case funcSplitStatus:
+        case funcCWDecodeEnable:
+        case funcCWDecodeDisplay:
             value.setValue<bool>(d.at(0) - NUMTOASCII);
+            break;
+        case funcCWDecodeThreshold:
+        case funcCWDecodeFilter:
+            value.setValue<uchar>(d.toUShort());
+            break;
+        case funcCWAutoTune:
+            // Momentary; any tuning-in-progress report has no state worth keeping.
             break;
         case funcAfGain:
             value.setValue<uchar>(d.toUShort());

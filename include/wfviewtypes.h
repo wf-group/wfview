@@ -418,6 +418,9 @@ funcLoginEnableDisable,
 funcSelectVFO,          funcSeparator,          funcLCDWaterfall,           funcLCDSpectrum,        funcLCDNothing,         funcPageUp,
 funcPageDown,           funcVFOFrequency,       funcVFOMode,                funcRigctlFunction,     funcRigctlLevel,        funcRigctlParam,
 funcRXAudio,            funcTXAudio,
+/* CW Decoder and tuning: rig files map these to the radio's own commands */
+funcSepQ,
+funcCWDecodeEnable,     funcCWDecodeDisplay,    funcCWDecodeThreshold,      funcCWDecodeFilter,     funcCWAutoTune,
 // This MUST be the last defined func.
 funcLastFunc
 };
@@ -559,7 +562,10 @@ static QString funcString[funcLastFunc] { "None",
 /* Special Commands */
 "-Select VFO",          "-Seperator",
 "-LCD Waterfall",       "-LCD Spectrum",        "-LCD Nothing",             "-Page Up",             "-Page Down",           "-VFO Frequency",
-"-VFO Mode",            "-Rigctl Function",     "-Rigctl Level",            "-Rigctl Param",        "-RX Audio Data",       "-TX Audio Data"
+"-VFO Mode",            "-Rigctl Function",     "-Rigctl Level",            "-Rigctl Param",        "-RX Audio Data",       "-TX Audio Data",
+
+"+<CW Decoder>",
+"CW Decode Enable",     "CW Decode Display",    "CW Decode Threshold",      "CW Decode Filter",     "CW Auto Tune"
 };
 
 struct spanType {
