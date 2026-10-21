@@ -303,18 +303,6 @@ ApplicationWindow {
     }
 
 
-    // Fusion's tooltip wraps its text, which can size the box far wider than
-    // short lines split with \n need. Lay the text out unwrapped instead.
-    component FitToolTip: ToolTip {
-        id: fitToolTip
-        contentItem: Text {
-            text: fitToolTip.text
-            font: fitToolTip.font
-            color: fitToolTip.palette.toolTipText
-            wrapMode: Text.NoWrap
-        }
-    }
-
     component ColorRow : RowLayout {
         spacing: 8
         Layout.fillWidth: true

@@ -22,5 +22,6 @@
         <file>TuningKnob.qml</file>
         <file>TextEditMenu.qml</file>
         <file>MacroEditor.qml</file>
+        <file>FitToolTip.qml</file>
     </qresource>
 </RCC>

@@ -606,12 +606,35 @@ ApplicationWindow {
         property color rowBgB: rigCreator.palette.alternateBase
         property color textColor: rigCreator.palette.text
         readonly property int verticalScrollBarWidth: 14
+        readonly property int minColumnWidth: 20
+
+        // Widths the user has dragged, keyed by column index. Reassign (don't mutate)
+        // so bindings that read it re-evaluate.
+        property var columnWidthOverrides: ({})
+
+        function columnWidthAt(col) {
+            if (!columns || col < 0 || col >= columns.length) return 0
+            var w = columnWidthOverrides[col]
+            return (w !== undefined) ? w : (columns[col].width ?? 140)
+        }
+
+        function setColumnWidth(col, w) {
+            var o = Object.assign({}, columnWidthOverrides)
+            if (w === undefined)
+                delete o[col]
+            else
+                o[col] = Math.max(minColumnWidth, Math.round(w))
+            columnWidthOverrides = o
+        }
+
+        onColumnWidthOverridesChanged: tv.forceLayout()
+
         readonly property int contentColumnsWidth: {
             var total = 0
             if (!columns)
                 return total
             for (var i = 0; i < columns.length; ++i)
-                total += columns[i].width ?? 140
+                total += columnWidthAt(i)
             return total
         }
         implicitWidth: contentColumnsWidth + padding * 2 + verticalScrollBarWidth + 2
@@ -744,7 +767,8 @@ ApplicationWindow {
                                 model: panel.columns ? panel.columns.length : 0
 
                                 Rectangle {
-                                    width: tv.columnWidthProvider(index)
+                                    id: headerCell
+                                    width: panel.columnWidthAt(index)
                                     height: parent.height
                                     color: panel.headerBg
                                     border.color: panel.gridColor
@@ -776,7 +800,9 @@ ApplicationWindow {
                                     }
 
                                     MouseArea {
+                                        id: headerMouse
                                         anchors.fill: parent
+                                        hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             if (!panel.model) return
@@ -793,6 +819,40 @@ ApplicationWindow {
                                             // This MUST be the proxy (IniSortProxy / QSortFilterProxyModel)
                                             panel.model.sort(panel.sortColumn, panel.sortOrder)
                                         }
+                                    }
+
+                                    FitToolTip {
+                                        visible: (headerMouse.containsMouse || resizeHandle.containsMouse)
+                                                 && !resizeHandle.pressed && text.length > 0
+                                        delay: 500
+                                        text: panel.columns[index].title ?? ""
+                                    }
+
+                                    // Drag the right edge to resize; double-click to restore the default width.
+                                    MouseArea {
+                                        id: resizeHandle
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        anchors.right: parent.right
+                                        width: 6
+                                        z: 1
+                                        hoverEnabled: true
+                                        cursorShape: Qt.SplitHCursor
+                                        preventStealing: true
+
+                                        property real startX: 0
+                                        property real startWidth: 0
+
+                                        onPressed: function(mouse) {
+                                            startX = mapToItem(headerBar, mouse.x, 0).x
+                                            startWidth = headerCell.width
+                                        }
+                                        onPositionChanged: function(mouse) {
+                                            if (!pressed) return
+                                            var x = mapToItem(headerBar, mouse.x, 0).x
+                                            panel.setColumnWidth(index, startWidth + x - startX)
+                                        }
+                                        onDoubleClicked: panel.setColumnWidth(index, undefined)
                                     }
                                 }
                             }
@@ -834,8 +894,7 @@ ApplicationWindow {
                             }
 
                             columnWidthProvider: function(col) {
-                                if (!panel.columns || col < 0 || col >= panel.columns.length) return 0
-                                return panel.columns[col].width ?? 140
+                                return panel.columnWidthAt(col)
                             }
 
                         delegate: Rectangle {
