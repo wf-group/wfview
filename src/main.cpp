@@ -977,12 +977,12 @@ int main(int argc, char *argv[])
 #endif
 
 
-    const QString helpText = QString("\nUsage: -l --logfile filename.log, -s --settings filename.ini, -c --clearconfig CONFIRM, -b --background (not Windows), -d --debug, -v --version"
-                                     ", --use-mcp, --mcp-port PORT, --mcp-bind ADDRESS, --mcp-token TOKEN, --mcp-allow-write"
+    const QString helpText = QString("\nUsage:\n-l --logfile filename.log,\n-s --settings filename.ini,\n-c --clearconfig CONFIRM,\n-b --background (not Windows),\n-d --debug,\n-v --version"
+                                     ",\n--use-mcp, --mcp-port PORT, --mcp-bind ADDRESS, --mcp-token TOKEN, --mcp-allow-write"
 #ifdef BUILD_WFSERVER
-                                     ", --setup (interactive config wizard; modify or replace settings)"
+                                     ",\n--setup (interactive config wizard; modify or replace settings)"
 #ifdef Q_OS_WIN
-                                     ", --service install|install-system|remove|start|stop|status|run"
+                                     ",\n--service install|install-system|remove|start|stop|status|run"
 #endif
 #endif
                                      "\n"); // TODO...
