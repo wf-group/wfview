@@ -347,34 +347,88 @@ ApplicationWindow {
                     model: audioDecoder ? audioDecoder.channels : []
                     ScrollBar.vertical: ScrollBar {}
 
-                    header: Label {
+                    header: RowLayout {
                         width: multiSignalList.width
-                        padding: 4
-                        text: qsTr("Pitch    WPM  Decoded (double-click to decode)")
-                        font.family: "Courier"
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
+                        spacing: 8
+
+                        Label {
+                            Layout.leftMargin: 4
+                            Layout.preferredWidth: pitchColumn.width
+                            text: qsTr("Pitch")
+                            font: pitchColumn.font
+                        }
+                        Label {
+                            Layout.preferredWidth: wpmColumn.width
+                            text: qsTr("WPM")
+                            font: pitchColumn.font
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("Decoded (double-click to decode)")
+                            font: pitchColumn.font
+                            elide: Text.ElideRight
+                        }
                     }
 
-                    delegate: Label {
-                        required property var modelData
-                        width: multiSignalList.width
-                        padding: 4
+                    // Widths of the fixed pitch and WPM columns.
+                    TextMetrics {
+                        id: pitchColumn
                         font.family: "Courier"
                         font.pixelSize: 12
-                        elide: Text.ElideLeft
+                        text: "0000 Hz"
+                    }
+                    TextMetrics {
+                        id: wpmColumn
+                        font: pitchColumn.font
+                        text: "WPM"
+                    }
+
+                    delegate: Rectangle {
+                        id: channelRow
+                        required property var modelData
+                        width: multiSignalList.width
+                        implicitHeight: channelCells.implicitHeight + 6
+                        color: cwSenderWindow.palette.base
                         // Stations that have gone quiet stay listed (greyed) for a while.
-                        color: modelData.active ? cwSenderWindow.palette.text : cwSenderWindow.palette.mid
-                        text: (Math.round(modelData.pitch) + " Hz").padStart(7) + " "
-                              + (modelData.wpm > 0 ? Math.round(modelData.wpm).toString() : "--").padStart(4) + "  "
-                              + modelData.text.trim()
-                        background: Rectangle { color: cwSenderWindow.palette.base }
+                        readonly property color textColor: modelData.active ? cwSenderWindow.palette.text
+                                                                            : cwSenderWindow.palette.mid
+
+                        RowLayout {
+                            id: channelCells
+                            anchors.fill: parent
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            spacing: 8
+
+                            Label {
+                                Layout.preferredWidth: pitchColumn.width
+                                horizontalAlignment: Text.AlignRight
+                                text: Math.round(channelRow.modelData.pitch) + " Hz"
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                            Label {
+                                Layout.preferredWidth: wpmColumn.width
+                                horizontalAlignment: Text.AlignRight
+                                text: channelRow.modelData.wpm > 0 ? Math.round(channelRow.modelData.wpm) : "--"
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                // The newest text stays visible; the oldest is trimmed.
+                                elide: Text.ElideLeft
+                                text: channelRow.modelData.text.trim()
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                        }
 
                         MouseArea {
                             anchors.fill: parent
                             onDoubleClicked: {
                                 if (audioDecoder) {
-                                    audioDecoder.decodeChannel(Math.round(modelData.pitch))
+                                    audioDecoder.decodeChannel(Math.round(channelRow.modelData.pitch))
                                 }
                             }
                         }
