@@ -128,7 +128,7 @@ QMAKE_TARGET_BUNDLE_PREFIX = org.wfview
 !win32:DEFINES += HOST=\\\"`hostname`\\\" UNAME=\\\"`whoami`\\\"
 !win32:DEFINES += GITSHORT="\\\"$(shell git -C \"$$PWD\" rev-parse --short HEAD)\\\""
 
-win32:DEFINES += GITSHORT=\\\"$$system(git -C $$PWD rev-parse --short HEAD)\\\"
+win32:DEFINES += GITSHORT=\\\"$$system(git -C $$shell_quote($$PWD) rev-parse --short HEAD)\\\"
 win32:DEFINES += HOST=\\\"$$system(hostname)\\\"
 win32:DEFINES += UNAME=\\\"$$system(echo %USERNAME%)\\\"
 
@@ -173,10 +173,10 @@ CONFIG(debug, release|debug) {
   win32 {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/DebugDLL/
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../hidapi/windows/X64/Debug/hidapi.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
       LIBS += -L$$PWD/../portaudio/msvc/X64/Debug/ -lportaudio_x64
       contains(DEFINES,USB_CONTROLLER){
             LIBS += -L$$PWD/../hidapi/windows/x64/debug -lhidapi
@@ -184,10 +184,10 @@ CONFIG(debug, release|debug) {
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Debug/hidapi.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfview-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../hidapi/windows/Debug/hidapi.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll)) wfview-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfview-debug\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
         LIBS += -L$$PWD/../hidapi/windows/debug -lhidapi
       }
@@ -199,20 +199,20 @@ CONFIG(debug, release|debug) {
     contains(QMAKE_TARGET.arch, x86_64) {
       LIBS += -L$$PWD/../opus/win32/VS2015/x64/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/X64/Release/ -lportaudio_x64
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/X64/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../hidapi/windows/X64/Release/hidapi.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
             LIBS += -L$$PWD/../hidapi/windows/x64/release -lhidapi
       }
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../hidapi/windows/Release/hidapi.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfview-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../hidapi/windows/Release/hidapi.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll)) wfview-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfview-release\rigs\*.* $$escape_expand(\\n\\t))
       contains(DEFINES,USB_CONTROLLER){
             win32:LIBS += -L$$PWD/../hidapi/windows/release -lhidapi
       }

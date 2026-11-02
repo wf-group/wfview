@@ -32,9 +32,9 @@ CONFIG(debug, release|debug) {
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll) wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/x64/Debug/portaudio_x64.dll)) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/x64/DebugDLL/opus-0.dll)) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/DebugDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Debug/ -lportaudio_x86
@@ -42,9 +42,9 @@ CONFIG(debug, release|debug) {
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll) wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll) wfserver-debug $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/win32/Debug/portaudio_x86.dll)) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/win32/DebugDLL/opus-0.dll)) wfserver-debug $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfserver-debug\rigs\*.* $$escape_expand(\\n\\t))
     }
     DESTDIR = wfserver-debug
   }
@@ -64,9 +64,9 @@ CONFIG(debug, release|debug) {
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/amd64 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/amd64 -lLibFT4222-64
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll) wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/x64/Release/portaudio_x64.dll)) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/x64/ReleaseDLL/opus-0.dll)) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
     } else {
       LIBS += -L$$PWD/../opus/win32/VS2015/win32/ReleaseDLL/
       LIBS += -L$$PWD/../portaudio/msvc/Win32/Release/ -lportaudio_x86
@@ -74,9 +74,9 @@ CONFIG(debug, release|debug) {
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/ftd2xx/dll/i386 -lftd2xx
         LIBS += -L$$PWD/../LibFT4222-v1.4.7/imports/LibFT4222/dll/i386 -lLibFT4222
       }
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll) wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll) wfserver-release $$escape_expand(\\n\\t))
-      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_path($$PWD/rigs/*.*) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../portaudio/msvc/win32/Release/portaudio_x86.dll)) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c copy /y $$shell_quote($$shell_path($$PWD/../opus/win32/VS2015/win32/ReleaseDLL/opus-0.dll)) wfserver-release $$escape_expand(\\n\\t))
+      QMAKE_POST_LINK +=$$quote(cmd /c xcopy /s/y $$shell_quote($$shell_path($$PWD/rigs/*.*)) wfserver-release\rigs\*.* $$escape_expand(\\n\\t))
     }
     DESTDIR = wfserver-release
   }
@@ -151,7 +151,7 @@ INSTALLS += rigs
 !win32:DEFINES += HOST=\\\"`hostname`\\\" UNAME=\\\"`whoami`\\\"
 
 !win32:DEFINES += GITSHORT="\\\"$(shell git -C $$PWD rev-parse --short HEAD)\\\""
-win32:DEFINES += GITSHORT=\\\"$$system(git -C $$PWD rev-parse --short HEAD)\\\"
+win32:DEFINES += GITSHORT=\\\"$$system(git -C $$shell_quote($$PWD) rev-parse --short HEAD)\\\"
 
 win32:DEFINES += HOST=\\\"wfview.org\\\"
 win32:DEFINES += UNAME=\\\"build\\\"
