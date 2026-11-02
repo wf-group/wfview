@@ -19,10 +19,10 @@ namespace
 QVector<periodicType> samplePeriodicCommands()
 {
     return {
-        periodicType(funcAfGain, QStringLiteral("Medium High"), 4, char(-1)),
-        periodicType(funcFilterShape, QStringLiteral("Medium"), 3, char(0), {"USB", "LSB", "CW", "CW-R"}),
-        periodicType(funcCwPitch, QStringLiteral("Medium"), 3, char(-1), {"CW", "CW-R"}),
-        periodicType(funcPBTInner, QStringLiteral("Medium"), 3, char(1), {"USB"})
+        periodicType(funcAfGain, QStringLiteral("Medium High"), 4, qint8(-1)),
+        periodicType(funcFilterShape, QStringLiteral("Medium"), 3, qint8(0), {"USB", "LSB", "CW", "CW-R"}),
+        periodicType(funcCwPitch, QStringLiteral("Medium"), 3, qint8(-1), {"CW", "CW-R"}),
+        periodicType(funcPBTInner, QStringLiteral("Medium"), 3, qint8(1), {"USB"})
     };
 }
 }

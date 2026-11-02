@@ -5157,7 +5157,7 @@ void MainController::getInitialRigState()
             continue;
         }
 
-        if (cap.receiver == char(-1)) {
+        if (cap.receiver == -1) {
             for (uchar v=0;v<rigCaps->numReceiver;v++)
             {
                 qDebug(logSystem()) << "Inserting command" << funcString[cap.func] << "priority" << cap.priority << "on Receiver" << QString::number(v);

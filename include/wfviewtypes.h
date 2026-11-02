@@ -770,14 +770,14 @@ enum usbFeatureType { featureReset,featureResetKeys, featureEventsA, featureEven
 
 struct periodicType {
     periodicType() {};
-    periodicType(funcs func, QString priority, char receiver) : func(func), priority(priority), prioVal(0), receiver(receiver) {};
-    periodicType(funcs func, QString priority, int prioVal, char receiver) : func(func), priority(priority), prioVal(prioVal), receiver(receiver) {};
-    periodicType(funcs func, QString priority, int prioVal, char receiver, QStringList modes) :
+    periodicType(funcs func, QString priority, qint8 receiver) : func(func), priority(priority), prioVal(0), receiver(receiver) {};
+    periodicType(funcs func, QString priority, int prioVal, qint8 receiver) : func(func), priority(priority), prioVal(prioVal), receiver(receiver) {};
+    periodicType(funcs func, QString priority, int prioVal, qint8 receiver, QStringList modes) :
         func(func), priority(priority), prioVal(prioVal), receiver(receiver), modes(modes) {};
     funcs func;
     QString priority;
     int prioVal;
-    char receiver;
+    qint8 receiver; // -1 = all receivers; signed explicitly because char is unsigned on ARM
     QStringList modes;
 };
 
@@ -790,7 +790,7 @@ inline bool periodicCommandAllowedForMode(const QVector<periodicType> &periodicC
     bool restricted = false;
 
     for (const auto &periodic : periodicCommands) {
-        const bool allReceivers = periodic.receiver == char(-1);
+        const bool allReceivers = periodic.receiver == -1;
         const bool receiverMatches = allReceivers || uchar(periodic.receiver) == receiver;
         if (periodic.func != func || !receiverMatches || periodic.modes.isEmpty())
             continue;

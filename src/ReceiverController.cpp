@@ -80,7 +80,7 @@ void ReceiverController::applyModeSpecificPeriodicCommands(const modeInfo &mode)
         if (periodic.modes.isEmpty())
             continue;
 
-        const bool allReceivers = periodic.receiver == char(-1);
+        const bool allReceivers = periodic.receiver == -1;
         const uchar periodicReceiver = allReceivers ? receiver : uchar(periodic.receiver);
         if (!allReceivers && periodicReceiver != receiver)
             continue;
