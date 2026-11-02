@@ -14,7 +14,9 @@ constexpr float followSpanHz = 150.0f; // Follow radio: search the radio's pitch
 constexpr float autoPitchLoHz = 200.0f;
 constexpr float autoPitchHiHz = 1200.0f;
 constexpr float multiLoHz = 200.0f;
-constexpr float multiHiHz = CwDecoderCore::kMaxFixedPitchHz;
+// Above ~2 kHz the band beyond the radio's CW filter is near-silent, which
+// lowers the noise floor estimate and lets noise through as stations.
+constexpr float multiHiHz = 2000.0f;
 constexpr int statsIntervalMs = 250;
 constexpr int multiIntervalMs = 300;
 constexpr int pitchPollMs = 3000;
@@ -214,7 +216,7 @@ int CwAudioDecoder::pitchMin() const
 
 int CwAudioDecoder::pitchMax() const
 {
-    // Same top as the multi-signal list, so any station in it can be decoded.
+    // Covers the multi-signal list and the wider passband of SSB-width filters.
     return static_cast<int>(CwDecoderCore::kMaxFixedPitchHz);
 }
 
@@ -228,9 +230,9 @@ void CwAudioDecoder::setEnabled(bool on)
     if (on)
     {
         QMetaObject::invokeMethod(m_worker, "resetDecoder", Qt::QueuedConnection);
+        m_appliedEngine = -1; // resend the engine
         applyDecodeSettings();
         QMetaObject::invokeMethod(m_worker, "setSquelch", Qt::QueuedConnection, Q_ARG(bool, m_squelch));
-        QMetaObject::invokeMethod(m_worker, "setEngine", Qt::QueuedConnection, Q_ARG(int, m_engine));
         QMetaObject::invokeMethod(m_worker, "setMulti", Qt::QueuedConnection, Q_ARG(bool, m_multiSignal));
         connectTap();
         if (m_pitchMode == PitchFollowRadio)
@@ -269,7 +271,7 @@ void CwAudioDecoder::setEngine(int engine)
     if (m_engine == engine)
         return;
     m_engine = engine;
-    QMetaObject::invokeMethod(m_worker, "setEngine", Qt::QueuedConnection, Q_ARG(int, engine));
+    applyDecodeSettings();
     emit engineChanged();
 }
 
@@ -403,6 +405,12 @@ void CwAudioDecoder::applyDecodeSettings()
         m_fixedPitch = m_radioPitchHz;
         emit fixedPitchChanged();
     }
+    const int engine = effectiveEngine();
+    if (engine != m_appliedEngine)
+    {
+        m_appliedEngine = engine;
+        QMetaObject::invokeMethod(m_worker, "setEngine", Qt::QueuedConnection, Q_ARG(int, engine));
+    }
     const float wpm = m_fixedSpeed ? static_cast<float>(m_speedWpm) : -1.0f;
     QMetaObject::invokeMethod(m_worker,
                               "setPitchMode",
@@ -411,6 +419,14 @@ void CwAudioDecoder::applyDecodeSettings()
                               Q_ARG(float, static_cast<float>(m_fixedPitch)),
                               Q_ARG(float, static_cast<float>(m_radioPitchHz)));
     QMetaObject::invokeMethod(m_worker, "setSpeedWpm", Qt::QueuedConnection, Q_ARG(float, wpm));
+}
+
+int CwAudioDecoder::effectiveEngine() const
+{
+    // The Machine engine cannot tell a high pitch from the station it folds onto.
+    if (m_engine == EngineMachine && m_pitchMode == PitchFixed && m_fixedPitch > CwDecoderCore::kMaxMachinePitchHz)
+        return EngineHandKey;
+    return m_engine;
 }
 
 void CwAudioDecoder::appendText(const QString &text)
@@ -460,6 +476,10 @@ void CwAudioDecoder::onStatsUpdated(
         break;
     }
 
+    // Shown when Machine is selected but the pitch is above what it can decode.
+    const QString engineNote = effectiveEngine() != m_engine
+        ? tr("   (Hand key used above %1 Hz)").arg(static_cast<int>(CwDecoderCore::kMaxMachinePitchHz))
+        : QString();
     const QString pitchText = pitchHz > 0.0f ? QString::number(qRound(pitchHz)) : QStringLiteral("--");
     setStatus(tr("Pitch %1 Hz (%2)   Speed %3 WPM   Signal %4 dB%5   Audio %6 kHz")
                   .arg(pitchText)
@@ -467,7 +487,8 @@ void CwAudioDecoder::onStatsUpdated(
                   .arg(speedWpm, 0, 'f', 1)
                   .arg(snrDb, 0, 'f', 0)
                   .arg(squelchOpen ? QString() : tr(" (squelched)"))
-                  .arg(sampleRate / 1000.0f, 0, 'f', 1));
+                  .arg(sampleRate / 1000.0f, 0, 'f', 1)
+              + engineNote);
 }
 
 void CwAudioDecoder::onMultiUpdated(const QVariantList &channels)

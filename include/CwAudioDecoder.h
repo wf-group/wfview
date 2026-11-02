@@ -183,6 +183,7 @@ private:
     void connectTap();
     void disconnectTap();
     void applyDecodeSettings();
+    int effectiveEngine() const;
     void appendText(const QString &text);
     void setStatus(const QString &status);
 
@@ -194,6 +195,7 @@ private:
     bool m_enabled = false;
     bool m_squelch = true;
     int m_engine = EngineMachine;
+    int m_appliedEngine = -1; // engine last sent to the worker
     bool m_multiSignal = false;
     int m_pitchMode = PitchFollowRadio;
     int m_fixedPitch = 600;

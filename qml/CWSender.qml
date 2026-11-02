@@ -186,7 +186,7 @@ ApplicationWindow {
                 ToolTip.text: qsTr("Machine: best on keyer or computer-sent CW with even timing.\n"
                                    + "Hand key: learns each sender's own dit, dah and spacing and copies\n"
                                    + "uneven straight-key or bug sending. Prints a word at a time,\n"
-                                   + "about a second behind.")
+                                   + "about a second behind. Machine works up to 1900 Hz; above that Hand key is used.")
                 currentIndex: audioDecoder ? audioDecoder.engine : 0
                 onActivated: function(index) {
                     if (audioDecoder) {
@@ -240,7 +240,7 @@ ApplicationWindow {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Follow radio: track the strongest tone within 150 Hz of the radio's CW pitch.\n"
                                    + "Auto: track the strongest steady tone from 200 to 1200 Hz.\n"
-                                   + "Fixed: decode exactly at the pitch at right (200 to 2000 Hz).")
+                                   + "Fixed: decode exactly at the pitch at right (200 to 3000 Hz).")
                 currentIndex: audioDecoder ? audioDecoder.pitchMode : 0
                 onActivated: function(index) {
                     if (audioDecoder) {

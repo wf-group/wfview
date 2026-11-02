@@ -244,7 +244,10 @@ public:
     static constexpr float kLockSnrDb = 7.0f; // tone must beat median by this
                                               // (7 dB copies weak signals; noise alone
                                               // still stays silent)
-    static constexpr float kMaxFixedPitchHz = 2000.0f; // highest fixed pitch (multi-signal range)
+    static constexpr float kMaxFixedPitchHz = 3000.0f; // highest fixed pitch
+    // ggmorse works at 4 kHz: above this pitch another station folds onto it,
+    // so the Machine engine is only used up to here.
+    static constexpr float kMaxMachinePitchHz = 1900.0f;
     static constexpr float kNearHz = 30.0f; // within this: slew, no re-lock
     static constexpr int kMoveBlocks = 4; // new peak must persist (x 0.25 s)
     static constexpr float kSquelchHoldSec = 2.0f; // keep squelch open after tone fades

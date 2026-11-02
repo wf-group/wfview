@@ -147,6 +147,7 @@ private slots:
     void handKeyEngineCopiesKeyerCw();
     void handKeyEngineCopiesUnevenFist();
     void bothEnginesCopyHighPitch();
+    void handKeyCopiesAboveMachineRange();
     void squelchKeepsNoiseSilent();
     void pitchTrackerFindsTone();
     void multiDecoderSeparatesStations();
@@ -216,6 +217,32 @@ void CwDecoderTest::bothEnginesCopyHighPitch()
     hand.setFixedPitch(1900.0f);
     const QString handText = QString::fromStdString(decode(hand, audio));
     QVERIFY2(handText.contains("DE W1AW W1AW K"), qPrintable(handText));
+}
+
+void CwDecoderTest::handKeyCopiesAboveMachineRange()
+{
+    // Above 2000 Hz a second station at (4000 - pitch) Hz folds onto the pitch
+    // for the Machine engine; the Hand key engine must still copy the right one.
+    CwSignal wanted;
+    CwSignal other;
+    wanted.silence(0.5);
+    wanted.keyer("CQ CQ DE W1AW W1AW K ", 20.0f, 2800.0f, 0.4f);
+    other.silence(1.3);
+    other.keyer("TEST TEST DE K1ABC K1ABC ", 26.0f, 1200.0f, 0.4f);
+    const size_t length = std::max(wanted.samples.size(), other.samples.size());
+    wanted.samples.resize(length);
+    other.samples.resize(length);
+    std::vector<float> mix(length);
+    for (size_t i = 0; i < length; ++i)
+        mix[i] = wanted.samples[i] + other.samples[i];
+
+    CwDecoderCore hand;
+    hand.setEngine(CwDecoderCore::Engine::Hand);
+    hand.setFixedPitch(2800.0f);
+    const QString text = QString::fromStdString(decode(hand, withNoise(mix, 0.05f, 4)));
+
+    QVERIFY2(text.contains("DE W1AW W1AW K"), qPrintable(text));
+    QVERIFY2(!text.contains("K1ABC"), qPrintable(text));
 }
 
 void CwDecoderTest::squelchKeepsNoiseSilent()
