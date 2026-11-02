@@ -1,6 +1,6 @@
 Steps to contribute a translation: 
 
-1. Sign up for a free GitLab.com account
+1. Sign up for a free GitHub.com account
 
 2. Fork the wfview repository. Be sure to work from our "translations" branch. 
 
@@ -29,7 +29,7 @@ Steps to contribute a translation:
 
 9. Submit a "Pull Request" ("PR") to our team, notifying us that there is a translation to accept into wfview. 
 
-If the gitlab process is too complicated, simply email a team member your translated files. We understand! 
+If the GitHub process is too complicated, simply email a team member your translated files. We understand! 
 
 If you'd like to be credited for the translation, we are happy to do so, please indicate how you would like to be named. 
 

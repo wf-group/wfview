@@ -280,7 +280,6 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
         m_settings->markDirty();
     });
     setManufacturer(prefs->manufacturer);
-    setAppTheme(prefs->useSystemTheme);
     qDebug(logGui()) << "Theme text color:" << m_theme.text().name();
 
     m_theme.syncFromAppPalette();
@@ -714,7 +713,6 @@ void MainController::ifChanged(prefIfItems items)
     if_wftheme = 1 << 7,
     if_plotFloor = 1 << 8,
     if_plotCeiling = 1 << 9,
-    if_stylesheetPath = 1 << 10,
     if_wflength = 1 << 11,
     if_confirmExit = 1 << 12,
     if_confirmPowerOff = 1 << 13,
@@ -5275,37 +5273,6 @@ void MainController::getInitialRigState()
 
 }
 
-void MainController::setAppTheme(bool isCustom)
-{
-    if(isCustom)
-    {
-#ifndef Q_OS_LINUX
-        QFile f(":"+prefs->stylesheetPath); // built-in resource
-#else
-        QFile f(PREFIX "/share/wfview/" + prefs->stylesheetPath);
-        if (!f.exists())
-        {
-            // Fallback to built-in resource for AppImage and non-root installs.
-            f.setFileName(":" + prefs->stylesheetPath);
-        }
-#endif
-        if (!f.exists())
-        {
-            printf("Unable to set stylesheet, file not found\n");
-            printf("Tried to load: [%s]\n", f.fileName().toStdString().c_str() );
-        }
-        else
-        {
-            if (f.open(QFile::ReadOnly | QFile::Text)) {
-                QTextStream ts(&f);
-                Q_UNUSED(ts)
-                qInfo() << "Ignoring QWidget stylesheet in QML UI:" << f.fileName();
-            }
-        }
-    } else {
-        qInfo() << "Ignoring QWidget stylesheet reset in QML UI";
-    }
-}
 void MainController::receiveRigCaps(rigCapabilities* caps)
 {
     this->rigCaps = caps;
@@ -6425,7 +6392,6 @@ void MainController::setDefPrefs()
     defprefs->wfEnable = 2;
     defprefs->wfAntiAlias = false;
     defprefs->wfInterpolate = true;
-    defprefs->stylesheetPath = QString("qdarkstyle/style.qss");
     defprefs->radioCIVAddr = 0x00; // previously was 0x94 for 7300.
     defprefs->CIVisRadioModel = false;
     defprefs->pttType = pttCIV;
@@ -6736,7 +6702,6 @@ void MainController::loadSettings(QString settingsFile)
     prefs->wfInterpolate = settings->value("WFInterpolate", defprefs->wfInterpolate).toBool();
     prefs->mainWflength = (unsigned int)settings->value("MainWFLength", defprefs->mainWflength).toInt();
     prefs->subWflength = (unsigned int)settings->value("SubWFLength", defprefs->subWflength).toInt();
-    prefs->stylesheetPath = settings->value("StylesheetPath", defprefs->stylesheetPath).toString();
 
 
     restoreGeometry(settings->value("windowGeometry").toByteArray());

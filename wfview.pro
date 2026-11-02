@@ -133,8 +133,7 @@ win32:DEFINES += HOST=\\\"$$system(hostname)\\\"
 win32:DEFINES += UNAME=\\\"$$system(echo %USERNAME%)\\\"
 
 
-RESOURCES += qdarkstyle/style.qrc \
-    resources/resources.qrc \
+RESOURCES += resources/resources.qrc \
     qml/qml.qrc \
     translations/translation.qrc
 
@@ -159,10 +158,6 @@ INSTALLS += icons
 unix:metainfo.files = resources/org.wfview.wfview.metainfo.xml
 unix:metainfo.path = $$PREFIX/share/metainfo
 INSTALLS += metainfo
-
-unix:stylesheets.files = qdarkstyle
-unix:stylesheets.path = $$PREFIX/share/wfview
-INSTALLS += stylesheets
 
 unix:rigs.files = rigs/*
 unix:rigs.path = $$PREFIX/share/wfview/rigs

@@ -997,7 +997,7 @@ void SettingsController::load()
     prefs.wfInterpolate = settings->value("WFInterpolate", defPrefs.wfInterpolate).toBool();
     prefs.mainWflength = (unsigned int)settings->value("MainWFLength", defPrefs.mainWflength).toInt();
     prefs.subWflength = (unsigned int)settings->value("SubWFLength", defPrefs.subWflength).toInt();
-    prefs.stylesheetPath = settings->value("StylesheetPath", defPrefs.stylesheetPath).toString();
+    settings->remove("StylesheetPath"); // Obsolete QWidget stylesheet; the QML UI does not use it
 
     m_receiverSettings.clear();
     const int receiverCount = settings->beginReadArray("Receiver");
@@ -1838,7 +1838,6 @@ void SettingsController::save()
     settings->setValue("SubPlotFloor", prefs.subPlotFloor);
     settings->setValue("MainPlotCeiling", prefs.mainPlotCeiling);
     settings->setValue("SubPlotCeiling", prefs.subPlotCeiling);
-    settings->setValue("StylesheetPath", prefs.stylesheetPath);
     //settings->setValue("splitter", ui->splitter->saveState());
     /*
     settings->setValue("windowGeometry", saveGeometry());
@@ -2429,7 +2428,6 @@ void SettingsController::setDefPrefs()
     defPrefs.wfEnable = 2;
     defPrefs.wfAntiAlias = false;
     defPrefs.wfInterpolate = true;
-    defPrefs.stylesheetPath = QString("qdarkstyle/style.qss");
     defPrefs.radioCIVAddr = 0x00; // previously was 0x94 for 7300.
     defPrefs.CIVisRadioModel = false;
     defPrefs.pttType = pttCIV;
@@ -3760,9 +3758,6 @@ void SettingsController::buildBindings()
 
     WF_I32("Interface.SubWFTheme", prefs.subWfTheme,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_wftheme)); });
-
-    WF_STR("Interface.StylesheetPath", prefs.stylesheetPath,
-           [this](){ emit ifChanged(prefIfItems(prefIfItem::if_stylesheetPath)); });
 
     WF_BOOL("Interface.RigCreatorEnable", prefs.rigCreatorEnable,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_rigCreatorEnable)); });

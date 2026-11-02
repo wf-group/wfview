@@ -1,5 +1,5 @@
 # .github/workflows/build-and-release.yml
-# Build wfview for Windows (x86/x64), Linux (AppImage), macOS Universal Qt6,
+# Build wfview for Windows (x86/x64), Linux x86_64 and arm64 (AppImage), macOS Universal Qt6,
 # and legacy Intel macOS Qt5 DMGs,
 # then publish all artifacts under a single release.
 
@@ -193,7 +193,6 @@ jobs:
         run: |
           windeployqt ^
             --release ^
-            --printsupport ^
             --qmldir wfview\qml ^
             --no-system-d3d-compiler ^
             wfview\wfview-release\wfview.exe
@@ -390,7 +389,6 @@ jobs:
         run: |
           windeployqt ^
             --release ^
-            --printsupport ^
             --qmldir wfview\qml ^
             --no-system-d3d-compiler ^
             wfview\wfview-release\wfview.exe
@@ -1114,14 +1112,12 @@ jobs:
         mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
         mkdir -p AppDir/usr/share/metainfo
         mkdir -p AppDir/usr/share/wfview/rigs
-        mkdir -p AppDir/usr/share/wfview/qdarkstyle
 
         cp wfview                                       AppDir/usr/bin/
         cp resources/wfview.desktop                     AppDir/usr/share/applications/
         cp resources/icons/bitmap/wfview.png            AppDir/usr/share/icons/hicolor/256x256/apps/
         cp resources/org.wfview.wfview.metainfo.xml     AppDir/usr/share/metainfo/ || true
         cp -r rigs/*                                    AppDir/usr/share/wfview/rigs/
-        cp -r qdarkstyle/*                              AppDir/usr/share/wfview/qdarkstyle/
 
         # linuxdeploy expects these at the AppDir root as well
         cp resources/wfview.desktop                     AppDir/
@@ -1215,163 +1211,9 @@ jobs:
         cp resources/icons/bitmap/wfview.png            installer-payload/
         cp resources/org.wfview.wfview.metainfo.xml     installer-payload/ || true
         cp -r rigs                                      installer-payload/
-        cp -r qdarkstyle                                installer-payload/
 
-        # Install script embedded in the payload
-        cat > installer-payload/install.sh << 'INSTALLER_EOF'
-        #!/bin/bash
-        # wfview AppImage Installer
-        # This script runs from within the makeself self-extracting archive.
-        #
-        # Usage:
-        #   ./wfview-installer.sh          # non-root install to ~/.local
-        #   sudo ./wfview-installer.sh     # root install to /usr/local
-        #
-        set -e
-
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        APPIMAGE_NAME="wfview.AppImage"
-
-        # ─── Detect root vs non-root ──────────────────────────────────
-        if [ "$(id -u)" -eq 0 ]; then
-            IS_ROOT=true
-            PREFIX="/usr/local"
-            echo "=== wfview installer (root mode) ==="
-        else
-            IS_ROOT=false
-            PREFIX="${HOME}/.local"
-            echo "=== wfview installer (user mode) ==="
-        fi
-        echo "Installing to ${PREFIX}"
-
-        BIN_DIR="${PREFIX}/bin"
-        SHARE_DIR="${PREFIX}/share"
-        DESKTOP_DIR="${SHARE_DIR}/applications"
-        ICON_DIR="${SHARE_DIR}/icons/hicolor/256x256/apps"
-        METAINFO_DIR="${SHARE_DIR}/metainfo"
-        WFVIEW_SHARE_DIR="${SHARE_DIR}/wfview"
-        RIGS_DIR="${WFVIEW_SHARE_DIR}/rigs"
-        STYLE_DIR="${WFVIEW_SHARE_DIR}/qdarkstyle"
-
-        # ─── Create directories ───────────────────────────────────────
-        echo "Creating directories..."
-        mkdir -p "${BIN_DIR}"
-        mkdir -p "${DESKTOP_DIR}"
-        mkdir -p "${ICON_DIR}"
-        mkdir -p "${METAINFO_DIR}"
-        mkdir -p "${WFVIEW_SHARE_DIR}"
-        mkdir -p "${RIGS_DIR}"
-        mkdir -p "${STYLE_DIR}"
-
-        # ─── Backup existing rig files (non-root only) ────────────────
-        if [ "${IS_ROOT}" = false ] && [ -d "${RIGS_DIR}" ] && [ "$(ls -A "${RIGS_DIR}" 2>/dev/null)" ]; then
-            BACKUP_NAME="wfview-rigs-backup-$(date +%Y%m%d-%H%M%S).tgz"
-            BACKUP_PATH="${WFVIEW_SHARE_DIR}/${BACKUP_NAME}"
-            echo "Backing up existing rig files to ${BACKUP_PATH} ..."
-            tar czf "${BACKUP_PATH}" -C "${WFVIEW_SHARE_DIR}" rigs/
-            echo "Backup created."
-        fi
-
-        # ─── Offer to back up prior wfview binaries ───────────────────
-        PRIOR_BINS=()
-        [ -f /usr/local/bin/wfview ] && PRIOR_BINS+=("/usr/local/bin/wfview")
-        [ -f /usr/bin/wfview ]       && PRIOR_BINS+=("/usr/bin/wfview")
-
-        if [ ${#PRIOR_BINS[@]} -gt 0 ]; then
-            echo ""
-            echo "Existing wfview binary detected at:"
-            for b in "${PRIOR_BINS[@]}"; do echo "  $b"; done
-            echo ""
-            if [ "${IS_ROOT}" = true ]; then
-                MV_CMD=(mv -f)
-            else
-                MV_CMD=(sudo mv -f)
-                echo "Note: sudo will be used to move the existing binary (you may be prompted for your password)."
-            fi
-            if [ -t 0 ]; then
-                read -r -p "Back up existing binary to <path>-prior before installing? [Y/n] " REPLY
-            else
-                REPLY="Y"
-                echo "Non-interactive shell; backing up by default."
-            fi
-            case "${REPLY}" in
-                ""|y|Y|yes|YES|Yes)
-                    for b in "${PRIOR_BINS[@]}"; do
-                        echo "Moving $b -> ${b}-prior"
-                        "${MV_CMD[@]}" "$b" "${b}-prior"
-                    done
-                    ;;
-                *)
-                    echo "Skipping backup of prior wfview binaries."
-                    ;;
-            esac
-        fi
-
-        # ─── Install AppImage ─────────────────────────────────────────
-        echo "Installing AppImage to ${BIN_DIR}/wfview ..."
-        cp "${SCRIPT_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/wfview"
-        chmod +x "${BIN_DIR}/wfview"
-
-        # ─── Install rig files ────────────────────────────────────────
-        if [ -d "${SCRIPT_DIR}/rigs" ]; then
-            echo "Installing rig files to ${RIGS_DIR}/ ..."
-            cp -r "${SCRIPT_DIR}/rigs/"* "${RIGS_DIR}/"
-        fi
-
-        # ─── Install stylesheets ─────────────────────────────────────
-        if [ -d "${SCRIPT_DIR}/qdarkstyle" ]; then
-            echo "Installing stylesheets to ${STYLE_DIR}/ ..."
-            cp -r "${SCRIPT_DIR}/qdarkstyle/"* "${STYLE_DIR}/"
-        fi
-
-        # ─── Install icon ────────────────────────────────────────────
-        if [ -f "${SCRIPT_DIR}/wfview.png" ]; then
-            echo "Installing icon ..."
-            cp "${SCRIPT_DIR}/wfview.png" "${ICON_DIR}/wfview.png"
-        fi
-
-        # ─── Install metainfo ────────────────────────────────────────
-        if [ -f "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" ]; then
-            echo "Installing metainfo ..."
-            cp "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" "${METAINFO_DIR}/"
-        fi
-
-        # ─── Install desktop file (rewrite Exec/Icon paths) ──────────
-        if [ -f "${SCRIPT_DIR}/wfview.desktop" ]; then
-            echo "Installing desktop launcher ..."
-            sed -e "s|^Exec=.*|Exec=${BIN_DIR}/wfview|" \
-                -e "s|^Icon=.*|Icon=${ICON_DIR}/wfview.png|" \
-                "${SCRIPT_DIR}/wfview.desktop" > "${DESKTOP_DIR}/wfview.desktop"
-            chmod +x "${DESKTOP_DIR}/wfview.desktop"
-        fi
-
-        # ─── Update desktop database (best-effort) ────────────────────
-        if command -v update-desktop-database &>/dev/null; then
-            update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
-        fi
-        if command -v gtk-update-icon-cache &>/dev/null; then
-            gtk-update-icon-cache "${SHARE_DIR}/icons/hicolor" 2>/dev/null || true
-        fi
-
-        # ─── Summary ─────────────────────────────────────────────────
-        echo ""
-        echo "════════════════════════════════════════════════"
-        echo "  wfview installed successfully!"
-        echo "════════════════════════════════════════════════"
-        echo "  Binary:      ${BIN_DIR}/wfview"
-        echo "  Rig files:   ${RIGS_DIR}/"
-        echo "  Stylesheets: ${STYLE_DIR}/"
-        echo "  Desktop:     ${DESKTOP_DIR}/wfview.desktop"
-        echo "  Icon:        ${ICON_DIR}/wfview.png"
-        echo "════════════════════════════════════════════════"
-        echo ""
-        if [ "${IS_ROOT}" = false ]; then
-            echo "NOTE: Make sure ${BIN_DIR} is in your PATH."
-            echo "  export PATH=\"${BIN_DIR}:\${PATH}\""
-        fi
-        echo "Run wfview with:  wfview"
-        INSTALLER_EOF
-
+        # Install script shared with the arm64 job
+        cp .github/linux-installer/install.sh           installer-payload/
         chmod +x installer-payload/install.sh
 
     # ─── DEBUG: Show payload contents ───────────────────────────────────
@@ -1406,11 +1248,218 @@ jobs:
         retention-days: 30
 
   # ═══════════════════════════════════════════════════════════════════
+  #  Linux ARM64 AppImage Build (Raspberry Pi OS Trixie 64-bit+)
+  # ═══════════════════════════════════════════════════════════════════
+  build-linux-arm64-appimage:
+    runs-on: ubuntu-24.04-arm
+    # The official Qt 6 arm64 binaries are built on Ubuntu 24.04 (glibc
+    # 2.39), so this AppImage needs Raspberry Pi OS Trixie (Debian 13) or
+    # newer. Bookworm's glibc 2.36 is too old.
+
+    steps:
+    # ─── Checkout ───────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0   # full history so git describe / rev-parse work
+
+    # ─── Determine version string ───────────────────────────────────────
+    - name: Determine version
+      id: version_info
+      run: |
+        SHORT=$(git rev-parse --short HEAD)
+        TAG=$(git tag --points-at HEAD | head -1)
+        if [ -n "$TAG" ]; then
+          VERSION_STRING="$TAG"
+          HAS_TAG=true
+        else
+          VERSION_STRING="$SHORT"
+          HAS_TAG=false
+        fi
+        echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+        echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
+        echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
+        echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
+
+    # ─── Install dependencies ───────────────────────────────────────────
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install \
+          build-essential \
+          libhidapi-dev \
+          libopus-dev \
+          libeigen3-dev \
+          libportaudio2 libportaudiocpp0 portaudio19-dev \
+          librtaudio-dev \
+          libudev-dev \
+          libpulse-dev \
+          libjack-jackd2-dev \
+          libgl1-mesa-dev \
+          git \
+          file \
+          libfuse2t64 \
+          makeself
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT6_VERSION }}
+        cache: true
+        host: linux_arm64
+        target: desktop
+        arch: linux_gcc_arm64
+        modules: qtserialport qtwebsockets qtmultimedia
+
+    # ─── Build ──────────────────────────────────────────────────────────
+    - name: Run qmake
+      run: |
+        qmake wfview.pro \
+          CONFIG+=release \
+          ${{ env.WFVIEW_MCP_CONFIG }} \
+          PREFIX=/usr \
+          VERSION="${{ steps.version_info.outputs.version_string }}"
+
+    - name: Build with make
+      run: |
+        make -j$(nproc)
+
+    - name: "DEBUG: Inspect build artifacts"
+      run: |
+        file wfview
+        ls -lh wfview
+        ldd wfview | grep "not found" && echo "::warning::Some libraries are missing!" || echo "All libraries found."
+
+    # ─── Prepare AppDir ─────────────────────────────────────────────────
+    - name: Prepare AppDir structure
+      run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        mkdir -p AppDir/usr/share/metainfo
+        mkdir -p AppDir/usr/share/wfview/rigs
+
+        cp wfview                                       AppDir/usr/bin/
+        cp resources/wfview.desktop                     AppDir/usr/share/applications/
+        cp resources/icons/bitmap/wfview.png            AppDir/usr/share/icons/hicolor/256x256/apps/
+        cp resources/org.wfview.wfview.metainfo.xml     AppDir/usr/share/metainfo/ || true
+        cp -r rigs/*                                    AppDir/usr/share/wfview/rigs/
+
+        # linuxdeploy expects these at the AppDir root as well
+        cp resources/wfview.desktop                     AppDir/
+        cp resources/icons/bitmap/wfview.png            AppDir/
+
+    # ─── Download linuxdeploy ───────────────────────────────────────────
+    - name: Download linuxdeploy and Qt plugin
+      run: |
+        wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage" \
+          -O linuxdeploy
+        wget -q "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-aarch64.AppImage" \
+          -O linuxdeploy-plugin-qt
+        chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+    # ─── Create AppImage ────────────────────────────────────────────────
+    - name: Build AppImage
+      run: |
+        export ARCH=aarch64
+        export APPIMAGE_EXTRACT_AND_RUN=1
+        export QMAKE=$(which qmake)
+        export QML_SOURCES_PATHS=$(pwd)/qml
+        export PATH="$(pwd):$PATH"
+
+        # Bundle libjack explicitly; see the x86_64 job for why.
+        LIBJACK=$(ldconfig -p | awk '/libjack\.so\.0/{print $NF; exit}')
+        LIBJACK_ARG=""
+        if [ -n "$LIBJACK" ]; then
+          echo "Found libjack at: $LIBJACK"
+          LIBJACK_ARG="--library=$LIBJACK"
+        else
+          echo "::warning::libjack.so.0 not found; AppImage may be missing it"
+        fi
+
+        ./linuxdeploy \
+          --appdir AppDir \
+          --desktop-file AppDir/usr/share/applications/wfview.desktop \
+          --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
+          $LIBJACK_ARG \
+          --plugin qt \
+          --output appimage
+
+        APPIMAGE_FILE=$(ls wfview*.AppImage 2>/dev/null | head -1)
+        if [ -z "$APPIMAGE_FILE" ]; then
+          echo "::error::AppImage was not created!"
+          ls -la
+          exit 1
+        fi
+        echo "AppImage created: $APPIMAGE_FILE"
+        mv "$APPIMAGE_FILE" wfview.AppImage
+
+    # ─── DEBUG: Verify AppImage ─────────────────────────────────────────
+    - name: "DEBUG: Verify AppImage"
+      run: |
+        ls -lh wfview.AppImage
+        file wfview.AppImage
+        echo ""
+        echo "=== Highest glibc symbol version required (Trixie ships 2.41) ==="
+        find AppDir -type f \( -name '*.so*' -o -path '*/usr/bin/*' \) -exec objdump -T {} + 2>/dev/null \
+          | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+    # ─── Upload raw AppImage for test builds ────────────────────────────
+    - name: Upload AppImage (test build)
+      if: steps.version_info.outputs.has_tag != 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-arm64-appimage-${{ steps.version_info.outputs.version_string }}
+        path: wfview.AppImage
+        retention-days: 7
+
+    # ─── Assemble makeself payload ──────────────────────────────────────
+    - name: Assemble installer payload
+      if: steps.version_info.outputs.has_tag == 'true'
+      run: |
+        mkdir -p installer-payload
+
+        cp wfview.AppImage                              installer-payload/
+        cp resources/wfview.desktop                     installer-payload/
+        cp resources/icons/bitmap/wfview.png            installer-payload/
+        cp resources/org.wfview.wfview.metainfo.xml     installer-payload/ || true
+        cp -r rigs                                      installer-payload/
+
+        # Install script shared with the x86_64 job
+        cp .github/linux-installer/install.sh           installer-payload/
+        chmod +x installer-payload/install.sh
+
+        find installer-payload -type f | sort
+        du -sh installer-payload
+
+    # ─── Build makeself installer ───────────────────────────────────────
+    - name: Create makeself installer
+      if: steps.version_info.outputs.has_tag == 'true'
+      run: |
+        makeself \
+          --gzip \
+          installer-payload \
+          wfview-linux-arm64-installer.sh \
+          "wfview arm64 AppImage Installer (commit ${{ steps.version_info.outputs.git_short }})" \
+          ./install.sh
+
+        ls -lh wfview-linux-arm64-installer.sh
+
+    # ─── Upload artifact ────────────────────────────────────────────────
+    - name: Upload installer artifact
+      if: steps.version_info.outputs.has_tag == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-arm64-appimage-installer
+        path: wfview-linux-arm64-installer.sh
+        retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════
   #  Publish Release (after all builds succeed)
   # ═══════════════════════════════════════════════════════════════════
   publish-release:
     runs-on: ubuntu-latest
-    needs: [build-windows-x86, build-windows-x64, build-macos, build-macos-legacy-intel, build-linux-appimage]
+    needs: [build-windows-x86, build-windows-x64, build-macos, build-macos-legacy-intel, build-linux-appimage, build-linux-arm64-appimage]
     if: needs.build-macos.outputs.has_tag == 'true'
 
     steps:
@@ -1462,6 +1511,12 @@ jobs:
           name: wfview-linux-appimage-installer
           path: artifacts/
 
+      - name: Download Linux ARM64 installer artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: wfview-linux-arm64-appimage-installer
+          path: artifacts/
+
       - name: Publish Release
         uses: softprops/action-gh-release@v3
         with:
@@ -1475,6 +1530,7 @@ jobs:
             artifacts/wfview-macos.dmg
             artifacts/wfview-macos-legacy-intel.dmg
             artifacts/wfview-linux-installer.sh
+            artifacts/wfview-linux-arm64-installer.sh
           body: |
             ## wfview ${{ steps.meta.outputs.version_string }}
 
@@ -1574,6 +1630,38 @@ jobs:
             **Requirements:** FUSE must be available to run AppImages. On Ubuntu/Debian:
             ```bash
             sudo apt install libfuse2
+            ```
+
+            ---
+
+            ### Linux ARM64 / Raspberry Pi (AppImage / Qt6)
+
+            | Field | Value |
+            |-------|-------|
+            | **Architecture** | arm64 / aarch64 |
+            | **Target OS** | Raspberry Pi OS Trixie 64-bit and newer (glibc 2.39+, Ubuntu 24.04 and newer) |
+            | **Framework** | Qt ${{ env.QT6_VERSION }} |
+
+            **Install:** Same as the x86_64 installer above, using `wfview-linux-arm64-installer.sh`:
+
+            ```bash
+            cd ~/Downloads
+            chmod +x wfview-linux-arm64-installer.sh
+
+            # User install (to ~/.local):
+            ./wfview-linux-arm64-installer.sh
+
+            # --- OR ---
+
+            # System-wide install (to /usr/local):
+            sudo ./wfview-linux-arm64-installer.sh
+            ```
+
+            Raspberry Pi OS Bookworm and 32-bit Raspberry Pi OS are not supported by this build.
+
+            **Requirements:** FUSE must be available to run AppImages. On Raspberry Pi OS Trixie:
+            ```bash
+            sudo apt install libfuse2t64
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

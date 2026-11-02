@@ -157,8 +157,7 @@ win32:DEFINES += HOST=\\\"wfview.org\\\"
 win32:DEFINES += UNAME=\\\"build\\\"
 
 
-RESOURCES += qdarkstyle/style.qrc \
-    resources/resources.qrc
+RESOURCES += resources/resources.qrc
 
 unix:target.path = $$PREFIX/bin
 INSTALLS += target

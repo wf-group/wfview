@@ -48,27 +48,20 @@ Now for the system specifics; pick your version:
 
 ### Debian 11:
 ~~~
-sudo apt install libqcustomplot2.0 libqt5multimedia5 libqt5serialport5
-sudo ln -s /usr/lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /usr/lib/x86_64-linux-gnu/libqcustomplot.so.2
+sudo apt install libqt5multimedia5 libqt5serialport5
 wfview
 ~~~
 
 ### Fedora 33/34:
 ~~~
-sudo dnf install qcustomplot-qt5 qt5-qtmultimedia qt5-qtserialport
-sudo ln  -s  /usr/lib64/libqcustomplot-qt5.so.2 /usr/lib64/libqcustomplot.so.2
+sudo dnf install qt5-qtmultimedia qt5-qtserialport
 wfview
 ~~~
 
 ### Mint 20.1
 ~~~
-sudo apt install libqcustomplot2.0 libqt5multimedia5 libqt5serialport5
-sudo ln  -s  /usr/lib64/libqcustomplot-qt5.so.2 /usr/lib64/libqcustomplot.so.2
+sudo apt install libqt5multimedia5 libqt5serialport5
 wfview
-
-note: if the above symlink fails, use the following line to fix the library link:
-
-sudo ln -s /lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /lib/x86_64-linux-gnu/libqcustomplot.so.2
 ~~~
 
 ### Mint 20.2
@@ -76,34 +69,24 @@ sudo ln -s /lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /lib/x86_64-linux-gnu/l
 
 SEE THE NOTES AT THE END. You need wfview153 binary here
 
-sudo apt install libqcustomplot2.0 libqt5multimedia5 libqt5serialport5
-sudo ln  -s  /usr/lib64/libqcustomplot-qt5.so.2 /usr/lib64/libqcustomplot.so.2
+sudo apt install libqt5multimedia5 libqt5serialport5
 wfview
-
-note: if the above symlink fails, use the following line to fix the library link:
-
-sudo ln -s /lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /lib/x86_64-linux-gnu/libqcustomplot.so.2
 ~~~
 
 
 ### openSUSE/Tumbleweed/SLES based on 15.3/15.4:
 ~~~
 
-sudo zypper in libqcustomplot2 libQt5SerialPort5
+sudo zypper in libQt5SerialPort5
 wfview
 ~~~
 
 
 ### UBUNTU:
 ~~~
-sudo apt install libqcustomplot2.0 libqt5multimedia5 libqt5serialport5
-sudo ln -s /usr/lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /usr/lib/x86_64-linux-gnu/libqcustomplot.so.2
+sudo apt install libqt5multimedia5 libqt5serialport5
 wfview
 
-
-note: if the above symlink fails, use the following line to fix the library link:
-
-sudo ln -s /lib/x86_64-linux-gnu/libqcustomplot.so.2.0.1 /lib/x86_64-linux-gnu/libqcustomplot.so.2
 ~~~
 
 

@@ -527,7 +527,6 @@ private:
     //void setDefPrefs();
     //void loadSettings(QString file); // Look for saved preferences
     void setManufacturer(manufacturersType_t man);
-    void setAppTheme(bool isCustom);
     void openRigConnection();
     void startRigConnection();
     void getInitialRigState();

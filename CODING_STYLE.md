@@ -1,6 +1,6 @@
 # wfview C++ Style Guide
 
-This guide applies to wfview-owned C++ and QML code. Do not reformat bundled or imported libraries such as `qdarkstyle/`, `old-source/`, generated build trees, or third-party DSP/audio sources unless the change is required for integration.
+This guide applies to wfview-owned C++ and QML code. Do not reformat bundled or imported libraries such as `old-source/`, generated build trees, or third-party DSP/audio sources unless the change is required for integration.
 
 ## Scope
 

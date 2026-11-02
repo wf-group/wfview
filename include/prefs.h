@@ -54,7 +54,6 @@ enum prefIfItem {
     if_wftheme = 1 << 7,
     if_plotFloor = 1 << 8,
     if_plotCeiling = 1 << 9,
-    if_stylesheetPath = 1 << 10,
     if_wflength = 1 << 11,
     if_confirmExit = 1 << 12,
     if_confirmPowerOff = 1 << 13,
@@ -334,7 +333,6 @@ struct preferences {
     unsigned int subWflength;
     int scopeScrollX;
     int scopeScrollY;
-    QString stylesheetPath;
     bool confirmExit;
     bool confirmPowerOff;
     bool confirmSettingsChanged;
