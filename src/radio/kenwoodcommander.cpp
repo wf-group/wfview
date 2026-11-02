@@ -516,7 +516,6 @@ bool kenwoodCommander::queueParsedExternalCommand(funcs func, const funcType &ty
     case funcRitStatus:
     case funcCompressor:
     case funcVox:
-    case funcRepeaterTone:
     case funcRepeaterTSQL:
     case funcScopeOnOff:
     case funcScopeHold:
@@ -524,6 +523,10 @@ bool kenwoodCommander::queueParsedExternalCommand(funcs func, const funcType &ty
     case funcSMeterSqlStatus:
     case funcSplitStatus:
         value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
+        break;
+    case funcRepeaterTone:
+        // TS-590 is 0/1, TS-890 is 0=off, 1=tone, 2=CTCSS
+        value.setValue<uchar>(d.mid(0, 1).toUShort(&ok));
         break;
     case funcIFShift:
     case funcPBTInner:
@@ -981,7 +984,6 @@ void kenwoodCommander::parseData(QByteArray data)
         case funcRitStatus:
         case funcCompressor:
         case funcVox:
-        case funcRepeaterTone:
         case funcRepeaterTSQL:
         case funcScopeOnOff:
         case funcScopeHold:
@@ -991,6 +993,10 @@ void kenwoodCommander::parseData(QByteArray data)
         case funcCWDecodeEnable:
         case funcCWDecodeDisplay:
             value.setValue<bool>(d.at(0) - NUMTOASCII);
+            break;
+        case funcRepeaterTone:
+            // TS-590 is 0/1, TS-890 is 0=off, 1=tone, 2=CTCSS
+            value.setValue<uchar>(d.at(0) - NUMTOASCII);
             break;
         case funcCWDecodeThreshold:
         case funcCWDecodeFilter:

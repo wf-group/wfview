@@ -586,6 +586,7 @@ private:
     toneInfo toneFromList(const std::vector<toneInfo>& tones, int tone, bool secondaryVfo = false) const;
     void setRepeaterAccessMode(rptAccessTxRx_t mode, bool secondaryVfo = false);
     void updateRepeaterToneMode(rptAccessTxRx_t mode);
+    int combinedToneModeMax() const;
     void updateRepeaterOffset(freqt offset);
 
 

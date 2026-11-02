@@ -2427,6 +2427,7 @@ QVariantMap MainController::repeaterState() const
     caps["tsql"] = rigCaps && (rigCaps->commands.contains(funcTSQLFreq)
                                || rigCaps->commands.contains(funcRepeaterTSQL)
                                || rigCaps->commands.contains(funcToneSquelchType));
+    caps["crossTone"] = combinedToneModeMax() >= 3;
     caps["dtcs"] = rigCaps && (rigCaps->commands.contains(funcDTCSCode)
                                || rigCaps->commands.contains(funcRepeaterDTCS));
     caps["radioOffset"] = rigCaps && (rigCaps->commands.contains(funcReadFreqOffset)
@@ -2459,6 +2460,7 @@ QVariantMap MainController::repeaterState() const
     state["dmDupAutoOn"] = int(dmDupAutoOn);
     state["ratrNN"] = int(ratrNN);
     state["ratrTN"] = int(ratrTN);
+    state["ratrNT"] = int(ratrNT);
     state["ratrTT"] = int(ratrTT);
     state["ratrDD"] = int(ratrDD);
     return state;
@@ -2550,8 +2552,15 @@ void MainController::setRepeaterAccessMode(rptAccessTxRx_t mode, bool secondaryV
         return;
     }
 
+    // Rigs without a separate TSQL command (TS-890) select CTCSS/cross tone with the tone command
+    const int toneMax = combinedToneModeMax();
+
     if (mode == ratrTN && rigCaps->commands.contains(funcRepeaterTone)) {
         queue->add(priorityImmediate, queueItem(funcRepeaterTone, QVariant::fromValue(true), false, uchar(secondaryVfo)));
+    } else if (mode == ratrNT && toneMax >= 3) {
+        queue->add(priorityImmediate, queueItem(funcRepeaterTone, QVariant::fromValue<uchar>(2), false, uchar(secondaryVfo)));
+    } else if (mode == ratrTT && toneMax >= 2) {
+        queue->add(priorityImmediate, queueItem(funcRepeaterTone, QVariant::fromValue<uchar>(toneMax >= 3 ? 3 : 2), false, uchar(secondaryVfo)));
     } else if (mode == ratrTT && rigCaps->commands.contains(funcRepeaterTSQL)) {
         queue->add(priorityImmediate, queueItem(funcRepeaterTSQL, QVariant::fromValue(true), false, uchar(secondaryVfo)));
     } else if (mode == ratrNN) {
@@ -2727,6 +2736,15 @@ void MainController::updateRepeaterToneMode(rptAccessTxRx_t mode)
         m_repeaterToneMode = mode;
         emit repeaterStateChanged();
     }
+}
+
+// Highest value of a tone command that also selects CTCSS (TS-890 TO: 0=off, 1=tone, 2=CTCSS, 3=cross tone).
+// Returns 1 for rigs where the tone command is only on/off.
+int MainController::combinedToneModeMax() const
+{
+    if (!rigCaps || rigCaps->commands.contains(funcRepeaterTSQL) || !rigCaps->commands.contains(funcRepeaterTone))
+        return 1;
+    return rigCaps->commands.value(funcRepeaterTone).maxVal;
 }
 
 void MainController::updateRepeaterOffset(freqt offset)
@@ -6073,8 +6091,17 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcAutoNotch:
         break;
     case funcRepeaterTone:
-        updateRepeaterToneMode(val.value.value<bool>() ? ratrTONEon : ratrTONEoff);
+    {
+        // Some rigs (TS-890) report 0=off, 1=tone, 2=CTCSS, 3=cross tone in the one command
+        const uchar tone = val.value.value<uchar>();
+        if (tone == 3)
+            updateRepeaterToneMode(ratrTT);
+        else if (tone == 2)
+            updateRepeaterToneMode(combinedToneModeMax() >= 3 ? ratrNT : ratrTT);
+        else
+            updateRepeaterToneMode(tone ? ratrTONEon : ratrTONEoff);
         break;
+    }
     case funcRepeaterTSQL:
         updateRepeaterToneMode(val.value.value<bool>() ? ratrTSQLon : ratrTSQLoff);
         break;

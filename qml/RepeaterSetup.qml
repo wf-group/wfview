@@ -309,12 +309,29 @@ ApplicationWindow {
                         }
                     }
                     Button {
+                        // Rigs with cross tone have a separate same-frequency TSQL mode
+                        readonly property int tsqlMode: caps.crossTone === true ? Number(rptState.ratrNT) : Number(rptState.ratrTT)
                         text: qsTr("TSQL")
                         checkable: true
-                        checked: Number(rptState.toneMode) === Number(rptState.ratrTT)
+                        checked: Number(rptState.toneMode) === tsqlMode
                         visible: caps.tsql === true
                         onClicked: {
+                            MainController.setRepeaterToneMode(tsqlMode, setSubTone.checked)
+                            if (tsqlCombo.currentIndex >= 0)
+                                MainController.setRepeaterTsqlFrequency(tsqlCombo.currentValue, setSubTone.checked)
+                        }
+                    }
+                    Button {
+                        text: qsTr("Cross")
+                        checkable: true
+                        checked: Number(rptState.toneMode) === Number(rptState.ratrTT)
+                        visible: caps.crossTone === true
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Transmit the Tone frequency, squelch on the TSQL frequency")
+                        onClicked: {
                             MainController.setRepeaterToneMode(Number(rptState.ratrTT), setSubTone.checked)
+                            if (toneCombo.currentIndex >= 0)
+                                MainController.setRepeaterToneFrequency(toneCombo.currentValue, setSubTone.checked)
                             if (tsqlCombo.currentIndex >= 0)
                                 MainController.setRepeaterTsqlFrequency(tsqlCombo.currentValue, setSubTone.checked)
                         }
