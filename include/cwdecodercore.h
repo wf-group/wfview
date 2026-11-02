@@ -244,6 +244,7 @@ public:
     static constexpr float kLockSnrDb = 7.0f; // tone must beat median by this
                                               // (7 dB copies weak signals; noise alone
                                               // still stays silent)
+    static constexpr float kMaxFixedPitchHz = 2000.0f; // highest fixed pitch (multi-signal range)
     static constexpr float kNearHz = 30.0f; // within this: slew, no re-lock
     static constexpr int kMoveBlocks = 4; // new peak must persist (x 0.25 s)
     static constexpr float kSquelchHoldSec = 2.0f; // keep squelch open after tone fades
@@ -362,7 +363,7 @@ private:
         if (m_mode == Mode::Fixed)
         {
             lo = std::max(150.0f, m_fixedHz - 100.0f);
-            hi = std::min(1500.0f, m_fixedHz + 100.0f);
+            hi = std::min(kMaxFixedPitchHz + 100.0f, m_fixedHz + 100.0f);
         }
         else
         {

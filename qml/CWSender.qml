@@ -240,7 +240,7 @@ ApplicationWindow {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Follow radio: track the strongest tone within 150 Hz of the radio's CW pitch.\n"
                                    + "Auto: track the strongest steady tone from 200 to 1200 Hz.\n"
-                                   + "Fixed: decode exactly at the pitch at right.")
+                                   + "Fixed: decode exactly at the pitch at right (200 to 2000 Hz).")
                 currentIndex: audioDecoder ? audioDecoder.pitchMode : 0
                 onActivated: function(index) {
                     if (audioDecoder) {
@@ -254,6 +254,13 @@ ApplicationWindow {
                 stepSize: 10
                 editable: true
                 inputMethodHints: Qt.ImhDigitsOnly
+                // Plain digits ("1250", not "1,250") so typed values are accepted.
+                textFromValue: function(value, locale) {
+                    return value.toString()
+                }
+                valueFromText: function(text, locale) {
+                    return parseInt(text, 10)
+                }
                 enabled: decodePitchMode.currentIndex === CwAudioDecoder.PitchFixed
                 value: audioDecoder ? audioDecoder.fixedPitch : 600
                 onValueModified: {
@@ -389,9 +396,9 @@ ApplicationWindow {
                         width: multiSignalList.width
                         implicitHeight: channelCells.implicitHeight + 6
                         color: cwSenderWindow.palette.base
-                        // Stations that have gone quiet stay listed (greyed) for a while.
-                        readonly property color textColor: modelData.active ? cwSenderWindow.palette.text
-                                                                            : cwSenderWindow.palette.mid
+                        // Stations that have gone quiet stay listed, dimmed, for a while.
+                        readonly property color textColor: cwSenderWindow.palette.text
+                        opacity: modelData.active ? 1.0 : 0.55
 
                         RowLayout {
                             id: channelCells

@@ -146,6 +146,7 @@ private slots:
     void machineEngineCopiesKeyerCw();
     void handKeyEngineCopiesKeyerCw();
     void handKeyEngineCopiesUnevenFist();
+    void bothEnginesCopyHighPitch();
     void squelchKeepsNoiseSilent();
     void pitchTrackerFindsTone();
     void multiDecoderSeparatesStations();
@@ -195,6 +196,26 @@ void CwDecoderTest::handKeyEngineCopiesUnevenFist()
 
     QVERIFY2(text.contains("N9UV"), qPrintable(text));
     QVERIFY2(text.contains("DE"), qPrintable(text));
+}
+
+void CwDecoderTest::bothEnginesCopyHighPitch()
+{
+    // Fixed pitches up to the top of the multi-signal range (2000 Hz) must decode.
+    CwSignal signal;
+    signal.silence(0.5);
+    signal.keyer("CQ CQ DE W1AW W1AW K ", 20.0f, 1900.0f, 0.5f);
+    const std::vector<float> audio = withNoise(signal.samples, 0.05f, 1);
+
+    CwDecoderCore machine;
+    machine.setFixedPitch(1900.0f);
+    const QString machineText = QString::fromStdString(decode(machine, audio));
+    QVERIFY2(machineText.contains("DE W1AW W1AW K"), qPrintable(machineText));
+
+    CwDecoderCore hand;
+    hand.setEngine(CwDecoderCore::Engine::Hand);
+    hand.setFixedPitch(1900.0f);
+    const QString handText = QString::fromStdString(decode(hand, audio));
+    QVERIFY2(handText.contains("DE W1AW W1AW K"), qPrintable(handText));
 }
 
 void CwDecoderTest::squelchKeepsNoiseSilent()

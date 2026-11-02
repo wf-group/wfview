@@ -14,7 +14,7 @@ constexpr float followSpanHz = 150.0f; // Follow radio: search the radio's pitch
 constexpr float autoPitchLoHz = 200.0f;
 constexpr float autoPitchHiHz = 1200.0f;
 constexpr float multiLoHz = 200.0f;
-constexpr float multiHiHz = 2000.0f;
+constexpr float multiHiHz = CwDecoderCore::kMaxFixedPitchHz;
 constexpr int statsIntervalMs = 250;
 constexpr int multiIntervalMs = 300;
 constexpr int pitchPollMs = 3000;
@@ -214,7 +214,8 @@ int CwAudioDecoder::pitchMin() const
 
 int CwAudioDecoder::pitchMax() const
 {
-    return static_cast<int>(autoPitchHiHz);
+    // Same top as the multi-signal list, so any station in it can be decoded.
+    return static_cast<int>(CwDecoderCore::kMaxFixedPitchHz);
 }
 
 void CwAudioDecoder::setEnabled(bool on)
