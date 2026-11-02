@@ -587,10 +587,12 @@ Control {
                                     Button {
                                         id: splitButton;
                                         text: qsTr("SPLIT");
-                                        checkable: true
+                                        // Not checkable: a click would break the binding and the button
+                                        // would stop following the radio's split state.
+                                        checkable: false
                                         checked: controller ? controller.splitEnabled : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSplitButton) !== 0
-                                        onClicked: if (controller) controller.setSplitEnabled(checked)
+                                        onClicked: if (controller) controller.setSplitEnabled(!controller.splitEnabled)
                                     }
                                 }
                             }

@@ -2582,11 +2582,12 @@ ApplicationWindow {
                             }
                             Button {
                                 text: qsTr("Split")
-                                checkable: true
+                                // Not checkable so the binding survives a click and follows the radio.
+                                checkable: false
                                 checked: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
                                 visible: (mainControlSpecs.canSplit ?? false) && scopeAndOtherControlsFlow.hasReceiverScopeControls
-                                onToggled: MainController.splitEnabled = checked
+                                onClicked: MainController.splitEnabled = !MainController.splitEnabled
                             }
 
                             Button {

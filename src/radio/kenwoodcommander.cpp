@@ -1642,6 +1642,16 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                     payload.append(QString::number(value.value<uchar>()).rightJustified(cmd.bytes, QChar('0')).toLatin1());
                 }
             }
+            else if(!strcmp(value.typeName(),"duplexMode_t"))
+            {
+                // Repeater/Split window sends a duplex mode; Kenwood split (TB) only knows off/on.
+                const int dm = int(value.value<duplexMode_t>());
+                if (dm > cmd.maxVal) {
+                    qWarning(logRig()) << "Not sending duplex mode" << dm << "- the rig file allows up to" << cmd.maxVal;
+                    return;
+                }
+                payload.append(QString::number(dm).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
             else if(!strcmp(value.typeName(),"short"))
             {
                 // RIT/XIT step size for RU/RD, already made positive above.

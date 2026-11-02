@@ -5856,7 +5856,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcSplitStatus:
     {
-        const auto mode = val.value.value<duplexMode_t>();
+        // Kenwood reports split as bool and the cache may hold uchar; Icom reports duplexMode_t.
+        duplexMode_t mode;
+        if (val.value.userType() == QMetaType::Bool)
+            mode = val.value.toBool() ? dmSplitOn : dmSplitOff;
+        else if (val.value.userType() == qMetaTypeId<uchar>())
+            mode = duplexMode_t(val.value.value<uchar>());
+        else
+            mode = val.value.value<duplexMode_t>();
         m_repeaterDuplexMode = mode;
         const bool enabled = mode != dmSplitOff;
         if (m_splitEnabled != enabled) {
