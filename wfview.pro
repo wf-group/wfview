@@ -253,9 +253,11 @@ INCLUDEPATH += src/audio/pocketfft
 INCLUDEPATH += src/audio/speexdspmini/src
 INCLUDEPATH += src/audio/speexdspmini/include
 INCLUDEPATH += src/audio/anr
+INCLUDEPATH += src/audio/ggmorse/include
 
 SOURCES += \
     src/CWSenderController.cpp \
+    src/CwAudioDecoder.cpp \
     src/ControllerController.cpp \
     src/DebugController.cpp \
     src/LogModel.cpp \
@@ -305,6 +307,8 @@ SOURCES += \
     src/cluster.cpp \
     src/commhandler.cpp \
     src/audio/cwsidetonegenerator.cpp \
+    src/audio/ggmorse/src/ggmorse.cpp \
+    src/audio/ggmorse/src/resampler.cpp \
     src/database.cpp \
     src/directradiotransport.cpp \
     src/freqctrlquick.cpp \
@@ -349,6 +353,7 @@ SOURCES += \
 
 HEADERS  += \
     include/CWSenderController.h \
+    include/CwAudioDecoder.h \
     include/ControllerController.h \
     include/DebugController.h \
     include/LogModel.h \
@@ -391,6 +396,10 @@ HEADERS  += \
     include/colorprefs.h \
     include/commhandler.h \
     include/cwsidetonegenerator.h \
+    include/cwdecodercore.h \
+    include/cwhandkeydecoder.h \
+    include/cwmultidecoder.h \
+    include/cwwordjoiner.h \
     include/database.h \
     include/directradiotransport.h \
     include/freqmemory.h \

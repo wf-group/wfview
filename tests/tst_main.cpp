@@ -4,6 +4,7 @@
 int runControllerControllerTests(int argc, char **argv);
 int runAudioRoutingTests(int argc, char **argv);
 int runClusterTests(int argc, char **argv);
+int runCwDecoderTests(int argc, char **argv);
 int runIaxClientSessionTests(int argc, char **argv);
 int runIcomScopeFrameAssemblerTests(int argc, char **argv);
 int runModSourceTests(int argc, char **argv);
@@ -21,6 +22,7 @@ int main(int argc, char **argv)
     status |= runAudioRoutingTests(argc, argv);
     status |= runControllerControllerTests(argc, argv);
     status |= runClusterTests(argc, argv);
+    status |= runCwDecoderTests(argc, argv);
     status |= runIaxClientSessionTests(argc, argv);
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
     status |= runModSourceTests(argc, argv);

@@ -45,6 +45,10 @@ CWSenderController::CWSenderController(QObject* parent)
     m_cwDecodeTimer.setInterval(cwDecodeStepTimeoutMs);
     connect(&m_cwDecodeTimer, &QTimer::timeout, this, &CWSenderController::cwDecodeStepTimeout);
 
+    // Software decoder: show what we send inline with what we copy.
+    m_audioDecoder = new CwAudioDecoder(this);
+    connect(this, &CWSenderController::sendCW, m_audioDecoder, &CwAudioDecoder::appendSent);
+
     m_queue = cachingQueue::getInstance();
     if (m_queue) {
         connect(this, &CWSenderController::sendCW, m_queue, [=](const QString &cwMessage) {
@@ -65,6 +69,10 @@ CWSenderController::CWSenderController(QObject* parent)
 
         connect(this, &CWSenderController::setPitchSignal, m_queue, [=](const quint16& pitch) {
             m_queue->addUnique(priorityImmediate, queueItem(funcCwPitch, QVariant::fromValue<ushort>(pitch)));
+        });
+
+        connect(m_audioDecoder, &CwAudioDecoder::radioPitchRequested, m_queue, [=]() {
+            m_queue->add(priorityImmediate, funcCwPitch);
         });
 
         connect(this, &CWSenderController::getCWSettings, m_queue, [=]() {
@@ -160,7 +168,17 @@ void CWSenderController::setVisible(bool visible)
             emit getCWSettings();
             queryCwDecodeState();
         }
+        else
+        {
+            // Closing the window stops the software decoder.
+            m_audioDecoder->setEnabled(false);
+        }
     }
+}
+
+void CWSenderController::setRxAudioProcessor(RxAudioProcessor *rxProc)
+{
+    m_audioDecoder->setRxAudioProcessor(rxProc);
 }
 
 void CWSenderController::setWpm(int wpm)
@@ -493,6 +511,7 @@ void CWSenderController::handleDashRatio(quint8 ratio)
 
 void CWSenderController::handlePitch(quint16 cwPitch)
 {
+    m_audioDecoder->setRadioPitch(cwPitch);
     if (cwPitch != m_pitch && cwPitch >= m_pitchMin && cwPitch <= m_pitchMax) {
         m_pitch = cwPitch;
         m_tone->setFrequency(cwPitch);

@@ -1354,6 +1354,7 @@ int main(int argc, char *argv[])
     qmlRegisterType<DebugController>("WFVIEW", 1, 0, "DebugController");
     qmlRegisterType<SelectRadioController>("WFVIEW", 1, 0, "SelectRadioController");
     qmlRegisterType<CWSenderController>("WFVIEW", 1, 0, "CWSenderController");
+    qmlRegisterUncreatableType<CwAudioDecoder>("WFVIEW", 1, 0, "CwAudioDecoder", "Owned by CWSenderController");
     qmlRegisterType<MemoriesModel>("WFVIEW", 1, 0, "MemoriesModel");
     qmlRegisterType<ControllerController>("WFVIEW", 1, 0, "ControllerController");
 
