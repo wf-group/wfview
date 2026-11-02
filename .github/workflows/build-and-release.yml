@@ -1367,6 +1367,11 @@ jobs:
         export QML_SOURCES_PATHS=$(pwd)/qml
         export PATH="$(pwd):$PATH"
 
+        # The arm64 Qt package also ships the GStreamer multimedia backend,
+        # which needs GStreamer libraries the runner does not have. Remove it
+        # so the AppImage uses only the FFmpeg backend, like the x86_64 build.
+        rm -fv "$QT_ROOT_DIR/plugins/multimedia/libgstreamermediaplugin.so"
+
         # Bundle libjack explicitly; see the x86_64 job for why.
         LIBJACK=$(ldconfig -p | awk '/libjack\.so\.0/{print $NF; exit}')
         LIBJACK_ARG=""
