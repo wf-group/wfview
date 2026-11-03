@@ -11,6 +11,7 @@ icomServer::icomServer(SERVERCONFIG* config, rigServer* parent) :
     rigServer(config,parent)
 {
     qInfo(logRigServer()) << "Creating instance of Icom server";
+    monoClock.start();
 }
 
 void icomServer::init()
@@ -223,15 +224,6 @@ void icomServer::controlReceived()
                 // It is a ping request/response
                 if (in->reply == 0x00)
                 {
-                    if (!current->clientTime.isValid() ||
-                        ((in->time-current->timeOffset)+current->startTime < QTime::currentTime().msecsSinceStartOfDay())) {
-                        // Either a new day or first connection.
-                        current->timeOffset = in->time;
-                        current->startTime = QTime::currentTime().msecsSinceStartOfDay();
-                    }
-                    current->clientTime = QTime::fromMSecsSinceStartOfDay(current->startTime+(in->time-current->timeOffset));
-                    current->timeDifference = QTime::currentTime().msecsSinceStartOfDay() - (current->startTime + (in->time - current->timeOffset));
-
                     current->rxPingTime = in->time;
                     sendPing(&controlClients, current, in->seq, true);
                 }
@@ -573,15 +565,6 @@ void icomServer::civReceived()
 
                 if (in->reply == 0x00)
                 {
-                    if (!current->clientTime.isValid() ||
-                        ((in->time-current->timeOffset)+current->startTime < QTime::currentTime().msecsSinceStartOfDay())) {
-                        // Either a new day or first connection.
-                        current->timeOffset = in->time;
-                        current->startTime = QTime::currentTime().msecsSinceStartOfDay();
-                    }
-                    current->clientTime = QTime::fromMSecsSinceStartOfDay(current->startTime+(in->time-current->timeOffset));
-                    current->timeDifference = QTime::currentTime().msecsSinceStartOfDay() - (current->startTime + (in->time - current->timeOffset));
-
                     current->rxPingTime = in->time;
                     sendPing(&civClients, current, in->seq, true);
                 }
@@ -741,14 +724,7 @@ void icomServer::audioReceived()
 
                 if (in->reply == 0x00)
                 {
-                    if (!current->clientTime.isValid() ||
-                        ((in->time-current->timeOffset)+current->startTime < QTime::currentTime().msecsSinceStartOfDay())) {
-                        // Either a new day or first connection.
-                        current->timeOffset = in->time;
-                        current->startTime = QTime::currentTime().msecsSinceStartOfDay();
-                    }
-                    current->clientTime = QTime::fromMSecsSinceStartOfDay(current->startTime+(in->time-current->timeOffset));
-                    current->timeDifference = QTime::currentTime().msecsSinceStartOfDay() - (current->startTime + (in->time - current->timeOffset));
+                    current->pingDelay.update(monoClock.elapsed(), in->time);
 
                     current->rxPingTime = in->time;
                     sendPing(&audioClients, current, in->seq, true);
@@ -781,21 +757,37 @@ void icomServer::audioReceived()
                     current->seqPrefix++;
                 }
 
-                QTime lastReceived = QTime::currentTime().addMSecs(current->timeDifference);
-                if (hasTxAudio == current->ipAddress && lastReceived < QTime::currentTime().addMSecs(current->controlClient->txBufferLen))
+                // Drop audio that is arriving later than the configured latency allows,
+                // so that a delay spike does not leave us playing behind real time.
+                // Excess is measured above the recent best-case delay, so it returns
+                // to ~0 by itself once the spike is over.
+                const int excessMs = current->pingDelay.excessMs();
+                const int dropThresholdMs = current->controlClient != nullptr ?
+                            PingDelayTracker::dropThresholdMs(int(current->controlClient->txBufferLen)) : 0;
+
+                if (hasTxAudio == current->ipAddress && dropThresholdMs > 0 && excessMs > dropThresholdMs)
+                {
+                    ++current->droppedLatePackets;
+                    if (!current->lastLateDropLog.isValid() || current->lastLateDropLog.elapsed() > 2000) {
+                        qInfo(logRigServer()) << current->ipAddress.toString() << "(" << current->type << "):"
+                                              << "Dropping delayed TX audio, excess delay" << excessMs
+                                              << "ms, threshold" << dropThresholdMs
+                                              << "ms, dropped" << current->droppedLatePackets;
+                        current->lastLateDropLog.restart();
+                    }
+                }
+                else if (hasTxAudio == current->ipAddress)
                 {
                     // 0xac is the smallest possible audio packet.
                     audioPacket tempAudio;
                     tempAudio.seq = (quint32)current->seqPrefix << 16 | in->seq;
-                    tempAudio.time = lastReceived;
+                    // Arrival time: the lateness decision has been made above, so the
+                    // output handler's age check must not drop it a second time.
+                    tempAudio.time = QTime::currentTime();
                     tempAudio.sent = 0;
                     tempAudio.data = r.mid(0x18);
                     //qInfo(logRigServer()) << "sending tx audio " << in->seq;
                     emit haveAudioData(tempAudio);
-                }
-                else if (lastReceived >= QTime::currentTime().addMSecs(current->controlClient->txBufferLen))
-                {
-                    qInfo(logRigServer()) << "Audio timestamp is older than" << current->controlClient->txBufferLen << "ms, dropped";
                 }
             }
             break;
