@@ -25,6 +25,7 @@
 
 #include "packettypes.h"
 #include "wfviewtypes.h"
+#include "pingdelaytracker.h"
 
 struct udpPreferences {
     connectionType_t connectionType;
@@ -167,10 +168,8 @@ protected:
     //qint64 timeDifference = 0;
 
     QElapsedTimer mono;
-    bool    haveSync = false;
-    quint32 radioBase = 0;     // radio uptime ms at sync
-    qint64  localBase = 0;     // local monotonic ms at sync
-    int     pingLatenessMs = 0; // +ve = radio ping timestamp is behind initial baseline prediction
+    PingDelayTracker pingDelay;
+    int     pingLatenessMs = 0; // Queuing delay above the recent best case, from radio pings (>= 0)
 
 
 

@@ -189,24 +189,18 @@ void icomUdpAudio::dataReceived()
                 if (rxAudioThread == nullptr)
                     startAudio();
 
-                const int timeDriftMs = qMax(0, pingLatenessMs);
-                const int dropThresholdMs = qMax<int>(rxSetup.latency + audioPktMs,
-                                                       int(rxSetup.latency * 1.5));
-                bool dropForLatency = false;
+                // Drop audio that is arriving later than the configured latency allows,
+                // so that a delay spike does not leave us playing behind real time.
+                // pingLatenessMs is measured above the recent best-case delay, so it
+                // returns to ~0 by itself once the spike is over.
+                const int excessMs = pingLatenessMs;
+                const int dropThresholdMs = PingDelayTracker::dropThresholdMs(rxSetup.latency);
 
-                if (timeDriftMs > dropThresholdMs) {
-                    dropForLatency = ++latencyCounter >= 3;
-                    if (dropForLatency)
-                        latencyCounter = 0;
-                } else {
-                    latencyCounter = 0;
-                }
-
-                if (dropForLatency) {
+                if (excessMs > dropThresholdMs) {
                     ++droppedLatencyPackets;
                     if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
                         qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
-                                        << "timeDrift" << timeDriftMs
+                                        << "excessDelay" << excessMs
                                         << "configuredLatency" << rxSetup.latency
                                         << "threshold" << dropThresholdMs
                                         << "dropped" << droppedLatencyPackets;
@@ -217,7 +211,9 @@ void icomUdpAudio::dataReceived()
 
                 audioPacket tempAudio;
                 tempAudio.seq  = quint32(seqPrefix << 16) | quint32(in->seq) ;
-                tempAudio.time = QTime::currentTime().addMSecs(-timeDriftMs);
+                // Arrival time: the lateness decision has been made above, so the
+                // output handler's age check must not drop it a second time.
+                tempAudio.time = QTime::currentTime();
                 tempAudio.sent = 0;
                 tempAudio.data = r.mid(0x18);
                 emit haveAudioData(tempAudio);
