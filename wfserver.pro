@@ -279,6 +279,7 @@ HEADERS  += \
     include/radiotransportframe.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \
+    include/pingdelaytracker.h \
     include/icomudpcivdata.h \
     include/icomudphandler.h \
     include/kenwoodserver.h \

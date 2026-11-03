@@ -37,6 +37,7 @@ SOURCES += \
     $$PWD/tst_iaxclientsession.cpp \
     $$PWD/tst_modsource.cpp \
     $$PWD/tst_periodicmode.cpp \
+    $$PWD/tst_pingdelaytracker.cpp \
     $$PWD/tst_radiotransportframe.cpp \
     $$PWD/tst_rigctlcompat.cpp \
     $$PWD/tst_rigctld.cpp \
@@ -59,6 +60,7 @@ HEADERS += \
     $$PWD/../include/iaxclientsession.h \
     $$PWD/../include/icomscopeframeassembler.h \
     $$PWD/../include/logcategories.h \
+    $$PWD/../include/pingdelaytracker.h \
     $$PWD/../include/radiotransport.h \
     $$PWD/../include/radiotransportframe.h \
     $$PWD/../include/rigctlcompat.h \

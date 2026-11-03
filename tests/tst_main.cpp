@@ -8,6 +8,7 @@ int runIaxClientSessionTests(int argc, char **argv);
 int runIcomScopeFrameAssemblerTests(int argc, char **argv);
 int runModSourceTests(int argc, char **argv);
 int runPeriodicModeTests(int argc, char **argv);
+int runPingDelayTrackerTests(int argc, char **argv);
 int runRadioTransportFrameTests(int argc, char **argv);
 int runRigCtlCompatTests(int argc, char **argv);
 int runRigCtlDTests(int argc, char **argv);
@@ -25,6 +26,7 @@ int main(int argc, char **argv)
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
     status |= runModSourceTests(argc, argv);
     status |= runPeriodicModeTests(argc, argv);
+    status |= runPingDelayTrackerTests(argc, argv);
     status |= runRadioTransportFrameTests(argc, argv);
     status |= runRigCtlCompatTests(argc, argv);
     status |= runRigCtlDTests(argc, argv);
