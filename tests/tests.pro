@@ -27,12 +27,15 @@ INCLUDEPATH += $$PWD/../src/audio/pocketfft
 INCLUDEPATH += $$PWD/../src/audio/speexdspmini/src
 INCLUDEPATH += $$PWD/../src/audio/speexdspmini/include
 INCLUDEPATH += $$PWD/../src/audio/anr
+INCLUDEPATH += $$PWD/../src/audio/ggmorse/include
 
 SOURCES += \
     $$PWD/tst_main.cpp \
     $$PWD/tst_audiorouting.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
+    $$PWD/tst_cwdecoder.cpp \
+    $$PWD/tst_rtty.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_iaxclientsession.cpp \
     $$PWD/tst_modsource.cpp \
@@ -51,7 +54,11 @@ SOURCES += \
     $$PWD/../src/radiotransportframe.cpp \
     $$PWD/../src/rigctlcompat.cpp \
     $$PWD/../src/cachingqueue.cpp \
-    $$PWD/../src/rigctld.cpp
+    $$PWD/../src/rigctld.cpp \
+    $$PWD/../src/audio/ggmorse/src/ggmorse.cpp \
+    $$PWD/../src/audio/ggmorse/src/resampler.cpp \
+    $$PWD/../src/audio/rttycore.cpp \
+    $$PWD/../src/audio/rttytxsource.cpp
 
 HEADERS += \
     $$PWD/../include/cluster.h \
@@ -66,4 +73,10 @@ HEADERS += \
     $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/rigctld.h \
     $$PWD/../include/cachingqueue.h \
+    $$PWD/../include/cwdecodercore.h \
+    $$PWD/../include/cwhandkeydecoder.h \
+    $$PWD/../include/cwmultidecoder.h \
+    $$PWD/../include/cwwordjoiner.h \
+    $$PWD/../include/rttycore.h \
+    $$PWD/../include/rttytxsource.h \
     $$PWD/../include/usbcontroller.h

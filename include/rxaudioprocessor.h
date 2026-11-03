@@ -105,6 +105,15 @@ public:
     // Output gain
     void setOutputGainDB(float dB);
 
+    // CW decoder tap. When enabled, cwTapAudio() delivers mono RX audio taken after
+    // NR / EQ / output gain and before RX mute and the sidetone mix.
+    void setCwTapEnabled(bool en) { m_cwTapEnabled.store(en, std::memory_order_relaxed); }
+    bool cwTapEnabled() const { return m_cwTapEnabled.load(std::memory_order_relaxed); }
+
+    // RTTY decoder tap: same audio as the CW tap, delivered as rttyTapAudio().
+    void setRttyTapEnabled(bool en) { m_rttyTapEnabled.store(en, std::memory_order_relaxed); }
+    bool rttyTapEnabled() const { return m_rttyTapEnabled.load(std::memory_order_relaxed); }
+
     // Spectrum capture — thread-safe; call from main thread.
     void setSpectrumEnabled(bool en);
     void setSpectrumFps(int fps);   // 1–60; default 10
@@ -171,6 +180,10 @@ public slots:
 
 signals:
     void rxInputLevel(float peak);
+    // Mono samples for the CW decoder (converter thread), see setCwTapEnabled().
+    void cwTapAudio(QVector<float> mono, float sampleRate);
+    // Mono samples for the RTTY decoder (converter thread), see setRttyTapEnabled().
+    void rttyTapAudio(QVector<float> mono, float sampleRate);
     void rxOutputLevel(float peak);
     // Emitted when the audio stream channel count changes (1 or 2).
     void rxAudioChannelsChanged(int channels);
@@ -271,6 +284,10 @@ private:
     // m_specEnabled / m_specTargetFps are atomic: written from main thread,
     // read from converter thread.  All other members are converter-thread-only.
     // SPEC_FFT_LEN is declared public above.
+    std::atomic<bool> m_cwTapEnabled  { false };
+    std::atomic<bool> m_rttyTapEnabled { false };
+    void emitCwTap(const Eigen::VectorXf &samples, int channels, int channelSelect, float sampleRate);
+
     std::atomic<bool> m_specEnabled   { false };
     std::atomic<int>  m_specTargetFps { 10 };
 

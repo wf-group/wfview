@@ -18,6 +18,7 @@
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
 #include "CWSenderController.h"
+#include "RttyController.h"
 
 #include "prefs.h"
 #include "rigctld.h"
@@ -48,6 +49,7 @@ class MainController : public QObject {
     Q_PROPERTY(bool slowLoad READ slowLoad WRITE setSlowLoad NOTIFY slowLoadChanged)
 
     Q_PROPERTY(CWSenderController* cwSender READ cwSender CONSTANT)
+    Q_PROPERTY(RttyController* rtty READ rtty CONSTANT)
     Q_PROPERTY(SelectRadioController* selectRadio READ selectRadio CONSTANT)
     // Qt 6.9+ Controls give TextField/TextArea their own right-click edit menu.
     Q_PROPERTY(bool nativeTextContextMenu READ nativeTextContextMenu CONSTANT)
@@ -185,6 +187,7 @@ public:
     SettingsController* getSettings() const { return m_settings.get(); }
     SelectRadioController* selectRadio() const { return m_selRad.get(); }
     CWSenderController* cwSender() const { return m_cwSender.get(); }
+    RttyController* rtty() const { return m_rtty.get(); }
 
     ThemeBridge* theme() { return &m_theme; }
 
@@ -204,6 +207,12 @@ public:
         if (!rigCaps || !rigCaps->hasTransmit || !rigCaps->commands.contains(funcSendCW))
             return;
         m_cwSender->setVisible(true);
+    }
+
+    // RTTY decode works with any radio; transmit needs PTT and TX audio.
+    Q_INVOKABLE void showRtty()
+    {
+        m_rtty->setVisible(true);
     }
 
 
@@ -771,6 +780,7 @@ private:
     std::unique_ptr<SettingsController> m_settings;
     std::unique_ptr<SelectRadioController> m_selRad;
     std::unique_ptr<CWSenderController> m_cwSender;
+    std::unique_ptr<RttyController> m_rtty;
 
     ThemeBridge m_theme;
 

@@ -242,9 +242,10 @@ bool audioHandlerBase::init(const audioSetup& setup)
         const float sr = static_cast<float>(radioFormat.sampleRate());
         qDebug(logAudio()) << role() << "installing TX audio processing hook"
                           << "proc=" << proc << "sampleRate=" << sr;
-        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
-            converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
-                return proc->processAudio(std::move(s), sr);
+        const int ch = radioFormat.channelCount();
+        QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr, ch]{
+            converter->setProcessingHook([proc, sr, ch](Eigen::VectorXf s){
+                return proc->processAudio(std::move(s), sr, ch);
             });
         }, Qt::QueuedConnection);
     }

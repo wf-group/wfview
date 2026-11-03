@@ -786,6 +786,17 @@ ApplicationWindow {
         }
     }
 
+    // Load RTTY window
+    Loader {
+        id: rttyLoader
+        active: false
+        source: "qrc:/qml/RttyWindow.qml"
+        asynchronous: false
+        onLoaded: {
+            item.rtty = MainController.rtty
+        }
+    }
+
     // Load CWSender window
     Loader {
         id: cwSenderLoader
@@ -905,6 +916,20 @@ ApplicationWindow {
                 repeaterLoader.item.visible = true
                 repeaterLoader.item.raise()
                 repeaterLoader.item.requestActivate()
+            }
+        })
+    }
+
+    function openRttyWindow() {
+        if (!win.radioConnected)
+            return
+        if (!rttyLoader.active)
+            rttyLoader.active = true
+        MainController.showRtty()
+        Qt.callLater(function() {
+            if (rttyLoader.item) {
+                rttyLoader.item.raise()
+                rttyLoader.item.requestActivate()
             }
         })
     }
@@ -2490,6 +2515,13 @@ ApplicationWindow {
                         enabled: mainControlSpecs.canSendCW ?? false
                         visible: mainControlSpecs.canSendCW ?? false
                         onClicked: win.openCwSenderWindow()
+                    }
+                    Button {
+                        text: qsTr("RTTY")
+                        Layout.preferredWidth: 120
+                        enabled: win.radioConnected
+                        visible: win.radioConnected
+                        onClicked: win.openRttyWindow()
                     }
 
                     Button {

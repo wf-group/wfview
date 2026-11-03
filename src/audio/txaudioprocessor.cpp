@@ -2,6 +2,7 @@
 // Lives on the main thread; processAudio() is called from the converter thread.
 
 #include "txaudioprocessor.h"
+#include "rttytxsource.h"
 #include "logcategories.h"
 #include <cmath>
 #include <algorithm>
@@ -42,9 +43,25 @@ void TxAudioProcessor::setSpectrumFps(int fps)
 // ─── processAudio ─────────────────────────────────────────────────────────────
 // Called from the audioConverter thread (TimeCriticalPriority).
 
-Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sampleRate)
+void TxAudioProcessor::setAfskSource(std::shared_ptr<RttyTxSource> source)
+{
+    std::atomic_store(&m_afsk, std::move(source));
+}
+
+Eigen::VectorXf TxAudioProcessor::processAudio(Eigen::VectorXf samples, float sampleRate, int channels)
 {
     if (samples.size() == 0) return samples;
+
+    // ── RTTY AFSK replaces the mic audio while keyed ─────────────────────────
+    if (const std::shared_ptr<RttyTxSource> afsk = std::atomic_load(&m_afsk); afsk && afsk->active()) {
+        const int ch = qMax(1, channels);
+        afsk->render(samples.data(), static_cast<size_t>(samples.size() / ch), ch, sampleRate);
+        const float peak = samples.array().abs().maxCoeff();
+        emit txInputLevel(peak);
+        emit txOutputLevel(peak);
+        emit txGainReduction(1.0f);
+        return samples;
+    }
     if (!m_processLoggedOnce) {
         qInfo(logAudio()) << "TxAudioProcessor first block"
                           << "samples=" << samples.size()

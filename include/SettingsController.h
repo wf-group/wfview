@@ -827,6 +827,8 @@ public:
     preferences* getPrefs() { return &prefs;}
     udpPreferences* getUdpPrefs() { return &udpPrefs;}
     QString settingsFileName() const { return settings ? settings->fileName() : QString(); }
+    // The settings store itself, for controllers that keep their own group (e.g. [RTTY]).
+    QSettings* qSettings() const { return settings.get(); }
     QSettings::Format settingsFormat() const { return settings ? settings->format() : QSettings::IniFormat; }
     SERVERCONFIG* getServerConfig() { return &serverConfig;}
     colorPrefsType getCurrentColorPreset() {return colorPreset[prefs.currentColorPresetNumber];}

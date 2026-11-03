@@ -21,6 +21,8 @@
 #include "plugins/mbeq.h"
 #include "plugins/noisegate.h"
 
+class RttyTxSource;
+
 // Forward-declare pocketfft plan so the full C header isn't pulled into every
 // translation unit that includes this header.
 struct rfft_plan_i;
@@ -62,7 +64,12 @@ public:
     // Processes one block of float samples.  Returns the processed block.
     // The sample rate is supplied so the processor can (re)create plugins when
     // it changes (e.g. different radio connection).
-    Eigen::VectorXf processAudio(Eigen::VectorXf samples, float sampleRate);
+    // channels: interleaved channel count of 'samples' (the radio's TX format).
+    Eigen::VectorXf processAudio(Eigen::VectorXf samples, float sampleRate, int channels = 1);
+
+    // RTTY AFSK: while the source is active its tones replace the mic audio
+    // (gate, compressor and EQ are bypassed). Main thread; nullptr removes it.
+    void setAfskSource(std::shared_ptr<RttyTxSource> source);
 
     // ── Parameter setters — safe to call from the main thread at any time ────
     void setBypassed(bool bypass);          // master bypass — skips all DSP/gain
@@ -133,6 +140,8 @@ signals:
                         float rawSR);
 
 private:
+    // Read with std::atomic_load on the converter thread, set on the main thread.
+    std::shared_ptr<RttyTxSource> m_afsk;
     // ── Sidetone buffer (for RtAudio compatibility) ───────────────────────────
     QList<Eigen::VectorXf>    m_sidetoneBuffer;
     int                       m_sidetoneDelay = 0;

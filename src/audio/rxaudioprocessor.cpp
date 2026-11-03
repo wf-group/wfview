@@ -186,6 +186,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     // ── Master bypass ────────────────────────────────────────────────────────
     // In bypass mode, pass audio through unchanged (preserving stereo if present).
     if (p.bypass) {
+        emitCwTap(samples, channels, p.channelSelect, sampleRate);
         if (muted) samples.setZero();
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
@@ -250,6 +251,9 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     // ── Output gain ──────────────────────────────────────────────────────────
     applyGainDB(samples, p.outputGainDB);
     samples = samples.array().max(-1.0f).min(1.0f);
+
+    // CW decoder sees post-NR audio, before RX mute and our own sidetone.
+    emitCwTap(samples, channels, p.channelSelect, sampleRate);
 
     // ── Mix sidetone (AFTER NR so user's own voice is not processed) ─────────
     if (muted) samples.setZero();
@@ -967,4 +971,41 @@ void RxAudioProcessor::applyGainDB(Eigen::VectorXf& s, float dB)
 {
     if (std::fabs(dB) < 0.01f) return;
     s *= std::pow(10.0f, dB / 20.0f);
+}
+
+// ─── emitCwTap ───────────────────────────────────────────────────────────────
+// Converter thread. Cheap no-op unless the CW or RTTY decoder is decoding.
+
+void RxAudioProcessor::emitCwTap(const Eigen::VectorXf &samples, int channels, int channelSelect, float sampleRate)
+{
+    const bool cw = m_cwTapEnabled.load(std::memory_order_relaxed);
+    const bool rtty = m_rttyTapEnabled.load(std::memory_order_relaxed);
+    if (!cw && !rtty)
+        return;
+    if (samples.size() == 0 || sampleRate <= 0.0f)
+        return;
+
+    QVector<float> mono;
+    if (channels == 2)
+    {
+        const int frames = static_cast<int>(samples.size()) / 2;
+        mono.resize(frames);
+        for (int i = 0; i < frames; ++i)
+        {
+            const float l = samples[i * 2];
+            const float r = samples[i * 2 + 1];
+            mono[i] = channelSelect == 1 ? l : channelSelect == 2 ? r : (l + r) * 0.5f;
+        }
+    }
+    else
+    {
+        const int n = static_cast<int>(samples.size());
+        mono.resize(n);
+        for (int i = 0; i < n; ++i)
+            mono[i] = samples[i];
+    }
+    if (cw)
+        emit cwTapAudio(mono, sampleRate);
+    if (rtty)
+        emit rttyTapAudio(mono, sampleRate);
 }
