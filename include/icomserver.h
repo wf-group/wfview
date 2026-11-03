@@ -13,6 +13,7 @@
 #include <QList>
 #include <QVector>
 #include <QMap>
+#include <QElapsedTimer>
 
 // Allow easy endian-ness conversions
 #include <QtEndian>
@@ -25,6 +26,7 @@
 #include "icomudphandler.h"
 #include "audiohandler.h"
 #include "rigcommander.h"
+#include "pingdelaytracker.h"
 
 extern void passcode(QString in,QByteArray& out);
 extern QByteArray parseNullTerminatedString(QByteArray c, int s);
@@ -113,10 +115,10 @@ private:
 		CLIENT* audioClient = Q_NULLPTR;
         quint8 guid[GUIDLEN];
 
-        qint64 startTime;
-        QTime clientTime;
-        qint64 timeOffset;
-        qint64 timeDifference = 0;
+        // Audio only: queuing delay of incoming TX audio, from client pings.
+        PingDelayTracker pingDelay;
+        int droppedLatePackets = 0;
+        QElapsedTimer lastLateDropLog;
 	};
 
 	void controlReceived();
@@ -166,6 +168,8 @@ private:
 
 	QHostAddress hasTxAudio;
 	QTimer* wdTimer;
+
+	QElapsedTimer monoClock; // Local time base for PingDelayTracker.
 
 };
 
