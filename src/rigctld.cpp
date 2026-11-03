@@ -1454,9 +1454,11 @@ int rigCtlClient::getCommand(QStringList& response, bool extended, const command
         // Build QStringList of Prefixes. This is a bit messy, but not sure how else do to it?
         QStringList prefixes=buildPrefixes(cmd,extended);
 
+        // Without result labels (e.g. wait_morse) the code below would index prefixes[-1] and crash.
         if (!prefixes.length() && cmd.type != typeString)
         {
             qWarning(logRigCtlD()) << "No prefixes found for cmd" << cmd.str << "using func" << funcString[func] << "aborting";
+            return -RIG_ENIMPL;
         }
 
         if (cmd.sstr=='i' ||  cmd.sstr=='x') {
