@@ -467,6 +467,7 @@ HEADERS  += \
     include/icomserver.h \
     include/icomudpaudio.h \
     include/icomudpbase.h \
+    include/pingdelaytracker.h \
     include/icomudpcivdata.h \
     include/icomudphandler.h \
     include/kenwoodcommander.h \
