@@ -9,7 +9,7 @@ ApplicationWindow {
     transientParent: null
     title: qsTr("CW Sender")
     width: 835
-    height: 451
+    height: 760
     color: palette.window
 
     readonly property bool _sysTheme: MainController.settings.options["Interface.UseSystemTheme"] === true
@@ -32,6 +32,8 @@ ApplicationWindow {
     }
 
     property var cwSenderController: null
+    // Software CW decoder (decodes the receive audio; works with any radio).
+    readonly property var audioDecoder: cwSenderController ? cwSenderController.audioDecoder : null
     
     visible: cwSenderController ? cwSenderController.visible : false
 
@@ -128,6 +130,14 @@ ApplicationWindow {
     }
 
     Connections {
+        target: cwSenderWindow.audioDecoder
+
+        function onTextAppended(text) {
+            cwSenderWindow.appendLimited(decodeText, text)
+        }
+    }
+
+    Connections {
         target: MainController.settings
         function onColChanged(items) {
             cwSenderWindow.applyDisabledPalette()
@@ -139,60 +149,362 @@ ApplicationWindow {
         anchors.margins: 10
         spacing: 5
         
-        // Top section: Receive and Transcript text, split by a draggable
-        // handle. Pane widths only change when the handle is dragged (or the
-        // window resized), never in response to the text content.
+        // Software CW decoder controls
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            CheckBox {
+                text: qsTr("Decode")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Decode CW from the receive audio (after NR, before the sidetone).")
+                checked: audioDecoder ? audioDecoder.enabled : false
+                onToggled: {
+                    if (audioDecoder) {
+                        audioDecoder.enabled = checked
+                    }
+                }
+            }
+
+            CheckBox {
+                text: qsTr("Squelch")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Print nothing while no steady CW tone is present\n(stops random E/T/I letters on band noise).")
+                checked: audioDecoder ? audioDecoder.squelch : true
+                onToggled: {
+                    if (audioDecoder) {
+                        audioDecoder.squelch = checked
+                    }
+                }
+            }
+
+            Label { text: qsTr("Decoder:") }
+            ComboBox {
+                model: [qsTr("Machine (keyer)"), qsTr("Hand key")]
+                implicitContentWidthPolicy: ComboBox.WidestText
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Machine: best on keyer or computer-sent CW with even timing.\n"
+                                   + "Hand key: learns each sender's own dit, dah and spacing and copies\n"
+                                   + "uneven straight-key or bug sending. Prints a word at a time,\n"
+                                   + "about a second behind. Machine works up to 1900 Hz; above that Hand key is used.")
+                currentIndex: audioDecoder ? audioDecoder.engine : 0
+                onActivated: function(index) {
+                    if (audioDecoder) {
+                        audioDecoder.engine = index
+                    }
+                }
+            }
+
+            CheckBox {
+                text: qsTr("Multi-signal")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Also decode every other CW signal in the receive passband (widen the\n"
+                                   + "radio's filter to see more). One line per station; double-click a line\n"
+                                   + "to make it the main decode.")
+                checked: audioDecoder ? audioDecoder.multiSignal : false
+                onToggled: {
+                    if (audioDecoder) {
+                        audioDecoder.multiSignal = checked
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+
+            Button {
+                text: qsTr("Re-sync")
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Restart pitch and speed tracking (e.g. after changing stations).")
+                onClicked: {
+                    if (audioDecoder) {
+                        audioDecoder.resync()
+                    }
+                }
+            }
+
+            Button {
+                text: qsTr("Clear")
+                onClicked: decodeText.clear()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            Label { text: qsTr("Decode pitch:") }
+            ComboBox {
+                id: decodePitchMode
+                model: [qsTr("Follow radio"), qsTr("Auto"), qsTr("Fixed")]
+                implicitContentWidthPolicy: ComboBox.WidestText
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Follow radio: track the strongest tone within 150 Hz of the radio's CW pitch.\n"
+                                   + "Auto: track the strongest steady tone from 200 to 1200 Hz.\n"
+                                   + "Fixed: decode exactly at the pitch at right (200 to 3000 Hz).")
+                currentIndex: audioDecoder ? audioDecoder.pitchMode : 0
+                onActivated: function(index) {
+                    if (audioDecoder) {
+                        audioDecoder.pitchMode = index
+                    }
+                }
+            }
+            SpinBox {
+                from: audioDecoder ? audioDecoder.pitchMin : 200
+                to: audioDecoder ? audioDecoder.pitchMax : 1200
+                stepSize: 10
+                editable: true
+                inputMethodHints: Qt.ImhDigitsOnly
+                // Plain digits ("1250", not "1,250") so typed values are accepted.
+                textFromValue: function(value, locale) {
+                    return value.toString()
+                }
+                valueFromText: function(text, locale) {
+                    return parseInt(text, 10)
+                }
+                enabled: decodePitchMode.currentIndex === CwAudioDecoder.PitchFixed
+                value: audioDecoder ? audioDecoder.fixedPitch : 600
+                onValueModified: {
+                    if (audioDecoder) {
+                        audioDecoder.fixedPitch = value
+                    }
+                }
+            }
+
+            Label { text: qsTr("Decode speed:") }
+            ComboBox {
+                id: decodeSpeedMode
+                model: [qsTr("Auto"), qsTr("Fixed")]
+                implicitContentWidthPolicy: ComboBox.WidestText
+                currentIndex: audioDecoder && audioDecoder.fixedSpeed ? 1 : 0
+                onActivated: function(index) {
+                    if (audioDecoder) {
+                        audioDecoder.fixedSpeed = index === 1
+                    }
+                }
+            }
+            SpinBox {
+                from: 5
+                to: 60
+                editable: true
+                inputMethodHints: Qt.ImhDigitsOnly
+                enabled: decodeSpeedMode.currentIndex === 1
+                value: audioDecoder ? audioDecoder.speedWpm : 20
+                onValueModified: {
+                    if (audioDecoder) {
+                        audioDecoder.speedWpm = value
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        // Decoded text above, Receive/Transcript below; drag the handle to resize.
         SplitView {
-            id: textSplitView
+            id: paneSplitView
             Layout.fillWidth: true
             Layout.fillHeight: true
-            orientation: Qt.Horizontal
+            orientation: Qt.Vertical
 
             handle: Rectangle {
-                implicitWidth: 6
+                implicitHeight: 6
                 color: SplitHandle.pressed ? cwSenderWindow.palette.highlight
                      : SplitHandle.hovered ? cwSenderWindow.palette.mid
                      : cwSenderWindow.palette.window
             }
-            
-            // Receive text (only visible if enabled)
-            ScrollView {
-                id: receiveScrollView
-                SplitView.preferredWidth: textSplitView.width / 2
-                SplitView.minimumWidth: 100
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                visible: cwSenderController ? cwSenderController.receiveVisible : false
-                
-                TextArea {
-                    id: receiveText
-                    readOnly: true
-                    textFormat: TextEdit.PlainText
-                    wrapMode: TextArea.Wrap
-                    font.family: "Courier"
-                    font.pixelSize: 12
-                    color: cwSenderWindow.palette.text
-                    background: Rectangle { color: cwSenderWindow.palette.base }
+
+            // Software decoder output, with the multi-signal list at right when enabled.
+            SplitView {
+                id: decodeSplitView
+                SplitView.preferredHeight: paneSplitView.height * 0.55
+                SplitView.minimumHeight: 80
+                orientation: Qt.Horizontal
+
+                handle: Rectangle {
+                    implicitWidth: 6
+                    color: SplitHandle.pressed ? cwSenderWindow.palette.highlight
+                         : SplitHandle.hovered ? cwSenderWindow.palette.mid
+                         : cwSenderWindow.palette.window
+                }
+
+                ScrollView {
+                    SplitView.fillWidth: true
+                    SplitView.minimumWidth: 100
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                    TextArea {
+                        id: decodeText
+                        readOnly: true
+                        textFormat: TextEdit.PlainText
+                        wrapMode: TextArea.Wrap
+                        font.family: "Courier"
+                        font.pixelSize: 14
+                        placeholderText: qsTr("Decoded CW (tick Decode)")
+                        color: cwSenderWindow.palette.text
+                        background: Rectangle { color: cwSenderWindow.palette.base }
+                    }
+                }
+
+                ListView {
+                    id: multiSignalList
+                    visible: audioDecoder ? audioDecoder.multiSignal : false
+                    SplitView.preferredWidth: decodeSplitView.width * 0.4
+                    SplitView.minimumWidth: 150
+                    clip: true
+                    model: audioDecoder ? audioDecoder.channels : []
+                    ScrollBar.vertical: ScrollBar {}
+
+                    header: RowLayout {
+                        width: multiSignalList.width
+                        spacing: 8
+
+                        Label {
+                            Layout.leftMargin: 4
+                            Layout.preferredWidth: pitchColumn.width
+                            text: qsTr("Pitch")
+                            font: pitchColumn.font
+                        }
+                        Label {
+                            Layout.preferredWidth: wpmColumn.width
+                            text: qsTr("WPM")
+                            font: pitchColumn.font
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            text: qsTr("Decoded (double-click to decode)")
+                            font: pitchColumn.font
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    // Widths of the fixed pitch and WPM columns.
+                    TextMetrics {
+                        id: pitchColumn
+                        font.family: "Courier"
+                        font.pixelSize: 12
+                        text: "0000 Hz"
+                    }
+                    TextMetrics {
+                        id: wpmColumn
+                        font: pitchColumn.font
+                        text: "WPM"
+                    }
+
+                    delegate: Rectangle {
+                        id: channelRow
+                        required property var modelData
+                        width: multiSignalList.width
+                        implicitHeight: channelCells.implicitHeight + 6
+                        color: cwSenderWindow.palette.base
+                        // Stations that have gone quiet stay listed, dimmed, for a while.
+                        readonly property color textColor: cwSenderWindow.palette.text
+                        opacity: modelData.active ? 1.0 : 0.55
+
+                        RowLayout {
+                            id: channelCells
+                            anchors.fill: parent
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            spacing: 8
+
+                            Label {
+                                Layout.preferredWidth: pitchColumn.width
+                                horizontalAlignment: Text.AlignRight
+                                text: Math.round(channelRow.modelData.pitch) + " Hz"
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                            Label {
+                                Layout.preferredWidth: wpmColumn.width
+                                horizontalAlignment: Text.AlignRight
+                                text: channelRow.modelData.wpm > 0 ? Math.round(channelRow.modelData.wpm) : "--"
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                // The newest text stays visible; the oldest is trimmed.
+                                elide: Text.ElideLeft
+                                text: channelRow.modelData.text.trim()
+                                font: pitchColumn.font
+                                color: channelRow.textColor
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onDoubleClicked: {
+                                if (audioDecoder) {
+                                    audioDecoder.decodeChannel(Math.round(channelRow.modelData.pitch))
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
+            // Receive and Transcript text, split by a draggable
+            // handle. Pane widths only change when the handle is dragged (or the
+            // window resized), never in response to the text content.
+            SplitView {
+                id: textSplitView
+                SplitView.fillHeight: true
+                SplitView.minimumHeight: 60
+                orientation: Qt.Horizontal
+
+                handle: Rectangle {
+                    implicitWidth: 6
+                    color: SplitHandle.pressed ? cwSenderWindow.palette.highlight
+                         : SplitHandle.hovered ? cwSenderWindow.palette.mid
+                         : cwSenderWindow.palette.window
+                }
             
-            // Transcript text
-            ScrollView {
-                SplitView.fillWidth: true
-                SplitView.minimumWidth: 100
-                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                // Receive text (only visible if enabled)
+                ScrollView {
+                    id: receiveScrollView
+                    SplitView.preferredWidth: textSplitView.width / 2
+                    SplitView.minimumWidth: 100
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    visible: cwSenderController ? cwSenderController.receiveVisible : false
                 
-                TextArea {
-                    id: transcriptText
-                    readOnly: true
-                    textFormat: TextEdit.PlainText
-                    wrapMode: TextArea.Wrap
-                    font.family: "Courier"
-                    font.pixelSize: 12
-                    placeholderText: qsTr("CW Transmission Transcript")
-                    color: cwSenderWindow.palette.text
-                    background: Rectangle { color: cwSenderWindow.palette.base }
+                    TextArea {
+                        id: receiveText
+                        readOnly: true
+                        textFormat: TextEdit.PlainText
+                        wrapMode: TextArea.Wrap
+                        font.family: "Courier"
+                        font.pixelSize: 12
+                        color: cwSenderWindow.palette.text
+                        background: Rectangle { color: cwSenderWindow.palette.base }
+                    }
+                }
+            
+                // Transcript text
+                ScrollView {
+                    SplitView.fillWidth: true
+                    SplitView.minimumWidth: 100
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                
+                    TextArea {
+                        id: transcriptText
+                        readOnly: true
+                        textFormat: TextEdit.PlainText
+                        wrapMode: TextArea.Wrap
+                        font.family: "Courier"
+                        font.pixelSize: 12
+                        placeholderText: qsTr("CW Transmission Transcript")
+                        color: cwSenderWindow.palette.text
+                        background: Rectangle { color: cwSenderWindow.palette.base }
+                    }
                 }
             }
+        }
+
+        Label {
+            Layout.fillWidth: true
+            text: audioDecoder ? audioDecoder.status : ""
+            elide: Text.ElideRight
+            color: cwSenderWindow.palette.windowText
         }
         
         // Text input and send controls

@@ -10,8 +10,11 @@
 #include "cachingqueue.h"
 #include "rigcommander.h"
 #include "cwsidetonegenerator.h"
+#include "CwAudioDecoder.h"
 
 #include <memory>
+
+class RxAudioProcessor;
 
 class CWSenderController : public QObject
 {
@@ -49,6 +52,9 @@ class CWSenderController : public QObject
     Q_PROPERTY(int cwDecodeFilter READ cwDecodeFilter WRITE setCwDecodeFilter NOTIFY cwDecodeFilterChanged)
     Q_PROPERTY(bool cwAutoTuneAvailable READ cwAutoTuneAvailable NOTIFY cwCapsChanged)
 
+    // Software CW decoder on the receive audio; works with any radio.
+    Q_PROPERTY(CwAudioDecoder *audioDecoder READ audioDecoder CONSTANT)
+
 public:
     explicit CWSenderController(QObject* parent = nullptr);
     ~CWSenderController();
@@ -82,6 +88,7 @@ public:
     bool cwDecodeFilterAvailable() const { return m_cwDecodeFilterAvailable; }
     int cwDecodeFilter() const { return m_cwDecodeFilter; }
     bool cwAutoTuneAvailable() const { return m_cwAutoTuneAvailable; }
+    CwAudioDecoder *audioDecoder() const { return m_audioDecoder; }
     
     // Property setters
     void setVisible(bool visible);
@@ -96,6 +103,8 @@ public:
     // The sidetone is mixed into RX audio, so it needs a local RX audio path.
     void setSidetoneAvailable(bool available);
     std::shared_ptr<CwSidetoneGenerator> sidetoneGenerator() const { return m_tone; }
+    // RX audio for the software CW decoder.
+    void setRxAudioProcessor(RxAudioProcessor *rxProc);
     void setSequenceNumber(int val);
     void setMacroEditMode(bool val);
     void setReceiveVisible(bool val);
@@ -252,6 +261,9 @@ private:
     
     // Sidetone
     std::shared_ptr<CwSidetoneGenerator> m_tone;
+
+    // Software CW decoder (child object)
+    CwAudioDecoder *m_audioDecoder = nullptr;
 };
 
 #endif // CWSENDERCONTROLLER_H
