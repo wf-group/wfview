@@ -35,6 +35,7 @@ SOURCES += \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
     $$PWD/tst_cwdecoder.cpp \
+    $$PWD/tst_rtty.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_iaxclientsession.cpp \
     $$PWD/tst_modsource.cpp \
@@ -54,7 +55,9 @@ SOURCES += \
     $$PWD/../src/cachingqueue.cpp \
     $$PWD/../src/rigctld.cpp \
     $$PWD/../src/audio/ggmorse/src/ggmorse.cpp \
-    $$PWD/../src/audio/ggmorse/src/resampler.cpp
+    $$PWD/../src/audio/ggmorse/src/resampler.cpp \
+    $$PWD/../src/audio/rttycore.cpp \
+    $$PWD/../src/audio/rttytxsource.cpp
 
 HEADERS += \
     $$PWD/../include/cluster.h \
@@ -72,4 +75,6 @@ HEADERS += \
     $$PWD/../include/cwhandkeydecoder.h \
     $$PWD/../include/cwmultidecoder.h \
     $$PWD/../include/cwwordjoiner.h \
+    $$PWD/../include/rttycore.h \
+    $$PWD/../include/rttytxsource.h \
     $$PWD/../include/usbcontroller.h

@@ -14,6 +14,7 @@
         <file>AboutBox.qml</file>
         <file>SelectRadio.qml</file>
         <file>CWSender.qml</file>
+        <file>RttyWindow.qml</file>
         <file>FirstTimeSetup.qml</file>
         <file>ControllerSettings.qml</file>
         <file>AudioProcessing.qml</file>

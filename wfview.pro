@@ -258,6 +258,7 @@ INCLUDEPATH += src/audio/ggmorse/include
 SOURCES += \
     src/CWSenderController.cpp \
     src/CwAudioDecoder.cpp \
+    src/RttyController.cpp \
     src/ControllerController.cpp \
     src/DebugController.cpp \
     src/LogModel.cpp \
@@ -307,6 +308,8 @@ SOURCES += \
     src/cluster.cpp \
     src/commhandler.cpp \
     src/audio/cwsidetonegenerator.cpp \
+    src/audio/rttycore.cpp \
+    src/audio/rttytxsource.cpp \
     src/audio/ggmorse/src/ggmorse.cpp \
     src/audio/ggmorse/src/resampler.cpp \
     src/database.cpp \
@@ -354,6 +357,9 @@ SOURCES += \
 HEADERS  += \
     include/CWSenderController.h \
     include/CwAudioDecoder.h \
+    include/RttyController.h \
+    include/rttycore.h \
+    include/rttytxsource.h \
     include/ControllerController.h \
     include/DebugController.h \
     include/LogModel.h \

@@ -974,11 +974,13 @@ void RxAudioProcessor::applyGainDB(Eigen::VectorXf& s, float dB)
 }
 
 // ─── emitCwTap ───────────────────────────────────────────────────────────────
-// Converter thread. Cheap no-op unless the CW decoder is decoding.
+// Converter thread. Cheap no-op unless the CW or RTTY decoder is decoding.
 
 void RxAudioProcessor::emitCwTap(const Eigen::VectorXf &samples, int channels, int channelSelect, float sampleRate)
 {
-    if (!m_cwTapEnabled.load(std::memory_order_relaxed))
+    const bool cw = m_cwTapEnabled.load(std::memory_order_relaxed);
+    const bool rtty = m_rttyTapEnabled.load(std::memory_order_relaxed);
+    if (!cw && !rtty)
         return;
     if (samples.size() == 0 || sampleRate <= 0.0f)
         return;
@@ -1002,5 +1004,8 @@ void RxAudioProcessor::emitCwTap(const Eigen::VectorXf &samples, int channels, i
         for (int i = 0; i < n; ++i)
             mono[i] = samples[i];
     }
-    emit cwTapAudio(mono, sampleRate);
+    if (cw)
+        emit cwTapAudio(mono, sampleRate);
+    if (rtty)
+        emit rttyTapAudio(mono, sampleRate);
 }

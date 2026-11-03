@@ -238,6 +238,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     , m_settings(std::make_unique<SettingsController>(settingsFile,this))
     , m_selRad(std::make_unique<SelectRadioController>())
     , m_cwSender(std::make_unique<CWSenderController>())
+    , m_rtty(std::make_unique<RttyController>())
 {
     Q_UNUSED(logFileName)
     Q_UNUSED(debugMode)
@@ -278,6 +279,12 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
         prefs->cwSidetoneLevel = m_cwSender->sidetoneLevel();
         prefs->cwMacroList = m_cwSender->getMacroText();
         m_settings->markDirty();
+    });
+    // RTTY window: settings in the [RTTY] group; transmit goes through the normal wfview PTT path.
+    m_rtty->loadSettings(m_settings->qSettings());
+    connect(m_rtty.get(), &RttyController::transmitRequested, this, [this](bool on) { setTransmit(on); });
+    connect(this, &MainController::transmittingChanged, m_rtty.get(), [this]() {
+        m_rtty->setRadioTransmitting(m_transmitting);
     });
     setManufacturer(prefs->manufacturer);
     qDebug(logGui()) << "Theme text color:" << m_theme.text().name();
@@ -447,6 +454,8 @@ void MainController::ensureAudioProcessors()
     if (!txProc) {
         txProc = new TxAudioProcessor(this);
     }
+    if (m_rtty)
+        m_rtty->setTxAudioProcessor(txProc);
 
     if (!rxProc) {
         rxProc = new RxAudioProcessor(this);
@@ -456,6 +465,8 @@ void MainController::ensureAudioProcessors()
             rxProc->setCwSidetone(m_cwSender->sidetoneGenerator());
             m_cwSender->setRxAudioProcessor(rxProc);
         }
+        if (m_rtty)
+            m_rtty->setRxAudioProcessor(rxProc);
 
         // Per-radio ANR noise profile store, derived from the settings file.
         // For an explicit --settings file: same directory and base name
@@ -2147,6 +2158,8 @@ void MainController::buildUiSpecs()
         {"micGain", rangeSpec(funcMicGain, 0, 255, true)},
         {"ritFrequency", rangeSpec(funcRitFreq, -500, 500)}
     };
+    if (m_rtty)
+        m_rtty->setCanTransmit(rigCaps->hasTransmit && rigCaps->commands.contains(funcTransceiverStatus));
     emit uiSpecsChanged();
 }
 
