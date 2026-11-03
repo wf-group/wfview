@@ -89,12 +89,8 @@ private:
 
     bool         m_rxMuted = false;
 
-    QElapsedTimer audioClock;
-    bool   audioHaveBase = false;
-    quint32 audioBaseSeq = 0;       // extended seq
-    qint64  audioBaseNs  = 0;       // base arrival time (monotonic)
-    int     audioPktMs   = 20;      // TODO set to your actual framing (10/20/40ms etc)
-    int     latencyCounter = 0;
+    int     droppedLatencyPackets = 0;
+    QElapsedTimer lastLatencyDropLog;
 
 
 };

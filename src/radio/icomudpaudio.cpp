@@ -205,23 +205,26 @@ void icomUdpAudio::dataReceived()
                 if (rxAudioThread == Q_NULLPTR)
                     startAudio();
 
-                const int excess = pingLatenessMs - (pingBaselineMs + rxSetup.latency);
+                // Drop audio that is arriving later than the configured latency allows,
+                // so that a delay spike does not leave us playing behind real time.
+                // pingLatenessMs is measured above the recent best-case delay, so it
+                // returns to ~0 by itself once the spike is over.
+                const int excessMs = pingLatenessMs;
+                const int dropThresholdMs = PingDelayTracker::dropThresholdMs(rxSetup.latency);
 
-                if (excess > 0) {
-                    qDebug(logUdp()) << "Audio latency high:"
-                                     << "lateness" << pingLatenessMs
-                                     << "baseline" << pingBaselineMs
-                                     << "excess" << excess;
-
-                    if (++latencyCounter > 5) {
-                        qInfo(logUdp()) << "Latency sustained -> flushing audio";
-                        latencyCounter = 0;
-                        //flushAudio();   // clear queue / reset decoder
-                        break;
+                if (excessMs > dropThresholdMs) {
+                    ++droppedLatencyPackets;
+                    if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
+                        qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
+                                        << "excessDelay" << excessMs
+                                        << "configuredLatency" << rxSetup.latency
+                                        << "threshold" << dropThresholdMs
+                                        << "dropped" << droppedLatencyPackets;
+                        lastLatencyDropLog.restart();
                     }
-                } else {
-                    latencyCounter = 0;
+                    break;
                 }
+
                 audioPacket tempAudio;
                 tempAudio.seq  = quint32(seqPrefix << 16) | quint32(in->seq) ;
                 tempAudio.time = QTime::currentTime();
