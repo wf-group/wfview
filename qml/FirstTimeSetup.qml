@@ -9,9 +9,9 @@ ApplicationWindow {
     title: qsTr("Welcome to wfview")
     color: palette.window
     width: 540
-    height: 460
+    height: 520
     minimumWidth: 480
-    minimumHeight: 400
+    minimumHeight: 460
 
     modality: Qt.ApplicationModal
     flags: Qt.Dialog | Qt.FramelessWindowHint
@@ -39,18 +39,20 @@ ApplicationWindow {
     // showSettings: finished the wizard, go to Settings -> Radio Access.
     // skipSetup: user will configure on their own.
     signal exitProgram()
-    signal showSettings(bool isNetwork, int manufacturer)
+    signal showSettings(bool isNetwork, int manufacturer, int ituRegion)
     signal skipSetup()
 
-    // Steps: 0 = manufacturer, 1 = connection, 2 = information needed
+    // Steps: 0 = manufacturer, 1 = connection, 2 = ITU region, 3 = information needed
     readonly property int stepManufacturer: 0
     readonly property int stepConnection: 1
-    readonly property int stepInfo: 2
+    readonly property int stepRegion: 2
+    readonly property int stepInfo: 3
     readonly property int lastStep: stepInfo
 
     property int setupState: stepManufacturer
     property int manufacturer: 0   // manufacturersType_t: 0 Icom, 1 Kenwood, 2 Yaesu
     property bool isNetwork: true
+    property int ituRegion: 1      // ITU region 1, 2 or 3
 
     readonly property var manufacturerNames: [qsTr("Icom"), qsTr("Kenwood"), qsTr("Yaesu")]
 
@@ -83,6 +85,8 @@ ApplicationWindow {
         const s = MainController.settings
         const m = s ? Number(s.option("Radio.Manufacturer")) : 0
         manufacturer = (m >= 0 && m <= 2) ? m : 0
+        const r = s ? Number(s.option("Interface.Region")) : 1
+        ituRegion = (r >= 1 && r <= 3) ? r : 1
         setupState = stepManufacturer
 
         const owner = transientParent
@@ -191,7 +195,40 @@ ApplicationWindow {
             }
         }
 
-        // Step 3: What you'll need
+        // Step 3: ITU region
+        GroupBox {
+            Layout.fillWidth: true
+            title: qsTr("Which ITU region are you in?")
+            visible: setupState === stepRegion
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 8
+
+                Repeater {
+                    model: 3
+                    RadioButton {
+                        text: qsTr("Region %1").arg(index + 1)
+                        Accessible.name: qsTr("ITU Region %1").arg(index + 1)
+                        checked: firstTimeSetupWindow.ituRegion === index + 1
+                        onToggled: if (checked) firstTimeSetupWindow.ituRegion = index + 1
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    text: qsTr("Region 1 comprises Europe, Africa, the Commonwealth of Independent States, Mongolia, and the Middle East west of the Persian Gulf, including Iraq.") + "\n"
+                          + qsTr("Region 2 covers the Americas including Greenland, and some of the eastern Pacific Islands.") + "\n"
+                          + qsTr("Region 3 contains most of non-FSU Asia east of and including Iran, and most of Oceania.") + "\n"
+                          + qsTr("(Text paraphrased from Wikipedia)")
+                    wrapMode: Text.WordWrap
+                    opacity: 0.8
+                }
+            }
+        }
+
+        // Step 4: What you'll need
         GroupBox {
             Layout.fillWidth: true
             title: qsTr("For your %1 radio, you will need the following information:")
@@ -256,7 +293,7 @@ ApplicationWindow {
                         setupState++
                     } else {
                         firstTimeSetupWindow.close()
-                        showSettings(isNetwork, manufacturer)
+                        showSettings(isNetwork, manufacturer, ituRegion)
                     }
                 }
             }

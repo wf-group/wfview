@@ -1855,16 +1855,37 @@ ApplicationWindow {
                                     }
                                 }
                                 RowLayout {
+                                    id: regionRow
                                     spacing: 8
-                                    Label { text: qsTr("Region:") }
+
+                                    readonly property string regionTip:
+                                        qsTr("ITU Region, used to display band limits.") + "\n\n"
+                                        + qsTr("Region 1 comprises Europe, Africa, the Commonwealth of Independent States, Mongolia, and the Middle East west of the Persian Gulf, including Iraq.") + "\n\n"
+                                        + qsTr("Region 2 covers the Americas including Greenland, and some of the eastern Pacific Islands.") + "\n\n"
+                                        + qsTr("Region 3 contains most of non-FSU Asia east of and including Iran, and most of Oceania.") + "\n\n"
+                                        + qsTr("(Text paraphrased from Wikipedia)")
+
+                                    Label {
+                                        text: qsTr("Region:")
+                                        HoverHandler { id: regionLabelHover }
+                                        // Explicit ToolTip so the width can be capped and the text wraps
+                                        ToolTip {
+                                            visible: regionLabelHover.hovered
+                                            text: regionRow.regionTip
+                                            width: Math.min(implicitWidth, 400)
+                                        }
+                                    }
                                     TextField {
                                         id: regionTxt
                                         Layout.preferredWidth: 35
                                         Layout.maximumWidth: 35
                                         inputMethodHints: Qt.ImhDigitsOnly
                                         placeholderText: "1"
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("ITU Region. Used to display band limits. (See the QWidget tooltip text in your .ui.)")
+                                        ToolTip {
+                                            visible: regionTxt.hovered
+                                            text: regionRow.regionTip
+                                            width: Math.min(implicitWidth, 400)
+                                        }
                                         text: (controller && controller.options && controller.options["Interface.Region"] !== undefined)
                                               ? controller.options["Interface.Region"]
                                               : ""

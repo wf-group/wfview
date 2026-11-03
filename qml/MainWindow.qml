@@ -722,12 +722,13 @@ ApplicationWindow {
             win.finishQuit(false)
         }
 
-        onShowSettings: function(isNetwork, manufacturer) {
+        onShowSettings: function(isNetwork, manufacturer, ituRegion) {
             console.info("First time setup: showing Radio Access settings.")
             const s = MainController.settings
             if (s) {
                 s.setOption("Radio.Manufacturer", manufacturer)
                 s.setOption("LAN.EnableLAN", isNetwork)
+                s.setOption("Interface.Region", String(ituRegion))
                 s.setOption("Program.HasRunSetup", true)
             }
             if (!settingsLoader.active)
