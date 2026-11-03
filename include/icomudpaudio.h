@@ -81,6 +81,7 @@ private:
 
     QTimer* txAudioTimer = nullptr;
 	bool enableTx = true;
+	bool watchdogAlerted = false;
 
 	QMutex audioMutex;
 
