@@ -77,15 +77,14 @@ icomUdpAudio::~icomUdpAudio()
 
 void icomUdpAudio::watchdog()
 {
-    static bool alerted = false;
     if (lastReceived.msecsTo(QTime::currentTime()) > 30000)
     {
-        if (!alerted) {
+        if (!watchdogAlerted) {
             /* Just log it at the moment, maybe try signalling the control channel that it needs to
                 try requesting civ/audio again? */
 
             qInfo(logUdp()) << " Audio Watchdog: no audio data received for 30s, restart required? last:" << lastReceived  ;
-            alerted = true;
+            watchdogAlerted = true;
             if (rxAudioThread != Q_NULLPTR) {
                 qDebug(logUdp()) << "Stopping rxaudio thread";
                 rxAudioThread->quit();
@@ -105,7 +104,7 @@ void icomUdpAudio::watchdog()
     }
     else
     {
-        alerted = false;
+        watchdogAlerted = false;
     }
 }
 
@@ -290,9 +289,12 @@ void icomUdpAudio::startAudio() {
 
     sendControl(false, 0x03, 0x00); // First connect packet
 
-    pingTimer = new QTimer(this);
-    connect(pingTimer, &QTimer::timeout, this, &icomUdpBase::sendPing);
-    pingTimer->start(PING_PERIOD); // send ping packets every 100ms
+    // startAudio() runs again after the watchdog has stopped audio; keep a single ping timer.
+    if (pingTimer == nullptr) {
+        pingTimer = new QTimer(this);
+        connect(pingTimer, &QTimer::timeout, this, &icomUdpBase::sendPing);
+        pingTimer->start(PING_PERIOD); // send ping packets every 100ms
+    }
 
     if (enableTx) {
         if (txSetup.type == qtAudio) {
@@ -316,7 +318,7 @@ void icomUdpAudio::startAudio() {
         }
 
         txAudioThread = new QThread(this);
-        rxAudioThread->setObjectName("txAudio()");
+        txAudioThread->setObjectName("txAudio()");
 
         txaudio->moveToThread(txAudioThread);
 
