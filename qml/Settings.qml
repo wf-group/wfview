@@ -1851,6 +1851,9 @@ ApplicationWindow {
                                     FontDialog {
                                         id: freqFontDialog
                                         title: qsTr("Select frequency display font")
+                                        // On Linux the native GTK chooser can fall back to fonts Qt loaded from
+                                        // resources (e.g. the built-in "Smooth" font), which Pango cannot open
+                                        options: Qt.platform.os === "linux" ? FontDialog.DontUseNativeDialog : 0
                                         onAccepted: if (controller) controller.setOption("Interface.FreqFont", selectedFont.family)
                                     }
                                 }
