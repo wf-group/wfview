@@ -182,6 +182,33 @@ void LoggingController::copyPathRequested()
     }
 }
 
+void LoggingController::openLogDirectoryRequested()
+{
+    if (m_logFilePath.isEmpty()) {
+        setError("Log file path is empty.");
+        return;
+    }
+
+    const QString dir = QFileInfo(m_logFilePath).absolutePath();
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
+        setError("Could not open the log directory: " + dir);
+        qInfo(logLogger()) << "Error, could not open the log directory" << dir;
+    }
+}
+
+void LoggingController::openLogFileRequested()
+{
+    if (m_logFilePath.isEmpty()) {
+        setError("Log file path is empty.");
+        return;
+    }
+
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(m_logFilePath))) {
+        setError("Could not open the log file: " + m_logFilePath);
+        qInfo(logLogger()) << "Error, could not open the log file" << m_logFilePath;
+    }
+}
+
 void LoggingController::sendToTermbinRequested()
 {
     // termbin.com:9999 is plain TCP: send the text, the server replies with a URL
