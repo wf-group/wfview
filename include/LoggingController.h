@@ -91,6 +91,8 @@ public slots:
     void scrollToBottomRequested();
     void clearDisplayRequested();
     void copyPathRequested();
+    void openLogDirectoryRequested();
+    void openLogFileRequested();
     void sendToTermbinRequested();
 
 private slots:
