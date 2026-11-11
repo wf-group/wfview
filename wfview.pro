@@ -58,7 +58,17 @@ TRANSLATIONS += translations/wfview_en.ts \
                 translations/wfview_cs_CZ.ts \
                 translations/wfview_pl.ts \
                 translations/wfview_nl_NL.ts \
-                translations/wfview_zh_CN.ts
+                translations/wfview_zh_CN.ts \
+                translations/wfview_zh.ts \
+                translations/wfview_uk.ts \
+                translations/wfview_nl.ts \
+                translations/wfview_es.ts \
+                translations/wfview_cs.ts \
+                translations/wfview_zh_HK.ts \
+                translations/wfview_es_MX.ts \
+                translations/wfview_nl_BE.ts \
+                translations/wfview_en_US.ts \
+                translations/wfview_fr.ts
 
 
 # RTAudio defines
