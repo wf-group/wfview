@@ -192,7 +192,7 @@ void LoggingController::openLogDirectoryRequested()
     const QString dir = QFileInfo(m_logFilePath).absolutePath();
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(dir))) {
         setError("Could not open the log directory: " + dir);
-        qInfo(logLogger()) << "Error, could not open the log directory" << dir;
+        qWarning(logLogger()) << "Error, could not open the log directory" << dir;
     }
 }
 
@@ -205,7 +205,7 @@ void LoggingController::openLogFileRequested()
 
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(m_logFilePath))) {
         setError("Could not open the log file: " + m_logFilePath);
-        qInfo(logLogger()) << "Error, could not open the log file" << m_logFilePath;
+        qWarning(logLogger()) << "Error, could not open the log file" << m_logFilePath;
     }
 }
 
