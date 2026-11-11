@@ -908,16 +908,21 @@ ApplicationWindow {
 
                             GroupBox {
                                 title: qsTr("Information")
+                                // Fixed preferred width so the (unwrapped) label text does not
+                                // dictate the group box width; the label wraps to fit instead.
+                                Layout.preferredWidth: 280
+                                Layout.maximumWidth: 380
                                 Layout.fillWidth: true
+                                Layout.fillHeight: true
 
                                 Label {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: qsTr("Local audio controls apply to network and USB audio paths.\n") +
-                                          qsTr("Please use the \"Radio Server\" page to select server audio.\n") +
-                                          qsTr("ONLY use Manual CI-V when Transceive mode is not supported\n\n")+
-                                          qsTr("You MUST disconnect from the radio before making any changes.\n\n")+
-                                          qsTr("Please use the Connect/Disconnect button below")
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignLeft
+                                    text: qsTr("Local audio controls apply to network and USB audio paths. ") +
+                                          qsTr("If you're running your own radio server, see the  \"Radio Server\" page.\n\n") +
+                                          qsTr("ONLY use Manual CI-V when Transceive mode is not supported (older radios).\n\n") +
+                                          qsTr("You MUST disconnect from the radio before making any changes, ") +
+                                          qsTr("using the Connect/Disconnect button below.")
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -927,7 +932,11 @@ ApplicationWindow {
                             id: groupLocalAudio
                             title: qsTr("Local Audio")
                             Layout.fillWidth: true
+                            // Network radios always use local audio; serial (USB) radios
+                            // only when the "USB Audio" checkbox is enabled.
                             enabled: controller && connStatus === 0
+                                     && (optBool("LAN.EnableLAN", false)
+                                         || optBool("Radio.EnableUSBAudio", false))
 
                             ColumnLayout {
                                 spacing: 8
@@ -958,7 +967,10 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: qsTr("Audio Output") }
+                                    Label { 
+                                        text: qsTr("Audio Output")
+                                        Accessible.name: "Computer Speaker"
+                                    }
                                     ComboBox {
                                         id: audioOutputCombo
                                         readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
@@ -979,6 +991,8 @@ ApplicationWindow {
                                         Layout.preferredWidth: implicitWidth
                                         Layout.maximumWidth: implicitWidth
                                         FontMetrics { id: audioOutMetrics; font: audioOutputCombo.font }
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Select your computer's speaker or headphones")
                                         Accessible.name: "Audio Output Selector"
                                     }
 
@@ -1003,6 +1017,8 @@ ApplicationWindow {
                                         Layout.preferredWidth: implicitWidth
                                         Layout.maximumWidth: implicitWidth
                                         FontMetrics { id: audioInMetrics; font: audioInputCombo.font }
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Select your computer's microphone")
                                         Accessible.name: "Audio Input Selector"
                                     }
 
@@ -1122,6 +1138,8 @@ ApplicationWindow {
                                     CheckBox {
                                         id: usbAudioCheck
                                         text: qsTr("USB Audio")
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Enables USB audio processing and redirect\nfor USB radios")
                                         checked: optBool("Radio.EnableUSBAudio", false)
                                         onClicked: if (controller) controller.setOption("Radio.EnableUSBAudio", checked)
                                     }
@@ -1136,11 +1154,24 @@ ApplicationWindow {
                                         enabled: optBool("Radio.EnableUSBAudio", false)
                                         currentIndex: controller ? indexFromValue(usbRadioRxAudioCombo, controller.options["Radio.USBAudioRXInput"]) : -1
                                         onActivated: selectDeviceOption(usbRadioRxAudioCombo, "Radio.USBAudioRXInput")
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i)
+                                                max = Math.max(max, usbRxMetrics.advanceWidth(textAt(i)))
+                                            max = Math.max(max, usbRxMetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        // Natural width when there is room, but allowed to shrink so the
+                                        // row never runs past the window; the popup keeps full names visible.
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        Layout.minimumWidth: 160
+                                        Layout.minimumWidth: Math.min(implicitWidth, 120)
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+                                        popup.width: Math.max(width, widestText + leftPadding + rightPadding + 12)
+                                        FontMetrics { id: usbRxMetrics; font: usbRadioRxAudioCombo.font }
                                         ToolTip.visible: hovered && displayText.length > 0
-                                        ToolTip.text: displayText
+                                        ToolTip.text: qsTr("Select the USB AUDIO CODEC device for your radio's receive audio")
                                         ToolTip.delay: 300
                                     }
 
@@ -1154,11 +1185,24 @@ ApplicationWindow {
                                         enabled: optBool("Radio.EnableUSBAudio", false)
                                         currentIndex: controller ? indexFromValue(usbRadioTxAudioCombo, controller.options["Radio.USBAudioTXOutput"]) : -1
                                         onActivated: selectDeviceOption(usbRadioTxAudioCombo, "Radio.USBAudioTXOutput")
+                                        readonly property real widestText: {
+                                            let max = 0
+                                            for (let i = 0; i < count; ++i)
+                                                max = Math.max(max, usbTxMetrics.advanceWidth(textAt(i)))
+                                            max = Math.max(max, usbTxMetrics.advanceWidth(displayText))
+                                            return max
+                                        }
+                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
+                                        // Natural width when there is room, but allowed to shrink so the
+                                        // row never runs past the window; the popup keeps full names visible.
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
-                                        Layout.minimumWidth: 160
+                                        Layout.minimumWidth: Math.min(implicitWidth, 120)
+                                        Layout.preferredWidth: implicitWidth
+                                        Layout.maximumWidth: implicitWidth
+                                        popup.width: Math.max(width, widestText + leftPadding + rightPadding + 12)
+                                        FontMetrics { id: usbTxMetrics; font: usbRadioTxAudioCombo.font }
                                         ToolTip.visible: hovered && displayText.length > 0
-                                        ToolTip.text: displayText
+                                        ToolTip.text: qsTr("Select the USB AUDIO CODEC device for your radio's transmit audio")
                                         ToolTip.delay: 300
                                     }
                                 }
