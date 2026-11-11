@@ -189,6 +189,8 @@ double SpectrumItem::freqToX(double freqMHz) const
 
 SpectrumItem::PassbandDrag SpectrumItem::passbandDragHit(qreal x) const
 {
+    if (!passbandAdjustable)
+        return PassbandDrag::None;
     if (passbandLow <= 0.0 || passbandHigh <= passbandLow || endFreq <= startFreq)
         return PassbandDrag::None;
 
@@ -515,6 +517,14 @@ void SpectrumItem::setMaxSpotRows(int rows)
     maxSpotRows = rows;
     emit spotsChanged();
     update();
+}
+
+void SpectrumItem::setPassbandAdjustable(bool enable)
+{
+    if (passbandAdjustable == enable)
+        return;
+    passbandAdjustable = enable;
+    emit passbandAdjustableChanged();
 }
 
 void SpectrumItem::setSpotFadePercent(int percent)

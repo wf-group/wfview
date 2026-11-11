@@ -1571,10 +1571,12 @@ ApplicationWindow {
                                         text: qsTr("Anti-Alias Waterfall")
                                     }
                                     CheckBox {
-                                        id: clickDragTuningEnableChk;
-                                        checked: optBool("Interface.ClickDragTuningEnable", false)
-                                        onClicked: if (controller) controller.setOption("Interface.ClickDragTuningEnable", checked)
-                                        text: qsTr("Allow tuning via click and drag (experimental)")
+                                        id: adjustablePassbandEnableChk;
+                                        checked: optBool("Interface.AdjustablePassbandEnable", false)
+                                        onClicked: if (controller) controller.setOption("Interface.AdjustablePassbandEnable", checked)
+                                        text: qsTr("Adjustable Passband")
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: qsTr("Allows dragging the passband edges in the spectrum to change the filter width.")
                                     }
                                     Item { Layout.fillWidth: true }
                                 }

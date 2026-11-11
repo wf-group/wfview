@@ -355,6 +355,7 @@ Control {
                     bands: controller && controller.activeBands
                     underlayMode: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayMode"]) : 2
                     peakDecay: MainController.settings ? Number(MainController.settings.options["Interface.PeakDecay"]) : 50
+                    passbandAdjustable: MainController.settings ? !!MainController.settings.options["Interface.AdjustablePassbandEnable"] : false
                     spotFadePercent: MainController.settings ? Number(MainController.settings.options["Cluster.SpotFadePercent"]) : 50
                     underlayBufferSize: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayBufferSize"]) : 80
                     zeroDbAtBottom: MainController.settings ? !!MainController.settings.options["Interface.SpectrumZeroDbBottom"] : false

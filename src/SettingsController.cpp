@@ -1030,7 +1030,7 @@ void SettingsController::load()
     prefs.meter2Type = static_cast<meter_t>(settings->value("Meter2Type", defPrefs.meter2Type).toInt());
     prefs.meter3Type = static_cast<meter_t>(settings->value("Meter3Type", defPrefs.meter3Type).toInt());
     prefs.compMeterReverse = settings->value("compMeterReverse", defPrefs.compMeterReverse).toBool();
-    prefs.clickDragTuningEnable = settings->value("ClickDragTuning", false).toBool();
+    prefs.adjustablePassbandEnable = settings->value("AdjustablePassband", false).toBool();
 
     prefs.useUTC = settings->value("UseUTC", defPrefs.useUTC).toBool();
     prefs.setRadioTime = settings->value("SetRadioTime", defPrefs.setRadioTime).toBool();
@@ -1871,7 +1871,7 @@ void SettingsController::save()
     settings->setValue("Meter2Type", (int)prefs.meter2Type);
     settings->setValue("Meter3Type", (int)prefs.meter3Type);
     settings->setValue("compMeterReverse", prefs.compMeterReverse);
-    settings->setValue("ClickDragTuning", prefs.clickDragTuningEnable);
+    settings->setValue("AdjustablePassband", prefs.adjustablePassbandEnable);
 
     settings->setValue("UseUTC",prefs.useUTC);
     settings->setValue("SetRadioTime",prefs.setRadioTime);
@@ -3762,8 +3762,8 @@ void SettingsController::buildBindings()
     WF_BOOL("Interface.RigCreatorEnable", prefs.rigCreatorEnable,
             [this](){ emit ifChanged(prefIfItems(prefIfItem::if_rigCreatorEnable)); });
 
-    WF_BOOL("Interface.ClickDragTuningEnable", prefs.clickDragTuningEnable,
-            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_clickDragTuningEnable)); });
+    WF_BOOL("Interface.AdjustablePassbandEnable", prefs.adjustablePassbandEnable,
+            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_adjustablePassbandEnable)); });
 
     WF_I32("Interface.FrequencyUnits", prefs.frequencyUnits,
            [this](){ emit ifChanged(prefIfItems(prefIfItem::if_frequencyUnits)); });

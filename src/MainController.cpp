@@ -720,7 +720,7 @@ void MainController::ifChanged(prefIfItems items)
     if_meter2Type = 1 << 15,
     if_meter3Type = 1 << 16,
     if_compMeterReverse = 1 << 17,
-    if_clickDragTuningEnable = 1 << 18,
+    if_adjustablePassbandEnable = 1 << 18,
     if_currentColorPresetNumber = 1 << 19,
     if_rigCreatorEnable = 1 << 20,
     if_frequencyUnits = 1 << 21,
@@ -6722,7 +6722,7 @@ void MainController::loadSettings(QString settingsFile)
     prefs->meter2Type = static_cast<meter_t>(settings->value("Meter2Type", defprefs->meter2Type).toInt());
     prefs->meter3Type = static_cast<meter_t>(settings->value("Meter3Type", defprefs->meter3Type).toInt());
     prefs->compMeterReverse = settings->value("compMeterReverse", defprefs->compMeterReverse).toBool();
-    prefs->clickDragTuningEnable = settings->value("ClickDragTuning", false).toBool();
+    prefs->adjustablePassbandEnable = settings->value("AdjustablePassband", false).toBool();
 
     prefs->useUTC = settings->value("UseUTC", defprefs->useUTC).toBool();
     prefs->setRadioTime = settings->value("SetRadioTime", defprefs->setRadioTime).toBool();

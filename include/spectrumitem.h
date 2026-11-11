@@ -82,6 +82,7 @@ class SpectrumItem : public QQuickItem
 
     Q_PROPERTY(int maxSpotRows READ getMaxSpotRows WRITE setMaxSpotRows NOTIFY spotsChanged)
     Q_PROPERTY(int spotFadePercent READ getSpotFadePercent WRITE setSpotFadePercent NOTIFY spotsChanged)
+    Q_PROPERTY(bool passbandAdjustable READ getPassbandAdjustable WRITE setPassbandAdjustable NOTIFY passbandAdjustableChanged)
     Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
     Q_PROPERTY(const QVector<bandType> bands READ getBands WRITE setBands NOTIFY bandsChanged)
 
@@ -117,6 +118,7 @@ public:
     int getUnderlayBufferSize() const { return m_underlayBufferSize; }
     int getMaxSpotRows() const { return maxSpotRows; }
     int getSpotFadePercent() const { return spotFadePercent; }
+    bool getPassbandAdjustable() const { return passbandAdjustable; }
 
     struct SpotLayout {
         QRectF   rect;   // label rect in item coordinates
@@ -143,6 +145,7 @@ public slots:
     void setUnderlayBufferSize(int size);
     void setMaxSpotRows(int rows);
     void setSpotFadePercent(int percent);
+    void setPassbandAdjustable(bool enable);
     void updateScope(const scopeData &data);
     void setSpots(const QVector<spotData> &newSpots);
     void clearSpots();
@@ -166,6 +169,7 @@ signals:
     void hoverSpotChanged(const spotData &spot, QPointF itemPos, bool active);
     void wheelTuneRequested(int steps, Qt::KeyboardModifiers modifiers);
     void passbandResizeRequested(double lowFreq, double highFreq);
+    void passbandAdjustableChanged();
     void pbtDragRequested(int action, double deltaMHz);
     void pbtResetRequested();
     void processingTimeNs(qint64 ns);
@@ -199,6 +203,7 @@ private:
     QVector<bandType> bands;
 
     int maxSpotRows = 6;
+    bool passbandAdjustable = false; // gates left-drag resizing of passband edges
     int spotFadePercent = 50; // percent of spot lifetime before fading starts
 
     bool hoverActive = false;

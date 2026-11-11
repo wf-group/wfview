@@ -61,7 +61,7 @@ enum prefIfItem {
     if_meter2Type = 1 << 15,
     if_meter3Type = 1 << 16,
     if_compMeterReverse = 1 << 17,
-    if_clickDragTuningEnable = 1 << 18,
+    if_adjustablePassbandEnable = 1 << 18,
     if_currentColorPresetNumber = 1 << 19,
     if_rigCreatorEnable = 1 << 20,
     if_frequencyUnits = 1 << 21,
@@ -341,7 +341,7 @@ struct preferences {
     meter_t meter2Type;
     meter_t meter3Type;
     bool compMeterReverse = false;
-    bool clickDragTuningEnable;
+    bool adjustablePassbandEnable = false;
     int currentColorPresetNumber = 0;
     bool rigCreatorEnable = false;
     int frequencyUnits = 3;
