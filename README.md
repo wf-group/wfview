@@ -1,11 +1,11 @@
 # wfview
 
 
-[wfview](https://github.com/wf-group/wfview) is an open-soure Ham Radio control application, serving both modern SDR and SDR-hybrid type radios as well as a variety of older radios. Wfview supports modern Kenwood, Icom, and Yaesu radios, and runs on Linux, macOS, and Windows operating systems.
+[wfview](https://gitlab.com/eliggett/wfview) is an open-soure Ham Radio control application, serving both modern SDR and SDR-hybrid type radios as well as a variety of older radios. Wfview supports modern Kenwood, Icom, and Yaesu radios, and runs on Linux, macOS, and Windows operating systems.
 
 website - [WFVIEW](https://wfview.org/) wfview.org
 
-source code: [GitHub](https://github.com/wf-group/wfview/)
+source code: [gitlab](https://gitlab.com/eliggett/wfview/)
 
 ![wfview screenshot](screenshots/wfview-main.png)
 
@@ -22,7 +22,7 @@ Links for Developers:
 - [Developer's Corner](https://wfview.org/developers/)
 - [Compiler Script for Debian-based Linux](https://gitlab.com/eliggett/scripts/-/blob/master/fullbuild-wfview.sh)
 - [Public Automated Builds](https://wfview.org/developers/)
-- [Source Code](https://github.com/wf-group/wfview/)
+- [Source Code](https://gitlab.com/eliggett/wfview/)
 - [GitHub beta builds (macOS and linux AppImage)](https://github.com/eliggett/wfview/releases)
 
 
@@ -46,6 +46,8 @@ Special thanks to our translators:
 
 The developers of wfview wish to thank the many contributions from the wfview community at-large, including ideas, bug reports, and fixes.
 
+Stylesheet qdarkstyle used under MIT license, stored in /usr/share/wfview/stylesheets/. 
+
 Speex Resample library and DSP noise reduction code Copyright 2003-2008 Jean-Marc Valin 
 
 RT Audio, from Gary P. Scavone
@@ -55,6 +57,8 @@ Port Audio, from The Port Audio Community
 Special thanks to Norbert Varga (HA2NON), Akos Marton (ES1AKOS), and the nonoo/kappanhang team for their initial work on the OEM Icom protocol.
 
 Many thanks to KB3MMW who assisted with the reverse enginering of the Yaesu LAN protocol. Portions of his code which he has released under LGPL/GPL have been integrated within wfview Forum post
+
+The waterfall and spectrum plot graphics use QCustomPlot, from Emanuel Eichhammer
 
 Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.
 
@@ -97,7 +101,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * This code is used within wfview and was modified
 * You can download the source code from here: 
-* https://github.com/wf-group/wfview/
+* https://gitlab.com/eliggett/wfview/
 *
 * Copyright 2010 Moe Wheatley AE4JY 
 * Copyright 2012-2017 Alexandru Csete OZ9AEC
