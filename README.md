@@ -1,11 +1,11 @@
 # wfview
 
 
-[wfview](https://gitlab.com/eliggett/wfview) is an open-soure Ham Radio control application, serving both modern SDR and SDR-hybrid type radios as well as a variety of older radios. Wfview supports modern Kenwood, Icom, and Yaesu radios, and runs on Linux, macOS, and Windows operating systems.
+[wfview](https://github.com/wf-group/wfview) is an open-soure Ham Radio control application, serving both modern SDR and SDR-hybrid type radios as well as a variety of older radios. Wfview supports modern Kenwood, Icom, and Yaesu radios, and runs on Linux, macOS, and Windows operating systems.
 
 website - [WFVIEW](https://wfview.org/) wfview.org
 
-source code: [gitlab](https://gitlab.com/eliggett/wfview/)
+source code: [gitlab](https://github.com/wf-group/wfview/)
 
 ![wfview screenshot](screenshots/wfview-main.png)
 
@@ -22,8 +22,8 @@ Links for Developers:
 - [Developer's Corner](https://wfview.org/developers/)
 - [Compiler Script for Debian-based Linux](https://gitlab.com/eliggett/scripts/-/blob/master/fullbuild-wfview.sh)
 - [Public Automated Builds](https://wfview.org/developers/)
-- [Source Code](https://gitlab.com/eliggett/wfview/)
-- [GitHub beta builds (macOS and linux AppImage)](https://github.com/eliggett/wfview/releases)
+- [Source Code](https://github.com/wf-group/wfview/)
+- [GitHub beta builds (macOS and linux AppImage)](https://github.com/wf-group/wfview/releases)
 
 
 wfview is copyright 2017-2026 Elliott H. Liggett (W6EL) and Phil Taylor (M0VSE). All rights reserved. wfview source code is licensed via the GNU GPLv3.
