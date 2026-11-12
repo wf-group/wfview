@@ -42,20 +42,21 @@ public:
 
 	bool streamOpened = false;
 
-	icomUdpCivData* civ = Q_NULLPTR;
-	icomUdpAudio* audio = Q_NULLPTR;
+	icomUdpCivData* civ = nullptr;
+	icomUdpAudio* audio = nullptr;
 
 	quint8 numRadios;
 	QList<radio_cap_packet> radios;
 
 public slots:
-	void receiveDataFromUserToRig(QByteArray); // This slot will send data on to
+	void receiveDataFromUserToRig(QByteArray); // This slot will send data on to 
 	void receiveFromCivStream(QByteArray);
 	void receiveAudioData(const audioPacket &data);
+	void sendTxAudioData(const audioPacket &data);
 	void changeLatency(quint16 value);
 	void setVolume(quint8 value);
 	void init();
-	void shutdown();  // close sockets/timers so event loop can exit
+    void shutdown();
 	void setCurrentRadio(quint8 radio);
     void getRxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
@@ -90,6 +91,7 @@ private:
 	bool sentPacketConnect2 = false;
 
 	bool radioInUse = false;
+    bool shutdownComplete = false;
 
 	quint16 controlPort;
 	quint16 civPort;
@@ -115,8 +117,8 @@ private:
 	QByteArray usernameEncoded;
 	QByteArray passwordEncoded;
 
-	QTimer* tokenTimer = Q_NULLPTR;
-	QTimer* areYouThereTimer = Q_NULLPTR;
+	QTimer* tokenTimer = nullptr;
+	QTimer* areYouThereTimer = nullptr;
 
 	bool highBandwidthConnection = false;
 	quint8 civId = 0;

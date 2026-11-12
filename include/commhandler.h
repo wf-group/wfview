@@ -11,6 +11,9 @@
 
 #include "wfviewtypes.h"
 
+// Describes why port->open() failed, for log messages and user alerts.
+QString serialOpenFailureReason(const QSerialPort* port);
+
 // This class abstracts the comm port in a useful way and connects to
 // the command creator and command parser.
 
@@ -22,6 +25,7 @@ public:
     commHandler(QObject* parent = nullptr);
     commHandler(QString portName, quint32 baudRate, quint8 wfFormat,QObject* parent = nullptr);
     bool serialError;
+    QString serialErrorText; // why the last open failed
     bool rtsStatus();
 
     ~commHandler();
@@ -67,7 +71,7 @@ private:
     quint8 buffer[256];
 
     QString portName;
-    QSerialPort *port=Q_NULLPTR;
+    QSerialPort *port=nullptr;
     qint32 baudrate;
     quint8 stopbits;
     bool rolledBack;

@@ -1,0 +1,763 @@
+#ifdef BUILD_WFSERVER
+#include "servermain.h"
+#else
+
+#ifndef WFMAIN_H
+#define WFMAIN_H
+
+#include <QGuiApplication>
+#include <QApplication>
+#include <QQmlApplicationEngine>
+
+#include <QMainWindow>
+#include <QCloseEvent>
+#include <QThread>
+#include <QString>
+#include <QVector>
+#include <QTimer>
+#include <QSettings>
+#include <QShortcut>
+#include <QThread>
+#include <QMetaType>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QColorDialog>
+#include <QColor>
+#include <QMap>
+
+#include "logcategories.h"
+#include "wfviewtypes.h"
+#include "prefs.h"
+#include "commhandler.h"
+#include "rigcommander.h"
+#include "icomcommander.h"
+#include "kenwoodcommander.h"
+#include "yaesucommander.h"
+#include "freqmemory.h"
+#include "rigidentities.h"
+#include "repeaterattributes.h"
+#include "memories.h"
+#include "firsttimesetup.h"
+
+#include "packettypes.h"
+#include "calibrationwindow.h"
+#include "repeatersetup.h"
+#include "satellitesetup.h"
+//#include "transceiveradjustments.h"
+#include "cwsender.h"
+#include "bandbuttons.h"
+#include "frequencyinputwidget.h"
+#include "settingswidget.h"
+#include "rigserver.h"
+#include "icomserver.h"
+#include "kenwoodserver.h"
+#include "yaesuserver.h"
+#include "qledlabel.h"
+#include "rigctld.h"
+#include "aboutbox.h"
+#include "selectradio.h"
+#include "colorprefs.h"
+#include "loggingwindow.h"
+#include "cluster.h"
+#include "audiodevices.h"
+#include "sidebandchooser.h"
+#include "debugwindow.h"
+#include "receiverwidget.h"
+#include "tciserver.h"
+
+#include <qcustomplot.h>
+#include <qserialportinfo.h>
+#include "usbcontroller.h"
+#include "controllersetup.h"
+
+#include "MainController.h"
+#include "ReceiverController.h"
+#include "RigCreatorController.h"
+#include "cachingqueue.h"
+
+#include "waterfallitem.h"
+#include "spectrumitem.h"
+
+#include <deque>
+#include <memory>
+
+#include <portaudio.h>
+#ifndef Q_OS_LINUX
+#include "RtAudio.h"
+#else
+#include "rtaudio/RtAudio.h"
+#endif
+
+#ifdef USB_CONTROLLER
+    #ifdef Q_OS_WIN
+        #include <windows.h>
+        #include <dbt.h>
+        #define USB_HOTPLUG
+    #elif defined(Q_OS_LINUX)
+        #include <QSocketNotifier>
+        #include <libudev.h>
+        #define USB_HOTPLUG
+    #endif
+#endif
+
+namespace Ui {
+class wfmain;
+}
+
+class wfmain : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit wfmain(const QString settingsFile, const QString logFile, bool debugMode, QWidget *parent = 0);
+    ~wfmain();
+    static void messageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg);
+    void handleLogText(QPair<QtMsgType,QString> logMessage);
+
+#ifdef USB_HOTPLUG
+    #if defined(Q_OS_WIN)
+        protected:
+            virtual bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result);
+    #elif defined(Q_OS_LINUX)
+        private slots:
+           void uDevEvent();
+    #endif
+#endif
+
+signals:
+    void usbHotplug();
+    // Basic to rig:
+    void setCIVAddr(quint16 newRigCIVAddr);
+    void setRigID(quint16 rigID);
+    void setPTTType(pttType_t enabled);
+
+
+    void sendPowerOn();
+    void sendPowerOff();
+
+    // Frequency, mode, band:
+    void getFrequency();
+    void getFrequency(quint8);
+    void setFrequency(quint8 receiver, freqt freq);
+    void getMode();
+    void setMode(quint8 modeIndex, quint8 modeFilter);
+    void setMode(modeInfo);
+    void selectVFO(vfo_t vfo);
+    void sendVFOSwap();
+    void sendVFOEqualAB();
+    void sendVFOEqualMS();
+    void setDataMode(bool dataOn, quint8 filter);
+    void getDataMode();
+    void getModInput(bool dataOn);
+    void setModInput(inputTypes input, bool dataOn);
+    void getBandStackReg(char band, char reg);
+    void getDebug();
+    void getRitEnabled();
+    void getRitValue();
+    void setRitValue(int ritValue);
+    void setRitEnable(bool ritEnabled);
+    void getTuningStep();
+    void setTuningStep(quint8);
+
+    // Repeater:
+    void getDuplexMode();
+    void setQuickSplit(bool qsOn);
+    void getTone();
+    void getTSQL();
+    void getDTCS();
+    void getRptAccessMode();
+    void setRepeaterAccessMode(rptrAccessData rd);
+    void setTone(toneInfo t);
+    void setTSQL(toneInfo t);
+    void getToneEnabled();
+    void getTSQLEnabled();
+    void setToneEnabled(bool enabled);
+    void setTSQLEnabled(bool enabled);
+    void setRptDuplexOffset(freqt f);
+    void getRptDuplexOffset();
+    void setMemory(memoryType mem);
+    void getMemory(quint32 mem);
+    void getSatMemory(quint32 mem);
+    void recallMemory(quint32 mem);
+    void clearMemory(quint32 mem);
+    void setMemoryMode();
+    void setSatelliteMode(bool en);
+
+    // Level get:
+    void getLevels(); // get all levels
+    void getRfGain();
+    void getAfGain();
+    void getSql();
+    void getIfShift();
+    void getPBTInner();
+    void getPBTOuter();
+    void getTxPower();
+    void getMicGain();
+    void getSpectrumRefLevel();
+    void getModInputLevel(inputTypes input);
+    void getMeters(meter_t meter);
+    void getPassband();
+    void getVoxGain();
+    void getAntiVoxGain();
+    void getMonitorGain();
+    void getNBLevel();
+    void getNRLevel();
+    void getCompLevel();
+    void getCwPitch();
+
+    void getVox();
+    void getMonitor();
+    void getCompressor();
+    void getNB();
+    void getNR();
+
+    void getDashRatio();
+    void getPskTone();
+    void getRttyMark();
+
+    // Level set:
+    void setRfGain(quint8 level);
+    void setSql(quint8 level);
+    void setIFShift(quint8 level);
+    void setPBTInner(quint8 level);
+    void setPBTOuter(quint8 level);
+  
+    void setIFShiftWindow(quint8 level);
+    void setPBTInnerWindow(quint8 level);
+    void setPBTOuterWindow(quint8 level);
+    void setMicGain(quint8);
+    void setCompLevel(quint8);
+    void setTxPower(quint8);
+    void setMonitorGain(quint8);
+    void setVoxGain(quint8);
+    void setAntiVoxGain(quint8);
+    void setNBLevel(quint8 level);
+    void setNRLevel(quint8 level);
+
+    void setVox(bool en);
+    void setMonitor(bool en);
+    void setCompressor(bool en);
+    void setNB(bool en);
+    void setNR(bool en);
+
+    void setSpectrumRefLevel(int);
+
+    void setModLevel(inputTypes input, quint8 level);
+    void setACCGain(quint8 level);
+    void setACCAGain(quint8 level);
+    void setACCBGain(quint8 level);
+    void setUSBGain(quint8 level);
+    void setLANGain(quint8 level);
+
+    void setPassband(quint16 pass);
+
+    // PTT, ATU, ATT, Antenna, Preamp:
+    void getPTT();
+    void setPTT(bool pttOn);    
+    void getAttenuator();
+    void getPreamp();
+    void getAntenna();
+    void setAttenuator(quint8 att);
+    void setPreamp(quint8 pre);
+    void setAntenna(quint8 ant, bool rx);
+    void startATU();
+    void setATU(bool atuEnabled);
+    void getATUStatus();
+
+    // CW Keying:
+    void sendCW(QString message);
+    void stopCW();
+    void getKeySpeed();
+    void setKeySpeed(quint8 wpm);
+    void setCwPitch(quint8 pitch);
+    void setDashRatio(quint8 ratio);
+    void setCWBreakMode(quint8 breakMode);
+    void getCWBreakMode();
+
+    // Time and date:
+    void setTime(timekind t);
+    void setDate(datekind d);
+    void setUTCOffset(timekind t);
+
+    void spectOutputEnable();
+    void spectOutputDisable();
+    void scopeDisplayEnable();
+    void scopeDisplayDisable();
+    void setScopeMode(uchar spectMode);
+    void setScopeSpan(char span);
+    void setScopeEdge(char edge);
+    void setScopeFixedEdge(double startFreq, double endFreq, quint8 edgeNumber);
+    void getScopeMode();
+    void getScopeEdge();
+    void getScopeSpan();
+    void sayFrequency();
+    void sayMode();
+    void sayAll();
+    void sendSerialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
+    void sendNetworkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendCloseComm();
+    void sendChangeLatency(quint16 latency);
+    void initServer();
+    void sendRigCaps(rigCapabilities caps);
+    void openShuttle();
+
+    void initUsbController(QMutex* mutex,usbDevMap* devs ,QVector<BUTTON>* buts,QVector<KNOB>* knobs);
+    void setClusterUdpPort(int port);
+    void setClusterEnableUdp(bool udp);
+    void setClusterEnableTcp(bool tcp);
+    void setClusterServerName(QString name);
+    void setClusterTcpPort(int port);
+    void setClusterUserName(QString name);
+    void setClusterPassword(QString pass);
+    void setClusterTimeout(int timeout);
+    void setClusterSkimmerSpots(bool enable);
+    void setFrequencyRange(double low, double high);
+    void sendControllerRequest(USBDEVICE* dev, usbFeatureType request, int val=0, QString text="", QImage* img=nullptr, QColor* color=nullptr);
+    void tciInit(quint16 port);
+
+    // Signals to forward incoming data onto other areas
+    void haveMemory(memoryType mem);
+    void haveMemoryName(memoryTagType tag);
+    void haveMemorySplit(memorySplitType s);
+    void connectionStatus(bool conn);
+
+private slots:
+    // Triggered from external preference changes:
+    void extChangedIfPrefs(quint64 items);
+    void extChangedColPrefs(quint64 items);
+    void extChangedRaPrefs(quint64 items);
+    void extChangedRsPrefs(quint64 items);
+    void extChangedCtPrefs(quint64 items);
+    void extChangedLanPrefs(quint64 items);
+    void extChangedClusterPrefs(quint64 items);
+    void extChangedUdpPrefs(quint64 items);
+    void extChangedServerPrefs(quint64 items);
+
+    void extChangedIfPref(prefIfItem i);
+    void extChangedColPref(prefColItem i);
+    void extChangedRaPref(prefRaItem i);
+    void extChangedRsPref(prefRsItem i);
+    void extChangedCtPref(prefCtItem i);
+    void extChangedLanPref(prefLanItem i);
+    void extChangedClusterPref(prefClusterItem i);
+    void extChangedUdpPref(prefUDPItem i);
+    void extChangedServerPref(prefServerItem i);
+
+    void handleExtConnectBtn();
+    void handleRevertSettingsBtn();
+
+    void receiveScopeSettings(uchar receiver, int theme, quint16 len, int floor, int ceiling);
+    void receiveValue(cacheItem val);
+    void setAudioDevicesUI();
+
+    void runShortcut(const QKeySequence k);
+
+    void handlePttLimit(); // hit at 3 min transmit length
+
+    void doShuttle(bool up, quint8 level);
+
+    void receiveCommReady();
+
+    void receivePTTstatus(bool pttOn);
+    void receiveRITStatus(bool ritEnabled);
+    void receiveRITValue(int ritValHz);
+    void receiveModInput(rigInput input, quint8 data);
+    void receiveMonitor(bool en);
+    void receiveTuningStep(quint8 step);
+
+    void receiveScopeImage(uchar receiver);
+    // Meters:
+    void receiveMeter(meter_t meter, double level);
+//    void receiveSMeter(quint8 level);
+//    void receivePowerMeter(quint8 level);
+//    void receiveALCMeter(quint8 level);
+//    void receiveCompMeter(quint8 level);
+
+
+    void receiveATUStatus(quint8 atustatus);
+    void receivePreamp(quint8 pre, uchar receiver);
+    void receiveAttenuator(quint8 att, uchar receiver);
+
+    void receivePortError(errorType err);
+    void receiveStatusUpdate(networkStatus status);
+    void receiveNetworkAudioLevels(networkAudioLevels l);
+
+    void showStatusBarText(QString text);
+    void receiveBaudRate(quint32 baudrate);
+    void radioSelection(QList<radio_cap_packet> radios);
+
+    void dataModeChanged(modeInfo m);
+
+    // Added for RC28/Shuttle support
+    void pttToggle(bool);
+    void stepUp();
+    void stepDown();
+    void changeFrequency(int value);
+
+    void setRadioTimeDateSend();
+    void logCheck();
+    void setDebugLogging(bool debugModeOn);
+    void setInsaneDebugLogging(bool insaneLoggingOn);
+    void setRigctlDebugLogging(bool rigctlLoggingOn);
+
+    void buttonControl(const COMMAND* cmd);
+
+    void changeFullScreenMode(bool checked);
+
+    void on_freqDial_valueChanged(int value);
+    void on_aboutBtn_clicked();
+
+    void on_rfGainSlider_valueChanged(int value);
+    void on_afGainSlider_valueChanged(int value);
+
+    void on_monitorSlider_valueChanged(int value);
+
+    void on_monitorLabel_linkActivated(const QString&);
+
+    void on_tuneNowBtn_clicked();
+    void on_tuneEnableChk_clicked(bool checked);
+    bool on_exitBtn_clicked();
+    void on_saveSettingsBtn_clicked();
+    void debugBtn_clicked();
+
+    void on_connectBtn_clicked();
+
+    void on_sqlSlider_valueChanged(int value);
+
+    void on_transmitBtn_clicked();
+    void on_txPowerSlider_valueChanged(int value);
+    void on_micGainSlider_valueChanged(int value);
+    void useSystemTheme(bool checked);
+
+    void on_tuneLockChk_clicked(bool checked);
+
+    void on_tuningStepCombo_currentIndexChanged(int index);
+    void on_rptSetupBtn_clicked();
+    void on_attSelCombo_activated(int index);
+    void on_preampSelCombo_activated(int index);
+    void on_antennaSelCombo_activated(int index);
+    void on_rxAntennaCheck_clicked(bool value);
+    void on_rigPowerOnBtn_clicked();
+    void on_rigPowerOffBtn_clicked();
+    void on_ritTuneDial_valueChanged(int value);
+    void on_ritEnableChk_clicked(bool checked);
+
+    void changeMeterType(meter_t m, int meterNum);
+    void enableRigCtl(bool enabled);
+
+    void on_memoriesBtn_clicked();
+
+    void on_radioStatusBtn_clicked();
+
+    void on_showLogBtn_clicked();
+
+    void receiveClusterOutput(QString text);
+
+    void on_cwButton_clicked();
+
+    void on_showBandsBtn_clicked();
+
+    void on_showFreqBtn_clicked();
+
+    void on_showSettingsBtn_clicked();
+
+    void on_rigCreatorBtn_clicked();
+
+    void on_scopeMainSubBtn_clicked();
+    void on_scopeDualBtn_toggled(bool en);
+    void on_dualWatchBtn_toggled(bool en);
+    void on_swapMainSubBtn_clicked();
+    //void on_mainSubTrackingBtn_toggled(bool en);
+    void on_splitBtn_toggled(bool en);
+    void on_mainEqualsSubBtn_clicked();
+
+    void receiveElapsed(bool sub, qint64 us);
+    void connectionTimeout();
+    void receiveRigCaps(rigCapabilities* caps);
+    void radioInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip);
+    void updatedQueueInterval(qint64 interval);
+
+    // Moved to slots to allow them to be delayed.
+    void getInitialRigState();
+    void initPeriodicCommands();
+
+    void setupLambdaSlots();
+
+    void popupScreenMenu(QPoint pos);
+
+private:
+    QMenu* screenMenu = nullptr;
+    Ui::wfmain *ui; // Main UI
+    QVector<receiverWidget*>receivers;   // Spectrum Scope items.
+    void closeEvent(QCloseEvent *event);
+    QString logFilename;
+    bool debugMode;
+    QString version;
+    QSettings *settings=nullptr;
+    void loadSettings();
+    void saveSettings();
+    void connectSettingsWidget();
+
+    void initLogging();
+    QTimer logCheckingTimer;
+    int logCheckingOldPosition = 0;
+    QTimer ATUCheckTimer;
+    QTimer ConnectionTimer;
+
+    QCustomPlot *plot; // line plot
+    QCustomPlot *wf; // waterfall image
+    QCPItemLine * freqIndicatorLine;
+    QCPItemRect* passbandIndicator;
+    QCPItemRect* pbtIndicator;
+    QCPItemText* oorIndicator;
+    QCPItemText* ovfIndicator;
+    void setAppTheme(bool isCustom);
+
+    void showButton(QPushButton *btn);
+    void hideButton(QPushButton *btn);
+
+    FirstTimeSetup *fts = nullptr;
+    void openRig();
+    void powerRigOff();
+    void powerRigOn();
+    QStringList portList;
+    QString serialPortRig;
+
+    QList<QShortcut *> shortcuts;
+
+    rigCommander * rig=nullptr;
+    QThread* rigThread = nullptr;
+    QCPColorMap * colorMap;
+    QCPColorMapData * colorMapData;
+    QCPColorScale * colorScale;
+    QTimer * delayedCommand;
+    QTimer * pttTimer;
+    uint16_t loopTickCounter;
+    uint16_t slowCmdNum=0;
+    uint16_t rapidCmdNum=0;
+
+    void makeRig();
+    void rigConnections();
+    void removeRig();
+    void findSerialPort();
+
+    QShortcut* setupKeyShortcut(const QKeySequence k, bool appWide=false);
+
+    void setupKeyShortcuts();
+    void setupMainUI();
+    void configureVFOs();
+    void setSerialDevicesUI();
+    void setServerToPrefs();
+    void setupUsbControllerDevice();
+    void setInitialTiming();
+    void getSettingsFilePath(QString settingsFile);
+    void enableControls(bool en);
+
+    QStringList modes;
+    int currentModeIndex;
+    QStringList spans;
+    QStringList edges;
+    QStringList commPorts;
+    QLabel* rigStatus;
+    QLabel* rigName;
+    QLedLabel* pttLed;
+    QLedLabel* connectedLed;
+
+    double passbandWidth = 0.0;
+
+    double mousePressFreq = 0.0;
+    double mouseReleaseFreq = 0.0;
+
+    QVector <QByteArray> wfimage;
+
+    bool onFullscreen;
+    bool freqTextSelected;
+
+    float tsKnobMHz;
+
+    quint8 setModeVal=0;
+    quint8 setFilterVal=0;
+    qint64 lastFreqCmdTime_ms;
+
+    int pCmdNum = 0;
+    int delayedCmdIntervalLAN_ms = 100;
+    int delayedCmdIntervalSerial_ms = 100;
+    int delayedCmdStartupInterval_ms = 100;
+
+    cachingQueue* queue;
+    // Radio time sync:
+    QTimer *timeSync;
+    bool waitingToSetTimeDate;
+    void setRadioTimeDatePrep();
+    timekind timesetpoint;
+    timekind utcsetting;
+    datekind datesetpoint;
+
+    freqMemory mem;
+    void gotoMemoryPreset(int presetNumber);
+    void saveMemoryPreset(int presetNumber);
+
+    colorPrefsType colorPreset[numColorPresetsTotal];
+
+    preferences prefs;
+    udpPreferences udpPrefs;
+    preferences defPrefs;
+    udpPreferences udpDefPrefs;
+
+    void setDefaultColors(int presetNumber); // populate with default values
+    void setDefaultColorPresets();
+    void useColorPreset(colorPrefsType *cp);
+
+    void useColors(); // set the plot up
+    void setDefPrefs(); // populate default values to default prefs
+    void setTuningSteps();
+
+    void calculateTimingParameters();
+    void changePollTiming(int timing_ms, bool setUI=false);
+
+    quint64 roundFrequency(quint64 frequency, unsigned int tsHz);
+    quint64 roundFrequencyWithStep(quint64 oldFreq, int steps,\
+                                   unsigned int tsHz);
+
+    void changeTxBtn();
+    void changePrimaryMeter(bool transmitOn);
+    void changeSliderQuietly(QSlider *slider, int value);
+    void showAndRaiseWidget(QWidget *w);
+    void statusFromSliderPercent(QString name, int percentValue);
+    void statusFromSliderRaw(QString name, int rawValue);
+
+    void processModLevel(inputTypes source, quint8 level);
+
+    void processChangingCurrentModLevel(quint8 level);
+
+    void changeModLabel(rigInput source);
+    void changeModLabel(rigInput source, bool updateLevel);
+
+    void changeModLabelAndSlider(rigInput source);
+
+    void changeMode(rigMode_t mode, quint8 rx=0);
+    void changeMode(rigMode_t mode, quint8 data, quint8 rx=0);
+
+    void connectionHandler(bool connect);
+
+    funcs meter_tToMeterCommand(meter_t m);
+    void getMeterExtremities(const meter_t m, double &lowVal,
+                             double &highVal, double&redLineVal);
+    void updateUsbButtons();
+
+    void setManufacturer(manufacturersType_t man);
+
+    int oldFreqDialVal;
+
+    QHash<quint16,rigInfo> rigList;
+    rigCapabilities* rigCaps = nullptr;
+
+    rigInput currentModSrc[4];
+
+    rigMode_t currentMode = modeUnknown;
+    modeInfo currentModeInfo = modeInfo();
+
+    bool haveRigCaps;
+    bool amTransmitting = false;
+    bool splitModeEnabled = false;
+    quint8 usingDataMode = 99; // Set to invalid value initially
+
+    // Widgets and Special Windows:
+    calibrationWindow *cal = nullptr;
+    repeaterSetup *rpt = nullptr;
+    satelliteSetup *sat = nullptr;
+    //transceiverAdjustments *trxadj = nullptr;
+    cwSender *cw = nullptr;
+    controllerSetup* usbWindow = nullptr;
+    aboutbox *abtBox = nullptr;
+    selectRadio *selRad = nullptr;
+    loggingWindow *logWindow = nullptr;
+    //rigCreator *creator = nullptr;
+    bandbuttons* bandbtns;
+    frequencyinputwidget* finputbtns;
+    settingswidget* setupui;
+
+
+    rigServer* server = nullptr;
+    QThread* serverThread = nullptr;
+    rigCtlD* rigCtl = nullptr;
+    tciServer* tci = nullptr;
+    QThread* tciThread = nullptr;
+
+    void bandStackBtnClick();
+    bool waitingForBandStackRtn;
+    char bandStkBand;
+    char bandStkRegCode;
+
+    bool freqLock;
+
+    float tsPlus;
+    float tsPlusShift;
+    float tsPlusControl;
+    float tsPage;
+    float tsPageShift;
+    float tsWfScroll;
+
+    unsigned int tsPlusHz;
+    unsigned int tsPlusShiftHz;
+    unsigned int tsPlusControlHz;
+    unsigned int tsPageHz;
+    unsigned int tsPageShiftHz;
+    unsigned int tsWfScrollHz;
+    unsigned int tsKnobHz;
+
+    passbandActions passbandAction = passbandStatic;
+    double PBTInner = 0.0;
+    double PBTOuter = 0.0;
+    double passbandCenterFrequency = 0.0;
+    double pbtDefault = 0.0;
+    quint16 cwPitch = 600;
+
+    bool subScope = false;
+
+    //availableBands lastRequestedBand=bandGen;
+
+    SERVERCONFIG serverConfig;
+
+    quint64 mainElapsed=0;
+    quint64 subElapsed=0;
+    colorPrefsType* colorPrefs=nullptr;
+
+    QString currentRegion = "1";
+    funcType getInputTypeCommand(inputTypes input);
+
+#if defined (USB_CONTROLLER)
+    usbController *usbControllerDev = nullptr;
+    QThread *usbControllerThread = nullptr;
+    QString typeName;
+    QVector<BUTTON> usbButtons;
+    QVector<KNOB> usbKnobs;
+    usbDevMap usbDevices;
+    QMutex usbMutex;
+    qint64 lastUsbNotify=0;
+
+    #if defined (Q_OS_LINUX)
+	struct udev* uDev = nullptr;
+        struct udev_monitor* uDevMonitor = nullptr;
+        QSocketNotifier* uDevNotifier = nullptr;
+    #endif
+#endif
+    memories* memWindow = nullptr;
+    dxClusterClient* cluster = nullptr;
+    QThread* clusterThread = nullptr;
+    QMap<QString, spotData*> clusterSpots;
+    QTimer clusterTimer;
+    QCPItemText* text=nullptr;
+    QMutex clusterMutex;
+    QColor clusterColor;
+    audioDevices* audioDev = nullptr;
+    QImage lcdImage;
+    connectionStatus_t connStatus = connDisconnected;
+    uchar currentReceiver = 0;
+    bool isRadioAdmin = true;
+};
+
+//void (*wfmain::logthistext)(QString text) = NULL;
+
+#endif // WFMAIN_H
+#endif

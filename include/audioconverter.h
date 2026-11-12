@@ -49,18 +49,35 @@ struct audioPacket {
     quint16 sent;
     QByteArray data;
     quint8 guid[GUIDLEN];
-    float amplitudePeak;
-    float amplitudeRMS;
+    float amplitudePeak = 0.0f;
+    float amplitudeRMS = 0.0f;
     qreal volume = 1.0;
+    quint32 sampleRate = 0;
+    quint8 channels = 0;
+    quint8 codec = 0;
 };
 
 // Forward declarations
 class TxAudioProcessor;   // defined in txaudioprocessor.h
 class RxAudioProcessor;   // defined in rxaudioprocessor.h
 
+// Which configured device an audioSetup describes, so failures can be
+// reported to the user with a meaningful description.
+enum class audioDeviceRole : quint8 {
+    Unknown = 0,
+    LocalOutput,     // computer speakers/headphones (RX audio)
+    LocalInput,      // computer microphone (TX audio)
+    RadioUsbInput,   // radio's USB audio codec, receive audio from the radio
+    RadioUsbOutput   // radio's USB audio codec, transmit audio to the radio
+};
+
 struct audioSetup {
     audioType type;
     QString name;
+    // Device name as saved in settings, before it was matched against the
+    // available devices. name is cleared when no match is found; this is not.
+    QString configuredName;
+    audioDeviceRole role = audioDeviceRole::Unknown;
     quint16 latency;
     quint8 codec;
     bool ulaw = false;
@@ -82,6 +99,19 @@ struct audioSetup {
     // Optional RX processing engine; non-null only for RX output handlers.
     RxAudioProcessor* rxProc = nullptr;
 };
+
+// True when the setup refers to a device that was found on this system.
+// name alone is not enough: it keeps the configured name when the device
+// is missing, so the settings UI can show what was configured.
+inline bool audioSetupHasDevice(const audioSetup& setup)
+{
+    if (setup.type == qtAudio)
+        return !setup.port.isNull();
+    return setup.portInt >= 0;
+}
+
+Q_DECLARE_METATYPE(audioPacket)
+Q_DECLARE_METATYPE(audioSetup)
 
 class audioConverter : public QObject
 {

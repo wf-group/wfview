@@ -1,5 +1,6 @@
 # .github/workflows/build-and-release.yml
-# Build wfview for Windows (x86/x64), Linux (AppImage) and macOS (Universal Qt6 DMG),
+# Build wfview for Windows (x86/x64), Linux x86_64 and arm64 (AppImage), macOS Universal Qt6,
+# and legacy Intel macOS Qt5 DMGs,
 # then publish all artifacts under a single release.
 
 name: Build and Release
@@ -7,9 +8,23 @@ name: Build and Release
 permissions:
   contents: write
 
+env:
+  QT6_VERSION: 6.10.3
+  QT5_LEGACY_VERSION: 5.15.2
+  MACOS_LEGACY_DEPLOYMENT_TARGET: 10.13
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Build the optional MCP diagnostics server into every wfview binary
+  # (adds CONFIG+=mcp to each qmake call below). It still has to be enabled at
+  # run time with --use-mcp; see docs/MCP.md. To build without MCP again, set
+  # this to an empty string:
+  #   WFVIEW_MCP_CONFIG: ""
+  WFVIEW_MCP_CONFIG: CONFIG+=mcp
+
 on:
   push:
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   # ═══════════════════════════════════════════════════════════════════
@@ -23,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout wfview
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: wfview
           fetch-depth: 0
@@ -50,7 +65,7 @@ jobs:
           echo "Version: $VERSION_STRING numeric=$VERSION_NUMBER (has_tag=$HAS_TAG)"
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-deps
         with:
           path: |
@@ -60,7 +75,6 @@ jobs:
             rtaudio
             r8brain-free-src
             eigen
-            qcustomplot
           key: windows-x86-deps-${{ hashFiles('wfview/wfview.pro') }}
 
       - name: Checkout dependencies
@@ -73,14 +87,6 @@ jobs:
           git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
           git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
           git clone --depth=1 --branch 5.0.1 https://gitlab.com/libeigen/eigen.git eigen
-
-      - name: Download QCustomPlot
-        shell: bash
-        run: |
-          mkdir -p qcustomplot
-          curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
-            -o qcustomplot.tar.gz
-          tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -115,33 +121,14 @@ jobs:
           arch: x86
 
       - name: Install jom
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: choco install jom -y
-
-      - name: Write QCustomPlot pro file
-        shell: bash
+        shell: powershell
         run: |
-          mkdir -p qcustomplot/win32
-          cat > qcustomplot/qcustomplot-sharedlib.pro << 'EOF'
-          TEMPLATE = lib
-          TARGET = qcustomplot2
-          DESTDIR = win32
-          QT += widgets printsupport
-          CONFIG += release shared
-          DEFINES += QCUSTOMPLOT_COMPILE_LIBRARY
-          SOURCES += qcustomplot.cpp
-          HEADERS += qcustomplot.h
-          EOF
-
-      - name: Build QCustomPlot
-        shell: cmd
-        working-directory: ${{ github.workspace }}\qcustomplot
-        run: |
-          qmake qcustomplot-sharedlib.pro CONFIG+=release
-          jom -j %NUMBER_OF_PROCESSORS%
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install jom -y
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Start-Sleep -Seconds (10 * $attempt)
+          }
+          exit $LASTEXITCODE
 
       - name: Patch PortAudio output name
         shell: bash
@@ -197,7 +184,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release)
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }} VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }})
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -206,7 +193,7 @@ jobs:
         run: |
           windeployqt ^
             --release ^
-            --printsupport ^
+            --qmldir wfview\qml ^
             --no-system-d3d-compiler ^
             wfview\wfview-release\wfview.exe
 
@@ -244,7 +231,7 @@ jobs:
 
       - name: Upload installer
         if: steps.version_info.outputs.has_tag == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wfview-windows-x86
           path: wfview-windows-x86-setup.exe
@@ -260,7 +247,7 @@ jobs:
 
     steps:
       - name: Checkout wfview
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: wfview
           fetch-depth: 0
@@ -287,7 +274,7 @@ jobs:
           echo "Version: $VERSION_STRING numeric=$VERSION_NUMBER (has_tag=$HAS_TAG)"
 
       - name: Cache dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-deps
         with:
           path: |
@@ -297,7 +284,6 @@ jobs:
             rtaudio
             r8brain-free-src
             eigen
-            qcustomplot
           key: windows-deps-${{ hashFiles('wfview/wfview.pro') }}
 
       - name: Checkout dependencies
@@ -311,18 +297,10 @@ jobs:
           git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
           git clone --depth=1 --branch 5.0.1 https://gitlab.com/libeigen/eigen.git eigen
 
-      - name: Download QCustomPlot
-        shell: bash
-        run: |
-          mkdir -p qcustomplot
-          curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
-            -o qcustomplot.tar.gz
-          tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
-
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: 6.8.1
+          version: ${{ env.QT6_VERSION }}
           cache: true
           host: windows
           target: desktop
@@ -336,34 +314,14 @@ jobs:
           arch: x64
 
       - name: Install jom
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: choco install jom -y
-
-      - name: Write QCustomPlot pro file
-        shell: bash
+        shell: powershell
         run: |
-          mkdir -p qcustomplot/x64
-
-          cat > qcustomplot/qcustomplot-sharedlib.pro << 'EOF'
-          TEMPLATE = lib
-          TARGET = qcustomplot2
-          DESTDIR = x64
-          QT += widgets printsupport
-          CONFIG += release shared
-          DEFINES += QCUSTOMPLOT_COMPILE_LIBRARY
-          SOURCES += qcustomplot.cpp
-          HEADERS += qcustomplot.h
-          EOF
-
-      - name: Build QCustomPlot
-        shell: cmd
-        working-directory: ${{ github.workspace }}\qcustomplot
-        run: |
-          qmake qcustomplot-sharedlib.pro CONFIG+=release
-          jom -j %NUMBER_OF_PROCESSORS%
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install jom -y
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Start-Sleep -Seconds (10 * $attempt)
+          }
+          exit $LASTEXITCODE
 
       - name: Patch PortAudio output name
         shell: bash
@@ -422,7 +380,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release)
+          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }} VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }})
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -431,7 +389,7 @@ jobs:
         run: |
           windeployqt ^
             --release ^
-            --printsupport ^
+            --qmldir wfview\qml ^
             --no-system-d3d-compiler ^
             wfview\wfview-release\wfview.exe
 
@@ -471,7 +429,7 @@ jobs:
 
       - name: Upload installer
         if: steps.version_info.outputs.has_tag == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wfview-windows-x64
           path: wfview-windows-x64-setup.exe
@@ -490,7 +448,7 @@ jobs:
 
     steps:
       - name: Checkout wfview
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: wfview
           fetch-depth: 0
@@ -516,7 +474,7 @@ jobs:
       - name: Install Official Qt6 (Universal)
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.1'
+          version: ${{ env.QT6_VERSION }}
           cache: true
           host: 'mac'
           target: 'desktop'
@@ -569,38 +527,6 @@ jobs:
           mkdir -p opus
           ln -s $SYSROOT/include/opus opus/include
 
-      - name: Download QCustomPlot tgz
-        run: |
-          echo "=== Downloading QCP tgz file ==="
-          mkdir -p qcustomplot
-          curl -L "https://www.qcustomplot.com/release/2.1.1/QCustomPlot.tar.gz" \
-            -o qcustomplot.tar.gz
-          tar -xzf qcustomplot.tar.gz -C qcustomplot --strip-components=1
-
-      - name: Build QCustomPlot (Universal)
-        run: |
-          echo "=== Begin QCP build process ==="
-          mkdir -p qcustomplot/qcustomplot-sharedlib/build
-          cd qcustomplot/qcustomplot-sharedlib/build
-
-          cat > qcustomplot-sharedlib.pro << 'EOF'
-          TEMPLATE = lib
-          TARGET = qcustomplot
-          QT += widgets printsupport
-          CONFIG += release shared
-          DEFINES += QCUSTOMPLOT_COMPILE_LIBRARY
-          SOURCES += ../../qcustomplot.cpp
-          HEADERS += ../../qcustomplot.h
-          EOF
-
-          qmake qcustomplot-sharedlib.pro \
-            CONFIG+=release \
-            QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
-            QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0
-
-          make -j$(sysctl -n hw.logicalcpu)
-          cp ../../qcustomplot.h .
-
       - name: Get version
         id: version
         run: |
@@ -612,8 +538,12 @@ jobs:
       - name: Set version in Info.plist
         run: |
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" \
+            wfview/resources/Info.plist || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version.outputs.version }}" \
             wfview/resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.version.outputs.bundle_version }}" \
+            wfview/resources/Info.plist || \
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ steps.version.outputs.bundle_version }}" \
             wfview/resources/Info.plist
 
       - name: Build wfview
@@ -621,13 +551,12 @@ jobs:
         run: |
           qmake wfview.pro \
             CONFIG+=release \
+            ${{ env.WFVIEW_MCP_CONFIG }} \
             CONFIG+=sdk_no_version_check \
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
             QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0 \
             INCLUDEPATH+="$SYSROOT/include" \
-            INCLUDEPATH+="../qcustomplot/qcustomplot-sharedlib/build" \
             LIBS+="-L$SYSROOT/lib" \
-            LIBS+="-L../qcustomplot/qcustomplot-sharedlib/build" \
             VERSION="${{ steps.version_info.outputs.version_string }}"
           make -j$(sysctl -n hw.logicalcpu)
 
@@ -636,12 +565,17 @@ jobs:
           # Do not remove this line or the build will fail:
           echo "ICE == murderers"
 
-          echo "=== Copying QCP before macdeployqt ==="
-          mkdir -p wfview/wfview.app/Contents/Frameworks
-          cp -a $GITHUB_WORKSPACE/qcustomplot/qcustomplot-sharedlib/build/libqcustomplot*.dylib wfview/wfview.app/Contents/Frameworks/
+
+          echo "=== Removing unused Qt SQL plugins ==="
+          for plugin_root in "$QT_PLUGIN_PATH" "$QT_ROOT_DIR/plugins"; do
+            if [ -n "$plugin_root" ] && [ -d "$plugin_root/sqldrivers" ]; then
+              rm -rf "$plugin_root/sqldrivers"
+              echo "Removed $plugin_root/sqldrivers"
+            fi
+          done
 
           echo "=== Deploying Qt Frameworks ==="
-          macdeployqt wfview/wfview.app
+          macdeployqt wfview/wfview.app -qmldir=$GITHUB_WORKSPACE/wfview/qml
 
           echo "=== Bundling 3rd Party Libraries ==="
           cp -a $SYSROOT/lib/libportaudio*.dylib wfview/wfview.app/Contents/Frameworks/ 2>/dev/null || true
@@ -662,13 +596,12 @@ jobs:
 
           echo "=== Adding rpath to binary ==="
           BINARY="wfview/wfview.app/Contents/MacOS/wfview"
-          install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY" || true
+          if otool -l "$BINARY" | grep -q "@executable_path/../Frameworks"; then
+            echo "Binary already has @executable_path/../Frameworks rpath"
+          else
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY"
+          fi
 
-          echo "=== Fixing bare QCP reference ==="
-          install_name_tool -change \
-            "libqcustomplot.1.dylib" \
-            "@rpath/libqcustomplot.1.dylib" \
-            "$BINARY" || true
 
           echo "=== Verifying Library References ==="
           echo "Remaining non-system external references in binary:"
@@ -678,6 +611,7 @@ jobs:
           otool -l "$BINARY" | grep -A2 LC_RPATH || true
 
       - name: Import certificate
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
@@ -690,13 +624,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
 
       - name: Sign application
+        if: steps.version_info.outputs.has_tag == 'true'
         run: |
           IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
           APP="wfview/wfview.app"
           ENTITLEMENTS="wfview/resources/wfview.entitlements"
-
-          # Catch a malformed entitlements plist before signing with it
-          plutil -lint "$ENTITLEMENTS"
 
           # 1. Sign standalone dylibs in Frameworks
           find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
@@ -728,19 +660,8 @@ jobs:
           # Verify
           codesign --verify --deep --strict --verbose=2 "$APP"
 
-          # Verify the entitlements actually embedded in the signed bundle.
-          # USB controllers (HID) need com.apple.security.device.usb under the sandbox.
-          echo "=== Embedded entitlements ==="
-          codesign -d --entitlements - --xml "$APP" > signed.entitlements
-          plutil -p signed.entitlements
-          for key in com.apple.security.device.usb com.apple.security.device.serial; do
-            if [ "$(/usr/libexec/PlistBuddy -c "Print :$key" signed.entitlements 2>/dev/null)" != "true" ]; then
-              echo "::error::Signed app is missing entitlement $key"
-              exit 1
-            fi
-          done
-
       - name: Notarize application
+        if: steps.version_info.outputs.has_tag == 'true'
         env:
           NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
           NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
@@ -759,11 +680,37 @@ jobs:
           # Staple the ticket
           xcrun stapler staple wfview/wfview.app
 
+      - name: Install DMG packaging tool
+        if: steps.version_info.outputs.has_tag == 'true'
+        run: python3 -m pip install dmgbuild
+
       - name: Package macOS App
-        uses: lethja/create-dmg-action@v0.0.2
-        with:
-          name: 'wfview'
-          srcdir: 'wfview/wfview.app'
+        if: steps.version_info.outputs.has_tag == 'true'
+        run: |
+          cat > dmg-settings.py <<'PY'
+          import os
+
+          app = os.path.abspath("wfview/wfview.app")
+
+          files = [app]
+          symlinks = {"Applications": "/Applications"}
+
+          background = "builtin-arrow"
+          window_rect = ((100, 100), (620, 360))
+          icon_size = 128
+          icon_locations = {
+              "wfview.app": (165, 135),
+              "Applications": (455, 135),
+          }
+
+          show_status_bar = False
+          show_tab_view = False
+          show_toolbar = False
+          show_pathbar = False
+          show_sidebar = False
+          PY
+
+          dmgbuild -s dmg-settings.py "wfview" wfview.dmg
 
       - name: Debug Output - Verify Library Linking
         run: |
@@ -786,14 +733,258 @@ jobs:
           done
 
       - name: Rename macOS DMG
+        if: steps.version_info.outputs.has_tag == 'true'
         run: mv wfview.dmg wfview-macos.dmg
 
       - name: Upload macOS DMG artifact
-        uses: actions/upload-artifact@v4
+        if: steps.version_info.outputs.has_tag == 'true'
+        uses: actions/upload-artifact@v7
         with:
           name: wfview-macos-dmg
           path: wfview-macos.dmg
           if-no-files-found: warn
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  macOS Legacy Intel Qt5 Build
+  # ═══════════════════════════════════════════════════════════════════
+  # Legacy macOS build for Intel Macs using Qt 5.15.2 and a 10.13 deployment target.
+  build-macos-legacy-intel:
+    runs-on: macos-15-intel
+
+    outputs:
+      version_string: ${{ steps.version_info.outputs.version_string }}
+      has_tag: ${{ steps.version_info.outputs.has_tag }}
+
+    env:
+      SYSROOT: ${{ github.workspace }}/legacy_intel_sysroot
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          path: wfview
+
+      - name: Determine version
+        id: version_info
+        working-directory: wfview
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          TAG=$(git tag --points-at HEAD | head -1)
+          if [ -n "$TAG" ]; then
+            VERSION_STRING="$TAG"
+            HAS_TAG=true
+          else
+            VERSION_STRING="$SHORT"
+            HAS_TAG=false
+          fi
+          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+          echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
+
+      - name: Install Qt 5.15 for macOS
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT5_LEGACY_VERSION }}
+          cache: true
+          host: mac
+          target: desktop
+          arch: clang_64
+
+      - name: Build legacy Intel dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p "$SYSROOT"
+
+          git clone --depth=1 https://github.com/xiph/opus.git opus-src
+          cmake -S opus-src -B opus-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build opus-build --target install --config Release
+
+          git clone --depth=1 https://github.com/PortAudio/portaudio.git portaudio-src
+          cmake -S portaudio-src -B portaudio-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DPA_BUILD_STATIC=OFF \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build portaudio-build --target install --config Release
+
+          git clone --depth=1 https://github.com/libusb/hidapi.git hidapi-src
+          cmake -S hidapi-src -B hidapi-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$SYSROOT" \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            -DBUILD_SHARED_LIBS=ON
+          cmake --build hidapi-build --target install --config Release
+
+      - name: Prepare wfview dependency layout
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/thestk/rtaudio.git rtaudio
+          git clone --depth=1 https://github.com/avaneev/r8brain-free-src.git r8brain-free-src
+          git clone --depth=1 --branch 5.0.1 https://gitlab.com/libeigen/eigen.git eigen
+
+          mkdir -p opus
+          ln -s "$SYSROOT/include/opus" opus/include
+
+      - name: Patch wfview.pro for legacy Intel target
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          project = Path("wfview/wfview.pro")
+          text = project.read_text()
+          text = text.replace("QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15",
+                              "QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13")
+          text = text.replace("QMAKE_APPLE_DEVICE_ARCHS = x86_64 arm64",
+                              "QMAKE_APPLE_DEVICE_ARCHS = x86_64")
+          text = text.replace("DEFINES += USB_CONTROLLER",
+                              "# DEFINES += USB_CONTROLLER")
+          project.write_text(text)
+          PY
+
+      - name: Update Info.plist version
+        run: |
+          PLIST="wfview/resources/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version_info.outputs.version_string }}" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version_info.outputs.version_string }}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ github.run_number }}" "$PLIST"
+
+      - name: Build wfview legacy Intel app
+        working-directory: wfview
+        run: |
+          set -euo pipefail
+          qmake wfview.pro \
+            CONFIG+=release \
+            ${{ env.WFVIEW_MCP_CONFIG }} \
+            CONFIG+=sdk_no_version_check \
+            QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
+            QMAKE_MACOSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
+            INCLUDEPATH+="$SYSROOT/include" \
+            LIBS+="-L$SYSROOT/lib" \
+            VERSION="${{ steps.version_info.outputs.version_string }}"
+          make -j"$(sysctl -n hw.logicalcpu)"
+
+      - name: Deploy Qt frameworks and third-party libraries
+        run: |
+          set -euo pipefail
+
+          rm -rf "$QT_PLUGIN_PATH/sqldrivers" "$QT_ROOT_DIR/plugins/sqldrivers"
+          macdeployqt wfview/wfview.app -qmldir="$GITHUB_WORKSPACE/wfview/qml"
+
+          FRAMEWORKS="wfview/wfview.app/Contents/Frameworks"
+          mkdir -p "$FRAMEWORKS"
+          cp "$SYSROOT"/lib/libportaudio*.dylib "$FRAMEWORKS/"
+          cp "$SYSROOT"/lib/libopus*.dylib "$FRAMEWORKS/"
+          cp "$SYSROOT"/lib/libhidapi*.dylib "$FRAMEWORKS/" || true
+
+          BINARY="wfview/wfview.app/Contents/MacOS/wfview"
+          if ! otool -l "$BINARY" | grep -q "@executable_path/../Frameworks"; then
+            install_name_tool -add_rpath "@executable_path/../Frameworks" "$BINARY"
+          fi
+
+      - name: Import certificate
+        if: steps.version_info.outputs.has_tag == 'true'
+        env:
+          CERTIFICATE_DATA: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        run: |
+          echo "$CERTIFICATE_DATA" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Sign application
+        if: steps.version_info.outputs.has_tag == 'true'
+        run: |
+          IDENTITY="Developer ID Application: Phil Taylor (${{ secrets.MACOS_NOTARY_TEAM }})"
+          APP="wfview/wfview.app"
+          ENTITLEMENTS="wfview/resources/wfview.entitlements"
+
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          find "$APP/Contents/Frameworks" -name "*.framework" | while read fw; do
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp "$fw"
+          done
+
+          find "$APP/Contents/PlugIns" -name "*.dylib" -exec \
+            codesign --force --sign "$IDENTITY" --options runtime --timestamp {} \;
+
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP/Contents/MacOS/wfview"
+
+          codesign --force --sign "$IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            "$APP"
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Notarize application
+        if: steps.version_info.outputs.has_tag == 'true'
+        env:
+          NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
+          NOTARY_PWD: ${{ secrets.MACOS_NOTARY_PWD }}
+          NOTARY_TEAM: ${{ secrets.MACOS_NOTARY_TEAM }}
+        run: |
+          ditto -c -k --keepParent wfview/wfview.app wfview-legacy.zip
+          xcrun notarytool submit wfview-legacy.zip \
+            --apple-id "$NOTARY_USER" \
+            --password "$NOTARY_PWD" \
+            --team-id "$NOTARY_TEAM" \
+            --wait
+          xcrun stapler staple wfview/wfview.app
+
+      - name: Package legacy Intel DMG
+        if: steps.version_info.outputs.has_tag == 'true'
+        run: |
+          set -euo pipefail
+          python3 -m pip install dmgbuild
+
+          cat > dmg-settings.py <<'PY'
+          app = "wfview/wfview.app"
+          files = [app]
+          symlinks = {"Applications": "/Applications"}
+          badge_icon = None
+          background = "builtin-arrow"
+          window_rect = ((100, 100), (620, 360))
+          icon_size = 128
+          icon_locations = {
+              "wfview.app": (165, 135),
+              "Applications": (455, 135),
+          }
+          show_status_bar = False
+          show_tab_view = False
+          show_toolbar = False
+          show_pathbar = False
+          show_sidebar = False
+          PY
+
+          dmgbuild -s dmg-settings.py "wfview Legacy Intel" wfview-macos-legacy-intel.dmg
+
+      - name: Upload legacy Intel macOS DMG artifact
+        if: steps.version_info.outputs.has_tag == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wfview-macos-legacy-intel-dmg
+          path: wfview-macos-legacy-intel.dmg
+          if-no-files-found: error
 
   # ═══════════════════════════════════════════════════════════════════
   #  Linux AppImage Build
@@ -806,7 +997,7 @@ jobs:
     steps:
     # ─── Checkout ───────────────────────────────────────────────────────
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0   # full history so git describe / rev-parse work
 
@@ -845,13 +1036,6 @@ jobs:
         sudo apt-get update
         sudo apt-get -y install \
           build-essential \
-          qt5-qmake \
-          libqt5core5a \
-          qtbase5-dev \
-          libqt5serialport5 libqt5serialport5-dev \
-          libqt5multimedia5 libqt5multimedia5-plugins qtmultimedia5-dev \
-          libqt5gamepad5 libqt5gamepad5-dev \
-          libqt5websockets5 libqt5websockets5-dev \
           libhidapi-dev \
           libopus-dev \
           libeigen3-dev \
@@ -860,25 +1044,22 @@ jobs:
           libudev-dev \
           libpulse-dev \
           libjack-jackd2-dev \
+          libgl1-mesa-dev \
           git \
           file \
           fuse libfuse2 \
           makeself
 
-        # QCustomPlot — try each version, at least one must succeed
-        QCPLOT_OK=0
-        sudo apt-get -y install libqcustomplot2.1 libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
-        if [ "$QCPLOT_OK" -eq 0 ]; then
-          sudo apt-get -y install libqcustomplot2.0 libqcustomplot-doc libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
-        fi
-        if [ "$QCPLOT_OK" -eq 0 ]; then
-          sudo apt-get -y install libqcustomplot1.3 libqcustomplot-doc libqcustomplot-dev 2>/dev/null && QCPLOT_OK=1 || true
-        fi
-        if [ "$QCPLOT_OK" -eq 0 ]; then
-          echo "::error::Could not install any version of libqcustomplot"
-          exit 1
-        fi
-        echo "QCustomPlot installed successfully"
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT6_VERSION }}
+        cache: true
+        host: linux
+        target: desktop
+        arch: linux_gcc_64
+        modules: qtserialport qtwebsockets qtmultimedia
+
 
     # ─── DEBUG: Verify toolchain & library availability ─────────────────
     - name: "DEBUG: Verify toolchain"
@@ -892,9 +1073,6 @@ jobs:
         echo "=== Qt pkg-config modules ==="
         pkg-config --list-all 2>/dev/null | grep -i qt || true
         echo ""
-        echo "=== QCustomPlot libraries ==="
-        /sbin/ldconfig -p | grep -i qcustomplot || true
-        echo ""
         echo "=== Key shared libraries ==="
         for lib in librtaudio libopus libportaudio libhidapi libudev libpulse; do
           /sbin/ldconfig -p | grep "$lib" | head -2
@@ -905,6 +1083,7 @@ jobs:
       run: |
         qmake wfview.pro \
           CONFIG+=release \
+          ${{ env.WFVIEW_MCP_CONFIG }} \
           PREFIX=/usr \
           VERSION="${{ steps.version_info.outputs.version_string }}"
 
@@ -933,14 +1112,12 @@ jobs:
         mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
         mkdir -p AppDir/usr/share/metainfo
         mkdir -p AppDir/usr/share/wfview/rigs
-        mkdir -p AppDir/usr/share/wfview/qdarkstyle
 
         cp wfview                                       AppDir/usr/bin/
         cp resources/wfview.desktop                     AppDir/usr/share/applications/
         cp resources/icons/bitmap/wfview.png            AppDir/usr/share/icons/hicolor/256x256/apps/
         cp resources/org.wfview.wfview.metainfo.xml     AppDir/usr/share/metainfo/ || true
         cp -r rigs/*                                    AppDir/usr/share/wfview/rigs/
-        cp -r qdarkstyle/*                              AppDir/usr/share/wfview/qdarkstyle/
 
         # linuxdeploy expects these at the AppDir root as well
         cp resources/wfview.desktop                     AppDir/
@@ -968,6 +1145,7 @@ jobs:
     - name: Build AppImage
       run: |
         export QMAKE=$(which qmake)
+        export QML_SOURCES_PATHS=$(pwd)/qml
         export PATH="$(pwd):$PATH"
 
         # Explicitly resolve libjack so linuxdeploy bundles it.
@@ -1013,8 +1191,18 @@ jobs:
         ./wfview.AppImage --appimage-list 2>/dev/null | head -40 || true
         echo "..."
 
+    # ─── Upload raw AppImage for test builds ────────────────────────────
+    - name: Upload AppImage (test build)
+      if: steps.version_info.outputs.has_tag != 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-appimage-${{ steps.version_info.outputs.version_string }}
+        path: wfview.AppImage
+        retention-days: 7
+
     # ─── Assemble makeself payload ──────────────────────────────────────
     - name: Assemble installer payload
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         mkdir -p installer-payload
 
@@ -1023,167 +1211,14 @@ jobs:
         cp resources/icons/bitmap/wfview.png            installer-payload/
         cp resources/org.wfview.wfview.metainfo.xml     installer-payload/ || true
         cp -r rigs                                      installer-payload/
-        cp -r qdarkstyle                                installer-payload/
 
-        # Install script embedded in the payload
-        cat > installer-payload/install.sh << 'INSTALLER_EOF'
-        #!/bin/bash
-        # wfview AppImage Installer
-        # This script runs from within the makeself self-extracting archive.
-        #
-        # Usage:
-        #   ./wfview-installer.sh          # non-root install to ~/.local
-        #   sudo ./wfview-installer.sh     # root install to /usr/local
-        #
-        set -e
-
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        APPIMAGE_NAME="wfview.AppImage"
-
-        # ─── Detect root vs non-root ──────────────────────────────────
-        if [ "$(id -u)" -eq 0 ]; then
-            IS_ROOT=true
-            PREFIX="/usr/local"
-            echo "=== wfview installer (root mode) ==="
-        else
-            IS_ROOT=false
-            PREFIX="${HOME}/.local"
-            echo "=== wfview installer (user mode) ==="
-        fi
-        echo "Installing to ${PREFIX}"
-
-        BIN_DIR="${PREFIX}/bin"
-        SHARE_DIR="${PREFIX}/share"
-        DESKTOP_DIR="${SHARE_DIR}/applications"
-        ICON_DIR="${SHARE_DIR}/icons/hicolor/256x256/apps"
-        METAINFO_DIR="${SHARE_DIR}/metainfo"
-        WFVIEW_SHARE_DIR="${SHARE_DIR}/wfview"
-        RIGS_DIR="${WFVIEW_SHARE_DIR}/rigs"
-        STYLE_DIR="${WFVIEW_SHARE_DIR}/qdarkstyle"
-
-        # ─── Create directories ───────────────────────────────────────
-        echo "Creating directories..."
-        mkdir -p "${BIN_DIR}"
-        mkdir -p "${DESKTOP_DIR}"
-        mkdir -p "${ICON_DIR}"
-        mkdir -p "${METAINFO_DIR}"
-        mkdir -p "${WFVIEW_SHARE_DIR}"
-        mkdir -p "${RIGS_DIR}"
-        mkdir -p "${STYLE_DIR}"
-
-        # ─── Backup existing rig files (non-root only) ────────────────
-        if [ "${IS_ROOT}" = false ] && [ -d "${RIGS_DIR}" ] && [ "$(ls -A "${RIGS_DIR}" 2>/dev/null)" ]; then
-            BACKUP_NAME="wfview-rigs-backup-$(date +%Y%m%d-%H%M%S).tgz"
-            BACKUP_PATH="${WFVIEW_SHARE_DIR}/${BACKUP_NAME}"
-            echo "Backing up existing rig files to ${BACKUP_PATH} ..."
-            tar czf "${BACKUP_PATH}" -C "${WFVIEW_SHARE_DIR}" rigs/
-            echo "Backup created."
-        fi
-
-        # ─── Offer to back up prior wfview binaries ───────────────────
-        PRIOR_BINS=()
-        [ -f /usr/local/bin/wfview ] && PRIOR_BINS+=("/usr/local/bin/wfview")
-        [ -f /usr/bin/wfview ]       && PRIOR_BINS+=("/usr/bin/wfview")
-
-        if [ ${#PRIOR_BINS[@]} -gt 0 ]; then
-            echo ""
-            echo "Existing wfview binary detected at:"
-            for b in "${PRIOR_BINS[@]}"; do echo "  $b"; done
-            echo ""
-            if [ "${IS_ROOT}" = true ]; then
-                MV_CMD=(mv -f)
-            else
-                MV_CMD=(sudo mv -f)
-                echo "Note: sudo will be used to move the existing binary (you may be prompted for your password)."
-            fi
-            if [ -t 0 ]; then
-                read -r -p "Back up existing binary to <path>-prior before installing? [Y/n] " REPLY
-            else
-                REPLY="Y"
-                echo "Non-interactive shell; backing up by default."
-            fi
-            case "${REPLY}" in
-                ""|y|Y|yes|YES|Yes)
-                    for b in "${PRIOR_BINS[@]}"; do
-                        echo "Moving $b -> ${b}-prior"
-                        "${MV_CMD[@]}" "$b" "${b}-prior"
-                    done
-                    ;;
-                *)
-                    echo "Skipping backup of prior wfview binaries."
-                    ;;
-            esac
-        fi
-
-        # ─── Install AppImage ─────────────────────────────────────────
-        echo "Installing AppImage to ${BIN_DIR}/wfview ..."
-        cp "${SCRIPT_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/wfview"
-        chmod +x "${BIN_DIR}/wfview"
-
-        # ─── Install rig files ────────────────────────────────────────
-        if [ -d "${SCRIPT_DIR}/rigs" ]; then
-            echo "Installing rig files to ${RIGS_DIR}/ ..."
-            cp -r "${SCRIPT_DIR}/rigs/"* "${RIGS_DIR}/"
-        fi
-
-        # ─── Install stylesheets ─────────────────────────────────────
-        if [ -d "${SCRIPT_DIR}/qdarkstyle" ]; then
-            echo "Installing stylesheets to ${STYLE_DIR}/ ..."
-            cp -r "${SCRIPT_DIR}/qdarkstyle/"* "${STYLE_DIR}/"
-        fi
-
-        # ─── Install icon ────────────────────────────────────────────
-        if [ -f "${SCRIPT_DIR}/wfview.png" ]; then
-            echo "Installing icon ..."
-            cp "${SCRIPT_DIR}/wfview.png" "${ICON_DIR}/wfview.png"
-        fi
-
-        # ─── Install metainfo ────────────────────────────────────────
-        if [ -f "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" ]; then
-            echo "Installing metainfo ..."
-            cp "${SCRIPT_DIR}/org.wfview.wfview.metainfo.xml" "${METAINFO_DIR}/"
-        fi
-
-        # ─── Install desktop file (rewrite Exec/Icon paths) ──────────
-        if [ -f "${SCRIPT_DIR}/wfview.desktop" ]; then
-            echo "Installing desktop launcher ..."
-            sed -e "s|^Exec=.*|Exec=${BIN_DIR}/wfview|" \
-                -e "s|^Icon=.*|Icon=${ICON_DIR}/wfview.png|" \
-                "${SCRIPT_DIR}/wfview.desktop" > "${DESKTOP_DIR}/wfview.desktop"
-            chmod +x "${DESKTOP_DIR}/wfview.desktop"
-        fi
-
-        # ─── Update desktop database (best-effort) ────────────────────
-        if command -v update-desktop-database &>/dev/null; then
-            update-desktop-database "${DESKTOP_DIR}" 2>/dev/null || true
-        fi
-        if command -v gtk-update-icon-cache &>/dev/null; then
-            gtk-update-icon-cache "${SHARE_DIR}/icons/hicolor" 2>/dev/null || true
-        fi
-
-        # ─── Summary ─────────────────────────────────────────────────
-        echo ""
-        echo "════════════════════════════════════════════════"
-        echo "  wfview installed successfully!"
-        echo "════════════════════════════════════════════════"
-        echo "  Binary:      ${BIN_DIR}/wfview"
-        echo "  Rig files:   ${RIGS_DIR}/"
-        echo "  Stylesheets: ${STYLE_DIR}/"
-        echo "  Desktop:     ${DESKTOP_DIR}/wfview.desktop"
-        echo "  Icon:        ${ICON_DIR}/wfview.png"
-        echo "════════════════════════════════════════════════"
-        echo ""
-        if [ "${IS_ROOT}" = false ]; then
-            echo "NOTE: Make sure ${BIN_DIR} is in your PATH."
-            echo "  export PATH=\"${BIN_DIR}:\${PATH}\""
-        fi
-        echo "Run wfview with:  wfview"
-        INSTALLER_EOF
-
+        # Install script shared with the arm64 job
+        cp .github/linux-installer/install.sh           installer-payload/
         chmod +x installer-payload/install.sh
 
     # ─── DEBUG: Show payload contents ───────────────────────────────────
     - name: "DEBUG: List installer payload"
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         echo "=== Payload contents ==="
         find installer-payload -type f | sort
@@ -1192,6 +1227,7 @@ jobs:
 
     # ─── Build makeself installer ───────────────────────────────────────
     - name: Create makeself installer
+      if: steps.version_info.outputs.has_tag == 'true'
       run: |
         makeself \
           --gzip \
@@ -1204,158 +1240,236 @@ jobs:
 
     # ─── Upload artifact ────────────────────────────────────────────────
     - name: Upload installer artifact
-      uses: actions/upload-artifact@v4
+      if: steps.version_info.outputs.has_tag == 'true'
+      uses: actions/upload-artifact@v7
       with:
         name: wfview-linux-appimage-installer
         path: wfview-linux-installer.sh
         retention-days: 30
 
   # ═══════════════════════════════════════════════════════════════════
-  #  Linux ARM64 AppImage Build (Raspberry Pi OS Bookworm 64-bit+)
+  #  Linux ARM64 AppImage Build (Raspberry Pi OS Trixie 64-bit+)
   # ═══════════════════════════════════════════════════════════════════
-  build-linux-arm64-bookworm-appimage:
+  build-linux-arm64-appimage:
     runs-on: ubuntu-24.04-arm
-    # Build inside Debian 12 so the AppImage targets Raspberry Pi OS
-    # Bookworm 64-bit and newer. Keep this Qt5 while master/v2 Linux
-    # builds are still Qt5.
+    # The official Qt 6 arm64 binaries are built on Ubuntu 24.04 (glibc
+    # 2.39), so this AppImage needs Raspberry Pi OS Trixie (Debian 13) or
+    # newer. Bookworm's glibc 2.36 is too old.
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    # ─── Checkout ───────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0   # full history so git describe / rev-parse work
 
-      - name: Determine version
-        id: version_info
-        run: |
-          SHORT=$(git rev-parse --short HEAD)
-          TAG=$(git tag --points-at HEAD | head -1)
-          if [ -n "$TAG" ]; then
-            VERSION_STRING="$TAG"
-          else
-            VERSION_STRING="$SHORT"
-          fi
-          echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
-          echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION_STRING"
+    # ─── Determine version string ───────────────────────────────────────
+    - name: Determine version
+      id: version_info
+      run: |
+        SHORT=$(git rev-parse --short HEAD)
+        TAG=$(git tag --points-at HEAD | head -1)
+        if [ -n "$TAG" ]; then
+          VERSION_STRING="$TAG"
+          HAS_TAG=true
+        else
+          VERSION_STRING="$SHORT"
+          HAS_TAG=false
+        fi
+        echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
+        echo "git_short=$SHORT" >> "$GITHUB_OUTPUT"
+        echo "has_tag=$HAS_TAG" >> "$GITHUB_OUTPUT"
+        echo "Version: $VERSION_STRING (has_tag=$HAS_TAG)"
 
-      - name: Build ARM64 AppImage in Debian Bookworm
-        run: |
-          docker run --rm \
-            --platform linux/arm64 \
-            -e VERSION_STRING="${{ steps.version_info.outputs.version_string }}" \
-            -e GIT_SHORT="${{ steps.version_info.outputs.git_short }}" \
-            -v "$PWD:/work" \
-            -w /work \
-            debian:12 \
-            bash -lc '
-              set -euo pipefail
-              export DEBIAN_FRONTEND=noninteractive
+    # ─── Install dependencies ───────────────────────────────────────────
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install \
+          build-essential \
+          libhidapi-dev \
+          libopus-dev \
+          libeigen3-dev \
+          libportaudio2 libportaudiocpp0 portaudio19-dev \
+          librtaudio-dev \
+          libudev-dev \
+          libpulse-dev \
+          libjack-jackd2-dev \
+          libgl1-mesa-dev \
+          git \
+          file \
+          libfuse2t64 \
+          makeself
 
-              apt-get update
-              apt-get -y install \
-                build-essential \
-                ca-certificates \
-                git \
-                wget \
-                file \
-                fuse libfuse2 \
-                patchelf \
-                qt5-qmake \
-                qtbase5-dev \
-                libqt5serialport5 libqt5serialport5-dev \
-                libqt5multimedia5 libqt5multimedia5-plugins qtmultimedia5-dev \
-                libqt5gamepad5 libqt5gamepad5-dev \
-                libqt5websockets5 libqt5websockets5-dev \
-                libhidapi-dev \
-                libopus-dev \
-                libeigen3-dev \
-                libportaudio2 libportaudiocpp0 portaudio19-dev \
-                librtaudio-dev \
-                libudev-dev \
-                libpulse-dev \
-                libjack-jackd2-dev \
-                libqcustomplot-dev
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT6_VERSION }}
+        cache: true
+        host: linux_arm64
+        target: desktop
+        arch: linux_gcc_arm64
+        modules: qtserialport qtwebsockets qtmultimedia
 
-              git config --global --add safe.directory /work
+    # ─── Build ──────────────────────────────────────────────────────────
+    - name: Run qmake
+      run: |
+        qmake wfview.pro \
+          CONFIG+=release \
+          ${{ env.WFVIEW_MCP_CONFIG }} \
+          PREFIX=/usr \
+          VERSION="${{ steps.version_info.outputs.version_string }}"
 
-              qmake --version
-              qmake wfview.pro CONFIG+=release PREFIX=/usr VERSION="$VERSION_STRING"
-              make -j"$(nproc)"
+    - name: Build with make
+      run: |
+        make -j$(nproc)
 
-              file wfview
-              ldd wfview | grep "not found" && exit 1 || true
+    - name: "DEBUG: Inspect build artifacts"
+      run: |
+        file wfview
+        ls -lh wfview
+        ldd wfview | grep "not found" && echo "::warning::Some libraries are missing!" || echo "All libraries found."
 
-              rm -rf AppDir wfview-linux-arm64-bookworm.AppImage \
-                linuxdeploy linuxdeploy-plugin-qt wfview*.AppImage
+    # ─── Prepare AppDir ─────────────────────────────────────────────────
+    - name: Prepare AppDir structure
+      run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        mkdir -p AppDir/usr/share/metainfo
+        mkdir -p AppDir/usr/share/wfview/rigs
 
-              mkdir -p AppDir/usr/bin
-              mkdir -p AppDir/usr/share/applications
-              mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-              mkdir -p AppDir/usr/share/metainfo
-              mkdir -p AppDir/usr/share/wfview/rigs
-              mkdir -p AppDir/usr/share/wfview/qdarkstyle
+        cp wfview                                       AppDir/usr/bin/
+        cp resources/wfview.desktop                     AppDir/usr/share/applications/
+        cp resources/icons/bitmap/wfview.png            AppDir/usr/share/icons/hicolor/256x256/apps/
+        cp resources/org.wfview.wfview.metainfo.xml     AppDir/usr/share/metainfo/ || true
+        cp -r rigs/*                                    AppDir/usr/share/wfview/rigs/
 
-              cp wfview                                   AppDir/usr/bin/
-              cp resources/wfview.desktop                 AppDir/usr/share/applications/
-              cp resources/icons/bitmap/wfview.png        AppDir/usr/share/icons/hicolor/256x256/apps/
-              cp resources/org.wfview.wfview.metainfo.xml AppDir/usr/share/metainfo/ || true
-              cp -r rigs/*                                AppDir/usr/share/wfview/rigs/
-              cp -r qdarkstyle/*                          AppDir/usr/share/wfview/qdarkstyle/
-              cp resources/wfview.desktop                 AppDir/
-              cp resources/icons/bitmap/wfview.png        AppDir/
+        # linuxdeploy expects these at the AppDir root as well
+        cp resources/wfview.desktop                     AppDir/
+        cp resources/icons/bitmap/wfview.png            AppDir/
 
-              wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage" \
-                -O linuxdeploy
-              wget -q "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-aarch64.AppImage" \
-                -O linuxdeploy-plugin-qt
-              chmod +x linuxdeploy linuxdeploy-plugin-qt
+    # ─── Download linuxdeploy ───────────────────────────────────────────
+    - name: Download linuxdeploy and Qt plugin
+      run: |
+        wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage" \
+          -O linuxdeploy
+        wget -q "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-aarch64.AppImage" \
+          -O linuxdeploy-plugin-qt
+        chmod +x linuxdeploy linuxdeploy-plugin-qt
 
-              export ARCH=aarch64
-              export APPIMAGE_EXTRACT_AND_RUN=1
-              export QMAKE="$(command -v qmake)"
-              export PATH="$(pwd):$PATH"
+    # ─── Create AppImage ────────────────────────────────────────────────
+    - name: Build AppImage
+      run: |
+        export ARCH=aarch64
+        export APPIMAGE_EXTRACT_AND_RUN=1
+        export QMAKE=$(which qmake)
+        export QML_SOURCES_PATHS=$(pwd)/qml
+        export PATH="$(pwd):$PATH"
 
-              LIBJACK=$(ldconfig -p | awk "/libjack\\.so\\.0/{print \$NF; exit}")
-              LIBJACK_ARG=""
-              if [ -n "$LIBJACK" ]; then
-                LIBJACK_ARG="--library=$LIBJACK"
-              fi
+        # The arm64 Qt package also ships the GStreamer multimedia backend,
+        # which needs GStreamer libraries the runner does not have. Remove it
+        # so the AppImage uses only the FFmpeg backend, like the x86_64 build.
+        rm -fv "$QT_ROOT_DIR/plugins/multimedia/libgstreamermediaplugin.so"
 
-              ./linuxdeploy \
-                --appdir AppDir \
-                --desktop-file AppDir/usr/share/applications/wfview.desktop \
-                --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
-                $LIBJACK_ARG \
-                --plugin qt \
-                --output appimage
+        # Bundle libjack explicitly; see the x86_64 job for why.
+        LIBJACK=$(ldconfig -p | awk '/libjack\.so\.0/{print $NF; exit}')
+        LIBJACK_ARG=""
+        if [ -n "$LIBJACK" ]; then
+          echo "Found libjack at: $LIBJACK"
+          LIBJACK_ARG="--library=$LIBJACK"
+        else
+          echo "::warning::libjack.so.0 not found; AppImage may be missing it"
+        fi
 
-              APPIMAGE_FILE=$(ls wfview*.AppImage 2>/dev/null | head -1)
-              if [ -z "$APPIMAGE_FILE" ]; then
-                echo "AppImage was not created"
-                exit 1
-              fi
-              mv "$APPIMAGE_FILE" wfview-linux-arm64-bookworm.AppImage
-              file wfview-linux-arm64-bookworm.AppImage
-              ls -lh wfview-linux-arm64-bookworm.AppImage
-            '
+        ./linuxdeploy \
+          --appdir AppDir \
+          --desktop-file AppDir/usr/share/applications/wfview.desktop \
+          --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/wfview.png \
+          $LIBJACK_ARG \
+          --plugin qt \
+          --output appimage
 
-      - name: Upload ARM64 Bookworm AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wfview-linux-arm64-bookworm-appimage
-          path: wfview-linux-arm64-bookworm.AppImage
-          retention-days: 30
+        APPIMAGE_FILE=$(ls wfview*.AppImage 2>/dev/null | head -1)
+        if [ -z "$APPIMAGE_FILE" ]; then
+          echo "::error::AppImage was not created!"
+          ls -la
+          exit 1
+        fi
+        echo "AppImage created: $APPIMAGE_FILE"
+        mv "$APPIMAGE_FILE" wfview.AppImage
 
-  # Publish Release (after all builds succeed)
+    # ─── DEBUG: Verify AppImage ─────────────────────────────────────────
+    - name: "DEBUG: Verify AppImage"
+      run: |
+        ls -lh wfview.AppImage
+        file wfview.AppImage
+        echo ""
+        echo "=== Highest glibc symbol version required (Trixie ships 2.41) ==="
+        find AppDir -type f \( -name '*.so*' -o -path '*/usr/bin/*' \) -exec objdump -T {} + 2>/dev/null \
+          | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -1
+
+    # ─── Upload raw AppImage for test builds ────────────────────────────
+    - name: Upload AppImage (test build)
+      if: steps.version_info.outputs.has_tag != 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-arm64-appimage-${{ steps.version_info.outputs.version_string }}
+        path: wfview.AppImage
+        retention-days: 7
+
+    # ─── Assemble makeself payload ──────────────────────────────────────
+    - name: Assemble installer payload
+      if: steps.version_info.outputs.has_tag == 'true'
+      run: |
+        mkdir -p installer-payload
+
+        cp wfview.AppImage                              installer-payload/
+        cp resources/wfview.desktop                     installer-payload/
+        cp resources/icons/bitmap/wfview.png            installer-payload/
+        cp resources/org.wfview.wfview.metainfo.xml     installer-payload/ || true
+        cp -r rigs                                      installer-payload/
+
+        # Install script shared with the x86_64 job
+        cp .github/linux-installer/install.sh           installer-payload/
+        chmod +x installer-payload/install.sh
+
+        find installer-payload -type f | sort
+        du -sh installer-payload
+
+    # ─── Build makeself installer ───────────────────────────────────────
+    - name: Create makeself installer
+      if: steps.version_info.outputs.has_tag == 'true'
+      run: |
+        makeself \
+          --gzip \
+          installer-payload \
+          wfview-linux-arm64-installer.sh \
+          "wfview arm64 AppImage Installer (commit ${{ steps.version_info.outputs.git_short }})" \
+          ./install.sh
+
+        ls -lh wfview-linux-arm64-installer.sh
+
+    # ─── Upload artifact ────────────────────────────────────────────────
+    - name: Upload installer artifact
+      if: steps.version_info.outputs.has_tag == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: wfview-linux-arm64-appimage-installer
+        path: wfview-linux-arm64-installer.sh
+        retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════
+  #  Publish Release (after all builds succeed)
+  # ═══════════════════════════════════════════════════════════════════
   publish-release:
     runs-on: ubuntu-latest
-    needs: [build-windows-x86, build-windows-x64, build-macos, build-linux-appimage, build-linux-arm64-bookworm-appimage]
+    needs: [build-windows-x86, build-windows-x64, build-macos, build-macos-legacy-intel, build-linux-appimage, build-linux-arm64-appimage]
     if: needs.build-macos.outputs.has_tag == 'true'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -1373,37 +1487,43 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Download Windows x86 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: wfview-windows-x86
           path: artifacts/
 
       - name: Download Windows x64 artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: wfview-windows-x64
           path: artifacts/
 
       - name: Download macOS DMG artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: wfview-macos-dmg
           path: artifacts/
 
+      - name: Download legacy Intel macOS DMG artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: wfview-macos-legacy-intel-dmg
+          path: artifacts/
+
       - name: Download Linux installer artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: wfview-linux-appimage-installer
           path: artifacts/
 
-      - name: Download Linux ARM64 Bookworm AppImage artifact
-        uses: actions/download-artifact@v4
+      - name: Download Linux ARM64 installer artifact
+        uses: actions/download-artifact@v7
         with:
-          name: wfview-linux-arm64-bookworm-appimage
+          name: wfview-linux-arm64-appimage-installer
           path: artifacts/
 
       - name: Publish Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.meta.outputs.version_string }}
           name: "wfview ${{ steps.meta.outputs.version_string }}"
@@ -1413,8 +1533,9 @@ jobs:
             artifacts/wfview-windows-x64-setup.exe
             artifacts/wfview-windows-x86-setup.exe
             artifacts/wfview-macos.dmg
+            artifacts/wfview-macos-legacy-intel.dmg
             artifacts/wfview-linux-installer.sh
-            artifacts/wfview-linux-arm64-bookworm.AppImage
+            artifacts/wfview-linux-arm64-installer.sh
           body: |
             ## wfview ${{ steps.meta.outputs.version_string }}
 
@@ -1432,7 +1553,7 @@ jobs:
             | Field | Value |
             |-------|-------|
             | **Architecture** | x64 Windows Binary |
-            | **Framework** | Qt 6.8.1 |
+            | **Framework** | Qt ${{ env.QT6_VERSION }} |
             | **Compatibility** | Windows 7 x64 and newer |
 
             **Install:** Download `wfview-windows-x64-setup.exe`, run it and follow the prompts.
@@ -1456,20 +1577,32 @@ jobs:
             | Field | Value |
             |-------|-------|
             | **Architecture** | Universal Binary (Intel + Apple Silicon) |
-            | **Framework** | Qt 6.8.1 |
+            | **Framework** | Qt ${{ env.QT6_VERSION }} |
             | **Compatibility** | macOS 12 (Monterey) and newer |
 
             **Install:** Download `wfview-macos.dmg`, open it, and drag wfview to your Applications folder.
 
             ---
 
-            ### Linux (AppImage / Qt5)
+            ### macOS (Intel Legacy / Qt5)
+
+            | Field | Value |
+            |-------|-------|
+            | **Architecture** | Intel x86_64 |
+            | **Framework** | Qt ${{ env.QT5_LEGACY_VERSION }} |
+            | **Compatibility** | macOS 10.13 (High Sierra) and newer on Intel Macs |
+
+            **Install:** Download `wfview-macos-legacy-intel.dmg`, open it, and drag wfview to your Applications folder.
+
+            ---
+
+            ### Linux (AppImage / Qt6)
 
             | Field | Value |
             |-------|-------|
             | **Architecture** | x86_64 |
             | **Target OS** | Linux (glibc 2.35+, Ubuntu 22.04 and newer) |
-            | **Framework** | Qt 5 |
+            | **Framework** | Qt ${{ env.QT6_VERSION }} |
 
             **Install instructions:**
 
@@ -1506,19 +1639,34 @@ jobs:
 
             ---
 
-            ### Linux ARM64 (AppImage / Qt5)
+            ### Linux ARM64 / Raspberry Pi (AppImage / Qt6)
 
             | Field | Value |
             |-------|-------|
             | **Architecture** | arm64 / aarch64 |
-            | **Target OS** | Raspberry Pi OS Bookworm 64-bit and newer |
-            | **Framework** | Qt 5 |
+            | **Target OS** | Raspberry Pi OS Trixie 64-bit and newer (glibc 2.39+, Ubuntu 24.04 and newer) |
+            | **Framework** | Qt ${{ env.QT6_VERSION }} |
 
-            **Install:** Download `wfview-linux-arm64-bookworm.AppImage`, make it executable, and run it:
+            **Install:** Same as the x86_64 installer above, using `wfview-linux-arm64-installer.sh`:
 
             ```bash
-            chmod +x wfview-linux-arm64-bookworm.AppImage
-            ./wfview-linux-arm64-bookworm.AppImage
+            cd ~/Downloads
+            chmod +x wfview-linux-arm64-installer.sh
+
+            # User install (to ~/.local):
+            ./wfview-linux-arm64-installer.sh
+
+            # --- OR ---
+
+            # System-wide install (to /usr/local):
+            sudo ./wfview-linux-arm64-installer.sh
+            ```
+
+            Raspberry Pi OS Bookworm and 32-bit Raspberry Pi OS are not supported by this build.
+
+            **Requirements:** FUSE must be available to run AppImages. On Raspberry Pi OS Trixie:
+            ```bash
+            sudo apt install libfuse2t64
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

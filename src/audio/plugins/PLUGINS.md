@@ -313,16 +313,16 @@ inside these classes.
 
 | Role | File | Class |
 |------|------|-------|
-| Dialog (UI, slots, meters) | `src/txaudioprocessingwidget.cpp` / `include/txaudioprocessingwidget.h` | `TxAudioProcessingWidget` |
-| Compatibility alias | `include/audioprocessingwidget.h` | `using AudioProcessingWidget = TxAudioProcessingWidget` |
-| Parameter bridge | `src/wfmain.cpp` — `on_TXaudioProcBtn_clicked()`, `onAudioProcPrefsChanged()`, `applyAudioProcPrefs()` | `wfmain` |
+| Legacy dialog (archived) | `old-source/txaudioprocessingwidget.cpp` / `old-source/txaudioprocessingwidget.h` | `TxAudioProcessingWidget` |
+| Legacy compatibility alias (archived) | `old-source/audioprocessingwidget.h` | `using AudioProcessingWidget = TxAudioProcessingWidget` |
+| Legacy parameter bridge (archived) | `old-source/wfmain.cpp` - `on_TXaudioProcBtn_clicked()`, `onAudioProcPrefsChanged()`, `applyAudioProcPrefs()` | `wfmain` |
 | DSP engine | `src/audio/txaudioprocessor.cpp` / `include/txaudioprocessor.h` | `TxAudioProcessor` |
-| Level meter widget | `src/meter.cpp` / `include/meter.h` | `meter` |
+| Level meter widget | `old-source/meter.cpp` / `old-source/meter.h` | `meter` |
 
 ### Window lifetime
 
 `TxAudioProcessingWidget` is created lazily when the user first clicks the
-**TX Audio Proc** button (`on_TXaudioProcBtn_clicked()`, `src/wfmain.cpp`).
+**TX Audio Proc** button (`on_TXaudioProcBtn_clicked()`, `old-source/wfmain.cpp`).
 `TxAudioProcessor` is created when the radio connection is set up
 (same file, just before `makeRig()`).  Both paths check whether the other
 object already exists and connect the level-meter signals at that point, so
@@ -488,8 +488,8 @@ The conditional branch checks `rxSetup.rxProc != nullptr`.
 
 | Role | File | Class |
 |------|------|-------|
-| Dialog | `src/rxaudioprocessingwidget.cpp` / `include/rxaudioprocessingwidget.h` | `RxAudioProcessingWidget` |
-| Parameter bridge | `src/wfmain.cpp` — `on_RXaudioProcBtn_clicked()`, `onRxAudioProcPrefsChanged()`, `applyRxAudioProcPrefs()` | `wfmain` |
+| Legacy dialog (archived) | `old-source/rxaudioprocessingwidget.cpp` / `old-source/rxaudioprocessingwidget.h` | `RxAudioProcessingWidget` |
+| Legacy parameter bridge (archived) | `old-source/wfmain.cpp` - `on_RXaudioProcBtn_clicked()`, `onRxAudioProcPrefsChanged()`, `applyRxAudioProcPrefs()` | `wfmain` |
 | DSP engine | `src/audio/rxaudioprocessor.cpp` / `include/rxaudioprocessor.h` | `RxAudioProcessor` |
 | NR back-ends | `src/audio/speexnrprocessor.h`, `src/audio/anrnrprocessor.h` | `SpeexNrProcessor`, `AnrNrProcessor` |
 | RX EQ | `src/audio/plugins/triple_para.cpp` / `triple_para.h` | `TriplePara` |
@@ -503,8 +503,8 @@ reused across reconnects.
 ## Spectrum Display (TX and RX)
 
 Both the TX and RX audio processing dialogs include an optional spectrum display
-powered by `SpectrumWidget` (`include/spectrumwidget.h`, inline Q_OBJECT class;
-`src/audio/spectrumwidget.cpp` exists only to wire the moc).
+powered by the archived `SpectrumWidget` (`old-source/spectrumwidget.h`, inline
+Q_OBJECT class; `old-source/spectrumwidget.cpp` existed only to wire the moc).
 
 ### FFT back-end
 
@@ -577,12 +577,12 @@ Bin-to-frequency mapping: `freq = k × (effectiveSR / SPEC_FFT_LEN)`, where
 |------|-------------|
 | `src/audio/pocketfft/pocketfft.h` | pocketfft C API header |
 | `src/audio/pocketfft/pocketfft.c` | pocketfft implementation |
-| `include/spectrumwidget.h` | `SpectrumWidget` inline QWidget (Q_OBJECT, paints spectrum) |
-| `src/audio/spectrumwidget.cpp` | Translation unit for moc wiring |
+| `old-source/spectrumwidget.h` | Archived `SpectrumWidget` inline QWidget (Q_OBJECT, paints spectrum) |
+| `old-source/spectrumwidget.cpp` | Archived translation unit for moc wiring |
 | `src/audio/txaudioprocessor.cpp` | `appendSpectrumSamples()` — TX spectrum FFT + decimation |
 | `src/audio/rxaudioprocessor.cpp` | `appendSpectrumSamples()` — RX spectrum FFT + decimation |
-| `src/txaudioprocessingwidget.cpp` | `onSpectrumBins()` slot, feeds SpectrumWidget |
-| `src/rxaudioprocessingwidget.cpp` | `onSpectrumBins()` slot, feeds SpectrumWidget |
+| `old-source/txaudioprocessingwidget.cpp` | Archived `onSpectrumBins()` slot, feeds SpectrumWidget |
+| `old-source/rxaudioprocessingwidget.cpp` | Archived `onSpectrumBins()` slot, feeds SpectrumWidget |
 
 ### Preferences
 
@@ -593,4 +593,3 @@ Bin-to-frequency mapping: `freq = k × (effectiveSR / SPEC_FFT_LEN)`, where
 | `TxProcSpecInhibitDuringRx` | `audioProcessingPrefs::specInhibitDuringRx` | true | Pause TX spectrum while receiving |
 | `RxProcSpectrumEnabled` | `rxAudioProcessingPrefs::spectrumEnabled` | false | Enable RX spectrum |
 | `RxProcSpectrumFps` | `rxAudioProcessingPrefs::spectrumFPS` | 10 | RX spectrum target fps |
-

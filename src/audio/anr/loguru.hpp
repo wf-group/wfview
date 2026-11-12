@@ -161,6 +161,12 @@ Website: www.ilikebigbits.com
 	* Any arguments to LOG_IF functions are only evaluated if the test passes.
 */
 
+#if defined(_MSC_VER)
+// Vendored single-header Loguru uses portable POSIX-style C APIs and a fatal
+// abort helper that intentionally never returns. Suppress MSVC compatibility noise.
+#pragma warning(disable: 4100 4722 4996)
+#endif
+
 // Disable all warnings from gcc/clang:
 #if defined(__clang__)
 	#pragma clang system_header

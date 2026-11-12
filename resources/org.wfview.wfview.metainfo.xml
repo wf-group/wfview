@@ -24,6 +24,6 @@
     </screenshot>
   </screenshots>
   <url type="homepage">https://wfview.org</url>
-  <url type="bugtracker">https://gitlab.com/eliggett/wfview/-/issues</url>
+  <url type="bugtracker">https://github.com/wf-group/wfview/issues</url>
   <content_rating type="oars-1.1"/>
 </component>

@@ -2,6 +2,8 @@
 #define KENWOODCOMMANDER_H
 #include "rigcommander.h"
 #include "rtpaudio.h"
+#include <QDateTime>
+#include <QElapsedTimer>
 #include <QSerialPort>
 
 #define audioLevelBufferSize (4)
@@ -22,8 +24,8 @@ public:
 
 public slots:
     void process() override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp) override;
 
     void lanConnected();
     void lanDisconnected();
@@ -43,6 +45,7 @@ public slots:
     // UDP:
     void handleNewData(const QByteArray& data) override;
     void receiveBaudRate(quint32 baudrate) override;
+    void receiveTxAudioData(const audioPacket &packet) override;
 
     // Housekeeping:
     void receiveCommand(funcs func, QVariant value, uchar receiver) override;
@@ -50,6 +53,9 @@ public slots:
     // Serial:
     void serialPortError(QSerialPort::SerialPortError err);
     void receiveDataFromRig();
+    void dataFromVspClient(QByteArray data);
+    void dataFromExternalClient(QByteArray data);
+    void receiveRawExternalCommand(QByteArray data, uchar receiver);
 
     void parseData(QByteArray dataInput);
 
@@ -63,22 +69,26 @@ signals:
 
 private:
     void commonSetup();
-    void determineRigCaps();
+    void startRtpAudio(bool localInputEnabled);
+    void stopRtpAudio();
+    void processExternalCommands(const QList<QByteArray> &commands);
+    bool queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand);
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
+    void recordNetworkCommand(const QByteArray& command);
+    void updateNetworkTiming(const QByteArray& command);
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
     mutable QMutex serialMutex;
-    QIODevice *port=Q_NULLPTR;
+    QIODevice *port=nullptr;
     bool portConnected=false;
     bool isTransmitting = false;
     QByteArray lastSentCommand;
 
-    pttyHandler* ptty = Q_NULLPTR;
-    tcpServer* tcp = Q_NULLPTR;
-    rtpAudio* rtp = Q_NULLPTR;
-    QThread* rtpThread = Q_NULLPTR;
+    vspHandler* vspPort = nullptr;
+    tcpServer* tcp = nullptr;
+    rtpAudio* rtp = nullptr;
+    QThread* rtpThread = nullptr;
 
-    QHash<quint16,rigInfo> rigList;
     quint8 rigCivAddr;
     QString vsp;
     quint16 tcpPort;
@@ -92,15 +102,28 @@ private:
     bool audioStarted = false;
 
     bool network = false;
+    bool vspQueueEnabled = false;
 
     QByteArray partial;
+    QByteArray vspInputBuffer;
+    QByteArray tcpInputBuffer;
 
-    connectionType_t connType = connectionUSB;
+    connectionType_t connType = connectionLAN;
 
     bool aiModeEnabled=false;
+    // Kenwood RIT can only be stepped with RU/RD, so we track the radio's
+    // offset to work out the step. Reports from the radio resync it, except
+    // just after we sent a step, when they may predate that step.
+    short ritOffset = 0;
+    QElapsedTimer ritLastStep;
+    static constexpr int ritResyncHoldoffMs = 500;
     ushort scopeSplit=0;
 
     networkStatus status;
+    QHash<QByteArray, QDateTime> pendingNetworkCommands;
+    QDateTime lastNetworkStatusUpdate;
+    qint64 networkRttBaseline = -1;
+    quint32 networkResponseCount = 0;
 
     quint8 audioLevelsTxPeak[audioLevelBufferSize];
     quint8 audioLevelsRxPeak[audioLevelBufferSize];

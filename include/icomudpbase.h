@@ -25,6 +25,7 @@
 
 #include "packettypes.h"
 #include "wfviewtypes.h"
+#include "pingdelaytracker.h"
 
 struct udpPreferences {
     connectionType_t connectionType;
@@ -49,6 +50,7 @@ struct networkAudioLevels {
     quint8 rxAudioPeak = 0;
     quint8 txAudioPeak = 0;
 };
+Q_DECLARE_METATYPE(networkAudioLevels)
 
 struct networkStatus {
 	quint8 rxAudioBufferPercent;
@@ -70,6 +72,8 @@ struct networkStatus {
     qint64 timeDifference = 0;
 	QString message;
 };
+Q_DECLARE_METATYPE(networkStatus)
+
 
 
 // Parent class that contains all common items.
@@ -97,7 +101,7 @@ public:
 
 	//QTime timeStarted;
 
-	QUdpSocket* udp = Q_NULLPTR;
+	QUdpSocket* udp = nullptr;
 	uint32_t myId = 0;
 	uint32_t remoteId = 0;
 	uint16_t authSeq = 0x30;
@@ -136,13 +140,14 @@ public:
 
 	void sendTrackedPacket(QByteArray d);
 	void purgeOldEntries();
+    quint32 endpointId(const QHostAddress& address, quint16 port) const;
 
-	QTimer* areYouThereTimer = Q_NULLPTR; // Send are-you-there packets every second until a response is received.
-	QTimer* pingTimer = Q_NULLPTR; // Start sending pings immediately.
-	QTimer* idleTimer = Q_NULLPTR; // Start watchdog once we are connected.
+	QTimer* areYouThereTimer = nullptr; // Send are-you-there packets every second until a response is received.
+	QTimer* pingTimer = nullptr; // Start sending pings immediately.
+	QTimer* idleTimer = nullptr; // Start watchdog once we are connected.
 
-	QTimer* watchdogTimer = Q_NULLPTR;
-	QTimer* retransmitTimer = Q_NULLPTR;
+	QTimer* watchdogTimer = nullptr;
+	QTimer* retransmitTimer = nullptr;
 
 	QDateTime lastPingSentTime;
 	uint16_t pingSendSeq = 0;
@@ -163,14 +168,8 @@ protected:
     //qint64 timeDifference = 0;
 
     QElapsedTimer mono;
-    bool    haveSync = false;
-    quint32 radioBase = 0;     // radio uptime ms at sync
-    qint64  localBase = 0;     // local monotonic ms at sync
-    int     pingDriftMs = 0;   // signed drift estimate (radio ahead/behind prediction)
-    int     badSyncCount = 0;
-
-    int pingLatenessMs = 0;   // +ve = path delay vs prediction
-    int pingBaselineMs = 0;   // learned steady-state delay
+    PingDelayTracker pingDelay;
+    int     pingLatenessMs = 0; // Queuing delay above the recent best case, from radio pings (>= 0)
 
 
 

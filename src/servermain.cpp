@@ -1,9 +1,83 @@
 #include "servermain.h"
 
+#include "audiopacketcodec.h"
 #include "commhandler.h"
 #include "rigidentities.h"
 #include "logcategories.h"
 #include <iostream>
+
+namespace {
+QString decodedServerPassword(const QString &stored)
+{
+    static const quint8 sequence[] =
+    {
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0x47,0x5d,0x4c,0x42,0x66,0x20,0x23,0x46,0x4e,0x57,0x45,0x3d,0x67,0x76,0x60,0x41,0x62,0x39,0x59,0x2d,0x68,0x7e,
+        0x7c,0x65,0x7d,0x49,0x29,0x72,0x73,0x78,0x21,0x6e,0x5a,0x5e,0x4a,0x3e,0x71,0x2c,0x2a,0x54,0x3c,0x3a,0x63,0x4f,
+        0x43,0x75,0x27,0x79,0x5b,0x35,0x70,0x48,0x6b,0x56,0x6f,0x34,0x32,0x6c,0x30,0x61,0x6d,0x7b,0x2f,0x4b,0x64,0x38,
+        0x2b,0x2e,0x50,0x40,0x3f,0x55,0x33,0x37,0x25,0x77,0x24,0x26,0x74,0x6a,0x28,0x53,0x4d,0x69,0x22,0x5c,0x44,0x31,
+        0x36,0x58,0x3b,0x7a,0x51,0x5f,0x52,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    };
+
+    QByteArray out;
+    const QByteArray encoded = stored.toLocal8Bit();
+    for (int i = 0; i < encoded.size() && i < 16; ++i) {
+        const int target = quint8(encoded.at(i));
+        bool found = false;
+        for (int p = 32; p <= 126; ++p) {
+            if (sequence[p] == target) {
+                int ascii = p - i;
+                if (ascii < 32)
+                    ascii += 95;
+                if (ascii >= 32 && ascii <= 126) {
+                    out.append(char(ascii));
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found)
+            return stored;
+    }
+    return QString::fromLocal8Bit(out);
+}
+
+QList<QByteArray> extractCompleteCivFrames(QByteArray *pending, const QByteArray &data)
+{
+    pending->append(data);
+
+    QList<QByteArray> complete;
+    while (!pending->isEmpty()) {
+        int start = -1;
+        for (int i = 0; i + 1 < pending->size(); ++i) {
+            if (quint8(pending->at(i)) == 0xfe && quint8(pending->at(i + 1)) == 0xfe) {
+                start = i;
+                break;
+            }
+        }
+
+        if (start < 0) {
+            pending->clear();
+            break;
+        }
+
+        if (start > 0) {
+            pending->remove(0, start);
+        }
+
+        const int end = pending->indexOf(char(0xfd), 2);
+        if (end < 0) {
+            break;
+        }
+
+        complete.append(pending->left(end + 1));
+        pending->remove(0, end + 1);
+    }
+
+    return complete;
+}
+
+}
 
 // This code is copyright 2017-2020 Elliott H. Liggett
 // All rights reserved
@@ -23,6 +97,7 @@ servermain::servermain(const QString settingsFile)
     qRegisterMetaType<rigstate*>();
     qRegisterMetaType<QList<radio_cap_packet>>();
     qRegisterMetaType<networkStatus>();
+    qRegisterMetaType<IaxStats>();
     qRegisterMetaType<codecType>();
     qRegisterMetaType<errorType>();
 
@@ -52,6 +127,7 @@ servermain::servermain(const QString settingsFile)
     openRig();
 
     setServerToPrefs();
+    startWfShareStation();
 
     amTransmitting = false;
 
@@ -73,6 +149,28 @@ servermain::~servermain()
         serverThread->quit();
         serverThread->wait();
     }
+
+    if (wfShareStation != Q_NULLPTR) {
+        wfShareStation->disconnectFromServer();
+        delete wfShareStation;
+        wfShareStation = Q_NULLPTR;
+    }
+    if (wfShareDirect != Q_NULLPTR) {
+        wfShareDirect->disconnectFromServer();
+        delete wfShareDirect;
+        wfShareDirect = Q_NULLPTR;
+    }
+    if (wfShareTxFlushTimer != Q_NULLPTR) {
+        wfShareTxFlushTimer->stop();
+        delete wfShareTxFlushTimer;
+        wfShareTxFlushTimer = Q_NULLPTR;
+    }
+    wfShareTxBuffer.clear();
+    wfSharePendingCivToClient.clear();
+    wfShareClientConnected = false;
+    wfShareClientHasSentCiv = false;
+    wfShareRxFrames = 0;
+    wfShareTxFrames = 0;
 
     if (audioDev != Q_NULLPTR) {
         delete audioDev;
@@ -103,7 +201,8 @@ void servermain::openRig()
         {
             //qInfo(logSystem()) << "Got rig";
             QMetaObject::invokeMethod(radio->rig, [=]() {
-                radio->rig->commSetup(rigList,radio->civAddr, radio->serialPort, radio->baudRate, QString("none"),0 ,radio->waterfallFormat);
+                const quint8 waterfallFormat = prefs.manufacturer == manufIcom ? quint8(1) : radio->waterfallFormat;
+                radio->rig->serialCommSetup(rigList, radio->civAddr, radio->serialPort, radio->baudRate, QString("none"), false, 0, waterfallFormat);
             }, Qt::QueuedConnection);
         }
     }
@@ -152,7 +251,7 @@ void servermain::makeRig()
             connect(this, SIGNAL(sendCloseComm()), radio->rig, SLOT(closeComm()));
             connect(this, SIGNAL(sendChangeLatency(quint16)), radio->rig, SLOT(changeLatency(quint16)));
             //connect(this, SIGNAL(getRigCIV()), radio->rig, SLOT(findRigs()));
-            //connect(this, SIGNAL(setRigID(unsigned char)), radio->rig, SLOT(setRigID(unsigned char)));
+            //connect(this, SIGNAL(setRigID(quint16)), radio->rig, SLOT(setRigID(quint16)));
             connect(radio->rig, SIGNAL(commReady()), this, SLOT(receiveCommReady()));
 
             //connect(this, SIGNAL(requestRigState()), radio->rig, SLOT(sendState()));
@@ -160,7 +259,7 @@ void servermain::makeRig()
             //connect(radio->rig, SIGNAL(stateInfo(rigstate*)), this, SLOT(receiveStateInfo(rigstate*)));
 
             //Other connections
-            connect(this, SIGNAL(setCIVAddr(unsigned char)), radio->rig, SLOT(setCIVAddr(unsigned char)));
+            connect(this, SIGNAL(setCIVAddr(quint16)), radio->rig, SLOT(setCIVAddr(quint16)));
 
             //connect(radio->rig, SIGNAL(havePTTStatus(bool)), this, SLOT(receivePTTstatus(bool)));
             //connect(this, SIGNAL(setPTT(bool)), radio->rig, SLOT(setPTT(bool)));
@@ -210,7 +309,7 @@ void servermain::receiveCommReady()
 
     for (RIGCONFIG* radio : serverConfig.rigs)
     {
-        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
+        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !radio->rigAvailable && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
         {
 
             qInfo(logSystem()) << "Received CommReady!! ";
@@ -264,7 +363,7 @@ void servermain::receiveRigCaps(rigCapabilities* rigCaps)
     for (RIGCONFIG* radio : serverConfig.rigs)
     {
 
-        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !radio->rigAvailable && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
+        if (sender != Q_NULLPTR && radio->rig != Q_NULLPTR && !memcmp(sender->getGUID(), radio->guid, GUIDLEN))
         {
 
             qDebug(logSystem()) << "Rig name: " << rigCaps->modelName;
@@ -294,6 +393,7 @@ void servermain::receiveRigCaps(rigCapabilities* rigCaps)
             radio->rigCaps = rigCaps;
             // Added so that server receives rig capabilities.
             //emit sendRigCaps(rigCaps);
+            ensureWfShareRxAudio(radio);
         }
     }
     return;
@@ -328,6 +428,9 @@ void servermain::getSettingsFilePath(QString settingsFile)
 
         qInfo(logSystem()) << "Loading settings from:" << path + file;
         settings = new QSettings(path + file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+        settings->setIniCodec("UTF-8");
+#endif
     }
 }
 
@@ -391,17 +494,544 @@ void servermain::setServerToPrefs()
             if (radio->rig != Q_NULLPTR) {
                 connect(radio->rig, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)));
                 connect(radio->rig, SIGNAL(haveDataForServer(QByteArray)), server, SLOT(dataForServer(QByteArray)));
-                //connect(server, SIGNAL(haveDataFromServer(QByteArray)), radio->rig, SLOT(dataFromServer(QByteArray)));
+                connect(radio->rig, SIGNAL(haveScopeDataForServer(QByteArray)), server, SLOT(receiveScopeData(QByteArray)));
+                connect(server, SIGNAL(haveDataFromServer(QByteArray)), radio->rig, SLOT(dataFromServer(QByteArray)));
                 //connect(this, SIGNAL(sendRigCaps(rigCapabilities)), server, SLOT(receiveRigCaps(rigCapabilities)));
             }
         }
     }
 
     connect(server, SIGNAL(haveNetworkStatus(networkStatus)), this, SLOT(receiveStatusUpdate(networkStatus)));
+    connect(server, &rigServer::requestRxAudioForGuid, this, [this](const QByteArray &guid, quint8 codec, quint32 sampleRate) {
+        for (RIGCONFIG *radio : serverConfig.rigs) {
+            if (radio == Q_NULLPTR) {
+                continue;
+            }
+
+            const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
+            if (guidMatches || serverConfig.rigs.size() == 1) {
+                ensureNativeServerRxAudio(radio, codec, sampleRate);
+                ensureNativeServerTxAudio(radio, codec, sampleRate);
+            }
+        }
+    }, Qt::QueuedConnection);
+    connect(server, &rigServer::releaseRxAudioForGuid, this, [this](const QByteArray &guid) {
+        for (RIGCONFIG *radio : serverConfig.rigs) {
+            if (radio == Q_NULLPTR) {
+                continue;
+            }
+
+            const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
+            if (guidMatches || serverConfig.rigs.size() == 1) {
+                stopNativeServerRxAudio(radio);
+                stopNativeServerTxAudio(radio);
+            }
+        }
+    }, Qt::QueuedConnection);
+    connect(server, &rigServer::haveAudioData, this, [this](audioPacket packet) {
+        if (!serverConfig.enabled || prefs.manufacturer != manufYaesu) {
+            return;
+        }
+
+        RIGCONFIG *radio = serverConfig.rigs.isEmpty() ? Q_NULLPTR : serverConfig.rigs.first();
+        for (RIGCONFIG *candidate : serverConfig.rigs) {
+            if (candidate != Q_NULLPTR && !memcmp(candidate->guid, packet.guid, GUIDLEN)) {
+                radio = candidate;
+                break;
+            }
+        }
+
+        if (radio == Q_NULLPTR) {
+            qWarning(logAudio()) << "Yaesu server received TX audio but no rig is available";
+            return;
+        }
+
+        ensureNativeServerTxAudio(radio, packet.codec, packet.sampleRate);
+        if (radio->txaudio != Q_NULLPTR) {
+            QMetaObject::invokeMethod(radio->txaudio, "incomingAudio",
+                                      Qt::QueuedConnection, Q_ARG(audioPacket, packet));
+        }
+    }, Qt::QueuedConnection);
 
     serverThread->start();
 
     emit initServer();
+}
+
+void servermain::ensureNativeServerRxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate)
+{
+    if (!serverConfig.enabled || prefs.manufacturer != manufYaesu || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (codec == 0) {
+        codec = 4;
+    }
+    if (sampleRate == 0) {
+        sampleRate = 16000;
+    }
+
+    if (radio->rxaudio == Q_NULLPTR) {
+        radio->rxAudioSetup.codec = codec;
+        radio->rxAudioSetup.sampleRate = sampleRate;
+        radio->rxAudioSetup.latency = 150;
+        radio->rxAudioSetup.blockSize = 10;
+        radio->rxAudioSetup.isinput = true;
+        memcpy(radio->rxAudioSetup.guid, radio->guid, GUIDLEN);
+
+        qInfo(logAudio()) << "Starting server RX audio input"
+                          << "device" << radio->rxAudioSetup.name
+                          << "codec" << radio->rxAudioSetup.codec
+                          << "sampleRate" << radio->rxAudioSetup.sampleRate;
+    } else if (radio->rxAudioSetup.codec != codec || radio->rxAudioSetup.sampleRate != sampleRate) {
+        qWarning(logAudio()) << "Ignoring Yaesu server RX audio format change while audio is active"
+                             << "active codec" << radio->rxAudioSetup.codec
+                             << "active sampleRate" << radio->rxAudioSetup.sampleRate
+                             << "requested codec" << codec
+                             << "requested sampleRate" << sampleRate;
+    }
+
+    if (radio->rxaudio == Q_NULLPTR) {
+        if (radio->rxAudioSetup.type == qtAudio) {
+            radio->rxaudio = new audioHandlerQtInput();
+        } else if (radio->rxAudioSetup.type == portAudio) {
+            radio->rxaudio = new audioHandlerPaInput();
+        } else if (radio->rxAudioSetup.type == rtAudio) {
+            radio->rxaudio = new audioHandlerRtInput();
+        } else {
+            qCritical(logAudio()) << "Unsupported native server receive audio handler selected" << radio->rxAudioSetup.type;
+            return;
+        }
+
+        radio->rxAudioThread = new QThread(this);
+        radio->rxAudioThread->setObjectName(QStringLiteral("nativeServerRxAudio()"));
+        radio->rxaudio->moveToThread(radio->rxAudioThread);
+        radio->rxAudioThread->start(QThread::TimeCriticalPriority);
+        connect(radio->rxAudioThread, SIGNAL(finished()), radio->rxaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+        QMetaObject::invokeMethod(radio->rxaudio, [radio]() {
+            radio->rxaudio->init(radio->rxAudioSetup);
+        }, Qt::QueuedConnection);
+#else
+        QMetaObject::invokeMethod(radio->rxaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->rxAudioSetup));
+#endif
+    }
+
+    if (server != Q_NULLPTR) {
+        connect(radio->rxaudio, SIGNAL(haveAudioData(audioPacket)), server, SLOT(receiveAudioData(audioPacket)), Qt::UniqueConnection);
+    }
+}
+
+void servermain::stopNativeServerRxAudio(RIGCONFIG *radio)
+{
+    if (radio == Q_NULLPTR || radio->rxaudio == Q_NULLPTR || radio->rxAudioThread == Q_NULLPTR) {
+        return;
+    }
+
+    qInfo(logAudio()) << "Stopping server RX audio input";
+    radio->rxaudio->dispose();
+    radio->rxAudioThread->quit();
+    radio->rxAudioThread->wait();
+    radio->rxaudio = Q_NULLPTR;
+    radio->rxAudioThread = Q_NULLPTR;
+}
+
+void servermain::ensureNativeServerTxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate)
+{
+    if (!serverConfig.enabled || prefs.manufacturer != manufYaesu || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (codec == 0) {
+        codec = 4;
+    }
+    if (sampleRate == 0) {
+        sampleRate = 16000;
+    }
+
+    if (radio->txaudio != Q_NULLPTR) {
+        if (radio->txAudioSetup.codec != codec || radio->txAudioSetup.sampleRate != sampleRate) {
+            qWarning(logAudio()) << "Ignoring Yaesu server TX audio format change while audio is active"
+                                 << "active codec" << radio->txAudioSetup.codec
+                                 << "active sampleRate" << radio->txAudioSetup.sampleRate
+                                 << "requested codec" << codec
+                                 << "requested sampleRate" << sampleRate;
+        }
+        return;
+    }
+
+    radio->txAudioSetup.codec = codec;
+    radio->txAudioSetup.sampleRate = sampleRate;
+    radio->txAudioSetup.latency = radio->txAudioSetup.latency == 0 ? quint16(150) : radio->txAudioSetup.latency;
+    radio->txAudioSetup.isinput = false;
+    memcpy(radio->txAudioSetup.guid, radio->guid, GUIDLEN);
+
+    qInfo(logAudio()) << "Starting server TX audio output"
+                      << "device" << radio->txAudioSetup.name
+                      << "codec" << radio->txAudioSetup.codec
+                      << "sampleRate" << radio->txAudioSetup.sampleRate;
+
+    if (radio->txAudioSetup.type == qtAudio) {
+        radio->txaudio = new audioHandlerQtOutput();
+    } else if (radio->txAudioSetup.type == portAudio) {
+        radio->txaudio = new audioHandlerPaOutput();
+    } else if (radio->txAudioSetup.type == rtAudio) {
+        radio->txaudio = new audioHandlerRtOutput();
+    } else {
+        qCritical(logAudio()) << "Unsupported native server transmit audio handler selected" << radio->txAudioSetup.type;
+        return;
+    }
+
+    radio->txAudioThread = new QThread(this);
+    radio->txAudioThread->setObjectName(QStringLiteral("nativeServerTxAudio()"));
+    radio->txaudio->moveToThread(radio->txAudioThread);
+    radio->txAudioThread->start(QThread::TimeCriticalPriority);
+    connect(radio->txAudioThread, SIGNAL(finished()), radio->txaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+    QMetaObject::invokeMethod(radio->txaudio, [radio]() {
+        radio->txaudio->init(radio->txAudioSetup);
+    }, Qt::QueuedConnection);
+#else
+    QMetaObject::invokeMethod(radio->txaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->txAudioSetup));
+#endif
+}
+
+void servermain::stopNativeServerTxAudio(RIGCONFIG *radio)
+{
+    if (radio == Q_NULLPTR || radio->txaudio == Q_NULLPTR || radio->txAudioThread == Q_NULLPTR) {
+        return;
+    }
+
+    qInfo(logAudio()) << "Stopping server TX audio output";
+    radio->txaudio->dispose();
+    radio->txAudioThread->quit();
+    radio->txAudioThread->wait();
+    radio->txaudio = Q_NULLPTR;
+    radio->txAudioThread = Q_NULLPTR;
+}
+
+void servermain::ensureWfShareRxAudio(RIGCONFIG *radio)
+{
+    if ((!prefs.wfShareEnabled && !prefs.wfShareDirectEnabled) || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (radio->rxaudio == Q_NULLPTR) {
+        radio->rxAudioSetup.codec = 0x40;
+        radio->rxAudioSetup.sampleRate = 16000;
+        radio->rxAudioSetup.latency = 150;
+        radio->rxAudioSetup.isinput = true;
+        memcpy(radio->rxAudioSetup.guid, radio->guid, GUIDLEN);
+
+        qInfo(logAudio()) << "Starting wfshare RX audio input"
+                          << "device" << radio->rxAudioSetup.name
+                          << "codec" << radio->rxAudioSetup.codec
+                          << "sampleRate" << radio->rxAudioSetup.sampleRate;
+
+        if (radio->rxAudioSetup.type == qtAudio) {
+            radio->rxaudio = new audioHandlerQtInput();
+        } else if (radio->rxAudioSetup.type == portAudio) {
+            radio->rxaudio = new audioHandlerPaInput();
+        } else if (radio->rxAudioSetup.type == rtAudio) {
+            radio->rxaudio = new audioHandlerRtInput();
+        } else {
+            qCritical(logAudio()) << "Unsupported wfshare receive audio handler selected" << radio->rxAudioSetup.type;
+            return;
+        }
+
+        radio->rxAudioThread = new QThread(this);
+        radio->rxAudioThread->setObjectName(QStringLiteral("wfshareRxAudio()"));
+        radio->rxaudio->moveToThread(radio->rxAudioThread);
+        radio->rxAudioThread->start(QThread::TimeCriticalPriority);
+        connect(radio->rxAudioThread, SIGNAL(finished()), radio->rxaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+        QMetaObject::invokeMethod(radio->rxaudio, [radio]() {
+            radio->rxaudio->init(radio->rxAudioSetup);
+        }, Qt::QueuedConnection);
+#else
+        QMetaObject::invokeMethod(radio->rxaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->rxAudioSetup));
+#endif
+    }
+
+    connect(radio->rxaudio, &audioHandlerBase::haveAudioData, this, &servermain::sendWfShareAudio, Qt::UniqueConnection);
+}
+
+void servermain::sendWfShareAudio(const audioPacket &packet)
+{
+    if (!wfShareClientConnected || !wfShareClientHasSentCiv || wfShareStation == Q_NULLPTR) {
+        return;
+    }
+
+    radioTransportFrame::Frame frame;
+    frame.channel = RadioTransportChannel::AudioRx;
+    frame.payload = audioPacketCodec::encode(packet);
+    wfShareTxFrames++;
+    if (wfShareTxFrames <= 10 || wfShareTxFrames % 250 == 0) {
+        qDebug(logSystem()).noquote()
+            << QStringLiteral("wfshare station sent RX audio frame %1 bytes %2")
+                   .arg(wfShareTxFrames)
+                   .arg(frame.payload.size());
+    }
+    wfShareStation->sendPayload(radioTransportFrame::encode(frame), false);
+}
+
+void servermain::ensureWfShareTxAudio(RIGCONFIG *radio)
+{
+    if ((!prefs.wfShareEnabled && !prefs.wfShareDirectEnabled) || radio == Q_NULLPTR) {
+        return;
+    }
+
+    if (radio->rigCaps == Q_NULLPTR || !radio->rigCaps->hasTransmit) {
+        return;
+    }
+
+    if (radio->txaudio != Q_NULLPTR) {
+        return;
+    }
+
+    radio->txAudioSetup.codec = 0x40;
+    radio->txAudioSetup.sampleRate = 16000;
+    radio->txAudioSetup.latency = radio->txAudioSetup.latency == 0 ? quint16(150) : radio->txAudioSetup.latency;
+    radio->txAudioSetup.isinput = false;
+    memcpy(radio->txAudioSetup.guid, radio->guid, GUIDLEN);
+
+    qInfo(logAudio()) << "Starting wfshare TX audio output"
+                      << "device" << radio->txAudioSetup.name
+                      << "codec" << radio->txAudioSetup.codec
+                      << "sampleRate" << radio->txAudioSetup.sampleRate;
+
+    if (radio->txAudioSetup.type == qtAudio) {
+        radio->txaudio = new audioHandlerQtOutput();
+    } else if (radio->txAudioSetup.type == portAudio) {
+        radio->txaudio = new audioHandlerPaOutput();
+    } else if (radio->txAudioSetup.type == rtAudio) {
+        radio->txaudio = new audioHandlerRtOutput();
+    } else {
+        qCritical(logAudio()) << "Unsupported wfshare transmit audio handler selected" << radio->txAudioSetup.type;
+        return;
+    }
+
+    radio->txAudioThread = new QThread(this);
+    radio->txAudioThread->setObjectName(QStringLiteral("wfshareTxAudio()"));
+    radio->txaudio->moveToThread(radio->txAudioThread);
+    radio->txAudioThread->start(QThread::TimeCriticalPriority);
+    connect(radio->txAudioThread, SIGNAL(finished()), radio->txaudio, SLOT(deleteLater()));
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+    QMetaObject::invokeMethod(radio->txaudio, [radio]() {
+        radio->txaudio->init(radio->txAudioSetup);
+    }, Qt::QueuedConnection);
+#else
+    QMetaObject::invokeMethod(radio->txaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->txAudioSetup));
+#endif
+}
+
+void servermain::startWfShareStation()
+{
+    if (wfShareStation != Q_NULLPTR) {
+        wfShareStation->disconnectFromServer();
+        delete wfShareStation;
+        wfShareStation = Q_NULLPTR;
+    }
+    if (wfShareTxFlushTimer != Q_NULLPTR) {
+        wfShareTxFlushTimer->stop();
+        delete wfShareTxFlushTimer;
+        wfShareTxFlushTimer = Q_NULLPTR;
+    }
+    wfShareTxBuffer.clear();
+    wfSharePendingCivToClient.clear();
+    wfShareClientHasSentCiv = false;
+
+    if (!prefs.wfShareEnabled && !prefs.wfShareDirectEnabled) {
+        return;
+    }
+
+    wfShareStation = new IaxClientSession(this);
+    wfShareTxFlushTimer = new QTimer(this);
+    wfShareTxFlushTimer->setSingleShot(true);
+    wfShareTxFlushTimer->setInterval(10);
+    connect(wfShareTxFlushTimer, &QTimer::timeout, this, &servermain::flushWfShareTxBuffer);
+
+    connect(wfShareStation, &IaxClientSession::debugMessage, this, [](const QString &message) {
+        if (message.contains(QStringLiteral("incoming wfshare call accepted")) ||
+            message.contains(QStringLiteral("direct listener bound"))) {
+            qInfo(logSystem()).noquote() << QStringLiteral("wfshare station: %1").arg(message);
+        } else {
+            qDebug(logSystem()).noquote() << QStringLiteral("wfshare station: %1").arg(message);
+        }
+    });
+    connect(wfShareStation, &IaxClientSession::errorOccurred, this, [](const QString &message) {
+        qWarning(logSystem()).noquote() << QStringLiteral("wfshare station failed: %1").arg(message);
+    });
+    connect(wfShareStation, &IaxClientSession::registrationChanged, this, [](bool registered) {
+        qInfo(logSystem()) << (registered ? "wfshare station registered" : "wfshare station unregistered");
+    });
+    connect(wfShareStation, &IaxClientSession::connectedChanged, this, [this](bool connected) {
+        wfShareClientConnected = connected;
+        if (!connected) {
+            wfShareClientHasSentCiv = false;
+            wfShareTxBuffer.clear();
+            wfSharePendingCivToClient.clear();
+        }
+        qInfo(logSystem()) << (connected ? "wfshare station call connected" : "wfshare station call disconnected");
+    });
+    connect(wfShareStation, &IaxClientSession::payloadReceived, this, [this](const QByteArray &payload) {
+        radioTransportFrame::Frame frame;
+        if (radioTransportFrame::decode(payload, &frame) != radioTransportFrame::DecodeOk) {
+            qWarning(logSystem()) << "wfshare station received invalid transport frame";
+            return;
+        }
+
+        if (frame.channel == RadioTransportChannel::AudioTx) {
+            audioPacket packet;
+            if (!audioPacketCodec::decode(frame.payload, &packet)) {
+                qWarning(logSystem()) << "wfshare station received invalid TX audio packet";
+                return;
+            }
+
+            if (serverConfig.rigs.isEmpty()) {
+                qWarning(logSystem()) << "wfshare station received TX audio but no rig is available";
+                return;
+            }
+
+            RIGCONFIG *radio = serverConfig.rigs.first();
+            for (RIGCONFIG *candidate : serverConfig.rigs) {
+                if (candidate != Q_NULLPTR && !memcmp(candidate->guid, packet.guid, GUIDLEN)) {
+                    radio = candidate;
+                    break;
+                }
+            }
+
+            ensureWfShareTxAudio(radio);
+            if (radio->txaudio != Q_NULLPTR) {
+                QMetaObject::invokeMethod(radio->txaudio, "incomingAudio",
+                                          Qt::QueuedConnection, Q_ARG(audioPacket, packet));
+            }
+            return;
+        }
+
+        if (frame.channel != RadioTransportChannel::Civ) {
+            qDebug(logSystem()) << "wfshare station ignored unsupported channel" << int(frame.channel);
+            return;
+        }
+
+        wfShareRxFrames++;
+        wfShareClientHasSentCiv = true;
+        if (wfShareRxFrames <= 10 || wfShareRxFrames % 100 == 0) {
+            qDebug(logSystem()).noquote()
+                << QStringLiteral("wfshare station received CI-V frame %1 bytes %2")
+                       .arg(wfShareRxFrames)
+                       .arg(frame.payload.size());
+        }
+
+        if (serverConfig.rigs.isEmpty() || serverConfig.rigs.first()->rig == Q_NULLPTR) {
+            qWarning(logSystem()) << "wfshare station received CI-V data but no rig is available";
+            return;
+        }
+
+        RIGCONFIG *radio = serverConfig.rigs.first();
+        QMetaObject::invokeMethod(radio->rig, [radio, data = frame.payload]() {
+            radio->rig->dataFromServer(data);
+        }, Qt::QueuedConnection);
+    });
+
+    for (RIGCONFIG *radio : serverConfig.rigs) {
+        if (radio->rig == Q_NULLPTR) {
+            continue;
+        }
+
+        connect(radio->rig, &rigCommander::haveDataForServer, wfShareStation, [this](QByteArray data) {
+            if (!wfShareClientConnected || !wfShareClientHasSentCiv || wfShareStation == Q_NULLPTR) {
+                return;
+            }
+
+            const QList<QByteArray> completeFrames = extractCompleteCivFrames(&wfSharePendingCivToClient, data);
+            if (completeFrames.isEmpty()) {
+                return;
+            }
+
+            for (const QByteArray &frameData : completeFrames) {
+                radioTransportFrame::Frame frame;
+                frame.channel = frameData.contains(QByteArrayLiteral("\x27\x00"))
+                                    ? RadioTransportChannel::Scope
+                                    : RadioTransportChannel::Civ;
+                frame.payload = frameData;
+                wfShareTxFrames++;
+                if (wfShareTxFrames <= 10 || wfShareTxFrames % 100 == 0) {
+                    qDebug(logSystem()).noquote()
+                        << QStringLiteral("wfshare station sent %1 frame %2 bytes %3")
+                               .arg(frame.channel == RadioTransportChannel::Scope ? QStringLiteral("scope") : QStringLiteral("CI-V"))
+                               .arg(wfShareTxFrames)
+                               .arg(frame.payload.size());
+                }
+                wfShareStation->sendPayload(radioTransportFrame::encode(frame),
+                                            frame.channel == RadioTransportChannel::Civ);
+            }
+        });
+
+        ensureWfShareRxAudio(radio);
+    }
+
+    if (prefs.wfShareDirectEnabled) {
+        if (prefs.wfShareEnabled) {
+            qInfo(logSystem()) << "wfshare direct enabled; using direct listener instead of PBX registration for this initial implementation";
+        }
+        const quint16 directPort = prefs.wfShareDirectPort == 0 ? quint16(4569) : prefs.wfShareDirectPort;
+        qInfo(logSystem()).noquote()
+            << QStringLiteral("wfshare direct: listening on UDP %1").arg(directPort);
+        wfShareStation->listenForDirectCalls(directPort, [this](const QString &username) -> QStringList {
+            for (const SERVERUSER &user : serverConfig.users) {
+                if (user.username == username && !user.password.trimmed().isEmpty()) {
+                    return { user.password, decodedServerPassword(user.password) };
+                }
+            }
+            return {};
+        });
+        return;
+    }
+
+    const QString host = prefs.wfShareHost.trimmed().isEmpty()
+                             ? QStringLiteral("pbx.wfshare.org")
+                             : prefs.wfShareHost.trimmed();
+    const QString username = prefs.wfShareUsername.trimmed();
+    if (username.isEmpty()) {
+        qWarning(logSystem()) << "wfshare station disabled: username is empty";
+        return;
+    }
+
+    const quint16 port = prefs.wfSharePort == 0 ? quint16(4569) : prefs.wfSharePort;
+    qInfo(logSystem()).noquote()
+        << QStringLiteral("wfshare station: registering %1 at %2:%3")
+               .arg(username, host)
+               .arg(port);
+
+    wfShareStation->registerWithServer(host, port, username, prefs.wfSharePassword, 60);
+}
+
+void servermain::flushWfShareTxBuffer()
+{
+    if (!wfShareClientConnected || wfShareStation == Q_NULLPTR || wfShareTxBuffer.isEmpty()) {
+        wfShareTxBuffer.clear();
+        wfSharePendingCivToClient.clear();
+        return;
+    }
+
+    radioTransportFrame::Frame frame;
+    frame.channel = RadioTransportChannel::Civ;
+    frame.payload = wfShareTxBuffer;
+    wfShareTxBuffer.clear();
+
+    wfShareTxFrames++;
+    if (wfShareTxFrames <= 10 || wfShareTxFrames % 100 == 0) {
+        qDebug(logSystem()).noquote()
+            << QStringLiteral("wfshare station sent CI-V frame %1 bytes %2")
+                   .arg(wfShareTxFrames)
+                   .arg(frame.payload.size());
+    }
+    wfShareStation->sendPayload(radioTransportFrame::encode(frame), true);
 }
 
 
@@ -418,6 +1048,13 @@ void servermain::setDefPrefs()
     defPrefs.audioSystem = qtAudio;
     defPrefs.rxAudio.name = QString("default");
     defPrefs.txAudio.name = QString("default");
+    defPrefs.wfShareEnabled = false;
+    defPrefs.wfShareHost = QStringLiteral("pbx.wfshare.org");
+    defPrefs.wfSharePort = 4569;
+    defPrefs.wfShareUsername.clear();
+    defPrefs.wfSharePassword.clear();
+    defPrefs.wfShareDirectEnabled = false;
+    defPrefs.wfShareDirectPort = 4569;
 
     udpDefPrefs.ipAddress = QString("");
     udpDefPrefs.controlLANPort = 50001;
@@ -432,7 +1069,7 @@ void servermain::setDefPrefs()
 void servermain::loadSettings()
 {
     qInfo(logSystem()) << "Loading settings from " << settings->fileName();
-    prefs.audioSystem = static_cast<audioType>(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
+    prefs.audioSystem = normalizeAudioType(settings->value("AudioSystem", defPrefs.audioSystem).toInt());
     prefs.manufacturer = static_cast<manufacturersType_t>(settings->value("Manufacturer",defPrefs.manufacturer).toInt());
 
     int numRadios = settings->beginReadArray("Radios");
@@ -465,6 +1102,8 @@ void servermain::loadSettings()
         settings->setValue("ServerControlPort", udpDefPrefs.controlLANPort);
         settings->setValue("ServerCivPort", udpDefPrefs.serialLANPort);
         settings->setValue("ServerAudioPort", udpDefPrefs.audioLANPort);
+        settings->setValue("ServerScopePort", udpDefPrefs.scopeLANPort);
+        settings->setValue("ServerListenAddress", QString());
 
         settings->beginWriteArray("Users");
         settings->setArrayIndex(0);
@@ -489,7 +1128,7 @@ void servermain::loadSettings()
     for (int i = 0; i < numRadios; i++) {
         settings->setArrayIndex(i);
         RIGCONFIG* tempPrefs = new RIGCONFIG();
-        tempPrefs->civAddr = (unsigned char)settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toInt();
+        tempPrefs->civAddr = settings->value("RigCIVuInt", defPrefs.radioCIVAddr).toUInt();
 
         tempPrefs->pttType = (pttType_t)settings->value("PTTType", defPrefs.pttType).toInt();
         // Workaround for old config option
@@ -613,6 +1252,15 @@ void servermain::loadSettings()
     serverConfig.controlPort = settings->value("ServerControlPort", 50001).toInt();
     serverConfig.civPort = settings->value("ServerCivPort", 50002).toInt();
     serverConfig.audioPort = settings->value("ServerAudioPort", 50003).toInt();
+    serverConfig.scopePort = settings->value("ServerScopePort", 50004).toInt();
+    serverConfig.listenAddress = settings->value("ServerListenAddress", QString()).toString();
+    prefs.wfShareEnabled = settings->value("WfShareEnabled", defPrefs.wfShareEnabled).toBool();
+    prefs.wfShareHost = settings->value("WfShareHost", defPrefs.wfShareHost).toString();
+    prefs.wfSharePort = settings->value("WfSharePort", defPrefs.wfSharePort).toUInt();
+    prefs.wfShareUsername = settings->value("WfShareUsername", defPrefs.wfShareUsername).toString();
+    prefs.wfSharePassword = settings->value("WfSharePassword", defPrefs.wfSharePassword).toString();
+    prefs.wfShareDirectEnabled = settings->value("WfShareDirectEnabled", defPrefs.wfShareDirectEnabled).toBool();
+    prefs.wfShareDirectPort = settings->value("WfShareDirectPort", defPrefs.wfShareDirectPort).toUInt();
 
     serverConfig.users.clear();
 
@@ -710,23 +1358,17 @@ void servermain::setManufacturer(manufacturersType_t man)
     this->rigList.clear();
     qInfo() << "Searching for radios with Manufacturer =" << man;
 
-#ifndef Q_OS_LINUX
-#ifdef Q_OS_MACOS
+#if defined(Q_OS_MACOS) || defined(Q_OS_MAC)
     QString systemRigLocation = QCoreApplication::applicationDirPath() + "/../Resources/rigs";
+#elif defined(Q_OS_LINUX)
+    QString systemRigLocation = PREFIX "/share/wfview/rigs";
 #else
     QString systemRigLocation = QCoreApplication::applicationDirPath() + "/rigs";
 #endif
-#else
-    // When running as an AppImage the runtime sets APPDIR.  In that case the
-    // compile-time PREFIX (/usr) is meaningless; use the XDG user-data
-    // location (~/.local/share/wfview/rigs) where the AppImage installer
-    // places the rig files.
-    QString systemRigLocation = qEnvironmentVariable("APPDIR").isEmpty()
-        ? QString(PREFIX "/share/wfview/rigs")
-        : QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/wfview/rigs";
-#endif
 
     QDir systemRigDir(systemRigLocation);
+    // Rig description files found for any manufacturer.
+    int rigFilesFound = 0;
 
     if (!systemRigDir.exists()) {
         qWarning() << "********* Rig directory does not exist ********";
@@ -745,17 +1387,18 @@ void servermain::setManufacturer(manufacturersType_t man)
                 delete rigSettings;
                 continue;
             }
+            rigFilesFound++;
 
             float ver = rigSettings->value("Version","0.0").toString().toFloat();
 
             rigSettings->beginGroup("Rig");
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
-                uchar civ = rigSettings->value("CIVAddress",0).toInt();
+                quint16 civ = rigSettings->value("CIVAddress",0).toUInt();
                 QString model = rigSettings->value("Model","").toString();
                 QString path = systemRigDir.absoluteFilePath(rig);
 
-                qDebug() << QString("Found Rig %0 with CI-V address of 0x%1 and version %2").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2);
+                qDebug() << QString("Found Rig %0 with CI-V address of %1 and version %2").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2);
                 // Any user modified rig files will override system provided ones.
                 this->rigList.insert(civ,rigInfo(civ,model,path,ver));
             }
@@ -781,14 +1424,15 @@ void servermain::setManufacturer(manufacturersType_t man)
                 delete rigSettings;
                 continue;
             }
+            rigFilesFound++;
 
             float ver = rigSettings->value("Version","0.0").toString().toFloat();
 
             rigSettings->beginGroup("Rig");
 
-            manufacturersType_t manuf = rigSettings->value("Manufacturer",manufIcom).value<manufacturersType_t>();
+            manufacturersType_t manuf = static_cast<manufacturersType_t>(rigSettings->value("Manufacturer", manufIcom).toInt());
             if (manuf == man) {
-                uchar civ = rigSettings->value("CIVAddress",0).toInt();
+                quint16 civ = rigSettings->value("CIVAddress",0).toUInt();
                 QString model = rigSettings->value("Model","").toString();
                 QString path = userRigDir.absoluteFilePath(rig);
 
@@ -797,11 +1441,11 @@ void servermain::setManufacturer(manufacturersType_t man)
                 if (it != this->rigList.end())
                 {
                     if (ver >= it.value().version) {
-                        qInfo() << QString("Found User Rig %0 with CI-V address of 0x%1 and newer or same version than system one (%2>=%3)").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2).arg(it.value().version,0,'f',2);
+                        qInfo() << QString("Found User Rig %0 with CI-V address of %1 and newer or same version than system one (%2>=%3)").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2).arg(it.value().version,0,'f',2);
                         this->rigList.insert(civ,rigInfo(civ,model,path,ver));
                     }
                 } else {
-                    qInfo() << QString("Found New User Rig %0 with CI-V address of 0x%1 version %2").arg(model).arg(civ,2,16,QChar('0')).arg(ver,0,'f',2);
+                    qInfo() << QString("Found New User Rig %0 with CI-V address of %1 version %2").arg(model).arg(civ,4,10,QChar('0')).arg(ver,0,'f',2);
                     this->rigList.insert(civ,rigInfo(civ,model,path,ver));
                 }
                 // Any user modified rig files will override system provided ones.
@@ -811,4 +1455,12 @@ void servermain::setManufacturer(manufacturersType_t man)
         }
     }
 
+    if (rigFilesFound == 0) {
+        const auto describe = [](const QDir& dir) {
+            return QDir::toNativeSeparators(dir.absolutePath())
+                   + (dir.exists() ? " (no rig files)" : " (folder not found)");
+        };
+        qCritical(logRig()).noquote() << "No rig files were found. Locations searched:"
+                                      << describe(systemRigDir) << "and" << describe(userRigDir);
+    }
 }

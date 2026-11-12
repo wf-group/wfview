@@ -2,6 +2,7 @@
 // audiohandler_base.cpp (fixed names)
 // =============================
 #include "audiohandlerbase.h"
+#include "mcphooks.h"
 
 audioHandlerBase::audioHandlerBase(QObject* parent)
     : QObject(parent)
@@ -65,10 +66,26 @@ void audioHandlerBase::dispose()
     qDebug(logAudio()) << "[SHUTDOWN] dispose() complete, role=" << role();
 }
 
+audioDeviceNotifier* audioDeviceNotifier::instance()
+{
+    static audioDeviceNotifier* notifier = new audioDeviceNotifier();
+    return notifier;
+}
+
 void audioHandlerBase::reportError(const QString& msg)
 {
     qCritical(logAudio()).noquote() << role() << msg;
+    lastError = msg;
     emit audioMessage(QString("%1: %2").arg(role(), msg));
+}
+
+void audioHandlerBase::reportDeviceProblem(int problem)
+{
+    QString deviceName = setupData.name;
+    if (deviceName.isEmpty())
+        deviceName = setupData.configuredName;
+    emit audioDeviceNotifier::instance()->deviceProblem(int(setupData.role), setupData.isinput,
+                                                         problem, deviceName, lastError);
 }
 
 bool audioHandlerBase::negotiateFormat(int minSampleRate)
@@ -136,6 +153,26 @@ bool audioHandlerBase::init(const audioSetup& setup)
     setupData = setup;
     radioFormat = toQAudioFormat(setup.codec, setup.sampleRate);
 
+    qDebug(logAudio()) << role() << "audio processor setup:"
+                      << "isinput=" << setup.isinput
+                      << "txProc=" << setup.txProc
+                      << "rxProc=" << setup.rxProc
+                      << "codec=" << setup.codec
+                      << "sampleRate=" << setup.sampleRate
+                      << "name(from prefs)=" << setup.name;
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+    qDebug(logAudio()) << role() << "audio device sent to backend:"
+                      << "port.id=" << setup.port.id()
+                      << "port.description=" << setup.port.description()
+                      << "port.isNull=" << setup.port.isNull()
+                      << "portInt=" << setup.portInt;
+#else
+    qDebug(logAudio()) << role() << "audio device sent to backend:"
+                      << "port.deviceName=" << setup.port.deviceName()
+                      << "port.isNull=" << setup.port.isNull()
+                      << "portInt=" << setup.portInt;
+#endif
+
     codec = codecType::LPCM;
     if (setup.codec == 0x01 || setup.codec == 0x20)      codec = codecType::PCMU;
     else if (setup.codec == 0x40 || setup.codec == 0x41) codec = codecType::OPUS;
@@ -144,6 +181,9 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
     if (setup.port.isNull() && setup.portInt == -1) {
         reportError("No audio device was found (install Qt Multimedia plugins?)");
+        reportDeviceProblem(setup.name.isEmpty() && setup.configuredName.isEmpty()
+                                ? audioDeviceNotifier::DeviceBlank
+                                : audioDeviceNotifier::DeviceNotFound);
         emit initFailed();
         return false;
     }
@@ -151,6 +191,9 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #else
     if (setup.port.isNull() && setup.port.description().isEmpty() && setup.portInt == -1) {
         reportError("Audio device is NULL, check device selection in settings");
+        reportDeviceProblem(setup.name.isEmpty() && setup.configuredName.isEmpty()
+                                ? audioDeviceNotifier::DeviceBlank
+                                : audioDeviceNotifier::DeviceNotFound);
         emit initFailed();
         return false;
     } else {
@@ -159,6 +202,7 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #endif
 
     if (!negotiateFormat(48000)) {
+        reportDeviceProblem(audioDeviceNotifier::DeviceUnusable);
         emit initFailed();
         return false;
     }
@@ -180,7 +224,12 @@ bool audioHandlerBase::init(const audioSetup& setup)
     setVolume(setup.localAFgain);
 
     if (!openDevice()) {
+        // Keep the backend's own reason if openDevice() gave one.
+        const QString backendError = lastError;
         reportError("Failed to open device");
+        if (!backendError.isEmpty())
+            lastError = backendError;
+        reportDeviceProblem(audioDeviceNotifier::DeviceUnusable);
         emit initFailed();
         return false;
     }
@@ -191,6 +240,8 @@ bool audioHandlerBase::init(const audioSetup& setup)
     if (setup.isinput && setup.txProc) {
         TxAudioProcessor* proc = setup.txProc;
         const float sr = static_cast<float>(radioFormat.sampleRate());
+        qDebug(logAudio()) << role() << "installing TX audio processing hook"
+                          << "proc=" << proc << "sampleRate=" << sr;
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr]{
             converter->setProcessingHook([proc, sr](Eigen::VectorXf s){
                 return proc->processAudio(std::move(s), sr);
@@ -211,6 +262,9 @@ bool audioHandlerBase::init(const audioSetup& setup)
         RxAudioProcessor* proc = setup.rxProc;
         const float sr = static_cast<float>(radioFormat.sampleRate());
         const int   ch = radioFormat.channelCount();
+        qDebug(logAudio()) << role() << "installing RX audio processing hook"
+                          << "proc=" << proc << "sampleRate=" << sr
+                          << "channels=" << ch;
         QMetaObject::invokeMethod(converter, [converter=this->converter, proc, sr, ch]{
             converter->setPreResampleHook([proc, sr, ch](Eigen::VectorXf s){
                 return proc->processAudio(std::move(s), sr, ch);
@@ -220,7 +274,8 @@ bool audioHandlerBase::init(const audioSetup& setup)
 #endif
 
     initialized = true;
-    qInfo(logAudio()) << role() << "thread id" << QThread::currentThreadId();
+    MCP_ATTACH_AUDIO(this, setup, nativeFormat, radioFormat);
+    qDebug(logAudio()) << role() << "thread id" << QThread::currentThreadId();
     return true;
 }
 
@@ -258,5 +313,3 @@ void audioHandlerBase::stateChanged(QAudio::State state)
 }
 
 void audioHandlerBase::clearUnderrun() { isUnderrun.store(false, std::memory_order_relaxed); }
-
-

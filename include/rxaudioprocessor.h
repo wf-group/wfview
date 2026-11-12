@@ -47,6 +47,7 @@ using rfft_plan = rfft_plan_i*;
 class SpeexNrProcessor;   // forward — defined in speexnrprocessor.h
 class AnrNrProcessor;     // forward — defined in anrnrprocessor.h
 class TriplePara;         // forward — defined in triple_para.h
+class CwSidetoneGenerator; // forward — defined in cwsidetonegenerator.h
 
 class RxAudioProcessor : public QObject
 {
@@ -107,6 +108,14 @@ public:
     // Spectrum capture — thread-safe; call from main thread.
     void setSpectrumEnabled(bool en);
     void setSpectrumFps(int fps);   // 1–60; default 10
+
+    // Runtime RX mute — silences received audio (sidetone still passes).
+    // Not a persisted setting; defaults to unmuted. Thread-safe.
+    void setMuted(bool muted);
+
+    // CW Sender sidetone, rendered at the RX stream rate and mixed after mute.
+    // Thread-safe.
+    void setCwSidetone(std::shared_ptr<CwSidetoneGenerator> generator);
 
     // ── Getters ───────────────────────────────────────────────────────────────
     bool  bypassed()       const;
@@ -231,10 +240,12 @@ private:
     QString             m_sidetoneFormat;          // format string (e.g. "float32")
     double              m_sidetoneResampleFrac = 0.0; // fractional sample carry-over for interpolation
     bool                m_sidetoneLoggedOnce   = false; // one-shot format diagnostic
+    std::shared_ptr<CwSidetoneGenerator> m_cwSidetone;
 
     // ── Per-block state (converter thread only, no locking needed) ────────────
     float  m_activeSR       = 0.0f;
     int    m_activeChannels = 1;
+    bool   m_processLoggedOnce = false;
 
     // Cached Speex params — detect changes to push into SpeexNrProcessor
     int    m_cachedSpeexSuppress = 0;
@@ -262,6 +273,9 @@ private:
     // SPEC_FFT_LEN is declared public above.
     std::atomic<bool> m_specEnabled   { false };
     std::atomic<int>  m_specTargetFps { 10 };
+
+    // Runtime RX mute (written from main thread, read on converter thread).
+    std::atomic<bool> m_muted         { false };
 
     rfft_plan              m_specFftPlan  { nullptr };
     std::vector<double>    m_specFftBuf;

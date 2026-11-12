@@ -13,6 +13,7 @@
 #include <QWaitCondition>
 #include <QDateTime>
 #include <QRandomGenerator>
+#include <atomic>
 
 #include "wfviewtypes.h"
 #include "rigidentities.h"
@@ -26,39 +27,49 @@ inline QMap<QString,int> priorityMap = {{"None",0},{"Immediate",1},{"Highest",2}
 
 // Command with no param is a get by default
 struct queueItem {
-    queueItem () {}
-    queueItem (queueItem const &q): command(q.command), param(q.param), receiver(q.receiver), recurring(q.recurring) {};
-    queueItem (funcs command, QVariant param, bool recurring, uchar receiver) : command(command), param(param), receiver(receiver), recurring(recurring){};
-    queueItem (funcs command, QVariant param, bool recurring) : command(command), param(param), receiver(false), recurring(recurring){};
-    queueItem (funcs command, QVariant param) : command(command), param(param),receiver(0), recurring(false){};
-    queueItem (funcs command, bool recurring, uchar receiver) : command(command), param(QVariant()), receiver(receiver), recurring(recurring) {};
-    queueItem (funcs command, bool recurring) : command(command), param(QVariant()), receiver(0), recurring(recurring) {};
-    queueItem (funcs command) : command(command), param(QVariant()), receiver(0), recurring(false){};
+    queueItem() : id(nextId++){}
+    queueItem (queueItem const &q): command(q.command), param(q.param), receiver(q.receiver), recurring(q.recurring), rawData(q.rawData), id(nextId++) {};
+    queueItem (funcs command, QVariant param, bool recurring, uchar receiver) : command(command), param(param), receiver(receiver), recurring(recurring), id(nextId++) {};
+    queueItem (funcs command, QVariant param, bool recurring) : command(command), param(param), receiver(0), recurring(recurring), id(nextId++) {};
+    queueItem (funcs command, QVariant param) : command(command), param(param),receiver(0), recurring(0), id(nextId++) {};
+    queueItem (funcs command, bool recurring, uchar receiver) : command(command), param(QVariant()), receiver(receiver), recurring(recurring), id(nextId++) {};
+    queueItem (funcs command, bool recurring) : command(command), param(QVariant()), receiver(0), recurring(recurring), id(nextId++) {};
+    queueItem (funcs command) : command(command), param(QVariant()), receiver(0), recurring(false), id(nextId++){};
+    queueItem (QByteArray rawData, uchar receiver=0) : command(funcNone), param(QVariant()), receiver(receiver), recurring(false), rawData(rawData), id(nextId++) {};
     funcs command;
     QVariant param;
     uchar receiver;
     bool recurring;
-    qint64 id = QDateTime::currentMSecsSinceEpoch();
+    QByteArray rawData;
+    static std::atomic<qint64> nextId;
+    qint64 id = nextId++;
+    //qint64 id = QDateTime::currentMSecsSinceEpoch();
 
-    bool operator==(const queueItem& lhs)
+    bool operator==(const queueItem& lhs) const
     {
         return (lhs.command == command &&
                 lhs.receiver == receiver &&
                 lhs.recurring == recurring &&
-                lhs.param.isValid() == param.isValid());
+                lhs.param.isValid() == param.isValid() &&
+                lhs.rawData == rawData);
     }
 };
 
 struct cacheItem {
-    cacheItem () {};
-    cacheItem (cacheItem const &c): command(c.command), req(c.req), reply(c.reply), value(c.value), receiver(c.receiver) {};
+    cacheItem() = default;
+    cacheItem(const cacheItem&) = default;
+    cacheItem& operator=(const cacheItem&) = default;
+    //cacheItem (cacheItem const &c): command(c.command), req(c.req), reply(c.reply), value(c.value), receiver(c.receiver) {};
     cacheItem (funcs command, QVariant value, uchar receiver=0) : command(command), req(QDateTime()), reply(QDateTime()), value(value), receiver(receiver){};
 
-    funcs command;
+    funcs command = funcNone;
     QDateTime req;
     QDateTime reply;
     QVariant value;
-    uchar receiver;
+    uchar receiver = 0;
+    uchar retries=0;
+
+    /*
     cacheItem &operator=(const cacheItem &i) {
         this->receiver=i.receiver;
         this->command=i.command;
@@ -67,6 +78,7 @@ struct cacheItem {
         this->value=i.value;
         return *this;
     }
+    */
 };
 
 class cachingQueue : public QThread
@@ -75,6 +87,7 @@ class cachingQueue : public QThread
 
 signals:
     void haveCommand(funcs func, QVariant param, uchar receiver);
+    void haveRawCommand(QByteArray data, uchar receiver);
     void sendValue(cacheItem item);
     void sendMessage(QString msg);
     void cacheUpdated(cacheItem item);
@@ -104,26 +117,27 @@ private:
     bool compare(QVariant a, QVariant b);
 
     // Various other values
-    bool aborted=false;
+    std::atomic_bool aborted{false};
     qint64 queueInterval=-1; // Don't start the timer!
     
-    rigCapabilities* rigCaps = Q_NULLPTR; // Must be NULL until a radio is connected
+    rigCapabilities* rigCaps = nullptr; // Must be NULL until a radio is connected
     
     // Functions
     void run();
     funcs checkCommandAvailable(funcs cmd, bool set=false);
     rigStateType rigState;
     QByteArray yaesuData;
+    bool vfoFreqSwappedLocked() const;
 
 protected:
-    cachingQueue(QObject* parent = Q_NULLPTR) : QThread(parent) {};
+    cachingQueue(QObject* parent = nullptr) : QThread(parent) {};
     ~cachingQueue();
 
 public:
     cachingQueue(cachingQueue &other) = delete;
     void operator=(const cachingQueue &) = delete;
 
-    static cachingQueue *getInstance(QObject* parent = Q_NULLPTR);
+    static cachingQueue *getInstance(QObject* parent = nullptr);
     void message(QString msg);
     void putYaesuData(QByteArray data) { yaesuData = data;}
     QByteArray getYaesuData() { return yaesuData; }
@@ -133,8 +147,10 @@ public:
     void addUnique(queuePriority prio ,funcs func, bool recurring=false, uchar receiver=0);
     void addUnique(queuePriority prio, queueItem item);
 
-    queuePriority del(funcs func, uchar receiver=0);
+    queuePriority del(funcs func, uchar receiver=0, bool includePending=false);
     void clear();
+    void clearCache();
+
     void interval(qint64 val);
     qint64 interval() {return queueInterval;}
     void updateCache(bool reply, queueItem item);
@@ -154,6 +170,8 @@ public:
     rigCapabilities* getRigCaps() { return rigCaps; }
     vfoCommandType getVfoCommand(vfo_t vfo, uchar rx, bool set=false);
     rigStateType getState() { QMutexLocker locker(&mutex); return rigState ;}
+    // True when VFO B is active on a rig whose Selected/Unselected Freq commands are fixed to VFO A/B
+    bool vfoFreqSwapped() { QMutexLocker locker(&mutex); return vfoFreqSwappedLocked(); }
 };
 
 Q_DECLARE_METATYPE(queueItem)

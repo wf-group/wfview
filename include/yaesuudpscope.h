@@ -61,7 +61,7 @@ private:
     quint16 rxCatPacketId = 0;
     quint64 poll = 20;
     quint64 currentPoll = 20;
-    QElapsedTimer* pollTimer = Q_NULLPTR;
+    QElapsedTimer* pollTimer = nullptr;
 
 };
 

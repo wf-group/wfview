@@ -84,7 +84,7 @@ bool database::check()
             QDateTime timestamp;
             QString mode;
             QString comment;
-            QCPItemText* text = Q_NULLPTR;*/
+            QCPItemText* text = nullptr;*/
         qu.exec("CREATE TABLE spots "
             "(id INTEGER PRIMARY KEY, "
             "type VARCHAR(3),"

@@ -29,7 +29,7 @@ void yaesuUdpScope::incomingUdp(void* buf, size_t bufLen)
         if (bufLen == sizeof(yaesuR2C_ScopeDataFrame))
         {
             yaesuR2C_ScopeDataFrame* r = (yaesuR2C_ScopeDataFrame*)buf;
-            if (pollTimer != Q_NULLPTR && pollTimer->hasExpired(currentPoll))
+            if (pollTimer != nullptr && pollTimer->hasExpired(currentPoll))
             {
                 emit haveScopeData(QByteArray((char *)r->data,sizeof(r->data)));
                 pollTimer->start();
@@ -67,7 +67,7 @@ void yaesuUdpScope::sendConnect()
     d1.result = session;
     outgoing((quint8*)&d1,sizeof(d1));
 
-    if (pollTimer == Q_NULLPTR)
+    if (pollTimer == nullptr)
     {
         pollTimer = new QElapsedTimer();
     }

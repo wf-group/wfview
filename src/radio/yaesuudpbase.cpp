@@ -1,6 +1,7 @@
 #include "yaesuudpbase.h"
 
 #include "logcategories.h"
+#include "mcphooks.h"
 
 // This "base" UDP class handles all connection and encoding/decoding of packets.
 // Each "child" class has it's own constructor.
@@ -20,7 +21,7 @@ void yaesuUdpBase::init()
 }
 yaesuUdpBase::~yaesuUdpBase()
 {
-    if (sock != Q_NULLPTR)
+    if (sock != nullptr)
         qInfo(logUdp()).noquote() << QString("Closing Yaesu UDP connection to %0:%1 (from %2:%3)")
                                      .arg(remoteAddr.toString()).arg(remotePort).arg(sock->localAddress().toString()).arg(sock->localPort()) ;
 }
@@ -34,6 +35,7 @@ void yaesuUdpBase::incoming() {
         if (remoteLen >= 0) {
             localLen = decodePacket(&remoteBuffer, remoteLen);
             if (localLen >= 0) {
+                MCP_NETWORK_RX(this, QByteArray::fromRawData((const char*)localBuffer, int(localLen)));
                 incomingUdp(localBuffer, localLen);
             }
         }
@@ -45,10 +47,11 @@ void yaesuUdpBase::outgoing(void *buf, size_t bufLen)
     //QMutexLocker locker(&mutex);
     if (remoteAddr.isNull())
         return;
+    MCP_NETWORK_TX(this, QByteArray::fromRawData((const char*)buf, int(bufLen)));
     qint64 remoteLen = encodePacket((quint8*) buf, bufLen);
     if (remoteLen < 0)
         return;
-    if (sock != Q_NULLPTR)
+    if (sock != nullptr)
         sock->writeDatagram((char*)&remoteBuffer, remoteLen, remoteAddr, remotePort);
 }
 

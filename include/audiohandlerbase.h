@@ -41,6 +41,29 @@ class TxAudioProcessor;
 class RxAudioProcessor;
 #endif
 
+// Process-wide relay for audio device failures. Audio handlers are created in
+// many places (network, USB bridge, wfshare), so they all report here and the
+// GUI listens in one place. Emitted from audio threads; connect queued.
+class audioDeviceNotifier : public QObject
+{
+    Q_OBJECT
+public:
+    enum Problem {
+        DeviceBlank = 0,     // no device is configured
+        DeviceNotFound,      // the configured device is not present
+        DeviceUnusable       // the device exists but could not be opened
+    };
+    Q_ENUM(Problem)
+
+    static audioDeviceNotifier* instance();
+
+signals:
+    void deviceProblem(int role, bool isInput, int problem, QString deviceName, QString detail);
+
+private:
+    explicit audioDeviceNotifier(QObject* parent = nullptr) : QObject(parent) {}
+};
+
 class audioHandlerBase : public QObject
 {
     Q_OBJECT
@@ -88,8 +111,10 @@ protected:
     virtual bool isFormatSupported(QAudioFormat f) { Q_UNUSED(f) qCritical(logAudio()) << "No isFormatSupported()!"; return false; };
 
     void reportError(const QString& msg);
+    void reportDeviceProblem(int problem);
 
 protected:
+    QString          lastError;
     audioSetup       setupData{};
     QAudioFormat     radioFormat;
     QAudioFormat     nativeFormat;

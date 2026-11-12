@@ -57,7 +57,7 @@
 */
 HFFT InitializeFFT(size_t fftlen)
 {
-   int temp;
+   size_t temp;
    HFFT h{ safenew FFTParam };
 
    /*
@@ -77,7 +77,7 @@ HFFT InitializeFFT(size_t fftlen)
       for(size_t mask = h->Points / 2; mask > 0; mask >>= 1)
          temp = (temp >> 1) + (i & mask ? h->Points : 0);
 
-      h->BitReversed[i] = temp;
+      h->BitReversed[i] = static_cast<int>(temp);
    }
 
    for(size_t i = 0; i < h->Points; i++)

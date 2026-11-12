@@ -82,6 +82,16 @@ struct rigInput {
     qint8 reg;
     QString name;
     uchar level;
+    bool operator!=(const rigInput& o) const noexcept
+    {
+        return (type != o.type || reg != o.reg);
+    }
+
+    bool operator==(const rigInput& o) const noexcept
+    {
+        return (type == o.type && reg == o.reg);
+    }
+
 };
 
 
@@ -134,24 +144,25 @@ enum centerSpansType {
 
 struct centerSpanData {
     centerSpanData() {}
-    centerSpanData(centerSpanData const &c): reg(c.reg), name(c.name), freq(c.freq)  {}
     centerSpanData(uchar reg, QString name, unsigned int freq) :
         reg(reg), name(name), freq(freq){}
     uchar reg;
     QString name;
     unsigned int freq;
 
-    centerSpanData &operator=(const centerSpanData &i) {
-        this->reg=i.reg;
-        this->name=i.name;
-        this->freq=i.freq;
-        return *this;
+    bool operator==(const centerSpanData& o) const noexcept
+    {
+        return (reg == o.reg && freq == o.freq);
+    }
+
+    bool operator!=(const centerSpanData& o) const noexcept
+    {
+        return !(*this == o);
     }
 };
 
 struct bandType {
     bandType() {band=bandUnknown;}
-    bandType(bandType const &b): region(b.region), band(b.band), bsr(b.bsr), lowFreq(b.lowFreq), highFreq(b.highFreq), range(b.range), memGroup(b.memGroup), bytes(b.bytes), ants(b.ants), power(b.power), color(b.color), name(b.name), offset(b.offset){};
     bandType(QString region, availableBands band, uchar bsr, quint64 lowFreq, quint64 highFreq, double range, int memGroup, qint8 bytes, bool ants, float power, QColor color, QString name, int offset) :
         region(region), band(band), bsr(bsr), lowFreq(lowFreq), highFreq(highFreq), range(range), memGroup(memGroup), bytes(bytes), ants(ants), power(power), color(color), name(name), offset(offset) {}
 
@@ -170,30 +181,21 @@ struct bandType {
     QString name;
     qint64 newFreq=0;
     qint64 offset;
-    bandType &operator=(const bandType &i) {
-        this->region=i.region;
-        this->band=i.band;
-        this->bsr=i.bsr;
-        this->lowFreq=i.highFreq;
-        this->defaultMode=i.defaultMode;
-        this->range=i.range;
-        this->memGroup=i.memGroup;
-        this->bytes=i.bytes;
-        this->ants=i.ants;
-        this->power=i.power;
-        this->color=i.color;
-        this->name=i.name;
-        this->newFreq=i.newFreq;
-        this->offset=i.offset;
-        return *this;
+
+    bool operator==(const bandType& o) const noexcept
+    {
+        return (region == o.region && band == o.band && bsr == o.bsr);
+    }
+
+    bool operator!=(const bandType& o) const noexcept
+    {
+        return !(*this == o);
     }
 };
 
 // Used for setting/retrieving BSR information
 struct bandStackType {
-    bandStackType(): band(0),reg(0),freq(freqt()),data(0),mode(0),filter(0) {}
-    bandStackType(bandStackType const &b): band(b.band),reg(b.reg),freq(b.freq),data(b.data),
-        mode(b.mode),filter(b.filter), sql(b.sql), tone(b.tone), tsql(b.tsql) {}
+    bandStackType(): band(0),reg(1),freq(freqt()),data(0),mode(0),filter(0) {}
     bandStackType(uchar band, uchar reg): band(band),reg(reg), freq(), data(0), mode(0), filter(0) {}
     bandStackType(uchar band, uchar reg, freqt freq, uchar data, uchar mode, uchar filter):
         band(band), reg(reg), freq(freq), data(data), mode(mode), filter(filter) {};
@@ -206,17 +208,15 @@ struct bandStackType {
     uchar sql;
     toneInfo tone;
     toneInfo tsql;
-    bandStackType &operator=(const bandStackType &i) {
-        this->band=i.band;
-        this->reg=i.reg;
-        this->freq=i.freq;
-        this->data=i.data;
-        this->mode=i.mode;
-        this->filter=i.filter;
-        this->sql=i.sql;
-        this->tone=i.tone;
-        this->tsql=i.tsql;
-        return *this;
+
+    bool operator==(const bandStackType& o) const noexcept
+    {
+        return (band == o.band && reg == o.reg);
+    }
+
+    bool operator!=(const bandStackType& o) const noexcept
+    {
+        return !(*this == o);
     }
 
 };
@@ -224,28 +224,61 @@ struct bandStackType {
 
 struct filterType {
     filterType():num(0),name(""),modes(0) {}
-    filterType(filterType const &f): num(f.num),name(f.name),modes(f.modes) {}
     filterType(quint8 num, QString name, unsigned int modes) :
         num(num), name(name), modes(modes) {}
 
     quint8 num;
     QString name;
     unsigned int modes;
+
+    bool operator==(const filterType& o) const noexcept
+    {
+        return (num == o.num);
+    }
+
+    bool operator!=(const filterType& o) const noexcept
+    {
+        return !(*this == o);
+    }
+
+
 };
 
 struct genericType {
     genericType():num(0),name("") {}
-    genericType(genericType const &g):num(g.num),name(g.name) {}
     genericType(quint8 num, QString name) :
         num(num), name(name) {}
     quint8 num;
     QString name;
+
+    bool operator==(const genericType& o) const noexcept
+    {
+        return (num == o.num);
+    }
+
+    bool operator!=(const genericType& o) const noexcept
+    {
+        return !(*this == o);
+    }
+
 };
 
 
+// One AGC setting from the rig file. SetOnly entries can be sent but the rig
+// never reports them (Kenwood "AGC ON"); ReadOnly entries are reported by the
+// rig but cannot be selected (Yaesu AUTO-MID/AUTO-SLOW).
+struct agcType {
+    agcType() {}
+    agcType(quint8 num, QString name, bool setOnly, bool readOnly) :
+        num(num), name(name), setOnly(setOnly), readOnly(readOnly) {}
+    quint8 num = 0;
+    QString name;
+    bool setOnly = false;
+    bool readOnly = false;
+};
+
 struct widthsType {
     widthsType():bands(0),num(0),hz(0) {}
-    widthsType(widthsType const &w):bands(w.bands),num(w.num),hz(w.hz) {}
     widthsType(ushort bands, uchar num, ushort hz) : bands(bands),num(num),hz(hz) {}
     ushort bands;
     uchar num;
@@ -278,6 +311,7 @@ struct rigCapabilities {
     quint8 spectSeqMax;
     quint16 spectAmpMax;
     quint16 spectLenMax;
+    double spectDbPerDN = 0.5; // dB represented by one step (DN) of spectrum amplitude data
     quint8 numReceiver;
     quint8 numVFO;
 
@@ -308,8 +342,10 @@ struct rigCapabilities {
 
     bool hasAdvancedRptrToneCmds = false;
     bool hasQuickSplitCommand = false;
+    bool cwDecodeRequiresDisplay = false; // CW Decode Enable only works while CW Decode Display is on
 
     bool hasCommand29 = false;
+    bool absoluteVFOFreq = false; // Selected/Unselected Freq address VFO A/B rather than the active VFO
 
     QByteArray quickSplitCommand;
     QHash<funcs,funcType> commands;
@@ -317,6 +353,7 @@ struct rigCapabilities {
 
     std::vector <genericType> attenuators;
     std::vector <genericType> preamps;
+    std::vector <agcType> agcModes;
     std::vector <genericType> antennas;
     std::vector <filterType> filters;
     std::vector <centerSpanData> scopeCenterSpans;
@@ -346,6 +383,14 @@ struct rigCapabilities {
     QMap<int,double> meters[meterUnknown+1];
     double meterLines[meterUnknown+1];
 };
+
+inline uchar initialDataModeForRig(const rigCapabilities* caps)
+{
+    if (caps && !caps->commands.contains(funcDataMode) && !caps->commands.contains(funcDataModeWithFilter))
+        return 0;
+
+    return 0xff;
+}
 
 Q_DECLARE_METATYPE(manufacturersType_t)
 Q_DECLARE_METATYPE(connectionType_t)

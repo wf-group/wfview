@@ -18,6 +18,7 @@ HasWiFi=false
 HasTransmit=true
 HasFDComms=false
 HasCommand29=false
+AbsoluteVFOFreq=false
 MemGroups=0
 Memories=101
 MemStart=1

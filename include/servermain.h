@@ -10,7 +10,6 @@
 #include <QVector>
 #include <QTimer>
 #include <QSettings>
-#include <QShortcut>
 #include <QMetaType>
 
 #include "logcategories.h"
@@ -32,6 +31,8 @@
 #include "yaesuserver.h"
 #include "rigctld.h"
 #include "signal.h"
+#include "iaxclientsession.h"
+#include "radiotransportframe.h"
 
 #include <qserialportinfo.h>
 
@@ -52,8 +53,8 @@ public:
 
 signals:
     // Basic to rig:
-    void setCIVAddr(unsigned char newRigCIVAddr);
-    void setRigID(unsigned char rigID);
+    void setCIVAddr(quint16 newRigCIVAddr);
+    void setRigID(quint16 rigID);
     void setPTTType(pttType_t ptt);
 
     // Power
@@ -160,8 +161,8 @@ signals:
     void sayFrequency();
     void sayMode();
     void sayAll();
-    void sendCommSetup(unsigned char rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
-    void sendCommSetup(unsigned char rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    void sendCommSetup(quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate,QString vsp, quint16 tcp, quint8 wf);
+    void sendCommSetup(quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
     void sendCloseComm();
     void sendChangeLatency(quint16 latency);
     void initServer();
@@ -185,6 +186,9 @@ private slots:
     void updateAudioDevices();
 
 private:
+#ifdef WFVIEW_MCP
+    friend class McpHostServer;
+#endif
     QSettings *settings=Q_NULLPTR;
     void loadSettings();
 
@@ -203,6 +207,15 @@ private:
     void removeRig();
 
     void setServerToPrefs();
+    void startWfShareStation();
+    void flushWfShareTxBuffer();
+    void ensureNativeServerRxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate);
+    void stopNativeServerRxAudio(RIGCONFIG *radio);
+    void ensureNativeServerTxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate);
+    void stopNativeServerTxAudio(RIGCONFIG *radio);
+    void ensureWfShareRxAudio(RIGCONFIG *radio);
+    void ensureWfShareTxAudio(RIGCONFIG *radio);
+    void sendWfShareAudio(const audioPacket &packet);
     void setInitialTiming();
     void getSettingsFilePath(QString settingsFile);
     void setManufacturer(manufacturersType_t man);
@@ -239,7 +252,7 @@ private:
 
     struct preferences {
         manufacturersType_t manufacturer;
-        unsigned char radioCIVAddr;
+        quint16 radioCIVAddr;
         bool CIVisRadioModel;
         bool pttType;
         QString serialPortRadio;
@@ -251,6 +264,13 @@ private:
         bool haveRigCaps = false;
         quint16 tcpPort;
         audioType audioSystem;
+        bool wfShareEnabled;
+        QString wfShareHost;
+        quint16 wfSharePort;
+        QString wfShareUsername;
+        QString wfSharePassword;
+        bool wfShareDirectEnabled;
+        quint16 wfShareDirectPort;
     } prefs;
 
     preferences defPrefs;
@@ -280,6 +300,15 @@ private:
 
     rigServer* server = Q_NULLPTR;
     rigCtlD* rigCtl = Q_NULLPTR;
+    IaxClientSession* wfShareStation = Q_NULLPTR;
+    IaxClientSession* wfShareDirect = Q_NULLPTR;
+    bool wfShareClientConnected = false;
+    bool wfShareClientHasSentCiv = false;
+    quint32 wfShareRxFrames = 0;
+    quint32 wfShareTxFrames = 0;
+    QTimer* wfShareTxFlushTimer = Q_NULLPTR;
+    QByteArray wfShareTxBuffer;
+    QByteArray wfSharePendingCivToClient;
     QThread* serverThread = Q_NULLPTR;
 
     rigstate* rigState = Q_NULLPTR;
@@ -293,15 +322,6 @@ private:
 };
 
 
-Q_DECLARE_METATYPE(audioPacket)
-Q_DECLARE_METATYPE(audioSetup)
-Q_DECLARE_METATYPE(SERVERCONFIG)
-Q_DECLARE_METATYPE(networkStatus)
-Q_DECLARE_METATYPE(networkAudioLevels)
-Q_DECLARE_METATYPE(radio_cap_packet)
-Q_DECLARE_METATYPE(codecType)
-Q_DECLARE_METATYPE(errorType)
-Q_DECLARE_METATYPE(rigTypedef)
 Q_DECLARE_METATYPE(rigstate*)
 
 #endif // WFMAIN_H

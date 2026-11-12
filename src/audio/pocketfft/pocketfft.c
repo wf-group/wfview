@@ -15,6 +15,12 @@
 
 #include "pocketfft.h"
 
+#if defined(_MSC_VER)
+/* Vendored pocketfft uses size_t math with APIs that take int/double.
+   These conversions are part of the original algorithm; keep them explicit to MSVC. */
+#pragma warning(disable: 4244 4267)
+#endif
+
 #define RALLOC(type,num) \
   ((type *)malloc((num)*sizeof(type)))
 #define DEALLOC(ptr) \

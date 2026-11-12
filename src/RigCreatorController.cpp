@@ -1,0 +1,88 @@
+#include <QDebug>
+#include "logcategories.h"
+
+#include "RigCreatorController.h"
+#include "themebridge.h"
+
+// Access main Qt theme from QML.
+
+RigCreatorController::RigCreatorController(QObject *parent) :
+    QObject(parent)
+{
+
+    qInfo() << "Creating instance of RigCreatorController()";
+
+    m_store    = new IniStore(this);
+    m_settings = new SettingsMap(this);
+    m_settings->setStore(m_store);
+
+    connect(m_store, &IniStore::dirtyChanged, this, &RigCreatorController::dirtyChanged);
+
+
+    for (int i=0;i<funcLastFunc;i++)
+        m_commandTypeChoices << QVariantMap{{"text",funcString[i]}, {"value",funcString[i]}};
+    emit commandTypeChoicesChanged();
+
+}
+
+
+
+RigCreatorController::~RigCreatorController()
+{
+    qInfo() << "Deleting instance of RigCreatorController()";
+}
+
+bool RigCreatorController::loadFile(QString file)
+{
+
+    const QUrl url(file);
+    if (url.isValid() && url.isLocalFile()) {
+        file = url.toLocalFile();          // handles file:///, %20, Windows paths, etc.
+    }
+
+    qInfo() << "Loading file: " << file;
+
+    if (file.isEmpty() || !QFileInfo::exists(file))
+        return false;
+
+    setLoading(true);
+
+    const bool ok = m_store->load(file);
+    if (ok) {
+        currentFile = file;
+        emit iniPathChanged();
+    }
+
+    setLoading(false);
+
+    return ok;
+}
+
+
+void RigCreatorController::changed()
+{
+    settingsChanged = true;
+}
+
+bool RigCreatorController::saveFile(QString file)
+{
+    qInfo() << "Saving file: " << file;
+
+    const QUrl url(file);
+    if (url.isValid() && url.isLocalFile())
+        file = url.toLocalFile();
+
+    if (file.isEmpty())
+        return false;
+
+    // Optional: enforce extension
+    if (!file.endsWith(".rig", Qt::CaseInsensitive))
+        file += ".rig";
+
+    const bool ok = m_store->saveAs(file);
+    if (ok) {
+        currentFile = file;
+        emit iniPathChanged();
+    }
+    return ok;
+}

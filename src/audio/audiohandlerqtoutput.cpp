@@ -37,11 +37,12 @@ bool audioHandlerQtOutput::openDevice() noexcept
         audioDevice->write(silence.constData(), silence.size());
     }
 
-    connect(audioOutput, SIGNAL(destroyed()), audioDevice, SLOT(deleteLater()), Qt::UniqueConnection);
+    // audioDevice is owned by the Qt audio backend and is destroyed inside
+    // ~QAudioSink(), before destroyed() fires. Never delete it here.
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    qInfo(logAudio()) << "Connected to Qt audio output device" << deviceInfo.deviceName();
+    qDebug(logAudio()) << "Connected to Qt audio output device" << deviceInfo.deviceName();
 #else
-    qInfo(logAudio()) << "Connected to Qt audio output device" << deviceInfo.description();
+    qDebug(logAudio()) << "Connected to Qt audio output device" << deviceInfo.description();
 #endif
     return true;
 }
@@ -115,7 +116,26 @@ void audioHandlerQtOutput::writeToOutputDevice(QByteArray data, quint32 seq, flo
 
 QAudioFormat audioHandlerQtOutput::getNativeFormat()
 {
-    return setupData.port.preferredFormat();
+    QAudioFormat format = setupData.port.preferredFormat();
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+    if (format.channelCount() < 1 && setupData.port.maximumChannelCount() > 0) {
+        qWarning(logAudio()) << "Qt audio output preferred format has no channels; deriving fallback for"
+                             << setupData.port.description();
+        format.setChannelCount(qMin(2, setupData.port.maximumChannelCount()));
+        format.setSampleRate(qMax(48000, setupData.port.minimumSampleRate()));
+        if (setupData.port.maximumSampleRate() > 0)
+            format.setSampleRate(qMin(format.sampleRate(), setupData.port.maximumSampleRate()));
+
+        const auto sampleFormats = setupData.port.supportedSampleFormats();
+        if (sampleFormats.contains(QAudioFormat::Float))
+            format.setSampleFormat(QAudioFormat::Float);
+        else if (sampleFormats.contains(QAudioFormat::Int16))
+            format.setSampleFormat(QAudioFormat::Int16);
+        else if (!sampleFormats.isEmpty())
+            format.setSampleFormat(sampleFormats.first());
+    }
+#endif
+    return format;
 }
 
 bool audioHandlerQtOutput::isFormatSupported(QAudioFormat f)

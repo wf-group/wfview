@@ -57,6 +57,12 @@
    Conference on Acoustics, Speech, and Signal Processing, 2004.
 */
 
+#if defined(_MSC_VER)
+/* Vendored Speex preprocessor code intentionally narrows to Speex fixed-point
+   and float types in DSP loops. Suppress MSVC conversion noise only. */
+#pragma warning(disable: 4244 4305)
+#endif
+
 #include <math.h>
 #include "speex_preprocess.h"
 #include "arch.h"
@@ -1252,4 +1258,3 @@ EXPORT int speex_preprocess_ctl(SpeexPreprocessState *state, int request, void *
 #ifdef FIXED_DEBUG
 long long spx_mips=0;
 #endif
-

@@ -32,6 +32,12 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#if defined(_MSC_VER)
+/* Vendored Speex approximation helpers intentionally narrow constants to
+   Speex word types. Keep formulas unchanged and suppress MSVC conversion noise. */
+#pragma warning(disable: 4244)
+#endif
+
 #ifndef MATH_APPROX_H
 #define MATH_APPROX_H
 

@@ -24,7 +24,7 @@ public:
     struct Settings {
         Settings();
 
-        size_t WindowSize() const { return 1u << (3 + mWindowSizeChoice); }
+        size_t WindowSize() const { return size_t{1} << (3 + mWindowSizeChoice); }
         unsigned StepsPerWindow() const { return 1u << (1 + mStepsPerWindowChoice); }
         bool       mDoProfile;
         double     mNewSensitivity;   // - log10 of a probability... yeah.

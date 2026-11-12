@@ -1,18 +1,13 @@
 #include "icomudpaudio.h"
 #include "logcategories.h"
-#ifndef BUILD_WFSERVER
-#include "txaudioprocessor.h"
-#include "rxaudioprocessor.h"
-#endif
-#include <algorithm>
-#include <cstring>
 
 static inline quint32 makeExtendedSeq(quint32 prefix, quint16 seq16) {
     return (prefix << 16) | quint32(seq16);
 }
 
 // Audio stream
-icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPort, quint16 lport, audioSetup rxSetup, audioSetup txSetup)
+icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPort, quint16 lport,
+                           audioSetup rxSetup, audioSetup txSetup, bool localTxInputEnabled)
 {
     qInfo(logUdp()) << "Starting icomUdpAudio";
     this->localIP = local;
@@ -20,6 +15,7 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
     this->radioIP = ip;
     this->rxSetup = rxSetup;
     this->txSetup = txSetup;
+    this->localTxInputEnabled = localTxInputEnabled;
 
     if (txSetup.sampleRate == 0) {
         enableTx = false;
@@ -42,88 +38,75 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
 
 icomUdpAudio::~icomUdpAudio()
 {
-    qDebug(logUdp()) << "[SHUTDOWN] ~icomUdpAudio enter";
-    // dispose() must be called BEFORE quit() so the audio handler can
-    // shut down its converterThread via BlockingQueuedConnection while
-    // the audio thread's event loop is still running.
-    if (rxaudio) {
-        qDebug(logUdp()) << "[SHUTDOWN] rxaudio->dispose() ...";
-        rxaudio->dispose();
-        qDebug(logUdp()) << "[SHUTDOWN] rxaudio->dispose() done";
-    }
-    if (txaudio) {
-        qDebug(logUdp()) << "[SHUTDOWN] txaudio->dispose() ...";
-        txaudio->dispose();
-        qDebug(logUdp()) << "[SHUTDOWN] txaudio->dispose() done";
-    }
-
-    if (rxAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread->quit()";
+    if (rxAudioThread != nullptr) {
+        qDebug(logUdp()) << "Stopping rxaudio thread";
         rxAudioThread->quit();
-        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread->wait() ...";
         rxAudioThread->wait();
-        qDebug(logUdp()) << "[SHUTDOWN] rxAudioThread done";
     }
 
-    if (txAudioThread != Q_NULLPTR) {
-        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread->quit()";
+    if (txAudioThread != nullptr) {
+        qDebug(logUdp()) << "Stopping txaudio thread";
         txAudioThread->quit();
-        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread->wait() ...";
         txAudioThread->wait();
-        qDebug(logUdp()) << "[SHUTDOWN] txAudioThread done";
     }
-    qDebug(logUdp()) << "[SHUTDOWN] ~icomUdpAudio complete";
+    qDebug(logUdp()) << "icomUdpHandler successfully closed";
 }
 
 void icomUdpAudio::watchdog()
 {
-    static bool alerted = false;
     if (lastReceived.msecsTo(QTime::currentTime()) > 30000)
     {
-        if (!alerted) {
+        if (!watchdogAlerted) {
             /* Just log it at the moment, maybe try signalling the control channel that it needs to
                 try requesting civ/audio again? */
 
             qInfo(logUdp()) << " Audio Watchdog: no audio data received for 30s, restart required? last:" << lastReceived  ;
-            alerted = true;
-            if (rxAudioThread != Q_NULLPTR) {
+            watchdogAlerted = true;
+            if (rxAudioThread != nullptr) {
                 qDebug(logUdp()) << "Stopping rxaudio thread";
                 rxAudioThread->quit();
                 rxAudioThread->wait();
-                rxAudioThread = Q_NULLPTR;
-                rxaudio = Q_NULLPTR;
+                rxAudioThread = nullptr;
+                rxaudio = nullptr;
             }
 
-            if (txAudioThread != Q_NULLPTR) {
+            if (txAudioThread != nullptr) {
                 qDebug(logUdp()) << "Stopping txaudio thread";
                 txAudioThread->quit();
                 txAudioThread->wait();
-                txAudioThread = Q_NULLPTR;
-                txaudio = Q_NULLPTR;
+                txAudioThread = nullptr;
+                txaudio = nullptr;
             }            
         }
     }
     else
     {
-        alerted = false;
+        watchdogAlerted = false;
     }
 }
 
 
 void icomUdpAudio::sendTxAudio()
 {
-    if (txaudio == Q_NULLPTR) {
+    if (txaudio == nullptr) {
         return;
     }
 
 }
 
 void icomUdpAudio::receiveAudioData(audioPacket audio) {
-    // I really can't see how this could be possible but a quick sanity check!
-    if (txaudio == Q_NULLPTR) {
+    if (!enableTx) {
+        return;
+    }
+    if (audio.channels > 1) {
+        qWarning(logUdp()) << "Icom LAN TX audio expected mono, got" << audio.channels << "channels";
         return;
     }
     if (audio.data.length() > 0) {
+        const auto peak = quint16(qBound(0, qRound(audio.amplitudePeak * 255.0f), 255));
+        const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
+        emit haveTxLevels(peak, rms, txSetup.latency, 0, false, false);
+
         int len = 0;
 
         while (len < audio.data.length()) {
@@ -202,37 +185,36 @@ void icomUdpAudio::dataReceived()
                     seqPrefix++;
                 }
 
-                if (rxAudioThread == Q_NULLPTR)
+                if (rxAudioThread == nullptr)
                     startAudio();
 
-                const int excess = pingLatenessMs - (pingBaselineMs + rxSetup.latency);
+                // Drop audio that is arriving later than the configured latency allows,
+                // so that a delay spike does not leave us playing behind real time.
+                // pingLatenessMs is measured above the recent best-case delay, so it
+                // returns to ~0 by itself once the spike is over.
+                const int excessMs = pingLatenessMs;
+                const int dropThresholdMs = PingDelayTracker::dropThresholdMs(rxSetup.latency);
 
-                if (excess > 0) {
-                    qDebug(logUdp()) << "Audio latency high:"
-                                     << "lateness" << pingLatenessMs
-                                     << "baseline" << pingBaselineMs
-                                     << "excess" << excess;
-
-                    if (++latencyCounter > 5) {
-                        qInfo(logUdp()) << "Latency sustained -> flushing audio";
-                        latencyCounter = 0;
-                        //flushAudio();   // clear queue / reset decoder
-                        break;
+                if (excessMs > dropThresholdMs) {
+                    ++droppedLatencyPackets;
+                    if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
+                        qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
+                                        << "excessDelay" << excessMs
+                                        << "configuredLatency" << rxSetup.latency
+                                        << "threshold" << dropThresholdMs
+                                        << "dropped" << droppedLatencyPackets;
+                        lastLatencyDropLog.restart();
                     }
-                } else {
-                    latencyCounter = 0;
+                    break;
                 }
+
                 audioPacket tempAudio;
                 tempAudio.seq  = quint32(seqPrefix << 16) | quint32(in->seq) ;
+                // Arrival time: the lateness decision has been made above, so the
+                // output handler's age check must not drop it a second time.
                 tempAudio.time = QTime::currentTime();
                 tempAudio.sent = 0;
                 tempAudio.data = r.mid(0x18);
-
-                // When RX is muted (self-monitor mode), silence the radio audio
-                // so only the sidetone is heard.
-                if (m_rxMuted)
-                    tempAudio.data.fill(0);
-
                 emit haveAudioData(tempAudio);
                 lastReceived = QTime::currentTime();
             }
@@ -257,14 +239,9 @@ void icomUdpAudio::startAudio() {
     else if (rxSetup.type == rtAudio) {
         rxaudio = new audioHandlerRtOutput();
     }
-#ifndef BUILD_WFSERVER
-    else if (rxSetup.type == tciAudio) {
-        rxaudio = new audioHandlerTciOutput();
-    }
-#endif
     else
     {
-        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!";
+        qCritical(logAudio()) << "Unsupported Receive Audio Handler selected!" << rxSetup.type;
         return;
     }
 
@@ -283,15 +260,19 @@ void icomUdpAudio::startAudio() {
     connect(this, SIGNAL(haveSetVolume(quint8)), rxaudio, SLOT(setVolume(quint8)));
     connect(rxaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getRxLevels(quint16, quint16, quint16, quint16, bool, bool)));
     connect(rxAudioThread, SIGNAL(finished()), rxaudio, SLOT(deleteLater()));
-    connect(rxaudio, &audioHandlerBase::initFailed, this, &icomUdpAudio::onRxAudioInitFailed);
+
+    connect(rxAudioThread, SIGNAL(finished()), rxaudio, SLOT(deleteLater()));
 
     sendControl(false, 0x03, 0x00); // First connect packet
 
-    pingTimer = new QTimer(this);
-    connect(pingTimer, &QTimer::timeout, this, &icomUdpBase::sendPing);
-    pingTimer->start(PING_PERIOD); // send ping packets every 100ms
+    // startAudio() runs again after the watchdog has stopped audio; keep a single ping timer.
+    if (pingTimer == nullptr) {
+        pingTimer = new QTimer(this);
+        connect(pingTimer, &QTimer::timeout, this, &icomUdpBase::sendPing);
+        pingTimer->start(PING_PERIOD); // send ping packets every 100ms
+    }
 
-    if (enableTx) {
+    if (enableTx && localTxInputEnabled) {
         if (txSetup.type == qtAudio) {
             txaudio = new audioHandlerQtInput();
         }
@@ -301,19 +282,14 @@ void icomUdpAudio::startAudio() {
         else if (txSetup.type == rtAudio) {
             txaudio = new audioHandlerRtInput();
         }
-#ifndef BUILD_WFSERVER
-        else if (txSetup.type == tciAudio) {
-            txaudio = new audioHandlerTciInput();
-        }
-#endif
         else
         {
-            qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!";
+            qCritical(logAudio()) << "Unsupported Transmit Audio Handler selected!" << txSetup.type;
             return;
         }
 
         txAudioThread = new QThread(this);
-        rxAudioThread->setObjectName("txAudio()");
+        txAudioThread->setObjectName("txAudio()");
 
         txaudio->moveToThread(txAudioThread);
 
@@ -324,58 +300,9 @@ void icomUdpAudio::startAudio() {
         connect(txaudio, SIGNAL(haveLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
 
         connect(txAudioThread, SIGNAL(finished()), txaudio, SLOT(deleteLater()));
-        connect(txaudio, &audioHandlerBase::initFailed, this, &icomUdpAudio::onTxAudioInitFailed);
-
-#ifndef BUILD_WFSERVER
-        // Sidetone: always route through RxAudioProcessor (mixed AFTER NR,
-        // resampled if needed).  RX mute still goes to this class for packet-level silencing.
-        // Disconnect first — txProc/rxProc survive reconnects.
-        if (txSetup.txProc && rxSetup.rxProc) {
-            disconnect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                       rxSetup.rxProc, &RxAudioProcessor::injectSidetone);
-            connect(txSetup.txProc, &TxAudioProcessor::haveSidetoneFloat,
-                    rxSetup.rxProc, &RxAudioProcessor::injectSidetone,
-                    Qt::DirectConnection);
-            qDebug(logAudio()) << "Icom sidetone: connected TxProc → RxProc (DirectConnection)";
-        } else {
-            qWarning(logAudio()) << "Icom sidetone: txProc=" << (txSetup.txProc != nullptr)
-                                 << "rxProc=" << (rxSetup.rxProc != nullptr)
-                                 << "— sidetone will NOT work";
-        }
-        if (txSetup.txProc) {
-            connect(txSetup.txProc, &TxAudioProcessor::haveRxMuted,
-                    this, &icomUdpAudio::setRxMuted,
-                    Qt::QueuedConnection);
-        }
-#endif
-
         emit setupTxAudio(txSetup);
     }
 
     emit setupRxAudio(rxSetup);
 
-}
-
-
-void icomUdpAudio::setRxMuted(bool muted)
-{
-    m_rxMuted = muted;
-}
-
-void icomUdpAudio::onRxAudioInitFailed()
-{
-    qWarning(logAudio()) << "RX Audio Initialization failed. Cleaning up.";
-    if (rxAudioThread) {
-        rxAudioThread->quit();
-    }
-    rxaudio = nullptr;
-}
-
-void icomUdpAudio::onTxAudioInitFailed()
-{
-    qWarning(logAudio()) << "TX Audio Initialization failed. Cleaning up.";
-    if (txAudioThread) {
-        txAudioThread->quit();
-    }
-    txaudio = nullptr;
 }

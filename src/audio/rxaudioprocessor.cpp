@@ -13,6 +13,7 @@
 #include "anrnrprocessor.h"
 #include "triple_para.h"
 #include "rxaudioprocessor.h"
+#include "cwsidetonegenerator.h"
 #include "logcategories.h"
 #include <cmath>
 #include <algorithm>
@@ -69,6 +70,13 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
                                                 int   channels)
 {
     if (samples.size() == 0) return samples;
+    if (!m_processLoggedOnce) {
+        qInfo(logAudio()) << "RxAudioProcessor first block"
+                          << "samples=" << samples.size()
+                          << "sampleRate=" << sampleRate
+                          << "channels=" << channels;
+        m_processLoggedOnce = true;
+    }
 
     // ── Debug WAV capture (raw input, before any processing) ────────────────
     if (m_debugCapturing.load(std::memory_order_acquire)) {
@@ -95,6 +103,10 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         QMutexLocker lk(&m_mutex);
         p = m_params;
     }
+
+    // Runtime RX mute: silence received audio (sidetone is mixed in afterwards,
+    // so self-monitoring still passes through). Not a persisted setting.
+    const bool muted = m_muted.load(std::memory_order_relaxed);
 
     // Clamp channel count
     if (channels < 1) channels = 1;
@@ -152,9 +164,29 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         }
     }
 
+    // ── ANR profile collection — feed raw input regardless of mode/bypass ────
+    // Collected before the bypass check so a sample can be taken while
+    // processing is bypassed.  Stereo is reduced using the selected channel.
+    if (m_anr->isProfiling()) {
+        if (channels == 2) {
+            const int frames = static_cast<int>(samples.size()) / 2;
+            std::vector<float> mono(static_cast<size_t>(frames));
+            for (int i = 0; i < frames; ++i) {
+                const float l = samples[i * 2], r = samples[i * 2 + 1];
+                mono[static_cast<size_t>(i)] = p.channelSelect == 1 ? l
+                                             : p.channelSelect == 2 ? r
+                                             : (l + r) * 0.5f;
+            }
+            m_anr->addProfileSamples(mono.data(), frames);
+        } else {
+            m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
+        }
+    }
+
     // ── Master bypass ────────────────────────────────────────────────────────
     // In bypass mode, pass audio through unchanged (preserving stereo if present).
     if (p.bypass) {
+        if (muted) samples.setZero();
         mixSidetone(samples, channels, p);
         emit rxOutputLevel(samples.array().abs().maxCoeff());
         if (specActive) {
@@ -194,12 +226,6 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
         channels = 1;
     }
 
-    // ── ANR profile collection — feed raw input regardless of active mode ─────
-    // Buffer is already mono at this point (stereo downmixed above).
-    if (m_anr->isProfiling()) {
-        m_anr->addProfileSamples(samples.data(), static_cast<int>(samples.size()));
-    }
-
     pushSpeexParams(p);
     pushAnrParams(p);
     pushEqParams(p);
@@ -226,6 +252,7 @@ Eigen::VectorXf RxAudioProcessor::processAudio(Eigen::VectorXf samples,
     samples = samples.array().max(-1.0f).min(1.0f);
 
     // ── Mix sidetone (AFTER NR so user's own voice is not processed) ─────────
+    if (muted) samples.setZero();
     mixSidetone(samples, channels, p);
 
     emit rxOutputLevel(samples.array().abs().maxCoeff());
@@ -351,16 +378,21 @@ void RxAudioProcessor::appendSpectrumSamples(const Eigen::VectorXf& in,
 // Mixes buffered sidetone into the RX output, with linear-interpolation
 // resampling when the sidetone sample rate differs from the RX stream rate.
 // Handles mono and stereo output (sidetone is always mono → duplicated to
-// both channels for stereo).
+// both channels for stereo). The CW Sender sidetone is rendered here too.
 
 void RxAudioProcessor::mixSidetone(Eigen::VectorXf& samples, int channels,
                                    const Params& /*p*/)
 {
     QMutexLocker lk(&m_sidetoneMutex);
-    if (m_sidetoneBuf.empty()) return;
 
     const int n      = static_cast<int>(samples.size());
     const int frames = (channels == 2) ? n / 2 : n;
+
+    // Rendered at the stream rate, so no resampling is needed.
+    if (m_cwSidetone)
+        m_cwSidetone->mixInto(samples.data(), frames, channels, m_activeSR);
+
+    if (m_sidetoneBuf.empty()) return;
     const int bufLen = static_cast<int>(m_sidetoneBuf.size());
 
     // Compute resample ratio: how many sidetone samples per output frame.
@@ -404,6 +436,12 @@ void RxAudioProcessor::mixSidetone(Eigen::VectorXf& samples, int channels,
         m_sidetoneBuf.erase(m_sidetoneBuf.begin(),
                             m_sidetoneBuf.begin() + consumed);
     m_sidetoneResampleFrac = srcPos - consumed;
+}
+
+void RxAudioProcessor::setCwSidetone(std::shared_ptr<CwSidetoneGenerator> generator)
+{
+    QMutexLocker lk(&m_sidetoneMutex);
+    m_cwSidetone = std::move(generator);
 }
 
 // ─── injectSidetone ──────────────────────────────────────────────────────────
@@ -900,6 +938,7 @@ void RxAudioProcessor::setEqBandGain(int idx, float dB)  { if (idx < 0 || idx >=
 void RxAudioProcessor::setEqBandFreq(int idx, float hz)  { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqFreq[idx] = hz; }
 void RxAudioProcessor::setEqBandQ(int idx, float q)      { if (idx < 0 || idx >= 4) return; QMutexLocker lk(&m_mutex); m_params.eqQ[idx]    = q; }
 void RxAudioProcessor::setOutputGainDB(float v)          { QMutexLocker lk(&m_mutex); m_params.outputGainDB   = v; }
+void RxAudioProcessor::setMuted(bool v)                  { m_muted.store(v, std::memory_order_relaxed); }
 
 // ─── Getters ─────────────────────────────────────────────────────────────────
 

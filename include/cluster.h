@@ -17,8 +17,6 @@
 #include <QSqlQuery>
 #endif
 
-#include <qcustomplot.h>
-
 #ifdef USESQL
 #include "database.h"
 #endif
@@ -30,16 +28,17 @@ struct spotData {
     QDateTime timestamp;
     QString mode;
     QString comment;
-    QCPItemText* text = Q_NULLPTR;
+    int timeout; // lifetime in seconds, 0 = never expires
     bool current = false;
 };
+Q_DECLARE_METATYPE(spotData)
 
 struct clusterSettings {
     QString server;
     int port=7300;
     QString userName;
     QString password;
-    int timeout=30;
+    int timeout=60; // spot lifetime in seconds
     bool isdefault;
 };
 
@@ -55,8 +54,21 @@ class dxClusterClient : public QObject
     Q_OBJECT
 
 public:
+    enum tcpStatus {
+        tcpNotConnected = 0,
+        tcpConnecting,
+        tcpConnectedNoTraffic,
+        tcpConnectedTraffic,
+        tcpError
+    };
+
     explicit dxClusterClient(QObject* parent = nullptr);
     virtual ~dxClusterClient();
+    static bool parseTcpSpotLine(const QString &line, int timeout, spotData *spot);
+
+    static constexpr int tcpConnectTimeoutMs = 60000;
+    static constexpr int spotLifetimeMin = 10;
+    static constexpr int spotLifetimeMax = 999;
 
 signals:
     void addSpot(spotData* spot);
@@ -65,43 +77,66 @@ signals:
     void sendOutput(QString text);
     void sendSpots(quint8 receiver, QList<spotData> spots);
     void sendSubSpots(QList<spotData> spots);
+    void tcpStatusChanged(int status);
 
 public slots:
     void udpDataReceived();
     void tcpDataReceived();
     void tcpDisconnected();
+    void tcpConnected();
+    void tcpSocketError();
+    void tcpConnectTimedOut();
     void enableUdp(bool enable);
     void enableTcp(bool enable);
+    void reconnectTcpIfChanged();
     void setUdpPort(int p) { udpPort = p; }
-    void setTcpServerName(QString s) { tcpServerName = s; }
-    void setTcpPort(int p) { tcpPort = p; }
-    void setTcpUserName(QString s) { tcpUserName = s; }
-    void setTcpPassword(QString s) { tcpPassword = s; }
+    void setTcpServerName(QString s) { tcpServerName = s; clearStaleStatus(); }
+    void setTcpPort(int p) { tcpPort = p; clearStaleStatus(); }
+    void setTcpUserName(QString s) { tcpUserName = s; clearStaleStatus(); }
+    void setTcpPassword(QString s) { tcpPassword = s; clearStaleStatus(); }
     void setTcpTimeout(int p) { tcpTimeout = p; }
+    void setUdpLifetime(int seconds) { udpLifetime = seconds; }
     void tcpCleanup();
     void freqRange(quint8 receiver, double low, double high);
     void enableSkimmerSpots(bool enable);
+    void shutdown();
 
 private:
     void sendTcpData(QString data);
     bool databaseOpen();
     void updateSpots();
+    void storeSpot(spotData* spot);
+    void openTcp();
+    void closeTcp(bool sayBye);
+    void failTcp(const QString &reason);
+    void setTcpStatus(tcpStatus s);
+    bool targetChanged() const;
+    void clearStaleStatus();
+    void ensureCleanupTimer();
 
     bool udpEnable;
     bool tcpEnable;
-    QUdpSocket* udpSocket=Q_NULLPTR;
-    QTcpSocket* tcpSocket=Q_NULLPTR;
+    QUdpSocket* udpSocket=nullptr;
+    QTcpSocket* tcpSocket=nullptr;
     int udpPort;
     QString tcpServerName;
     int tcpPort;
     QString tcpUserName;
     QString tcpPassword;
-    int tcpTimeout;
+    int tcpTimeout = 60;
+    int udpLifetime = 0; // seconds, 0 = keep until the sender deletes the spot
+    QString connectedServerName;
+    int connectedPort = 0;
+    QString connectedUserName;
+    QString connectedPassword;
+    tcpStatus status = tcpNotConnected;
     QDomDocument udpSpotReader;
     QRegularExpression tcpRegex;
+    QString tcpReceiveBuffer;
     QMutex mutex;
     bool authenticated=false;
-    QTimer* tcpCleanupTimer=Q_NULLPTR;
+    QTimer* tcpCleanupTimer=nullptr;
+    QTimer* tcpConnectTimer=nullptr;
 #ifdef USESQL
     QSqlDatabase db;
 #endif
@@ -112,6 +147,9 @@ private:
     QMap<uchar,rangeValues> freqRanges;
     QMap<QString,spotData*> allSpots;
     bool skimmerSpots = false;
+    bool shuttingDown = false;
 };
+
+Q_DECLARE_METATYPE(clusterSettings)
 
 #endif

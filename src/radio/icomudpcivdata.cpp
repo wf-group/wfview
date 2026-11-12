@@ -51,7 +51,7 @@ void icomUdpCivData::watchdog()
     {
         if (!alerted) {
             qInfo(logUdp()) << " CIV Watchdog: no CIV data received for 2s, requesting data start.";
-            if (startCivDataTimer != Q_NULLPTR)
+            if (startCivDataTimer != nullptr)
             {
                 startCivDataTimer->start(100);
             }
@@ -135,7 +135,7 @@ void icomUdpCivData::dataReceived()
                 // Manually send a CIV start request and start the timer if it isn't received.
                 // The timer will be stopped as soon as valid CIV data is received.
                 sendOpenClose(false);
-                if (startCivDataTimer != Q_NULLPTR) {
+                if (startCivDataTimer != nullptr) {
                     startCivDataTimer->start(100);
                 }
             }
@@ -149,7 +149,7 @@ void icomUdpCivData::dataReceived()
                     // Process this packet, any re-transmit requests will happen later.
                     //uint16_t gotSeq = qFromLittleEndian<quint16>(r.mid(6, 2));
                     // We have received some Civ data so stop sending Start packets!
-                    if (startCivDataTimer != Q_NULLPTR) {
+                    if (startCivDataTimer != nullptr) {
                         startCivDataTimer->stop();
                     }
                     lastReceived = QTime::currentTime();

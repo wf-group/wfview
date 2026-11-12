@@ -1,0 +1,186 @@
+#include "logcategories.h"
+#include "SelectRadioController.h"
+
+// RadioTableModel implementation
+RadioTableModel::RadioTableModel(QObject* parent)
+    : QAbstractTableModel(parent)
+{
+}
+
+int RadioTableModel::rowCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent)
+    return m_radios.count();
+}
+
+int RadioTableModel::columnCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent)
+    return 5; // Name, CIV, Baudrate, User, IP
+}
+
+QVariant RadioTableModel::data(const QModelIndex& index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_radios.count())
+        return QVariant();
+
+    const RadioInfo& radio = m_radios[index.row()];
+
+    if (role == Qt::DisplayRole) {
+        switch (index.column()) {
+        case 0: return radio.name;
+        case 1: return radio.civ;
+        case 2: return radio.baudrate;
+        case 3: return radio.user;
+        case 4: return radio.ip;
+        }
+    }
+    else if (role == NameRole) return radio.name;
+    else if (role == CivRole) return radio.civ;
+    else if (role == BaudrateRole) return radio.baudrate;
+    else if (role == UserRole) return radio.user;
+    else if (role == IpRole) return radio.ip;
+    else if (role == BusyRole) return radio.busy;
+    else if (role == RowRole) return index.row();
+
+    return QVariant();
+}
+
+QHash<int, QByteArray> RadioTableModel::roleNames() const
+{
+    QHash<int, QByteArray> roles;
+    roles[NameRole] = "name";
+    roles[CivRole] = "civ";
+    roles[BaudrateRole] = "baudrate";
+    roles[UserRole] = "user";
+    roles[IpRole] = "ip";
+    roles[BusyRole] = "busy";
+    roles[RowRole] = "row";
+    roles[Qt::DisplayRole] = "display";
+    return roles;
+}
+
+void RadioTableModel::populate(const QList<radio_cap_packet>& radios)
+{
+    beginResetModel();
+    m_radios.clear();
+
+    for (const auto& radio : radios) {
+        RadioInfo info;
+        info.name = QString(radio.name);
+        info.civ = QString("0x%1").arg((uchar)radio.civ, 2, 16, QLatin1Char('0')).toUpper();
+        info.baudrate = QString::number(qFromBigEndian(radio.baudrate));
+        info.user = "";
+        info.ip = "";
+        info.busy = 0;
+        m_radios.append(info);
+    }
+
+    endResetModel();
+}
+
+void RadioTableModel::setInUse(quint8 radio, bool admin, quint8 busy, const QString& user, const QString& ip)
+{
+    Q_UNUSED(admin)
+
+    if (radio >= m_radios.count())
+        return;
+
+    m_radios[radio].user = user;
+    m_radios[radio].ip = ip;
+    m_radios[radio].busy = busy;
+
+    QModelIndex topLeft = index(radio, 0);
+    QModelIndex bottomRight = index(radio, 4);
+    emit dataChanged(topLeft, bottomRight);
+}
+
+void RadioTableModel::clear()
+{
+    beginResetModel();
+    m_radios.clear();
+    endResetModel();
+}
+
+// SelectRadioController implementation
+SelectRadioController::SelectRadioController(QObject* parent)
+    : QObject(parent)
+    , m_tableModel(new RadioTableModel(this))
+    , m_visible(false)
+    , m_timeDifferenceCounter(0)
+    , m_waterfallCounter(0)
+    , m_spectrumCounter(0)
+    , m_txAudioOwner("none")
+    , m_txAudioSource("none")
+{
+}
+
+SelectRadioController::~SelectRadioController()
+{
+}
+
+void SelectRadioController::setVisible(bool visible)
+{
+    if (m_visible != visible) {
+        m_visible = visible;
+        emit visibleChanged();
+    }
+}
+
+void SelectRadioController::populate(QList<radio_cap_packet> radios)
+{
+    m_tableModel->populate(radios);
+
+    if (radios.count() > 1) {
+        setVisible(true);
+    }
+}
+
+void SelectRadioController::setTxAudioState(const QString& owner, const QString& source)
+{
+    if (m_txAudioOwner == owner && m_txAudioSource == source)
+        return;
+
+    m_txAudioOwner = owner;
+    m_txAudioSource = source;
+    emit txAudioStateChanged();
+}
+
+void SelectRadioController::setInUse(quint8 radio, bool admin, quint8 busy, QString user, QString ip)
+{
+    m_tableModel->setInUse(radio, admin, busy, user, ip);
+}
+
+void SelectRadioController::onRadioSelected(int radio)
+{
+    emit selectedRadio(static_cast<quint8>(radio));
+    setVisible(false);
+}
+
+void SelectRadioController::audioOutputLevel(quint16 level)
+{
+    emit audioOutputLevelChanged(level);
+}
+
+void SelectRadioController::audioInputLevel(quint16 level)
+{
+    emit audioInputLevelChanged(level);
+}
+
+void SelectRadioController::addTimeDifference(qint64 time)
+{
+    emit timeDifferencePointAdded(m_timeDifferenceCounter, time);
+    m_timeDifferenceCounter++;
+}
+
+void SelectRadioController::waterfallTime(double time)
+{
+    emit waterfallPointAdded(m_waterfallCounter, time);
+    m_waterfallCounter++;
+}
+
+void SelectRadioController::spectrumTime(double time)
+{
+    emit spectrumPointAdded(m_spectrumCounter, time);
+    m_spectrumCounter++;
+}

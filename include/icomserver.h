@@ -13,6 +13,7 @@
 #include <QList>
 #include <QVector>
 #include <QMap>
+#include <QElapsedTimer>
 
 // Allow easy endian-ness conversions
 #include <QtEndian>
@@ -25,6 +26,7 @@
 #include "icomudphandler.h"
 #include "audiohandler.h"
 #include "rigcommander.h"
+#include "pingdelaytracker.h"
 
 extern void passcode(QString in,QByteArray& out);
 extern QByteArray parseNullTerminatedString(QByteArray c, int s);
@@ -108,15 +110,15 @@ private:
 
 		quint8 civId;
 		bool isAuthenticated;
-		CLIENT* controlClient = Q_NULLPTR;
-		CLIENT* civClient = Q_NULLPTR;
-		CLIENT* audioClient = Q_NULLPTR;
+		CLIENT* controlClient = nullptr;
+		CLIENT* civClient = nullptr;
+		CLIENT* audioClient = nullptr;
         quint8 guid[GUIDLEN];
 
-        qint64 startTime;
-        QTime clientTime;
-        qint64 timeOffset;
-        qint64 timeDifference = 0;
+        // Audio only: queuing delay of incoming TX audio, from client pings.
+        PingDelayTracker pingDelay;
+        int droppedLatePackets = 0;
+        QElapsedTimer lastLateDropLog;
 	};
 
 	void controlReceived();
@@ -134,10 +136,11 @@ private:
 	void sendRetransmitRequest(CLIENT* c);
 	void watchdog();
 	void deleteConnection(QList<CLIENT*> *l, CLIENT* c);
+	void dropUnauthorizedClients() override;
 
-	QUdpSocket* udpControl = Q_NULLPTR;
-	QUdpSocket* udpCiv = Q_NULLPTR;
-	QUdpSocket* icomUdpAudio = Q_NULLPTR;
+	QUdpSocket* udpControl = nullptr;
+	QUdpSocket* udpCiv = nullptr;
+	QUdpSocket* icomUdpAudio = nullptr;
 	QHostAddress localIP;
 	quint8 macAddress[6];
 	
@@ -166,6 +169,8 @@ private:
 
 	QHostAddress hasTxAudio;
 	QTimer* wdTimer;
+
+	QElapsedTimer monoClock; // Local time base for PingDelayTracker.
 
 };
 

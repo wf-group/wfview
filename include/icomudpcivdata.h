@@ -48,7 +48,7 @@ private:
 	void dataReceived();
 	void sendOpenClose(bool close);
 
-	QTimer* startCivDataTimer = Q_NULLPTR;
+	QTimer* startCivDataTimer = nullptr;
 	bool splitWaterfall = false;
 };
 

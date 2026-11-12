@@ -39,7 +39,8 @@ class yaesuUdpAudio: public yaesuUdpBase
     Q_OBJECT
 
 public:
-    yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port, audioSetup rxAudio, audioSetup txAudio);
+    yaesuUdpAudio(QHostAddress local, QHostAddress remote, quint16 port,
+                  audioSetup rxAudio, audioSetup txAudio, bool localTxInputEnabled = true);
     ~yaesuUdpAudio();
 
 
@@ -47,12 +48,7 @@ public slots:
     void init();
     void incomingUdp(void* buf, size_t bufLen);
 
-public slots:
-    void setRxMuted(bool muted);
-
 private slots:
-    void onRxAudioInitFailed();
-    void onTxAudioInitFailed();
     void sendHeartbeat();
     void setVolume(quint8 vol);
     void getRxLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
@@ -77,16 +73,20 @@ private:
     audioSetup rxSetup;
     audioSetup txSetup;
 
-    yaesuAudioFormat audioCodec = ShortLE;
-    quint16 audioSize = 640;
-    quint8 audioChannels = 2;
+    yaesuAudioFormat rxAudioCodec = ShortLE;
+    quint16 rxAudioSize = 640;
+    quint8 rxAudioChannels = 2;
+    yaesuAudioFormat txAudioCodec = ShortLE;
+    quint16 txAudioSize = 640;
+    quint8 txAudioChannels = 2;
     quint16 seqPrefix = 0;
 
-    audioHandlerBase* rxaudio = Q_NULLPTR;
-    QThread* rxAudioThread = Q_NULLPTR;
+    audioHandlerBase* rxaudio = nullptr;
+    QThread* rxAudioThread = nullptr;
 
-    audioHandlerBase* txaudio = Q_NULLPTR;
-    QThread* txAudioThread = Q_NULLPTR;
+    audioHandlerBase* txaudio = nullptr;
+    QThread* txAudioThread = nullptr;
+    bool localTxInputEnabled = true;
 
     quint8 audioLevelsTxPeak[audioLevelBufferSize];
     quint8 audioLevelsRxPeak[audioLevelBufferSize];
@@ -99,8 +99,6 @@ private:
     quint8 findMean(quint8 *d);
     quint8 findMax(quint8 *d);
     networkStatus status;
-
-    bool         m_rxMuted = false;
 
 
 };

@@ -35,7 +35,8 @@ class icomUdpAudio : public icomUdpBase
 	Q_OBJECT
 
 public:
-	icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 aport, quint16 lport, audioSetup rxSetup, audioSetup txSetup);
+    icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 aport, quint16 lport, audioSetup rxSetup,
+                 audioSetup txSetup, bool localTxInputEnabled = true);
 	~icomUdpAudio();
 
 	int audioLatency = 0;
@@ -55,15 +56,10 @@ signals:
 public slots:
 	void changeLatency(quint16 value);
 	void setVolume(quint8 value);
-    void setRxMuted(bool muted);
     void getRxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void getTxLevels(quint16 amplitude, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
     void receiveAudioData(audioPacket audio);
 
-
-private slots:
-    void onRxAudioInitFailed();
-    void onTxAudioInitFailed();
 
 private:
 
@@ -71,30 +67,26 @@ private:
 	void dataReceived();
 	void watchdog();
 	void startAudio();
-	audioSetup rxSetup;
-	audioSetup txSetup;
+    audioSetup rxSetup;
+    audioSetup txSetup;
+    bool localTxInputEnabled = true;
 
 	uint16_t sendAudioSeq = 0;
 
-    audioHandlerBase* rxaudio = Q_NULLPTR;
-    QThread* rxAudioThread = Q_NULLPTR;
+    audioHandlerBase* rxaudio = nullptr;
+    QThread* rxAudioThread = nullptr;
 
-    audioHandlerBase* txaudio = Q_NULLPTR;
-    QThread* txAudioThread = Q_NULLPTR;
+    audioHandlerBase* txaudio = nullptr;
+    QThread* txAudioThread = nullptr;
 
-    QTimer* txAudioTimer = Q_NULLPTR;
+    QTimer* txAudioTimer = nullptr;
 	bool enableTx = true;
+	bool watchdogAlerted = false;
 
 	QMutex audioMutex;
 
-    bool         m_rxMuted = false;
-
-    QElapsedTimer audioClock;
-    bool   audioHaveBase = false;
-    quint32 audioBaseSeq = 0;       // extended seq
-    qint64  audioBaseNs  = 0;       // base arrival time (monotonic)
-    int     audioPktMs   = 20;      // TODO set to your actual framing (10/20/40ms etc)
-    int     latencyCounter = 0;
+    int     droppedLatencyPackets = 0;
+    QElapsedTimer lastLatencyDropLog;
 
 
 };

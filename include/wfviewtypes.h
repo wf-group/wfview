@@ -4,6 +4,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QtGlobal>
 #include <QColor>
 #include <stdint.h>
@@ -15,31 +16,46 @@ enum valueType { typeNone=0, typeFloat, typeFloatDiv, typeFloatDiv5, typeUChar, 
 
 enum connectionStatus_t { connDisconnected, connConnecting, connConnected };
 
-enum underlay_t { underlayNone, underlayPeakHold, underlayPeakBuffer, underlayAverageBuffer };
+enum underlay_t { underlayNone = 0, underlayPeak = 1, underlayAverage = 2 };
 
 enum connectionType_t { connectionUSB, connectionLAN, connectionWiFi, connectionWAN };
+
+// Safely convert an integer (e.g. read from settings) into a connectionType_t.
+// Network connections default to LAN when the stored value is missing or invalid.
+inline connectionType_t normalizeConnectionType(int value)
+{
+    switch (value) {
+    case connectionUSB:
+    case connectionLAN:
+    case connectionWiFi:
+    case connectionWAN:
+        return static_cast<connectionType_t>(value);
+    default:
+        return connectionLAN;
+    }
+}
 
 // meterString MUST be updated if any of these are changed, but this might break rigCaps.
 enum meter_t {
     meterNone=0,
-    meterS,
-    meterCenter,
-    meterSWR,
-    meterPower,
-    meterALC,
-    meterComp,
-    meterVoltage,
-    meterCurrent,
-    meterRxdB,
-    meterTxMod,
-    meterRxAudio,
-    meterAudio,
-    meterLatency,
-    meterdBu,
-    meterdBuEMF,
-    meterdBm,
-    meterSubS,
-    meterUnknown
+    meterS=1,
+    meterCenter=2,
+    meterSWR=3,
+    meterPower=4,
+    meterALC=5,
+    meterComp=6,
+    meterVoltage=7,
+    meterCurrent=8,
+    meterRxdB=9,
+    meterTxMod=10,
+    meterRxAudio=11,
+    meterAudio=12,
+    meterLatency=13,
+    meterdBu=14,
+    meterdBuEMF=15,
+    meterdBm=16,
+    meterSubS=17,
+    meterUnknown=18
 };
 
 static QString meterString[19] {"None","S-Meter","Center","SWR","Power","ALC","Comp","Voltage","Current","RX dB","TX Mod", "RX Audio", "Audio", "Latency", "dBu", "dBu EMF", "dBm", "Sub S", ""};
@@ -132,9 +148,14 @@ enum rptAccessTxRx_t {
 
 enum pttType_t { pttCIV, pttRTS, pttDTR };
 
+// The value of funcTunerStatus, the same for every manufacturer.
+enum tunerStatus_t { tunerOff = 0, tunerOn = 1, tunerTuning = 2 };
+
 enum vfoModeType_t { vfoModeVfo, vfoModeMem, vfoModeSat };
 
 enum manufacturersType_t {manufIcom=0, manufKenwood, manufYaesu, manufFlexRadio};
+
+
 
 struct lpfhpf {
     lpfhpf ():lpf(0),hpf(0) {};
@@ -164,6 +185,18 @@ struct modeInfo {
     int bwMin;
     int bwMax;
     int pass;
+
+    // Only compare mode itself, filter/data are checked elsewhere.
+
+    bool operator==(const modeInfo& o) const noexcept
+    {
+        return (mk == o.mk && reg == o.reg);
+    }
+
+    bool operator!=(const modeInfo& o) const noexcept
+    {
+        return !(*this == o);
+    }
 };
 
 struct rigInfo {
@@ -174,6 +207,8 @@ struct rigInfo {
     QString path;
     float version;
 };
+Q_DECLARE_METATYPE(rigInfo)
+
 
 struct antennaInfo {
     quint8 antenna;
@@ -201,6 +236,16 @@ struct toneInfo {
     bool tinv;
     bool rinv;
     bool useSecondaryVFO;
+
+    bool operator!=(const toneInfo& o) const noexcept
+    {
+        return (tone != o.tone);
+    }
+
+    bool operator==(const toneInfo& o) const noexcept
+    {
+        return (tone == o.tone);
+    }
 
 };
 
@@ -373,6 +418,9 @@ funcLoginEnableDisable,
 funcSelectVFO,          funcSeparator,          funcLCDWaterfall,           funcLCDSpectrum,        funcLCDNothing,         funcPageUp,
 funcPageDown,           funcVFOFrequency,       funcVFOMode,                funcRigctlFunction,     funcRigctlLevel,        funcRigctlParam,
 funcRXAudio,            funcTXAudio,
+/* CW Decoder and tuning: rig files map these to the radio's own commands */
+funcSepQ,
+funcCWDecodeEnable,     funcCWDecodeDisplay,    funcCWDecodeThreshold,      funcCWDecodeFilter,     funcCWAutoTune,
 // This MUST be the last defined func.
 funcLastFunc
 };
@@ -514,7 +562,10 @@ static QString funcString[funcLastFunc] { "None",
 /* Special Commands */
 "-Select VFO",          "-Seperator",
 "-LCD Waterfall",       "-LCD Spectrum",        "-LCD Nothing",             "-Page Up",             "-Page Down",           "-VFO Frequency",
-"-VFO Mode",            "-Rigctl Function",     "-Rigctl Level",            "-Rigctl Param",        "-RX Audio Data",       "-TX Audio Data"
+"-VFO Mode",            "-Rigctl Function",     "-Rigctl Level",            "-Rigctl Param",        "-RX Audio Data",       "-TX Audio Data",
+
+"+<CW Decoder>",
+"CW Decode Enable",     "CW Decode Display",    "CW Decode Threshold",      "CW Decode Filter",     "CW Auto Tune"
 };
 
 struct spanType {
@@ -575,6 +626,7 @@ struct errorType {
     QString device;
     QString message;
 };
+Q_DECLARE_METATYPE(errorType)
 
 struct memoryTagType {
     quint16 num;
@@ -683,8 +735,23 @@ struct commandErrorType{
     uchar bytes;
 };
 
-enum audioType {qtAudio,portAudio,rtAudio,tciAudio};
+enum audioType {qtAudio,portAudio,rtAudio};
+Q_DECLARE_METATYPE(audioType)
+
+inline audioType normalizeAudioType(int value)
+{
+    switch (value) {
+    case qtAudio:
+    case portAudio:
+    case rtAudio:
+        return static_cast<audioType>(value);
+    default:
+        return qtAudio;
+    }
+}
+
 enum codecType { LPCM, PCMU, OPUS, ADPCM };
+Q_DECLARE_METATYPE(codecType)
 
 enum passbandActions {passbandStatic, pbtInnerMove, pbtOuterMove, pbtMoving, passbandResizing};
 
@@ -692,24 +759,49 @@ enum usbDeviceType { usbNone = 0, shuttleXpress, shuttlePro2,
                      RC28, xBoxGamepad, unknownGamepad, eCoderPlus, QuickKeys,
                      StreamDeckMini,StreamDeckMiniV2,StreamDeckOriginal,StreamDeckOriginalV2,
                      StreamDeckOriginalMK2,StreamDeckXL,StreamDeckXLV2,StreamDeckPedal, StreamDeckPlus,
-                     XKeysXK3,MiraBox293, MiraBox293S, MiraBoxN3
+                     XKeysXK3,MiraBox293, MiraBox293S, MiraBoxN3, AjazzAKP03
 };
 
 enum usbCommandType{ commandButton, commandKnob, commandAny };
 enum usbFeatureType { featureReset,featureResetKeys, featureEventsA, featureEventsB, featureFirmware, featureSerial, featureButton, featureSensitivity, featureBrightness,
                       featureOrientation, featureSpeed, featureColor, featureOverlay, featureTimeout, featureLCD, featureGraph, featureLEDControl,
-                      featureWakeScreen, featureClearScreen, featureRefresh, featureGetImageBuffer};
+                      featureWakeScreen, featureClearScreen, featureRefresh, featureGetImageBuffer, featureRingAccel};
 
 
 struct periodicType {
     periodicType() {};
-    periodicType(funcs func, QString priority, char receiver) : func(func), priority(priority), prioVal(0), receiver(receiver) {};
-    periodicType(funcs func, QString priority, int prioVal, char receiver) : func(func), priority(priority), prioVal(prioVal), receiver(receiver) {};
+    periodicType(funcs func, QString priority, qint8 receiver) : func(func), priority(priority), prioVal(0), receiver(receiver) {};
+    periodicType(funcs func, QString priority, int prioVal, qint8 receiver) : func(func), priority(priority), prioVal(prioVal), receiver(receiver) {};
+    periodicType(funcs func, QString priority, int prioVal, qint8 receiver, QStringList modes) :
+        func(func), priority(priority), prioVal(prioVal), receiver(receiver), modes(modes) {};
     funcs func;
     QString priority;
     int prioVal;
-    char receiver;
+    qint8 receiver; // -1 = all receivers; signed explicitly because char is unsigned on ARM
+    QStringList modes;
 };
+
+inline bool periodicCommandAllowedForMode(const QVector<periodicType> &periodicCommands,
+                                          funcs func,
+                                          uchar receiver,
+                                          const QString &modeName)
+{
+    const QString normalizedMode = modeName.trimmed().toUpper();
+    bool restricted = false;
+
+    for (const auto &periodic : periodicCommands) {
+        const bool allReceivers = periodic.receiver == -1;
+        const bool receiverMatches = allReceivers || uchar(periodic.receiver) == receiver;
+        if (periodic.func != func || !receiverMatches || periodic.modes.isEmpty())
+            continue;
+
+        restricted = true;
+        if (periodic.modes.contains(normalizedMode))
+            return true;
+    }
+
+    return !restricted;
+}
 
 struct vfoCommandType {
     vfoCommandType (): freqFunc(funcNone), modeFunc(funcNone), vfo(vfoUnknown), receiver(0) {};
@@ -820,7 +912,6 @@ Q_DECLARE_METATYPE(toneInfo)
 Q_DECLARE_METATYPE(meter_t)
 Q_DECLARE_METATYPE(meterkind)
 Q_DECLARE_METATYPE(spectrumBounds)
-Q_DECLARE_METATYPE(rigInfo)
 Q_DECLARE_METATYPE(lpfhpf)
 
 #endif // WFVIEWTYPES_H

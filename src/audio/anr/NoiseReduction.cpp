@@ -28,6 +28,12 @@
 #include "NoiseReduction.h"
 #define _USE_MATH_DEFINES   // required for msvc to define M_PI
 #include <math.h>
+
+#if defined(_MSC_VER)
+// Vendored Audacity ANR code intentionally mixes size_t, int, float, and double
+// in DSP loops. Keep the algorithm unchanged and silence MSVC narrowing noise.
+#pragma warning(disable: 4244 4267)
+#endif
 #include <assert.h>
 #include <exception>
 #include <string.h>

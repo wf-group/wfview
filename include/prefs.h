@@ -4,11 +4,44 @@
 #include <QString>
 #include <QColor>
 #include <QMap>
+#include <QVector>
 #include "audioconverter.h"
 #include "cluster.h"
 #include "rigidentities.h"
 #include "wfviewtypes.h"
-#include "txaudioprocessor.h"  // for EQ_BANDS constant
+
+struct shortcutPreference {
+    bool enabled = true;
+    QString sequence;
+    QString command;
+    int action = 0;
+    int value = 0;
+    int receiver = -1;
+};
+
+constexpr int macroMaxSteps = 20;
+constexpr int macroMaxNameLength = 12;
+constexpr int macroStepDelayMinMs = 50;
+constexpr int macroStepDelayMaxMs = 5000;
+constexpr int macroStepDelayDefaultMs = 200;
+constexpr int macroSpacingMinMs = 20;
+constexpr int macroSpacingMaxMs = 1000;
+constexpr int macroSpacingDefaultMs = 100;
+
+// command is "None", an "app." command, a funcString name, or "raw".
+struct macroStep {
+    QString command = QStringLiteral("None");
+    QString parameter;
+    int delayMs = macroStepDelayDefaultMs;
+};
+
+// id is stable so shortcuts ("app.macro.<id>") survive deleting other macros.
+struct macroPreference {
+    int id = 0;
+    QString name;
+    bool showButton = false;
+    QVector<macroStep> steps;
+};
 
 enum prefIfItem {
     if_useFullScreen = 1 << 0,
@@ -21,7 +54,6 @@ enum prefIfItem {
     if_wftheme = 1 << 7,
     if_plotFloor = 1 << 8,
     if_plotCeiling = 1 << 9,
-    if_stylesheetPath = 1 << 10,
     if_wflength = 1 << 11,
     if_confirmExit = 1 << 12,
     if_confirmPowerOff = 1 << 13,
@@ -29,7 +61,7 @@ enum prefIfItem {
     if_meter2Type = 1 << 15,
     if_meter3Type = 1 << 16,
     if_compMeterReverse = 1 << 17,
-    if_clickDragTuningEnable = 1 << 18,
+    if_adjustablePassbandEnable = 1 << 18,
     if_currentColorPresetNumber = 1 << 19,
     if_rigCreatorEnable = 1 << 20,
     if_frequencyUnits = 1 << 21,
@@ -38,42 +70,72 @@ enum prefIfItem {
     if_separators = 1 << 24,
     if_forceVfoMode = 1 << 25,
     if_autoPowerOn = 1 << 26,
-    if_all = 1 << 27
+    if_peakDecay = 1 << 27,
+    if_spectrumZeroDbBottom = 1 << 28,
+    if_all = ~0
 };
 
-enum prefColItem {
-    col_grid = 1 << 0,
-    col_axis = 1 << 1,
-    col_text = 1 << 2,
-    col_plotBackground = 1 << 3,
-    col_spectrumLine = 1 << 4,
-    col_spectrumFill = 1 << 5,
-    col_useSpectrumFillGradient = 1 << 6,
-    col_spectrumFillTop = 1 << 7,
-    col_spectrumFillBot = 1 << 8,
-    col_underlayLine = 1 << 9,
-    col_underlayFill = 1 << 10,
-    col_useUnderlayFillGradient = 1 << 11,
-    col_underlayFillTop = 1 << 12,
-    col_underlayFillBot = 1 << 13,
-    col_tuningLine = 1 << 14,
-    col_passband = 1 << 15,
-    col_pbtIndicator = 1 << 16,
-    col_meterLevel = 1 << 17,
-    col_meterAverage = 1 << 18,
-    col_meterPeakLevel = 1 << 19,
-    col_meterHighScale = 1 << 20,
-    col_meterScale = 1 << 21,
-    col_meterText = 1 << 22,
-    col_waterfallBack = 1 << 23,
-    col_waterfallGrid = 1 << 24,
-    col_waterfallAxis = 1 << 25,
-    col_waterfallText = 1 << 26,
-    col_clusterSpots = 1 << 27,
-    col_buttonOff = 1 << 28,
-    col_buttonOn = 1 << 29,
-    col_all = 1 << 30
+// Allow 63 different colors
+enum prefColItem : qint64 {
+    col_grid = 1LL << 0,
+    col_axis = 1LL << 1,
+    col_text = 1LL << 2,
+    col_plotBackground = 1LL << 3,
+    col_spectrumLine = 1LL << 4,
+    col_spectrumFill = 1LL << 5,
+    col_useSpectrumFillGradient = 1LL << 6,
+    col_spectrumFillTop = 1LL << 7,
+    col_spectrumFillBot = 1LL << 8,
+    col_underlayLine = 1LL << 9,
+    col_underlayFill = 1LL << 10,
+    col_useUnderlayFillGradient = 1LL << 11,
+    col_underlayFillTop = 1LL << 12,
+    col_underlayFillBot = 1LL << 13,
+    col_tuningLine = 1LL << 14,
+    col_passband = 1LL << 15,
+    col_pbtIndicator = 1LL << 16,
+    col_meterLevel = 1LL << 17,
+    col_meterAverage = 1LL << 18,
+    col_meterPeakLevel = 1LL << 19,
+    col_meterHighScale = 1LL << 20,
+    col_meterScale = 1LL << 21,
+    col_meterText = 1LL << 22,
+    col_waterfallBack = 1LL << 23,
+    col_waterfallGrid = 1LL << 24,
+    col_waterfallAxis = 1LL << 25,
+    col_waterfallText = 1LL << 26,
+    col_clusterSpots = 1LL << 27,
+    col_buttonOff = 1LL << 28,
+    col_buttonOn = 1LL << 29,
+    col_window = 1LL << 30,
+    col_windowText = 1LL << 31,
+    col_base = 1LL << 30,
+    col_alternateBase = 1LL << 32,
+    col_button = 1LL << 33,
+    col_buttonText = 1LL << 34,
+    col_brightText = 1LL << 35,
+    col_mainText = 1LL << 36,
+    col_light = 1LL << 37,
+    col_midLight = 1LL << 38,
+    col_dark = 1LL << 39,
+    col_mid = 1LL << 40,
+    col_shadow = 1LL << 41,
+    col_highlight = 1LL << 42,
+    col_highlightedText = 1LL << 43,
+    col_link = 1LL << 44,
+    col_linkVisited = 1LL << 45,
+    col_toolTipBase = 1LL << 46,
+    col_toolTipText = 1LL << 47,
+    col_placeholder = 1LL << 48,
+    col_freqBackground = 1LL << 49,
+    col_freqForeground = 1LL << 50,
+    col_freqUnits = 1LL << 51,
+    col_freqInactive = 1LL << 52,
+    col_freqHighlight = 1LL << 53,
+    col_clusterSpotLine = 1LL << 54,
+    col_all = ~0LL
 };
+using prefColItems = qint64;
 
 enum prefRsItem {
     rs_dataOffMod = 1 << 0,
@@ -88,11 +150,14 @@ enum prefRsItem {
     rs_satOps = 1 << 9,
     rs_adjRef = 1 << 10,
     rs_debug = 1 << 11,
-    rs_all = 1 << 12
+    rs_modSrcOnConnect = 1 << 12,
+    rs_modSrcOnDisconnect = 1 << 13,
+    rs_macroOnConnect = 1 << 14,
+    rs_macroOnDisconnect = 1 << 15,
+    rs_all = ~0
 };
 
 enum prefRaItem {
-
     ra_radioCIVAddr = 1 << 0,
     ra_CIVisRadioModel = 1 << 1,
     ra_pttType = 1 << 2,
@@ -101,10 +166,14 @@ enum prefRaItem {
     ra_serialPortRadio = 1 << 5,
     ra_serialPortBaud = 1 << 6,
     ra_virtualSerialPort = 1 << 7,
-    ra_localAFgain = 1 << 8,
-    ra_audioSystem = 1 << 9,
-    ra_manufacturer = 1 << 10,
-    ra_all = 1 << 11
+    ra_virtualSerialPortUseQueue = 1 << 8,
+    ra_localAFgain = 1 << 9,
+    ra_audioSystem = 1 << 10,
+    ra_manufacturer = 1 << 11,
+    ra_usbAudio = 1 << 12,
+    ra_usbAudioRx = 1 << 13,
+    ra_usbAudioTx = 1 << 14,
+    ra_all = ~0
 };
 
 enum prefCtItem {
@@ -114,18 +183,19 @@ enum prefCtItem {
     ct_enableUSBControllers = 1 << 3,
     ct_USBControllersSetup = 1 << 4,
     ct_USBControllersReset = 1 << 5,
-    ct_all = 1 << 6
+    ct_pttTimeout = 1 << 6,
+    ct_all = ~0
 };
 
 enum prefLanItem {
-
     l_enableLAN = 1 << 0,
     l_enableRigCtlD = 1 << 1,
     l_rigCtlPort = 1 << 2,
     l_tcpPort = 1 << 3,
     l_tciPort = 1 << 4,
     l_waterfallFormat = 1 << 5,
-    l_all = 1 << 6
+    l_rigCtlIntegerFreqs = 1 << 6,
+    l_all = ~0
 };
 
 enum prefClusterItem {
@@ -140,7 +210,9 @@ enum prefClusterItem {
     cl_clusterSkimmerSpotsEnable = 1 << 8,
     cl_clusterTcpConnect = 1 << 9,
     cl_clusterTcpDisconnect = 1 << 10,
-    cl_all = 1 << 11
+    cl_clusterUdpLifetimeEnable = 1 << 11,
+    cl_clusterUdpLifetime = 1 << 12,
+    cl_all = ~0
 };
 
 enum prefUDPItem {
@@ -163,96 +235,71 @@ enum prefUDPItem {
     u_audioOutput = 1 << 16,
     u_connectionType = 1 << 17,
     u_adminLogin = 1 << 18,
-    u_all = 1 << 19
+    u_all = ~0
 };
 
+static constexpr int TX_AUDIO_EQ_BANDS = 15;
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TX Audio Processing preferences
-// All defaults produce a flat/bypass signal (no DSP applied).
-// ─────────────────────────────────────────────────────────────────────────────
 struct txAudioProcessingPrefs {
-    bool  bypass        = true;   // master bypass — skips all DSP and gain
+    bool  bypass        = true;
     bool  compEnabled   = false;
     bool  eqEnabled     = false;
-    bool  eqFirst       = false;    // true = EQ→Comp, false = Comp→EQ
-    float inputGainDB   = 10.0f;    // -20 to +20 dB
-    float outputGainDB  = 0.0f;    // -20 to +20 dB
-    float eqBands[TxAudioProcessor::EQ_BANDS] = {};  // dB, default all 0
-    float compPeakLimit = -10.0f;  // dB, -30 to 0
-    float compRelease   = 0.1f;    // seconds, 0.01 to 1.0
-    float compFastRatio = 0.2f;    // 0.0 to 1.0, higher values are less compressed
-    float compSlowRatio = 0.2f;    // 0.0 to 1.0, higher values are less compressed
+    bool  eqFirst       = false;
+    float inputGainDB   = 10.0f;
+    float outputGainDB  = 0.0f;
+    float eqBands[TX_AUDIO_EQ_BANDS] = {};
+    float compPeakLimit = -10.0f;
+    float compRelease   = 0.1f;
+    float compFastRatio = 0.2f;
+    float compSlowRatio = 0.2f;
     bool  sidetoneEnabled = false;
-    float sidetoneLevel   = 0.5f;  // 0.0 to 1.0
-    bool  muteRx          = false; // mute RX audio while self-monitoring, not saved to preferences
-    bool  spectrumEnabled       = false; // enable TX spectrum display
-    int   spectrumFPS           = 10;   // repaint rate; 30 fps = 3 FFTs per 100 ms audio block
-    bool  specInhibitDuringRx   = true; // pause TX spectrum while not transmitting
-
-    // Noise gate — runs before input gain on the raw microphone signal.
+    float sidetoneLevel   = 0.5f;
+    bool  spectrumEnabled       = false;
+    int   spectrumFPS           = 10;
+    bool  specInhibitDuringRx   = true;
     bool  gateEnabled   = false;
-    float gateThreshold = -65.0f; // dBFS, -70 .. 0
-    float gateAttack    =  5.0f; // ms, 0.01 .. 1000
-    float gateHold      = 40.0f; // ms, 2 .. 2000
-    float gateDecay     = 20.0f; // ms, 2 .. 4000
-    float gateRange     = -90.0f; // dB attenuation when closed, -90 .. 0
-    float gateLfCutoff  =  380.0f; // Hz, key highpass, 20 .. 4000
-    float gateHfCutoff  = 2700.0f;// Hz, key lowpass,  200 .. 20000
+    float gateThreshold = -65.0f;
+    float gateAttack    = 5.0f;
+    float gateHold      = 40.0f;
+    float gateDecay     = 20.0f;
+    float gateRange     = -90.0f;
+    float gateLfCutoff  = 380.0f;
+    float gateHfCutoff  = 2700.0f;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RX Audio Processing preferences
-// Defaults mirror the algorithm defaults from the demo programs.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Which NR algorithm is active
 enum class RxNrMode { None = 0, Speex = 1, Anr = 2 };
 
 struct rxAudioProcessingPrefs {
-    bool       bypass      = true;  // master bypass — skips NR and output gain
-    bool       nrEnabled   = false;  // enable noise reduction
+    bool       bypass      = true;
+    bool       nrEnabled   = false;
     RxNrMode   nrMode      = RxNrMode::None;
-
-    // ── Channel selection (stereo only; ignored for mono) ──────────────────
-    // 1=left only, 2=right only, 3=sum to mono
-    int  channelSelect = 3;
-
-    // ── Speex parameters ─────────────────────────────────────────────────────
-    int  speexSuppression  = -30;    // max noise attenuation dB (negative, e.g. -30)
-    int  speexBandsPreset  =  3;     // index into band_presets[] in filterbank.h
-    int  speexFrameMs      = 20;     // frame size in ms (10 or 20 typical)
-    bool speexAgc            = false;
-    float speexAgcLevel      = 8000.0f;
-    int   speexAgcMaxGain    = 30;   // dB
-    bool  speexVad           = false;
-    int   speexVadProbStart  = 85;   // 0–100 %; probability to enter voice state
-    int   speexVadProbCont   = 65;   // 0–100 %; probability to stay in voice state
-    float speexSnrDecay       = 0.7f;   // 0.0–0.95; zeta smoothing (lower = faster recovery)
-    float speexNoiseUpdateRate= 0.03f;  // 0.01–0.5; noise floor adaptation speed
-    float speexPriorBase      = 0.1f;   // 0.05–0.5; min weight on current observation
-
-    // ── ANR (Audacity Noise Reduction) parameters ─────────────────────────────
-    double anrNoiseReductionDb =  20.0;  // dB of suppression, 0–48
-    double anrSensitivity      =   1.1;  // –log10(prob), 0–24
-    int    anrFreqSmoothing    =   4;    // frequency-smoothing bands, 0–6
-
-    // ── RX Equalizer (TriplePara: low shelf, low-mid, high-mid, high shelf) ──
+    int        channelSelect = 3;
+    int        speexSuppression  = -30;
+    int        speexBandsPreset  = 3;
+    int        speexFrameMs      = 20;
+    bool       speexAgc          = false;
+    float      speexAgcLevel     = 8000.0f;
+    int        speexAgcMaxGain   = 30;
+    bool       speexVad          = false;
+    int        speexVadProbStart = 85;
+    int        speexVadProbCont  = 65;
+    float      speexSnrDecay       = 0.7f;
+    float      speexNoiseUpdateRate= 0.03f;
+    float      speexPriorBase      = 0.1f;
+    double     anrNoiseReductionDb = 20.0;
+    double     anrSensitivity      = 1.1;
+    int        anrFreqSmoothing    = 4;
     static constexpr int RX_EQ_BANDS = 4;
-    bool  eqEnabled     = false;     // master EQ enable
-    float eqGain[RX_EQ_BANDS]  = {0.0f, 0.0f, 0.0f, 0.0f};  // dB, ±6
-    float eqFreq[RX_EQ_BANDS]  = {100.0f, 800.0f, 2000.0f, 3500.0f};  // Hz
-    float eqQ[RX_EQ_BANDS]     = {1.0f, 1.0f, 1.0f, 1.0f};  // Q for mid bands; slope for shelves
-
-    // ── Output gain ──────────────────────────────────────────────────────────
-    float outputGainDB = 0.0f;       // -6 to +20 dB post-NR gain
-
-    // ── Spectrum display ─────────────────────────────────────────────────────
-    bool spectrumEnabled       = false;  // enable RX spectrum display
-    int  spectrumFPS           = 10;     // repaint rate (fps)
-    bool specInhibitDuringTx   = true;   // pause RX spectrum while transmitting
+    bool       eqEnabled = false;
+    float      eqGain[RX_EQ_BANDS] = {0.0f, 0.0f, 0.0f, 0.0f};
+    float      eqFreq[RX_EQ_BANDS] = {100.0f, 800.0f, 2000.0f, 3500.0f};
+    float      eqQ[RX_EQ_BANDS]    = {1.0f, 1.0f, 1.0f, 1.0f};
+    float      outputGainDB = 0.0f;
+    bool       spectrumEnabled     = false;
+    int        spectrumFPS         = 10;
+    bool       specInhibitDuringTx = true;
 };
+
 
 struct preferences {
     // Program:
@@ -270,8 +317,10 @@ struct preferences {
     bool useSystemTheme;
     int wfEnable;
     bool drawPeaks;
-    underlay_t underlayMode = underlayNone;
-    int underlayBufferSize = 64;
+    underlay_t underlayMode = underlayAverage;
+    int underlayBufferSize = 80;
+    int peakDecay = 50;
+    bool spectrumZeroDbBottom = false; // true: 0 dB at DN 0; false: 0 dB at the rig's amp max
     bool wfAntiAlias;
     bool wfInterpolate;
     int mainWfTheme;
@@ -284,7 +333,6 @@ struct preferences {
     unsigned int subWflength;
     int scopeScrollX;
     int scopeScrollY;
-    QString stylesheetPath;
     bool confirmExit;
     bool confirmPowerOff;
     bool confirmSettingsChanged;
@@ -293,38 +341,83 @@ struct preferences {
     meter_t meter2Type;
     meter_t meter3Type;
     bool compMeterReverse = false;
-    bool clickDragTuningEnable;
+    bool adjustablePassbandEnable = false;
     int currentColorPresetNumber = 0;
     bool rigCreatorEnable = false;
     int frequencyUnits = 3;
     QString region;
     bool showBands;
+    bool miniRxButtons = true;
+    bool showTuningDial = true;
+    bool wideRitSlider = false;  // horizontal RIT slider + spinbox in place of the RIT knob
+    bool alwaysSaveOnExit = false; // save settings on exit without asking
+    bool warnAudioDeviceProblems = true;  // modal warning when an audio device cannot be used
+    bool reverseWheel = false;   // invert mouse-wheel direction on sliders and dials
+    bool sMeterOnTop = false;
+    // Vintage meters. Styles: 0 Modern, 1 Analog, 2 Analog Cream, 3 LCD, 4 LCD Arc.
+    // A non-Modern meterStyle replaces the two additional meters with one vintage
+    // meter fed by meter2Type (primary) and meter3Type (secondary).
+    // Meter choice 1 (meterS) means S+Power: S on receive, Po on transmit.
+    int meterStyle = 0;
+    bool popoutMeter = false;
+    int popoutMeterStyle = 1;
+    bool popoutSecondaryVfo = false;
+    int popoutMeterPrimary = 1;
+    int popoutMeterSecondary = 0;
+    int popoutMeter2Primary = 1;
+    int popoutMeter2Secondary = 0;
+    int popoutMeterWidth = 0;   // 0 = default size
+    int popoutMeterHeight = 0;
+    bool largeFreqDisplay = false; // 50% larger frequency digits and S/power meter
+    bool largeOptionalMeters = false; // 50% larger additional meters
+    QString freqFont; // frequency display font: built-in short name or system family
 
     // Radio:
     manufacturersType_t manufacturer;
-    quint8 radioCIVAddr;
+    quint16 radioCIVAddr;
     bool CIVisRadioModel;
     pttType_t pttType;
     int polling_ms;
     QString serialPortRadio;
     quint32 serialPortBaud;
     QString virtualSerialPort;
+    bool virtualSerialPortUseQueue = false;
     quint8 localAFgain;
     audioType audioSystem;
+    bool enableUsbAudio = false;
+    audioSetup usbRxSetup;
+    audioSetup usbTxSetup;
 
     // Controls:
     bool enablePTT;
+    bool pttTimeoutEnabled = true;
+    int pttTimeoutSeconds = 300;
     bool niceTS;
     bool automaticSidebandSwitching = true;
     bool enableUSBControllers;
+    QVector<shortcutPreference> shortcuts;
+    QVector<macroPreference> macros;
+    int macroNextId = 1;
+    int macroSpacingMs = macroSpacingDefaultMs;
+    bool macroRawWarningShown = false;
 
     // LAN:
     bool enableLAN;
     bool enableRigCtlD;
     quint16 rigCtlPort;
+    bool rigCtlIntegerFreqs = false;
     quint16 tcpPort;
     quint16 tciPort=50001;
     quint8 waterfallFormat;
+
+    // Experimental wfshare remote transport:
+    bool wfShareEnabled = false;
+    bool wfShareDirectMode = false;
+    QString wfShareHost;
+    quint16 wfSharePort = 4569;
+    QString wfShareUsername;
+    QString wfSharePassword;
+    QString wfShareCalledNumber;
 
     // Cluster:
     QList<clusterSettings> clusters;
@@ -332,7 +425,10 @@ struct preferences {
     bool clusterTcpEnable;
     int clusterUdpPort;
     int clusterTcpPort = 7300;
-    int clusterTimeout; // used?
+    int clusterTimeout; // spot lifetime in seconds for the active TCP server
+    bool clusterUdpLifetimeEnable = false;
+    int clusterUdpLifetime = 300; // seconds
+    int clusterSpotFadePercent = 50; // percent of spot lifetime before fading starts
     bool clusterSkimmerSpotsEnable; // where is this used?
     QString clusterTcpServerName;
     QString clusterTcpUserName;
@@ -350,6 +446,20 @@ struct preferences {
     bool useUTC = false;
 
     bool setRadioTime = false;
+
+    // Transmit modulation sources (rigInput reg) applied on connect/disconnect
+    bool setModSrcOnConnect = false;
+    int connectDataOffModSrc = 0;
+    int connectDataOnModSrc = 0;
+    bool setModSrcOnDisconnect = false;
+    int disconnectDataOffModSrc = 0;
+    int disconnectDataOnModSrc = 0;
+
+    // User macros (macroPreference::id, 0 = none) run on connect/disconnect
+    bool runMacroOnConnect = false;
+    int connectMacroId = 0;
+    bool runMacroOnDisconnect = false;
+    int disconnectMacroId = 0;
 
     audioSetup rxSetup;
     audioSetup txSetup;

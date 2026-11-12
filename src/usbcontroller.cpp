@@ -6,8 +6,14 @@
 #endif
 
 #include <QDebug>
+#include <cmath>
 
 #include "logcategories.h"
+
+static QString hidString(const wchar_t *value)
+{
+    return value ? QString::fromWCharArray(value) : QString();
+}
 
 usbController::usbController()
 {
@@ -18,13 +24,14 @@ usbController::usbController()
     loadKnobs();
 
     // This is a the "master" list of supported devices. Maybe move to settings at some point?
-    // usbDeviceType, manufacturer, product, usage, usagePage, buttons, columns, knobs, leds, maxPayload, iconSize
-    knownDevices.append(USBTYPE(shuttleXpress,0x0b33,0x0020,0x0000,0x0000,15,0,2,0,5,0));
-    knownDevices.append(USBTYPE(shuttlePro2,0x0b33,0x0030,0x0000,0x0000,15,0,2,0,5,0));
-    knownDevices.append(USBTYPE(shuttlePro2,0x0b33,0x0011,0x0000,0x0000,15,0,2,0,5,0)); // Actually a ShuttlePro but hopefully will work?
-    knownDevices.append(USBTYPE(RC28,0x0c26,0x001e,0x0000,0x0000,3,0,1,3,64,0));
-    knownDevices.append(USBTYPE(eCoderPlus, 0x1fc9, 0x0003,0x0000,0x0000,22,0,4,0,32,0)); // Actually 20 but some bit0 and bit15 aren't used
-    knownDevices.append(USBTYPE(QuickKeys, 0x28bd, 0x5202,0x0001,0xff0a,10,0,1,0,32,0));
+    // usbDeviceType, manufacturer, product, usage, usagePage, buttons, columns, knobs, leds, maxPayload, iconSize, maxKnobRate
+    // maxKnobRate is the approximate max knob counts per 100ms when spun quickly (guessed values, refine when measured).
+    knownDevices.append(USBTYPE(shuttleXpress,0x0b33,0x0020,0x0000,0x0000,15,0,2,0,5,0,4));
+    knownDevices.append(USBTYPE(shuttlePro2,0x0b33,0x0030,0x0000,0x0000,15,0,2,0,5,0,4));
+    knownDevices.append(USBTYPE(shuttlePro2,0x0b33,0x0011,0x0000,0x0000,15,0,2,0,5,0,4)); // Actually a ShuttlePro but hopefully will work?
+    knownDevices.append(USBTYPE(RC28,0x0c26,0x001e,0x0000,0x0000,3,0,1,3,64,0,50));
+    knownDevices.append(USBTYPE(eCoderPlus, 0x1fc9, 0x0003,0x0000,0x0000,22,0,4,0,32,0,25)); // Actually 20 but some bit0 and bit15 aren't used
+    knownDevices.append(USBTYPE(QuickKeys, 0x28bd, 0x5202,0x0001,0xff0a,10,0,1,0,32,0,6));
     knownDevices.append(USBTYPE(StreamDeckMini, 0x0fd9, 0x0063, 0x0000, 0x0000,6,0,0,0,1024,80));
     knownDevices.append(USBTYPE(StreamDeckMiniV2, 0x0fd9, 0x0090, 0x0000, 0x0000,6,0,0,0,1024,80));
     knownDevices.append(USBTYPE(StreamDeckOriginal, 0x0fd9, 0x0060, 0x0000, 0x0000,15,5,0,0,8191,72));
@@ -33,11 +40,12 @@ usbController::usbController()
     knownDevices.append(USBTYPE(StreamDeckXL, 0x0fd9, 0x006c, 0x0000, 0x0000,32,8,0,0,1024,96));
     knownDevices.append(USBTYPE(StreamDeckXLV2, 0x0fd9, 0x008f, 0x0000, 0x0000,32,8,0,0,1024,96));
     knownDevices.append(USBTYPE(StreamDeckPedal, 0x0fd9, 0x0086, 0x0000, 0x0000,3,0,0,0,1024,0));
-    knownDevices.append(USBTYPE(StreamDeckPlus, 0x0fd9, 0x0084, 0x0000, 0x0000,12,0,4,0,1024,120));
+    knownDevices.append(USBTYPE(StreamDeckPlus, 0x0fd9, 0x0084, 0x0000, 0x0000,12,0,4,0,1024,120,10));
     knownDevices.append(USBTYPE(XKeysXK3, 0x05f3, 0x04c5, 0x0001, 0x000c,3,0,0,2,32,0)); // So-called "splat" interface?
     knownDevices.append(USBTYPE(MiraBox293, 0x5500, 0x1001, 0x0000, 0x0000,15,0,0,0,512,100));
     knownDevices.append(USBTYPE(MiraBox293S, 0x5548, 0x6670, 0x0001, 0xffa0,15,0,0,0,512,85)); // Boot logo 854 x 480.
-    knownDevices.append(USBTYPE(MiraBoxN3, 0x6603, 0x1003, 0x0001, 0xffa0,12,0,3,0,1024,72));
+    knownDevices.append(USBTYPE(MiraBoxN3, 0x6603, 0x1003, 0x0001, 0xffa0,12,0,3,0,1024,72,6));
+    knownDevices.append(USBTYPE(AjazzAKP03, 0x0300, 0x1002, 0x0000, 0x0000,12,0,3,0,1024,72,6)); // Similar to MiraBoxN3
 }
 
 usbController::~usbController()
@@ -63,10 +71,10 @@ usbController::~usbController()
     
     hid_exit();
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    if (gamepad != Q_NULLPTR)
+    if (gamepad != nullptr)
     {
         delete gamepad;
-        gamepad = Q_NULLPTR;
+        gamepad = nullptr;
     }
 #endif
 }
@@ -108,7 +116,7 @@ void usbController::init(QMutex* mut,usbDevMap* devs ,QVector<BUTTON>* buts,QVec
         struct hid_device_info* devs;
         devs = hid_enumerate(0x0, 0x0);
         while (devs) {
-            qInfo(logUsbControl()) << QString("Device found: (%0:%1) %2 manufacturer: (%3)%4 usage: 0x%5 usage_page 0x%6")
+            qDebug(logUsbControl()) << QString("Device found: (%0:%1) %2 manufacturer: (%3)%4 usage: 0x%5 usage_page 0x%6")
                                       .arg(devs->vendor_id, 4, 16, QChar('0'))
                                       .arg(devs->product_id, 4, 16, QChar('0'))
                                       .arg(QString::fromWCharArray(devs->product_string),QString::fromWCharArray(devs->product_string),QString::fromWCharArray(devs->manufacturer_string))
@@ -145,14 +153,10 @@ void usbController::run()
         // If device is not detected, ignore it.
         if (dev->detected)
         {
-            if (!dev->disabled && !dev->connected)
+            if (!dev->disabled && !dev->connected && dev->openAttempts < 2)
             {
-                        
                 if (!initDevice(dev))
                 {
-                    // This should only get displayed once if we fail to connect to a device
-                    qInfo(logUsbControl()) << QString("Error connecting to  %0: %1")
-                                              .arg(dev->product,QString::fromWCharArray(hid_error(dev->handle)));
                     continue;
                 }
             }
@@ -165,10 +169,11 @@ void usbController::run()
         ++it;
     }
     
-    if (devicesConnected > 0 && dataTimer == Q_NULLPTR) {
+    if (devicesConnected > 0 && dataTimer == nullptr) {
         dataTimer = new QTimer(this);
         connect(dataTimer, &QTimer::timeout, this, &usbController::runTimer);
         dataTimer->start(25);
+        qInfo(logUsbControl()) << "Started USB controller polling timer";
     }
     
 #ifndef USB_HOTPLUG
@@ -204,7 +209,7 @@ void usbController::runTimer()
             if (!mutex->tryLock(0))
             {
                 // If mutex can't immediately be locked, try next time (no need to tell user)
-                continue;
+                break;
             }
 
             res = hid_read(dev->handle, (quint8*)data.data(), HIDDATALENGTH);
@@ -221,7 +226,7 @@ void usbController::runTimer()
                 if (devicesConnected == 0) {
                     dataTimer->stop();
                     delete dataTimer;
-                    dataTimer = Q_NULLPTR;
+                    dataTimer = nullptr;
                 }
                 emit removeDevice(dev);
                 break;
@@ -378,6 +383,95 @@ void usbController::runTimer()
                     }
                 }
                 break;
+            case AjazzAKP03:
+                if (data[9]) {
+                    // Determine the button bit position
+                    quint32 buttonBit = 0;
+                    bool buttonFound = true;
+                    if ((quint8)data[9] < 0x07) {
+                        buttonBit = (data[9] - 1);
+                    } else if ((quint8)data[9] == 0x25) {
+                        buttonBit = 7;
+                    } else if ((quint8)data[9] == 0x30) {
+                        buttonBit = 8;
+                    } else if ((quint8)data[9] == 0x31) {
+                        buttonBit = 9;
+                    } else if ((quint8)data[9] == 0x35) {
+                        buttonBit = 10;
+                    } else if ((quint8)data[9] == 0x33) {
+                        buttonBit = 11;
+                    } else if ((quint8)data[9] == 0x34) {
+                        buttonBit = 12;
+                    } else {
+                        buttonFound = false;
+                    }
+
+                    // If this is a button press/release event (not a knob event)
+                    if (buttonFound) {
+                        if (buttonBit <= 5) // For some reason, this device skips a button
+                        {
+                            buttonBit = buttonBit + 1;
+                        }
+                        // For AKP03, we receive release events (state=0).
+                        // Directly emit the button press action when we get the release.
+                        if ((data[10] & 0x01) == 0) {
+                            // This is a release event - emit the button press action immediately
+                            auto but = std::find_if(buttonList->begin(), buttonList->end(), [dev, buttonBit](const BUTTON& b)
+                            { return (b.path == dev->path && b.page == dev->currentPage && (quint32)b.num == buttonBit); });
+
+                            if (but != buttonList->end()) {
+                                qDebug(logUsbControl()) << QString("On Button event for button %0: %1").arg(but->num).arg(but->onCommand->text);
+                                if (but->onCommand->command == funcPageUp)
+                                    emit changePage(dev, dev->currentPage+1);
+                                else if (but->onCommand->command == funcPageDown)
+                                    emit changePage(dev, dev->currentPage-1);
+                                else if (but->onCommand->command == funcLCDSpectrum)
+                                    dev->lcd = funcLCDSpectrum;
+                                else if (but->onCommand->command == funcLCDWaterfall)
+                                    dev->lcd = funcLCDWaterfall;
+                                else if (but->onCommand->command == funcLCDNothing) {
+                                    dev->lcd = funcLCDNothing;
+                                    QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                                } else {
+                                    emit button(but->onCommand);
+                                }
+                            }
+                            // Don't update tempButtons - this prevents duplicate button release processing
+                        } else {
+                            // Normal press state tracking for other devices
+                            qDebug(logUsbControl()) << QString("AKP03 -> Button press state: %0").arg((data[10] & 0x01) ? "Pressed" : "Released");
+                            tempButtons |= (data[10] & 0x01) << buttonBit;
+                        }
+                    }
+
+                    if (((quint8)data[9] >> 4 & 0x0f) == 0x05) {
+                        qDebug(logUsbControl()) << QString("AKP03 -> Knob 1 value: %0").arg(dev->knobValues[0].value);
+                        if ((qint8)data[9] & 0x01) {
+                            dev->knobValues[0].value++;
+                        } else {
+                            dev->knobValues[0].value--;
+                        }
+                    }
+
+                    if (((quint8)data[9] >> 4 & 0x0f) == 0x09) {
+                        qDebug(logUsbControl()) << QString("AKP03 -> Knob 2 value: %0").arg(dev->knobValues[1].value);
+                        if ((qint8)data[9] & 0x01) {
+                            dev->knobValues[1].value++;
+                        } else {
+                            dev->knobValues[1].value--;
+                        }
+                    }
+
+                    if (((quint8)data[9] >> 4 & 0x0f) == 0x06) {
+                        qDebug(logUsbControl()) << QString("AKP03 -> Knob 3 value: %0").arg(dev->knobValues[2].value);
+                        if ((qint8)data[9] & 0x01) {
+                            dev->knobValues[2].value++;
+                        } else {
+                            dev->knobValues[2].value--;
+                        }
+                    }
+                }
+                break;
             case StreamDeckOriginal:
                 for (int i = dev->type.buttons-1;i>=0;i--) {
                     quint8 val = ((i - (i % dev->type.cols)) + (dev->type.cols-1)) - (i % dev->type.cols);
@@ -479,7 +573,7 @@ void usbController::runTimer()
                             dev->lcd = funcLCDWaterfall;
                         else if (but->onCommand->command == funcLCDNothing) {
                             dev->lcd = funcLCDNothing;
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                         }else {
                             emit button(but->onCommand);
                         }
@@ -502,7 +596,7 @@ void usbController::runTimer()
                             dev->lcd = funcLCDWaterfall;
                         else if (but->offCommand->command == funcLCDNothing) {
                             dev->lcd = funcLCDNothing;
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                         } else {
                             emit button(but->offCommand);
                         }
@@ -516,7 +610,7 @@ void usbController::runTimer()
                         else if (but->offCommand->command == funcLCDWaterfall)
                             dev->lcd = funcLCDWaterfall;
                         else if (but->offCommand->command == funcLCDNothing) {
-                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",Q_NULLPTR, &dev->color); });
+                            QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureColor,but->num,"",nullptr, &dev->color); });
                             dev->lcd = funcLCDNothing;
                         } else
                         {
@@ -540,13 +634,13 @@ void usbController::runTimer()
                     if (dev->shutpos > 0  && dev->shutpos < 0x08)
                     {
                         dev->shutMult = dev->shutpos;
-                        emit doShuttle(true, dev->shutMult);
+                        emit doShuttle(true, shuttleSteps(dev));
                         qDebug(logUsbControl()) << "Shuttle PLUS" << dev->shutMult;
                         
                     }
                     else if (dev->shutpos > 0xEF) {
                         dev->shutMult = abs(dev->shutpos - 0xff) + 1;
-                        emit doShuttle(false, dev->shutMult);
+                        emit doShuttle(false, shuttleSteps(dev));
                         qDebug(logUsbControl()) << "Shuttle MINUS" << dev->shutMult;
                     }
                 }
@@ -572,7 +666,7 @@ void usbController::runTimer()
                                 sendCommand.value = tempVal;
                                 dev->knobValues[i].value=tempVal;
                                 dev->knobValues[i].name = kb->command->text;
-                                QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,i,"",Q_NULLPTR,&dev->color); });
+                                QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,i,"",nullptr,&dev->color); });
                             } else {
                                 // We don't have this command available
                                 qInfo(logUsbControl()) << "Requested command" << funcString[sendCommand.command] << "Not available on this rig";
@@ -585,8 +679,16 @@ void usbController::runTimer()
                         }
                         else
                         {
-                            sendCommand.value = dev->knobValues[i].value/dev->sensitivity;
-                            dev->knobValues[i].value = 0;
+                            // Divide the counts by the sensitivity, carrying the remainder forward
+                            // so that slow turns still tune once enough counts accumulate.
+                            const int divisor = effectiveKnobSensitivity(dev);
+                            const int steps = dev->knobValues[i].value / divisor;
+                            dev->knobValues[i].value -= steps * divisor;
+                            if (steps == 0) {
+                                dev->knobValues[i].previous = dev->knobValues[i].value;
+                                continue;
+                            }
+                            sendCommand.value = steps;
                         }
                         
                         emit button(&sendCommand);
@@ -617,11 +719,11 @@ void usbController::receivePTTStatus(bool on) {
                 lastColour = currentColour;
                 QColor newColor = QColor(255,0,0);
                 sendRequest(dev,usbFeatureType::featureLEDControl,1,"1");
-                sendRequest(dev,usbFeatureType::featureColor,0, "", Q_NULLPTR, &newColor);
+                sendRequest(dev,usbFeatureType::featureColor,0, "", nullptr, &newColor);
             }
             else {
                 sendRequest(dev,usbFeatureType::featureLEDControl,1,"0");
-                sendRequest(dev,usbFeatureType::featureColor,0, "", Q_NULLPTR, &lastColour);
+                sendRequest(dev,usbFeatureType::featureColor,0, "", nullptr, &lastColour);
             }
         }
     }
@@ -652,7 +754,7 @@ void usbController::sendToLCD(QImage* img)
 */
 void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val, QString text, QImage* img, QColor* color)
 {
-    if (dev == Q_NULLPTR || !dev->connected || dev->disabled || !dev->handle)
+    if (dev == nullptr || !dev->connected || dev->disabled || !dev->handle)
         return;
 
     QMutexLocker locker(mutex);
@@ -665,7 +767,12 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
     // If feature is sensitivity, this is not model dependent and will update the internal sensitivity divider.
     if (feature == usbFeatureType::featureSensitivity)
     {
-        dev->sensitivity=val;
+        dev->sensitivity=qMax(1, val);
+        return;
+    }
+    if (feature == usbFeatureType::featureRingAccel)
+    {
+        dev->ringAccel=qBound(1, val, maxRingAccel);
         return;
     }
 
@@ -703,6 +810,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
             dev->brightness = val;
             break;
         case usbFeatureType::featureOrientation:
+            qDebug(logUsbControl()) << QString("Setting orientation to %0").arg(val);
             data[1] = (qint8)0xb1;
             data[2] = (qint8)val+1;
             dev->orientation = val;
@@ -814,7 +922,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
             dev->brightness = val;
             break;
         case usbFeatureType::featureSensitivity:
-            dev->sensitivity=val;
+            dev->sensitivity=qMax(1, val);
             break;
         case usbFeatureType::featureGraph:
         {
@@ -873,7 +981,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
                 if (text != "**REMOVE**") {
                     dev->knobValues[val].lastChanged = QDateTime::currentMSecsSinceEpoch();
                     if (dev->lcd != funcLCDSpectrum && dev->lcd != funcLCDWaterfall)
-                        QTimer::singleShot(2000, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,val,"**REMOVE**",Q_NULLPTR,&dev->color); });
+                        QTimer::singleShot(2000, this, [=]() { sendRequest(dev,usbFeatureType::featureGraph,val,"**REMOVE**",nullptr,&dev->color); });
                 }
 
             }
@@ -904,7 +1012,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
         {
             if (dev->type.model == usbDeviceType::StreamDeckPlus)
             {
-                if (img != Q_NULLPTR)
+                if (img != nullptr)
                 {
                     QImage image = img->scaled(800,100,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
                     QPainter paint(&image);
@@ -967,14 +1075,14 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
                 if (val < 8 || dev->type.model != usbDeviceType::StreamDeckPlus) {
 
                     QImage butImage(dev->type.iconSize,dev->type.iconSize, QImage::Format_RGB888);
-                    if (color != Q_NULLPTR)
+                    if (color != nullptr)
                         butImage.fill(*color);
                     else
                         butImage.fill(dev->color);
 
                     QPainter butPaint(&butImage);
 
-                    if ( img == Q_NULLPTR) {
+                    if ( img == nullptr) {
                         if (dev->type.iconSize == 72)
                             butPaint.setFont(QFont("serif",14));
                         else
@@ -1115,6 +1223,7 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
     case MiraBox293:
     case MiraBox293S:
     case MiraBoxN3:
+    case AjazzAKP03:
         data.resize(dev->type.maxPayload+1); // Make sure buffer is 512 bytes
         data.fill(0,dev->type.maxPayload+1); // Replace with zeros.
         data.replace(1,3,QByteArrayLiteral("\x43\x52\x54")); //Command prefix
@@ -1142,25 +1251,31 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
         case usbFeatureType::featureButton:
         {
 
-            if ((dev->type.model == usbDeviceType::MiraBoxN3 && val < 7) || (dev->type.model == usbDeviceType::MiraBox293) || (dev->type.model == usbDeviceType::MiraBox293S))
+            if ((dev->type.model == usbDeviceType::MiraBoxN3 && val < 7) ||
+                (dev->type.model == usbDeviceType::MiraBox293) ||
+                (dev->type.model == usbDeviceType::MiraBox293S) ||
+                (dev->type.model == usbDeviceType::AjazzAKP03))
             {
                 data.replace(6,3,QByteArrayLiteral("\x42\x41\x54"));
 
                 QImage butImage(dev->type.iconSize,dev->type.iconSize, QImage::Format_RGB888);
-                if (color != Q_NULLPTR)
+                if (color != nullptr)
                     butImage.fill(*color);
                 else
                     butImage.fill(dev->color);
 
                 QPainter butPaint(&butImage);
 
-                if ( img == Q_NULLPTR) {
+                if ( img == nullptr) {
                     if (dev->type.iconSize == 72)
                         butPaint.setFont(QFont("serif",14));
                     else
                         butPaint.setFont(QFont("serif",16));
 
-                    butPaint.drawText(butImage.rect(),Qt::AlignCenter | Qt::AlignVCenter | Qt::TextWordWrap,  text);
+                    // AjazzAKP03's physical OLED is offset within the addressable image area, shift text left to compensate.
+                    QRect textRect = (dev->type.model == usbDeviceType::AjazzAKP03) ?
+                        butImage.rect().adjusted(-6, 0, -6, 0) : butImage.rect();
+                    butPaint.drawText(textRect,Qt::AlignCenter | Qt::AlignVCenter | Qt::TextWordWrap,  text);
                 } else {
                     butPaint.setCompositionMode(QPainter::CompositionMode_SourceAtop);
                     butPaint.drawImage(0, 0, *img);
@@ -1171,6 +1286,8 @@ void usbController::sendRequest(USBDEVICE *dev, usbFeatureType feature, int val,
 
                 if (dev->type.model == usbDeviceType::MiraBox293 || dev->type.model == usbDeviceType::MiraBox293S)
                     myTransform.rotate(270);
+                else if (dev->type.model == usbDeviceType::AjazzAKP03)
+                    myTransform.rotate(0);                
                 else
                     myTransform.rotate(90);
 
@@ -1260,6 +1377,7 @@ void usbController::programDisable(USBDEVICE* dev, bool disabled)
         }
     } else {
         qInfo(logUsbControl()) << "Enabling device:" << dev->product;
+        dev->openAttempts = 0;
     }
     QTimer::singleShot(250, this, SLOT(run())); // Call run disconnect/reconnect after 250ms
 }
@@ -1562,7 +1680,19 @@ void usbController::loadButtons()
     defaultButtons.append(BUTTON(MiraBoxN3, 11, QRect(555, 417, 75, 25), Qt::white, &commands[0], &commands[0]));
     defaultButtons.append(BUTTON(MiraBoxN3, 12, QRect(737, 417, 75, 25), Qt::white, &commands[0], &commands[0]));
 
-
+    // AJAZZ AKP-03
+    defaultButtons.append(BUTTON(AjazzAKP03, 1, QRect(121, 103, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 2, QRect(248, 103, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 3, QRect(376, 103, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 4, QRect(121, 231, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 5, QRect(248, 231, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 6, QRect(376, 231, 88, 88), Qt::black, &commands[0], &commands[0],true));
+    defaultButtons.append(BUTTON(AjazzAKP03, 7, QRect(118, 430, 90, 30), Qt::white, &commands[0], &commands[0]));
+    defaultButtons.append(BUTTON(AjazzAKP03, 8, QRect(244, 430, 90, 30), Qt::white, &commands[0], &commands[0]));
+    defaultButtons.append(BUTTON(AjazzAKP03, 9, QRect(373, 430, 90, 30), Qt::white, &commands[0], &commands[0]));
+    defaultButtons.append(BUTTON(AjazzAKP03, 10, QRect(633, 154, 100, 25), Qt::black, &commands[0], &commands[0]));
+    defaultButtons.append(BUTTON(AjazzAKP03, 11, QRect(555, 417, 75, 25), Qt::black, &commands[0], &commands[0]));
+    defaultButtons.append(BUTTON(AjazzAKP03, 12, QRect(737, 417, 75, 25), Qt::black, &commands[0], &commands[0]));
 }
 
 void usbController::loadKnobs()
@@ -1589,6 +1719,11 @@ void usbController::loadKnobs()
     defaultKnobs.append(KNOB(MiraBoxN3, 0, QRect(633, 233, 100, 25), Qt::green, &commands[3]));
     defaultKnobs.append(KNOB(MiraBoxN3, 1, QRect(555, 448, 75, 25), Qt::green, &commands[0]));
     defaultKnobs.append(KNOB(MiraBoxN3, 2, QRect(737, 448, 75, 25), Qt::green, &commands[0]));
+
+    // Ajazz AKP03
+    defaultKnobs.append(KNOB(AjazzAKP03, 0, QRect(633, 233, 100, 25), Qt::green, &commands[3]));
+    defaultKnobs.append(KNOB(AjazzAKP03, 1, QRect(555, 448, 75, 25), Qt::green, &commands[0]));
+    defaultKnobs.append(KNOB(AjazzAKP03, 2, QRect(737, 448, 75, 25), Qt::green, &commands[0]));
 }
 
 void usbController::loadCommands()
@@ -1725,19 +1860,11 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (b->parent == dev && b->page > val)
             {
-                if (b->text != Q_NULLPTR) {
-                    delete b->text;
-                    b->text = Q_NULLPTR;
-                }
-                if (b->bgRect != Q_NULLPTR) {
-                    delete b->bgRect;
-                    b->bgRect = Q_NULLPTR;
-                }
-                b->onCommand = Q_NULLPTR;
-                b->offCommand = Q_NULLPTR;
-                if (b->icon != Q_NULLPTR) {
+                b->onCommand = nullptr;
+                b->offCommand = nullptr;
+                if (b->icon != nullptr) {
                     delete b->icon;
-                    b->icon=Q_NULLPTR;
+                    b->icon=nullptr;
                 }
                 b = buttonList->erase(b);
             } else {
@@ -1750,11 +1877,7 @@ void usbController::programPages(USBDEVICE* dev, int val)
         {
             if (k->parent == dev && k->page > val)
             {
-                if (k->text != Q_NULLPTR) {
-                    delete k->text;
-                    k->text = Q_NULLPTR;
-                    k->command = Q_NULLPTR;
-                }
+                k->command = nullptr;
                 k = knobList->erase(k);
             } else {
                 ++k;
@@ -1846,11 +1969,24 @@ void usbController::buttonState(QString name, double val)
 
 /* End of Gamepad functions*/
 
+// Tuning steps per 100ms for the current shuttle ring position.
+// steps = position ^ exponent, where ring acceleration 1..5 maps to exponent 1.0..3.0,
+// so position 1 is always a single step for fine tuning.
+int usbController::shuttleSteps(const USBDEVICE* dev)
+{
+    const int level = qBound(1, int(dev->shutMult), 7);
+    const double exponent = 1.0 + (qBound(1, dev->ringAccel, maxRingAccel) - 1) * 0.5;
+    return qMax(1, int(std::lround(std::pow(level, exponent))));
+}
+
 void usbController::backupController(USBDEVICE* dev, QString file)
 {
     QMutexLocker locker(mutex);
 
     QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+    settings->setIniCodec("UTF-8");
+#endif
 
     qInfo(logUsbControl()) << "Backup of" << dev->path << "to" << file;
 
@@ -1860,6 +1996,7 @@ void usbController::backupController(USBDEVICE* dev, QString file)
     settings->setValue("Model",dev->product);
     settings->setValue("Disabled", dev->disabled);
     settings->setValue("Sensitivity", dev->sensitivity);
+    settings->setValue("RingAccel", dev->ringAccel);
     settings->setValue("Brightness", dev->brightness);
     settings->setValue("Orientation", dev->orientation);
     settings->setValue("Speed", dev->speed);
@@ -1886,15 +2023,15 @@ void usbController::backupController(USBDEVICE* dev, QString file)
             settings->setValue("Colour", b->textColour.name(QColor::HexArgb));
             settings->setValue("BackgroundOn", b->backgroundOn.name(QColor::HexArgb));
             settings->setValue("BackgroundOff", b->backgroundOff.name(QColor::HexArgb));
-            if (b->icon != Q_NULLPTR) {
+            if (b->icon != nullptr) {
                 settings->setValue("Icon", *b->icon);
                 settings->setValue("IconName", b->iconName);
             }
             settings->setValue("Toggle", b->toggle);
 
-            if (b->onCommand != Q_NULLPTR)
+            if (b->onCommand != nullptr)
                 settings->setValue("OnCommand", b->onCommand->text);
-            if (b->offCommand != Q_NULLPTR)
+            if (b->offCommand != nullptr)
                 settings->setValue("OffCommand", b->offCommand->text);
             settings->setValue("Graphics",b->graphics);
             if (b->led > -1) {
@@ -1920,7 +2057,7 @@ void usbController::backupController(USBDEVICE* dev, QString file)
             settings->setValue("Width", k->pos.width());
             settings->setValue("Height", k->pos.height());
             settings->setValue("Colour", k->textColour.name());
-            if (k->command != Q_NULLPTR)
+            if (k->command != nullptr)
                 settings->setValue("Command", k->command->text);
             ++n;
         }
@@ -1941,11 +2078,15 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     QMutexLocker locker(mutex);
 
     QSettings* settings = new QSettings(file, QSettings::Format::IniFormat);
+#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+    settings->setIniCodec("UTF-8");
+#endif
 
     settings->beginGroup("Controller");
 
     dev->disabled = settings->value("Disabled", false).toBool();
-    dev->sensitivity = settings->value("Sensitivity", 1).toInt();
+    dev->sensitivity = qMax(1, settings->value("Sensitivity", 1).toInt());
+    dev->ringAccel = qBound(1, settings->value("RingAccel", 3).toInt(), maxRingAccel);
     dev->pages = settings->value("Pages", 1).toInt();
     dev->brightness = (quint8)settings->value("Brightness", 2).toInt();
     dev->orientation = (quint8)settings->value("Orientation", 2).toInt();
@@ -1962,19 +2103,11 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (b->parent == dev)
         {
-            if (b->text != Q_NULLPTR) {
-                delete b->text;
-                b->text = Q_NULLPTR;
-            }
-            if (b->bgRect != Q_NULLPTR) {
-                delete b->bgRect;
-                b->bgRect = Q_NULLPTR;
-            }
-            b->onCommand = Q_NULLPTR;
-            b->offCommand = Q_NULLPTR;
-            if (b->icon != Q_NULLPTR) {
+            b->onCommand = nullptr;
+            b->offCommand = nullptr;
+            if (b->icon != nullptr) {
                 delete b->icon;
-                b->icon=Q_NULLPTR;
+                b->icon=nullptr;
             }
             b = buttonList->erase(b);
         } else {
@@ -2028,11 +2161,7 @@ void usbController::restoreController(USBDEVICE* dev, QString file)
     {
         if (k->parent == dev)
         {
-            if (k->text != Q_NULLPTR) {
-                delete k->text;
-                k->text = Q_NULLPTR;
-                k->command = Q_NULLPTR;
-            }
+            k->command = nullptr;
             k = knobList->erase(k);
         } else {
             ++k;
@@ -2147,10 +2276,6 @@ void usbController::receiveCacheItem(cacheItem item)
 
 }
 
-#endif
-
-
-
 void usbController::checkForGamePad()
 {
 
@@ -2162,7 +2287,7 @@ void usbController::checkForGamePad()
         return;
     }
 
-    if (gamepad == Q_NULLPTR) {
+    if (gamepad == nullptr) {
         auto gamepads = QGamepadManager::instance()->connectedGamepads();
         if (!gamepads.isEmpty()) {
             qInfo(logUsbControl()) << "Found" << gamepads.size() << "Gamepad controllers";
@@ -2263,14 +2388,14 @@ void usbController::checkForGamePad()
             });
 
             newDev.connected=true;
-            devices->insert(newDev.path,newDev);
+            auto inserted = devices->insert(newDev.path, newDev);
 
-            emit newDevice(&newDev); // Let the UI know we have a new controller
+            emit newDevice(&inserted.value()); // Let the UI know we have a new controller
         }
     }
     else if (!gamepad->isConnected()) {
         delete gamepad;
-        gamepad = Q_NULLPTR;
+        gamepad = nullptr;
     }
 
     mutex->unlock();
@@ -2285,52 +2410,54 @@ void usbController::checkForControllers()
         return;
     }
 
-    struct hid_device_info* devs;
-    devs = hid_enumerate(0x0, 0x0);
+    struct hid_device_info *devs = hid_enumerate(0x0, 0x0);
+    struct hid_device_info *info = devs;
     // Step through all currently connected devices and add any newly discovered ones to usbDevices.
-    while (devs) {
-        auto i = std::find_if(knownDevices.begin(), knownDevices.end(), [devs](const USBTYPE& d)
-                              { return ((devs->vendor_id == d.manufacturerId) && (devs->product_id == d.productId)
-                                        && (d.usage == 0x00 || devs->usage == d.usage)
-                                        && (d.usagePage == 0x00 || devs->usage_page == d.usagePage));});
+    while (info) {
+        auto i = std::find_if(knownDevices.begin(), knownDevices.end(), [info](const USBTYPE& d)
+                              { return ((info->vendor_id == d.manufacturerId) && (info->product_id == d.productId)
+                                        && (d.usage == 0x00 || info->usage == d.usage)
+                                        && (d.usagePage == 0x00 || info->usage_page == d.usagePage));});
 
         if (i != knownDevices.end())
         {
-            auto it = devices->find(QString::fromLocal8Bit(devs->path));
+            auto it = devices->find(QString::fromLocal8Bit(info->path));
             if (it == devices->end())
             {
                 USBDEVICE newDev(*i);
-                newDev.manufacturer = QString::fromWCharArray(devs->manufacturer_string);
-                newDev.product = QString::fromWCharArray(devs->product_string);
+                newDev.manufacturer = hidString(info->manufacturer_string);
+                newDev.product = hidString(info->product_string);
                 if (newDev.product.isEmpty())
                 {
                     newDev.product = "<Not Detected>";
                 }
-                newDev.serial = QString::fromWCharArray(devs->serial_number);
-                newDev.path = QString::fromLocal8Bit(devs->path);
+                newDev.serial = hidString(info->serial_number);
+                newDev.path = QString::fromLocal8Bit(info->path);
                 newDev.deviceId = QString("0x%1").arg(newDev.type.productId, 4, 16, QChar('0'));
                 newDev.detected = true;
                 qDebug(logUsbControl()) << "New device detected" << newDev.product;
-                devices->insert(newDev.path,newDev);
+                auto inserted = devices->insert(newDev.path, newDev);
+                Q_UNUSED(inserted)
             }
             else if (!it->detected)
             {
                 // This is a known device
-                auto dev = &it.value();
-                dev->type = *i;
-                dev->manufacturer = QString::fromWCharArray(devs->manufacturer_string);
-                dev->product = QString::fromWCharArray(devs->product_string);
-                if (dev->product.isEmpty())
+                auto usbDev = &it.value();
+                usbDev->type = *i;
+                usbDev->manufacturer = hidString(info->manufacturer_string);
+                usbDev->product = hidString(info->product_string);
+                if (usbDev->product.isEmpty())
                 {
-                    dev->product = "<Not Detected>";
+                    usbDev->product = "<Not Detected>";
                 }
-                dev->serial = QString::fromWCharArray(devs->serial_number);
-                dev->deviceId = QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'));
-                dev->detected = true;
-                qDebug(logUsbControl()) << "Known device detected" << dev->product;
+                usbDev->serial = hidString(info->serial_number);
+                usbDev->deviceId = QString("0x%1").arg(usbDev->type.productId, 4, 16, QChar('0'));
+                usbDev->detected = true;
+                usbDev->openAttempts = 0;
+                qDebug(logUsbControl()) << "Known device detected" << usbDev->product;
             }
         }
-        devs = devs->next;
+        info = info->next;
     }
     hid_free_enumeration(devs);
 
@@ -2341,7 +2468,7 @@ bool usbController::initDevice(USBDEVICE *dev)
 {
     bool ret = false;
 
-    if (dev == Q_NULLPTR || dev->connected)
+    if (dev == nullptr || dev->connected)
     {
         return ret;
     }
@@ -2352,11 +2479,14 @@ bool usbController::initDevice(USBDEVICE *dev)
         return ret;
     }
 
-    dev->handle = hid_open_path(dev->path.toLocal8Bit());
+    QByteArray path = dev->path.toLocal8Bit();
+    dev->handle = hid_open_path(path.constData());
 
     if (dev->handle) {
         hid_set_nonblocking(dev->handle, 1);
         devicesConnected++;
+        if (dev->currentPage < 1)
+            dev->currentPage = 1;
         qInfo(logUsbControl()) << QString("Connected to USB device: %0 from %1 S/N %2 (connected: %3)").arg(dev->product,dev->manufacturer,dev->serial).arg(devicesConnected);
         dev->connected=true;
 
@@ -2378,7 +2508,7 @@ bool usbController::initDevice(USBDEVICE *dev)
             QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureLEDControl,2,"0"); });
             QTimer::singleShot(500, this, [=]() { sendRequest(dev,usbFeatureType::featureLEDControl,1,"0"); });
         }
-        else if (dev->type.model == MiraBoxN3 || dev->type.model == MiraBox293 || dev->type.model == MiraBox293S)
+        else if (dev->type.model == MiraBoxN3 || dev->type.model == MiraBox293 || dev->type.model == MiraBox293S || dev->type.model == AjazzAKP03)
         {
             QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureWakeScreen); });
             QTimer::singleShot(0, this, [=]() { sendRequest(dev,usbFeatureType::featureBrightness,0x03,""); });
@@ -2487,8 +2617,19 @@ bool usbController::initDevice(USBDEVICE *dev)
     }
     else
     {
+        dev->openAttempts++;
+        qWarning(logUsbControl()) << "Unable to open USB controller" << dev->product
+                                  << "path" << dev->path
+                                  << "vendor" << QString("0x%1").arg(dev->type.manufacturerId, 4, 16, QChar('0'))
+                                  << "product" << QString("0x%1").arg(dev->type.productId, 4, 16, QChar('0'))
+                                  << QString("(attempt %1 of 2)").arg(dev->openAttempts);
+        if (dev->openAttempts >= 2) {
+            qWarning(logUsbControl()) << "Giving up on USB controller" << dev->product
+                                      << "- device may be in use by another program or there may be a permission issue.";
+        }
         mutex->unlock();
     }
 
     return ret;
 }
+#endif

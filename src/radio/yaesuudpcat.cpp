@@ -1,5 +1,6 @@
 #include "yaesuudpcat.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 yaesuUdpCat::yaesuUdpCat(QHostAddress local, QHostAddress remote, quint16 port)
 {
@@ -57,6 +58,7 @@ void yaesuUdpCat::sendCatDataToRig(QByteArray d)
     yaesuC2R_CatDataFrame h;
     if (d.size() <= qsizetype(sizeof(h.data.data)))
     {
+        MCP_RADIO_TX(this, d);
         memset(&h,0,sizeof(h));
 
         h.hdr.device = UsbCat;

@@ -5,6 +5,36 @@
 
 // Copyright 2017-2020 Elliott H. Liggett
 
+QString serialOpenFailureReason(const QSerialPort* port)
+{
+    if (!port)
+        return QObject::tr("The serial port was not created.");
+
+    QString reason;
+    switch (port->error()) {
+    case QSerialPort::PermissionError:
+        reason = QObject::tr("Permission denied, or the port is already in use by another program.");
+#if defined(Q_OS_LINUX)
+        reason += QObject::tr(" Your user may need to be in the group that owns the port (usually dialout or uucp).");
+#endif
+        break;
+    case QSerialPort::DeviceNotFoundError:
+        reason = QObject::tr("That port is not present. The radio may be off, unplugged, or connected to a different port.");
+        break;
+    case QSerialPort::OpenError:
+        reason = QObject::tr("The port is already open.");
+        break;
+    default:
+        reason = QObject::tr("The port could not be opened.");
+        break;
+    }
+
+    const QString system = port->errorString().trimmed();
+    if (!system.isEmpty())
+        reason += QObject::tr(" (System message: %1)").arg(system);
+    return reason;
+}
+
 commHandler::commHandler(QObject* parent) : QObject(parent)
 {
     //constructor
@@ -44,9 +74,9 @@ commHandler::commHandler(QString portName, quint32 baudRate, quint8 wfFormat, QO
 
 void commHandler::init()
 {
-    if (port != Q_NULLPTR) {
+    if (port != nullptr) {
         delete port;
-        port = Q_NULLPTR;
+        port = nullptr;
         isConnected = false;
     }
 
@@ -64,7 +94,10 @@ void commHandler::init()
     connect(port, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError(QSerialPort::SerialPortError)));
 #endif
 
-    connect(this, SIGNAL(sendDataOutToPort(const QByteArray&)),this,SLOT(sendDataOut(const QByteArray &)));
+    // init() runs again on every reconnect attempt. This connection is to
+    // ourselves, not the new port, so it must be made only once or each
+    // write would be sent once per reconnect.
+    connect(this, SIGNAL(sendDataOutToPort(const QByteArray&)),this,SLOT(sendDataOut(const QByteArray &)), Qt::UniqueConnection);
     lastDataReceived = QTime::currentTime();
 }
 
@@ -343,10 +376,12 @@ void commHandler::openPort()
         qInfo(logSerial()) << "Opened port: " << portName;
         return;
     } else {
-        qInfo(logSerial()) << "Could not open serial port " << portName << " , please check Radio Access under Settings.";
+        const QString reason = serialOpenFailureReason(port);
+        qWarning(logSerial()) << "Could not open serial port" << portName << ":" << reason;
         isConnected = false;
         serialError = true;
-        emit havePortError(errorType(true, portName, "Could not open Serial or USB port.\nPlease check Radio Access under Settings."));
+        serialErrorText = QStringLiteral("Could not open serial port: %1").arg(reason);
+        emit havePortError(errorType(true, portName, serialErrorText));
         return;
     }
 }

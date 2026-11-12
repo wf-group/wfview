@@ -23,7 +23,8 @@ class rtpAudio : public QObject
 {
     Q_OBJECT
 public:
-    explicit rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup, QObject *parent = nullptr);
+    explicit rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup,
+                      bool localInputEnabled = true, QObject *parent = nullptr);
     ~rtpAudio();
 
 signals:
@@ -38,14 +39,9 @@ signals:
     void haveInLevels(quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current, bool under, bool over);
 
 public slots:
-    void setRxMuted(bool muted);
-
-public slots:
-    void shutdown();          // close socket + dispose audio (call before thread quit)
+    void shutdown();
 
 private slots:
-    void onOutAudioInitFailed();
-    void onInAudioInitFailed();
     void init();
     void dataReceived();
     void changeLatency(quint16 value);
@@ -56,25 +52,24 @@ private slots:
 
 private:
 
-    QUdpSocket* udp = Q_NULLPTR;
+    QUdpSocket* udp = nullptr;
 
     audioSetup outSetup;
     audioSetup inSetup;
 
-    audioHandlerBase* outaudio = Q_NULLPTR;
-    QThread* outAudioThread = Q_NULLPTR;
+    audioHandlerBase* outaudio = nullptr;
+    QThread* outAudioThread = nullptr;
 
-    audioHandlerBase* inaudio = Q_NULLPTR;
-    QThread* inAudioThread = Q_NULLPTR;
+    audioHandlerBase* inaudio = nullptr;
+    QThread* inAudioThread = nullptr;
 
-    QTimer* inAudioTimer = Q_NULLPTR;
+    QTimer* inAudioTimer = nullptr;
     bool enableIn = true;
     bool enableOut = true;
+    bool localInputEnabled = true;
     bool didShutdown = false;
 
     QMutex audioMutex;
-
-    bool         m_rxMuted = false;
 
     QHostAddress ip;
     quint16 port = 0;

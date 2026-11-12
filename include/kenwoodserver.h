@@ -42,6 +42,7 @@ public:
 public slots:
 	void init();
 	void dataForServer(QByteArray);
+    void receiveScopeData(QByteArray);
 	void receiveAudioData(const audioPacket &data);
 
 private slots:
@@ -68,19 +69,32 @@ private:
         QByteArray buffer;
 		QDateTime	timeConnected;
 		QDateTime lastHeard;
-		bool isStreaming;
-		quint16 civPort;
-		quint16 audioPort;
-		quint16 txBufferLen;
-        quint8 guid[GUIDLEN];
+        bool isStreaming = false;
+        quint16 civPort = 0;
+        quint16 audioPort = 0;
+        quint16 txBufferLen = 0;
+        quint8 guid[GUIDLEN] = {};
 	};
 
+    bool handleServerCommand(QTcpSocket* socket, CLIENT* client, const QByteArray& command);
+    bool authenticateClient(QTcpSocket* socket, CLIENT* client, const QByteArray& command);
+    void stopAudioForClient(CLIENT* client);
+    void dropUnauthorizedClients() override;
+    RIGCONFIG* radioForClient(const CLIENT* client) const;
+    bool translateNetworkCommandForRig(const CLIENT* client, QByteArray& command) const;
+    QList<QByteArray> translateRigDataForClient(const QByteArray& data, const QByteArray& guid);
+    bool assembleScopeCommand(QMap<QByteArray, QByteArray>& buffers, const QByteArray& guid,
+                              const QByteArray& command, const QByteArray& lanCommand,
+                              int chunks, int chunkDigits, int lanDigits, QByteArray& output);
 
-    QTcpServer* server = Q_NULLPTR;
+    QTcpServer* server = nullptr;
     QMap <QTcpSocket*, CLIENT*> clients;
+    QMap<QByteArray, QByteArray> rigDataBuffers;
+    QMap<QByteArray, QByteArray> bandscopeBuffers;
+    QMap<QByteArray, QByteArray> filterScopeBuffers;
 
-    rtpAudio* rtp = Q_NULLPTR;
-    QThread* rtpThread = Q_NULLPTR;
+    rtpAudio* rtp = nullptr;
+    QThread* rtpThread = nullptr;
 
     audioSetup outAudio;
     audioSetup inAudio;

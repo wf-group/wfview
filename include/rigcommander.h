@@ -9,7 +9,7 @@
 
 #include "wfviewtypes.h"
 #include "commhandler.h"
-#include "pttyhandler.h"
+#include "vsphandler.h"
 #include "icomudphandler.h"
 #include "rigidentities.h"
 #include "repeaterattributes.h"
@@ -27,6 +27,8 @@
 //#define DEBUG_PARSE // Enable to output Info messages every 10s with command parse timing.
 
 typedef QHash<quint16, rigInfo> rigTypedef;
+Q_DECLARE_METATYPE(rigTypedef)
+
 
 class rigCommander : public QObject
 {
@@ -57,10 +59,14 @@ public slots:
     void spectrumTime(double tm) {specTime = tm; };
     void waterfallTime(double tm) { wfTime = tm; };
 
-    void dataFromServer(QByteArray data);
+    virtual void dataFromServer(QByteArray data);
     virtual void process();
-    virtual void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf);
-    virtual void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp);
+    virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf);
+    virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp);
+    virtual void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
+                                  QString username, QString password, QString calledNumber,
+                                  audioSetup rxSetup, audioSetup txSetup);
+    virtual void setLocalAudioVolume(quint8 level) { emit haveSetVolume(level); }
     virtual void closeComm();
 
     virtual void setPTTType(pttType_t ptt);
@@ -77,6 +83,7 @@ public slots:
     // UDP:
     virtual void handleNewData(const QByteArray& data);
     virtual void receiveBaudRate(quint32 baudrate);
+    virtual void receiveTxAudioData(const audioPacket &packet);
 
     // Housekeeping:
     virtual void receiveCommand(funcs func, QVariant value, uchar receiver);
@@ -88,6 +95,7 @@ signals:
     void commReady();
 
     void havePortError(errorType err);
+    void connectionLost();
     void haveStatusUpdate(const networkStatus status);
 
     void haveNetworkAudioLevels(const networkAudioLevels l);
@@ -99,6 +107,7 @@ signals:
     // UDP:
     void haveChangeLatency(quint16 value);
     void haveDataForServer(QByteArray outData);
+    void haveScopeDataForServer(QByteArray outData);
     void haveAudioData(audioPacket data);
     void initUdpHandler();
     void haveSetVolume(quint8 level);
@@ -130,6 +139,7 @@ signals:
     void getMoreDebug();
     void finished();
     void haveReceivedValue(funcs func, QVariant value);
+    void externalPttChanged(bool state);
     void sidetone(QString text);
     void stopsidetone();
 
@@ -142,6 +152,8 @@ protected:
     audioSetup txSetup;
 
     double getMeterCal(meter_t meter,int value);
+    void determineRigCaps();
+    queuePriority externalCommandPriority(funcs func) const;
 
     void printHex(const QByteArray &pdata);
     void printHex(const QByteArray &pdata, bool printVert, bool printHoriz);

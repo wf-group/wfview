@@ -1,9 +1,14 @@
 #include "icomcommander.h"
 #include <QDebug>
 
+#include "audiohandler.h"
+#include "audiopacketcodec.h"
+#include "icomscopeframeassembler.h"
+#include "iaxradiotransport.h"
 #include "rigidentities.h"
 #include "logcategories.h"
 #include "printhex.h"
+#include "mcphooks.h"
 
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
 
@@ -21,6 +26,31 @@
 
 // Note: When sending \x00, must use QByteArray.setRawData()
 
+namespace {
+
+QString civDebugHex(const QByteArray &data)
+{
+    return QString::fromLatin1(data.toHex(' ')).toUpper();
+}
+
+void applyIaxStatsToNetworkStatus(const IaxStats &stats, networkStatus *status)
+{
+    if (status == nullptr)
+        return;
+
+    status->networkLatency = stats.lagMs;
+    status->packetsSent = stats.fullFramesTx + stats.miniFramesTx + stats.fullFramesRx + stats.miniFramesRx;
+    status->packetsLost = stats.retries + stats.oSeqnoGaps + stats.invalidIaxFrames;
+    status->message = QStringLiteral("IAX rx: %1 ms / lag: %2 ms / retry: %3 / OSeq gap: %4 / invalid: %5")
+                          .arg(status->rxCurrentLatency, 3)
+                          .arg(stats.lagMs, 3)
+                          .arg(stats.retries, 3)
+                          .arg(stats.oSeqnoGaps, 3)
+                          .arg(stats.invalidIaxFrames, 3);
+}
+
+}
+
 icomCommander::icomCommander(rigCommander* parent) : rigCommander(parent)
 {
 
@@ -36,44 +66,41 @@ icomCommander::icomCommander(quint8 guid[GUIDLEN], rigCommander* parent) : rigCo
 
 icomCommander::~icomCommander()
 {
-    qInfo(logRig()) << "[SHUTDOWN] ~icomCommander enter";
+    qInfo(logRig()) << "closing instance of icomCommander()";
 
     emit requestRadioSelection(QList<radio_cap_packet>()); // Remove radio list.
 
-    queue->setRigCaps(Q_NULLPTR); // Remove access to rigCaps
+    queue->setRigCaps(nullptr); // Remove access to rigCaps
 
-    qDebug(logRig()) << "[SHUTDOWN] Closing rig comms";
-    if (comm != Q_NULLPTR) {
+    qDebug(logRig()) << "Closing rig comms";
+    if (comm != nullptr) {
         delete comm;
+        comm = nullptr;
     }
 
-    if (udpHandlerThread != Q_NULLPTR) {
-        if (udp) {
-            qDebug(logRig()) << "[SHUTDOWN] posting udp->shutdown() via QueuedConnection ...";
+    if (udpHandlerThread != nullptr) {
+        if (udp != nullptr) {
             QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
-                                      Qt::QueuedConnection);
+                                      !udpHandlerThread->isRunning() || udp->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
         }
-        qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread->quit()";
         udpHandlerThread->quit();
-        qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread->wait(3000) ...";
-        if (!udpHandlerThread->wait(3000)) {
-            qWarning(logRig()) << "[SHUTDOWN] udpHandlerThread unresponsive, forcing shutdown";
-            if (udp) udp->shutdown();
-            udpHandlerThread->terminate();
-            udpHandlerThread->wait(2000);
-        } else {
-            qDebug(logRig()) << "[SHUTDOWN] udpHandlerThread done";
-        }
+        udpHandlerThread->wait();
+        udpHandlerThread = nullptr;
+    }
+    udp = nullptr;
+
+    if (vspPort != nullptr) {
+        delete vspPort;
+        vspPort = nullptr;
     }
 
-    if (ptty != Q_NULLPTR) {
-        delete ptty;
-    }
-    qDebug(logRig()) << "[SHUTDOWN] ~icomCommander complete";
+    closeWfShare();
 }
 
 
-void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp,quint16 tcpPort, quint8 wf)
+void icomCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcpPort, quint8 wf)
 {
     // construct
 
@@ -85,6 +112,7 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
 
     this->rigSerialPort = rigSerialPort;
     this->rigBaudRate = rigBaudRate;
+    vspQueueEnabled = vspUseQueue;
     rigCaps.baudRate = rigBaudRate;
 
 
@@ -97,31 +125,35 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
     connect(this, SIGNAL(setHalfDuplex(bool)), comm, SLOT(setHalfDuplex(bool)));
     connect(comm, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
     connect(this, SIGNAL(getMoreDebug()), comm, SLOT(debugThis()));
+    // The port is opened in the constructor, before the connection above.
+    if (comm->serialError)
+        handlePortError(errorType(true, rigSerialPort, comm->serialErrorText));
 
 
     if (vsp.toLower() != "none") {
-        qInfo(logRig()) << "Attempting to connect to vsp/pty:" << vsp;
-        ptty = new pttyHandler(vsp,this);
-        // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), comm, SLOT(receiveDataFromUserToRig(QByteArray)));
-        // data from the rig to the ptty:
-        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
-        connect(ptty, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
-        connect(this, SIGNAL(getMoreDebug()), ptty, SLOT(debugThis()));
+        qInfo(logRig()) << "Attempting to connect to VSP:" << vsp;
+        vspPort = new vspHandler(vsp,this);
+        // data from the VSP to the rig:
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
+        // data from the rig to the VSP:
+        connect(comm, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromRigToExternalClient(QByteArray)));
+        connect(this, SIGNAL(haveDataForVsp(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
+        connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
+        connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
     }
 
     if (tcpPort > 0) {
         tcp = new tcpServer(this);
         tcp->startServer(tcpPort);
         // data from the tcp port to the rig:
-        connect(tcp, SIGNAL(receiveData(QByteArray)), comm, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(tcp, SIGNAL(receiveData(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         connect(comm, SIGNAL(haveDataFromPort(QByteArray)), tcp, SLOT(sendData(QByteArray)));
     }
 
     commonSetup();
 }
 
-void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcpPort)
+void icomCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
 {
     // construct
     // TODO: Bring this parameter and the comm port from the UI.
@@ -131,8 +163,9 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
     this->prefs = prefs;
     civAddr = rigCivAddr; // address of the radio
     usingNativeLAN = true;
+    vspQueueEnabled = vspUseQueue;
 
-    if (udp != Q_NULLPTR) {
+    if (udp != nullptr) {
         closeComm();
     }
 
@@ -169,21 +202,22 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
     connect(this, SIGNAL(selectedRadio(quint8)), udp, SLOT(setCurrentRadio(quint8)));
 
     if (vsp != "None") {
-        ptty = new pttyHandler(vsp,this);
-        // data from the ptty to the rig:
-        connect(ptty, SIGNAL(haveDataFromPort(QByteArray)), udp, SLOT(receiveDataFromUserToRig(QByteArray)));
-        // data from the rig to the ptty:
-        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), ptty, SLOT(receiveDataFromRigToPtty(QByteArray)));
+        vspPort = new vspHandler(vsp,this);
+        // data from the VSP to the rig:
+        connect(vspPort, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromVspClient(QByteArray)));
+        // data from the rig to the VSP:
+        connect(udp, SIGNAL(haveDataFromPort(QByteArray)), this, SLOT(dataFromRigToExternalClient(QByteArray)));
+        connect(this, SIGNAL(haveDataForVsp(QByteArray)), vspPort, SLOT(receiveDataFromRigToVsp(QByteArray)));
 
-        connect(ptty, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
-        connect(this, SIGNAL(getMoreDebug()), ptty, SLOT(debugThis()));
+        connect(vspPort, SIGNAL(havePortError(errorType)), this, SLOT(handlePortError(errorType)));
+        connect(this, SIGNAL(getMoreDebug()), vspPort, SLOT(debugThis()));
     }
 
     if (tcpPort > 0) {
         tcp = new tcpServer(this);
         tcp->startServer(tcpPort);
         // data from the tcp port to the rig:
-        connect(tcp, SIGNAL(receiveData(QByteArray)), udp, SLOT(receiveDataFromUserToRig(QByteArray)));
+        connect(tcp, SIGNAL(receiveData(QByteArray)), this, SLOT(dataFromExternalClient(QByteArray)));
         // data from the rig to the tcp port:
         connect(udp, SIGNAL(haveDataFromPort(QByteArray)), tcp, SLOT(sendData(QByteArray)));
     }
@@ -192,38 +226,229 @@ void icomCommander::commSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr
 
 }
 
+void icomCommander::wfShareCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, QString host,
+                                     quint16 port, QString username, QString password, QString calledNumber,
+                                     audioSetup rxSetup, audioSetup txSetup)
+{
+    this->rigList = rigList;
+    civAddr = rigCivAddr;
+    usingNativeLAN = false;
+    wfShareRxSetup = rxSetup;
+    wfShareRxSetup.codec = 0x40;
+    wfShareRxSetup.sampleRate = 16000;
+    wfShareRxSetup.isinput = false;
+    wfShareTxSetup = txSetup;
+    wfShareTxSetup.codec = 0x40;
+    wfShareTxSetup.sampleRate = 16000;
+    wfShareTxSetup.isinput = true;
+    wfShareTxSetup.latency = txSetup.latency == 0 ? quint16(150) : txSetup.latency;
+    memcpy(wfShareTxSetup.guid, guid, GUIDLEN);
+    wfShareStats = IaxStats();
+    wfShareStatus = networkStatus();
+
+    if (wfShareTransport != nullptr) {
+        wfShareTransport->disconnectTransport();
+        delete wfShareTransport;
+        wfShareTransport = nullptr;
+    }
+
+    auto *iaxTransport = new IaxRadioTransport(this);
+    wfShareTransport = iaxTransport;
+    connect(iaxTransport, &IaxRadioTransport::iaxStatsChanged, this, [this](IaxStats stats) {
+        wfShareStats = stats;
+        applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
+        emit haveStatusUpdate(wfShareStatus);
+    });
+    connect(wfShareTransport, &RadioTransport::streamReceived, this, [this](RadioTransportChannel channel, QByteArray data) {
+        if (channel == RadioTransportChannel::Civ || channel == RadioTransportChannel::Scope) {
+            handleNewData(data);
+        } else if (channel == RadioTransportChannel::AudioRx) {
+            if (!haveRigCaps) {
+                return;
+            }
+
+            audioPacket packet;
+            if (audioPacketCodec::decode(data, &packet)) {
+                wfShareAudioRxFrames++;
+                if (wfShareAudioRxFrames <= 10 || wfShareAudioRxFrames % 250 == 0) {
+                    qDebug(logRig()).noquote()
+                        << QStringLiteral("wfshare received RX audio frame %1 bytes %2")
+                               .arg(wfShareAudioRxFrames)
+                               .arg(packet.data.size());
+                }
+                if (wfShareRxAudio == nullptr) {
+                    if (wfShareRxSetup.type == qtAudio) {
+                        wfShareRxAudio = new audioHandlerQtOutput();
+                    } else if (wfShareRxSetup.type == portAudio) {
+                        wfShareRxAudio = new audioHandlerPaOutput();
+                    } else if (wfShareRxSetup.type == rtAudio) {
+                        wfShareRxAudio = new audioHandlerRtOutput();
+                    } else {
+                        qCritical(logAudio()) << "Unsupported wfshare receive audio handler selected" << wfShareRxSetup.type;
+                        return;
+                    }
+
+                    wfShareRxAudioThread = new QThread(this);
+                    wfShareRxAudioThread->setObjectName(QStringLiteral("wfshareRxAudio()"));
+                    wfShareRxAudio->moveToThread(wfShareRxAudioThread);
+                    wfShareRxAudioThread->start(QThread::TimeCriticalPriority);
+                    connect(wfShareRxAudioThread, SIGNAL(finished()), wfShareRxAudio, SLOT(deleteLater()));
+                    connect(wfShareRxAudio, &audioHandlerBase::haveLevels, this,
+                            [this](quint16 amplitudePeak, quint16 amplitudeRMS, quint16 latency, quint16 current,
+                                   bool under, bool over) {
+                                Q_UNUSED(amplitudeRMS)
+                                wfShareStatus.rxAudioLevel = quint8(qMin<quint16>(amplitudePeak, 255));
+                                wfShareStatus.rxLatency = latency;
+                                wfShareStatus.rxCurrentLatency = qint16(current);
+                                wfShareStatus.rxUnderrun = under;
+                                wfShareStatus.rxOverrun = over;
+                                applyIaxStatsToNetworkStatus(wfShareStats, &wfShareStatus);
+                                emit haveStatusUpdate(wfShareStatus);
+                            });
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5,10,0))
+                    QMetaObject::invokeMethod(wfShareRxAudio, [this]() {
+                        wfShareRxAudio->init(wfShareRxSetup);
+                    }, Qt::QueuedConnection);
+#else
+                    QMetaObject::invokeMethod(wfShareRxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, wfShareRxSetup));
+#endif
+                }
+
+                QMetaObject::invokeMethod(wfShareRxAudio, "incomingAudio", Qt::QueuedConnection, Q_ARG(audioPacket, packet));
+                receiveAudioData(packet);
+            } else {
+                qWarning(logRig()) << "wfshare audio packet decode failed";
+            }
+        }
+    });
+    connect(wfShareTransport, &RadioTransport::connectedChanged, this, [this](bool connected) {
+        if (connected) {
+            qInfo(logRig()) << "wfshare CI-V transport connected";
+            QMetaObject::invokeMethod(this, [this]() {
+                commonSetup();
+            }, Qt::QueuedConnection);
+        }
+    });
+    connect(wfShareTransport, &RadioTransport::errorOccurred, this, [this](const QString &message) {
+        handlePortError(errorType(true, QStringLiteral("wfshare"), message));
+    });
+    connect(this, &icomCommander::dataForComm, wfShareTransport, [this](const QByteArray &data) {
+        if (wfShareTransport != nullptr) {
+            wfShareTransport->sendStream(RadioTransportChannel::Civ, data);
+        }
+    });
+
+    RadioTransportEndpoint endpoint;
+    endpoint.host = host;
+    endpoint.port = port;
+    endpoint.username = username;
+    endpoint.password = password;
+    endpoint.options.insert(QStringLiteral("calledNumber"), calledNumber);
+    wfShareTransport->connectTransport(endpoint);
+}
+
+void icomCommander::setLocalAudioVolume(quint8 level)
+{
+    if (udp != nullptr) {
+        emit haveSetVolume(level);
+    }
+
+    if (wfShareTransport != nullptr) {
+        wfShareRxSetup.localAFgain = level;
+        if (wfShareRxAudio != nullptr) {
+            QMetaObject::invokeMethod(wfShareRxAudio, "setVolume",
+                                      Qt::QueuedConnection, Q_ARG(quint8, level));
+        }
+    }
+}
+
+void icomCommander::receiveTxAudioData(const audioPacket &packet)
+{
+    if (udp != nullptr) {
+        QMetaObject::invokeMethod(udp, "sendTxAudioData",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(audioPacket, packet));
+        return;
+    }
+
+    if (wfShareTransport == nullptr || !wfShareTransport->isConnected() ||
+        !haveRigCaps || !rigCaps.hasTransmit) {
+        return;
+    }
+
+    wfShareAudioTxFrames++;
+    if (wfShareAudioTxFrames <= 10 || wfShareAudioTxFrames % 250 == 0) {
+        qDebug(logRig()).noquote()
+            << QStringLiteral("wfshare sent TX audio frame %1 bytes %2")
+                   .arg(wfShareAudioTxFrames)
+                   .arg(packet.data.size());
+    }
+    wfShareTransport->sendStream(RadioTransportChannel::AudioTx, audioPacketCodec::encode(packet));
+}
+
 void icomCommander::closeComm()
 {
-    qDebug(logRig()) << "[SHUTDOWN] closeComm() enter";
-    if (comm != Q_NULLPTR) {
+    qDebug(logRig()) << "Closing rig comms";
+    if (comm != nullptr) {
         delete comm;
     }
-    comm = Q_NULLPTR;
+    comm = nullptr;
 
-    if (udpHandlerThread != Q_NULLPTR) {
-        if (udp) {
-            qDebug(logRig()) << "[SHUTDOWN] closeComm() posting udp->shutdown() ...";
+    if (udpHandlerThread != nullptr) {
+        if (udp != nullptr) {
             QMetaObject::invokeMethod(udp, &icomUdpHandler::shutdown,
-                                      Qt::QueuedConnection);
+                                      !udpHandlerThread->isRunning() || udp->thread() == QThread::currentThread()
+                                          ? Qt::DirectConnection
+                                          : Qt::BlockingQueuedConnection);
         }
-        qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread->quit()";
         udpHandlerThread->quit();
-        qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread->wait(3000) ...";
-        if (!udpHandlerThread->wait(3000)) {
-            qWarning(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread unresponsive, forcing shutdown";
-            if (udp) udp->shutdown();
-            udpHandlerThread->terminate();
-            udpHandlerThread->wait(2000);
+        udpHandlerThread->wait();
+    }
+    udp = nullptr;
+
+    if (vspPort != nullptr) {
+        delete vspPort;
+    }
+    vspPort = nullptr;
+
+    closeWfShare();
+}
+
+void icomCommander::closeWfShare()
+{
+    if (wfShareTransport != nullptr) {
+        disconnect(wfShareTransport, nullptr, this, nullptr);
+        disconnect(this, nullptr, wfShareTransport, nullptr);
+        wfShareTransport->disconnectTransport();
+        delete wfShareTransport;
+        wfShareTransport = nullptr;
+    }
+
+    if (wfShareRxAudio != nullptr) {
+        disconnect(wfShareRxAudio, nullptr, this, nullptr);
+        if (wfShareRxAudioThread == nullptr ||
+            wfShareRxAudio->thread() == QThread::currentThread() ||
+            !wfShareRxAudioThread->isRunning()) {
+            wfShareRxAudio->dispose();
         } else {
-            qDebug(logRig()) << "[SHUTDOWN] closeComm() udpHandlerThread done";
+            QMetaObject::invokeMethod(wfShareRxAudio, &audioHandlerBase::dispose,
+                                      Qt::BlockingQueuedConnection);
         }
     }
-    udp = Q_NULLPTR;
 
-    if (ptty != Q_NULLPTR) {
-        delete ptty;
+    if (wfShareRxAudioThread != nullptr) {
+        wfShareRxAudioThread->quit();
+        wfShareRxAudioThread->wait();
+        delete wfShareRxAudioThread;
+        wfShareRxAudioThread = nullptr;
     }
-    ptty = Q_NULLPTR;
+    wfShareRxAudio = nullptr;
+
+    wfShareAudioRxFrames = 0;
+    wfShareAudioTxFrames = 0;
+    wfShareStats = IaxStats();
+    wfShareStatus = networkStatus();
 }
 
 void icomCommander::commonSetup()
@@ -248,6 +473,8 @@ void icomCommander::commonSetup()
     rigCaps.commandsReverse.insert(QByteArrayLiteral("\x18"),funcPowerControl);
 
     connect(queue,SIGNAL(haveCommand(funcs,QVariant,uchar)),this,SLOT(receiveCommand(funcs,QVariant,uchar)));
+    connect(queue,SIGNAL(haveRawCommand(QByteArray,uchar)),this,SLOT(receiveRawExternalCommand(QByteArray,uchar)));
+    connect(queue, &cachingQueue::cacheUpdated, this, &icomCommander::receiveExternalCacheUpdate, Qt::UniqueConnection);
     oldScopeMode = 0xff;
 
     pttAllowed = true; // This is for developing, set to false for "safe" debugging. Set to true for deployment.
@@ -260,7 +487,7 @@ void icomCommander::commonSetup()
 void icomCommander::process()
 {
     // new thread enters here. Do nothing but do check for errors.
-    if(comm!=Q_NULLPTR && comm->serialError)
+    if(comm!=nullptr && comm->serialError)
     {
         emit havePortError(errorType(rigSerialPort, QString("Error from commhandler. Check serial port.")));
     }
@@ -277,7 +504,7 @@ void icomCommander::setPTTType(pttType_t ptt)
     qDebug(logRig()) << "Received request to set PTT Type to:" << ptt;
     if(!usingNativeLAN)
     {
-        if(comm != Q_NULLPTR)
+        if(comm != nullptr)
         {
             comm->setPTTType(ptt);
         }
@@ -296,6 +523,827 @@ void icomCommander::prepDataAndSend(QByteArray data)
         printHexNow(data, logRigTraffic());
     }
     emit dataForComm(data);
+}
+
+void icomCommander::dataFromServer(QByteArray data)
+{
+    recordLastExternalCommand(data);
+    rigCommander::dataFromServer(data);
+}
+
+void icomCommander::dataFromVspClient(QByteArray data)
+{
+    qDebug(logVsp()).noquote()
+        << QStringLiteral("Icom VSP IN chunk bytes=%1 hex=%2")
+               .arg(data.size())
+               .arg(civDebugHex(data));
+
+    const QVector<QByteArray> frames = takeCompleteExternalFrames(vspInputBuffer, data);
+    for (const QByteArray &frame : frames) {
+        logExternalFrame("VSP IN", frame, lookupExternalCommand(frame), 0, QStringLiteral("complete-frame"));
+        processExternalFrame(frame, true);
+    }
+}
+
+void icomCommander::dataFromExternalClient(QByteArray data)
+{
+    const QVector<QByteArray> frames = takeCompleteExternalFrames(tcpInputBuffer, data);
+    for (const QByteArray &frame : frames)
+        processExternalFrame(frame, false);
+}
+
+QVector<QByteArray> icomCommander::takeCompleteExternalFrames(QByteArray &buffer, const QByteArray &data)
+{
+    QVector<QByteArray> frames;
+    buffer.append(data);
+
+    while (!buffer.isEmpty()) {
+        int frameStart = -1;
+        for (int i = 0; i + 1 < buffer.size(); ++i) {
+            if (quint8(buffer.at(i)) == 0xfe && quint8(buffer.at(i + 1)) == 0xfe) {
+                frameStart = i;
+                break;
+            }
+        }
+
+        if (frameStart < 0) {
+            if (buffer.size() > 4096) {
+                qWarning(logVsp()) << "Dropping unterminated external CI-V data";
+                buffer.clear();
+            }
+            break;
+        }
+
+        if (frameStart > 0)
+            buffer.remove(0, frameStart);
+
+        const int frameEnd = buffer.indexOf(char(0xfd), 2);
+        if (frameEnd < 0) {
+            if (buffer.size() > 4096) {
+                qWarning(logVsp()) << "Dropping oversized external CI-V frame";
+                buffer.clear();
+            }
+            break;
+        }
+
+        frames.append(buffer.left(frameEnd + 1));
+        buffer.remove(0, frameEnd + 1);
+    }
+
+    return frames;
+}
+
+void icomCommander::processExternalFrame(const QByteArray &data, bool fromVsp)
+{
+    QByteArray commandData;
+    const funcs externalFunc = lookupExternalCommand(data, &commandData);
+    if (fromVsp && externalFunc == funcCIVTransceive) {
+        QByteArray reply = QByteArrayLiteral("\xfe\xfe\x00\x00\xfb\xfd");
+        if (data.size() > 3) {
+            reply[2] = data[3];
+            reply[3] = data[2];
+        }
+        logExternalFrame("VSP IN", data, externalFunc, 0, QStringLiteral("handled-transceive-disable"));
+        emit haveDataForVsp(data);
+        logExternalFrame("VSP OUT", data, externalFunc, 0, QStringLiteral("echo-transceive-disable"));
+        emit haveDataForVsp(reply);
+        logExternalFrame("VSP OUT", reply, externalFunc, 0, QStringLiteral("ack-transceive-disable"));
+        if (!vspTransceiveDisabled) {
+            qInfo(logVsp()) << "pty requested CI-V Transceive disable";
+            vspTransceiveDisabled = true;
+        }
+        return;
+    }
+
+    bool transmit = false;
+    if (detectExternalTransmitStatus(data, &transmit))
+        emit externalPttChanged(transmit);
+
+    recordLastExternalCommand(data);
+    if (vspQueueEnabled && queueExternalCommand(data))
+        return;
+
+    if (fromVsp)
+        logExternalFrame("VSP IN", data, externalFunc, 0,
+                         vspQueueEnabled ? QStringLiteral("raw-pass-through-queue-failed")
+                                         : QStringLiteral("raw-pass-through-queue-disabled"));
+    emit dataForComm(data);
+}
+
+void icomCommander::dataFromRigToExternalClient(QByteArray data)
+{
+    int fePos = data.lastIndexOf(char(0xfe));
+    if (fePos > 0 && data.length() > fePos + 3)
+        fePos--;
+
+    if (fePos < 0 || data.length() <= fePos + 3) {
+        qDebug(logVsp()) << "Invalid CI-V command for VSP";
+        return;
+    }
+
+    if (vspTransceiveDisabled) {
+        if (quint8(data.at(fePos + 2)) == 0x00 || quint8(data.at(fePos + 3)) == 0x00) {
+            qDebug(logVsp()) << "Transceive command filtered";
+            return;
+        }
+    }
+
+    if (quint8(data.at(fePos + 2)) == quint8(0xE1) || quint8(data.at(fePos + 3)) == quint8(0xE1))
+        return;
+
+    logExternalFrame("VSP OUT", data, lookupExternalCommand(data), 0, QStringLiteral("radio-reply"));
+    emit haveDataForVsp(data);
+}
+
+void icomCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
+{
+    Q_UNUSED(receiver)
+    emit dataForComm(data);
+}
+
+bool icomCommander::queueExternalCommand(QByteArray data)
+{
+    if (queue == nullptr || data.isEmpty())
+        return false;
+
+    QVector<QByteArray> frames;
+    int searchFrom = 0;
+    while (searchFrom < data.size()) {
+        int frameStart = -1;
+        for (int i = searchFrom; i + 1 < data.size(); ++i) {
+            if (quint8(data.at(i)) == 0xfe && quint8(data.at(i + 1)) == 0xfe) {
+                frameStart = i;
+                break;
+            }
+        }
+
+        if (frameStart < 0)
+            break;
+
+        const int frameEnd = data.indexOf(char(0xfd), frameStart + 2);
+        if (frameEnd < 0)
+            break;
+
+        frames.append(data.mid(frameStart, frameEnd - frameStart + 1));
+        searchFrom = frameEnd + 1;
+    }
+
+    if (frames.isEmpty()) {
+        logExternalFrame("VSP IN", data, funcNone, 0, QStringLiteral("queued-raw-no-complete-frame"));
+        queue->add(priorityImmediate, queueItem(data, 0));
+        return true;
+    }
+
+    for (int frameIndex = frames.size() - 1; frameIndex >= 0; --frameIndex) {
+        const QByteArray frame = frames.at(frameIndex);
+        QByteArray commandData;
+        QByteArray lookupData;
+        int matchedLength = 0;
+        const funcs func = lookupExternalCommand(frame, &commandData, &lookupData, &matchedLength);
+        uchar receiver = 0;
+        if (rigCaps.hasCommand29 && commandData.size() >= 2 && quint8(commandData.at(0)) == 0x29)
+            receiver = quint8(commandData.at(1));
+
+        if (func != funcNone && matchedLength > 0 && isExternalReadCommand(func, lookupData, matchedLength, &receiver)) {
+            funcs cacheFunc = func;
+            uchar cacheReceiver = receiver;
+            switch (func) {
+            case funcFreq:
+            case funcSelectedFreq:
+            case funcUnselectedFreq:
+            case funcFreqGet:
+            case funcFreqTR:
+            case funcTXFreq:
+            {
+                const vfoCommandType vfoCommand = queue->getVfoCommand(vfoA, receiver, false);
+                cacheFunc = vfoCommand.freqFunc;
+                cacheReceiver = vfoCommand.receiver;
+                break;
+            }
+            case funcMode:
+            case funcModeGet:
+            case funcModeTR:
+            case funcSelectedMode:
+            case funcUnselectedMode:
+            case funcDataModeWithFilter:
+            {
+                const vfoCommandType vfoCommand = queue->getVfoCommand(vfoA, receiver, false);
+                cacheFunc = vfoCommand.modeFunc;
+                cacheReceiver = vfoCommand.receiver;
+                break;
+            }
+            default:
+                break;
+            }
+            const cacheItem cache = queue->getCache(cacheFunc, cacheReceiver);
+            PendingExternalRead pending;
+            pending.requestFrame = frame;
+            pending.commandData = commandData;
+            pending.requestedFunc = func;
+            pending.cacheFunc = cacheFunc;
+            pending.receiver = cacheReceiver;
+            pending.created = QDateTime::currentDateTime();
+            if (isExternalCacheFresh(cache) && sendExternalCacheReply(pending, cache, QStringLiteral("reply-cache-hit")))
+                continue;
+
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-read priority=%1").arg(int(externalCommandPriority(cacheFunc))),
+                             cache);
+            pendingExternalReads.append(pending);
+        } else if (func != funcNone && matchedLength > 0 &&
+                   queueParsedExternalCommand(func, commandData, lookupData, matchedLength, receiver, frame)) {
+            // Parsed set command has been added to the queue.
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-parsed-set priority=%1").arg(int(externalCommandPriority(func))));
+            sendExternalAck(frame, func, receiver, QStringLiteral("ack-parsed-set"));
+        } else if (func != funcNone && matchedLength > 0 &&
+                   queueExternalActionCommand(func, receiver, frame)) {
+            // Action command has been added to the queue and acknowledged to the external client.
+        } else {
+            logExternalFrame("VSP IN", frame, func, receiver,
+                             QStringLiteral("queued-raw priority=%1").arg(int(externalCommandPriority(func))));
+            queue->add(externalCommandPriority(func), queueItem(frame, receiver));
+        }
+    }
+
+    return true;
+}
+
+bool icomCommander::isExternalCacheFresh(const cacheItem &cache) const
+{
+    if (cache.command == funcNone || !cache.value.isValid() || !cache.reply.isValid())
+        return false;
+
+    const qint64 ageMs = cache.reply.msecsTo(QDateTime::currentDateTime());
+    return ageMs >= 0 && ageMs <= 20000;
+}
+
+bool icomCommander::sendExternalCacheReply(const PendingExternalRead &pending, const cacheItem &cache, const QString &action)
+{
+    if (pending.requestFrame.size() < 4 || pending.commandData.isEmpty() || !cache.value.isValid())
+        return false;
+
+    QByteArray reply;
+    reply.append(char(0xfe));
+    reply.append(char(0xfe));
+    reply.append(pending.requestFrame.at(3));
+    reply.append(pending.requestFrame.at(2));
+    reply.append(pending.commandData);
+
+    switch (pending.requestedFunc) {
+    case funcFreq:
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcFreqGet:
+    case funcFreqTR:
+    case funcTXFreq:
+        if (!cache.value.canConvert<freqt>())
+            return false;
+        reply.append(makeFreqPayload(cache.value.value<freqt>()));
+        break;
+
+    case funcMode:
+    case funcModeGet:
+    case funcModeTR:
+    case funcSelectedMode:
+    case funcUnselectedMode:
+    case funcDataModeWithFilter:
+    {
+        if (!cache.value.canConvert<modeInfo>())
+            return false;
+        const modeInfo mode = cache.value.value<modeInfo>();
+        reply.append(char(mode.reg));
+        if (mode.filter != 0)
+            reply.append(char(mode.filter));
+        break;
+    }
+
+    default:
+        if (cache.value.canConvert<bool>()) {
+            reply.append(char(cache.value.value<bool>() ? 1 : 0));
+        } else if (cache.value.canConvert<uchar>()) {
+            uchar value = cache.value.value<uchar>();
+            if (pending.requestedFunc == funcRoofingFilter || pending.requestedFunc == funcFilterShape)
+                value = value % 10;
+            reply.append(bcdEncodeChar(value));
+        } else if (cache.value.canConvert<ushort>()) {
+            const ushort value = cache.value.value<ushort>();
+            if (pending.requestedFunc == funcFilterWidth) {
+                reply.append(makeFilterWidth(value, pending.receiver));
+            } else if (pending.requestedFunc == funcKeySpeed) {
+                const ushort level = round((value - 6) * 6.071);
+                reply.append(bcdEncodeInt(level));
+            } else if (pending.requestedFunc == funcCwPitch) {
+                const ushort level = ceil((value - 300) * (255.0 / 600.0));
+                reply.append(bcdEncodeInt(level));
+            } else {
+                reply.append(bcdEncodeInt(value));
+            }
+        } else {
+            return false;
+        }
+        break;
+    }
+
+    reply.append(char(0xfd));
+    logExternalFrame("VSP OUT", reply, pending.requestedFunc, pending.receiver, action, cache);
+    emit haveDataForVsp(reply);
+    return true;
+}
+
+bool icomCommander::sendExternalAck(const QByteArray &requestFrame, funcs func, uchar receiver, const QString &action)
+{
+    if (requestFrame.size() < 4)
+        return false;
+
+    QByteArray reply;
+    reply.append(char(0xfe));
+    reply.append(char(0xfe));
+    reply.append(requestFrame.at(3));
+    reply.append(requestFrame.at(2));
+    reply.append(char(0xfb));
+    reply.append(char(0xfd));
+
+    logExternalFrame("VSP OUT", reply, func, receiver, action);
+    emit haveDataForVsp(reply);
+    return true;
+}
+
+bool icomCommander::queueExternalActionCommand(funcs func, uchar receiver, const QByteArray &rawFrame)
+{
+    if (queue == nullptr)
+        return false;
+
+    switch (func) {
+    case funcVFOMainSelect:
+    case funcVFOSubSelect:
+    case funcVFOASelect:
+    case funcVFOBSelect:
+    case funcVFODualWatchOn:
+    case funcVFODualWatchOff:
+        logExternalFrame("VSP IN", rawFrame, func, receiver,
+                         QStringLiteral("queued-action priority=%1").arg(int(externalCommandPriority(func))));
+        queue->add(externalCommandPriority(func), queueItem(func, false, receiver));
+        sendExternalAck(rawFrame, func, receiver, QStringLiteral("ack-action"));
+        return true;
+    default:
+        return false;
+    }
+}
+
+void icomCommander::receiveExternalCacheUpdate(cacheItem item)
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    for (int i = pendingExternalReads.size() - 1; i >= 0; --i) {
+        const PendingExternalRead pending = pendingExternalReads.at(i);
+        if (pending.created.msecsTo(now) > 5000) {
+            logExternalFrame("VSP IN", pending.requestFrame, pending.requestedFunc, pending.receiver,
+                             QStringLiteral("pending-read-expired"));
+            pendingExternalReads.removeAt(i);
+            continue;
+        }
+
+        if (pending.cacheFunc != item.command || pending.receiver != item.receiver)
+            continue;
+
+        if (sendExternalCacheReply(pending, item, QStringLiteral("reply-cache-update")))
+            pendingExternalReads.removeAt(i);
+    }
+}
+
+void icomCommander::logExternalFrame(const char *direction, const QByteArray &data, funcs func, uchar receiver,
+                                     const QString &action, const cacheItem &cache) const
+{
+    QString funcName = QStringLiteral("None");
+    if (func >= funcNone && func < funcLastFunc)
+        funcName = funcString[func];
+
+    QString cacheText = QStringLiteral("cache=n/a");
+    if (cache.command != funcNone) {
+        const qint64 ageMs = cache.reply.isValid()
+                                 ? cache.reply.msecsTo(QDateTime::currentDateTime())
+                                 : -1;
+        const bool hasValue = cache.value.isValid();
+        const bool fresh = hasValue && ageMs >= 0 && ageMs <= 20000;
+        cacheText = QStringLiteral("cache=%1 ageMs=%2 valueValid=%3")
+                        .arg(fresh ? QStringLiteral("hit") : (hasValue ? QStringLiteral("stale") : QStringLiteral("miss")))
+                        .arg(ageMs)
+                        .arg(hasValue ? QStringLiteral("yes") : QStringLiteral("no"));
+    }
+
+    qDebug(logVsp()).noquote()
+        << QStringLiteral("Icom %1 func=%2 receiver=%3 action=%4 %5 bytes=%6 hex=%7")
+               .arg(QString::fromLatin1(direction))
+               .arg(funcName)
+               .arg(receiver)
+               .arg(action)
+               .arg(cacheText)
+               .arg(data.size())
+               .arg(civDebugHex(data));
+}
+
+bool icomCommander::queueParsedExternalCommand(funcs func, const QByteArray &commandData, const QByteArray &lookupData, int matchedLength, uchar receiver, const QByteArray &rawFrame)
+{
+    Q_UNUSED(commandData)
+    Q_UNUSED(rawFrame)
+    if (queue == nullptr || matchedLength <= 0 || lookupData.size() <= matchedLength)
+        return false;
+
+    QByteArray payload = lookupData.mid(matchedLength);
+    QVariant value;
+    funcs queueFunc = func;
+    uchar vfo = 0;
+    bool ok = true;
+
+    switch (func) {
+    case funcFreq:
+        if (payload.isEmpty())
+            return false;
+        receiver = uchar(payload.at(0));
+        payload.remove(0, 1);
+        if (payload.isEmpty())
+            return false;
+        Q_FALLTHROUGH();
+    case funcSelectedFreq:
+    case funcUnselectedFreq:
+    case funcFreqGet:
+    case funcFreqTR:
+    case funcTXFreq:
+        if (payload.size() < 5)
+            return false;
+        if (func == funcFreqTR || func == funcFreqGet) {
+            if (rigCaps.commands.contains(funcFreq))
+                queueFunc = funcFreq;
+            else if (rigCaps.commands.contains(funcSelectedFreq))
+                queueFunc = funcSelectedFreq;
+        } else if (func == funcUnselectedFreq) {
+            vfo = 1;
+        }
+        value.setValue(parseFreqData(payload, vfo));
+        break;
+
+    case funcMode:
+        if (payload.isEmpty())
+            return false;
+        receiver = uchar(payload.at(0));
+        payload.remove(0, 1);
+        if (payload.isEmpty())
+            return false;
+        Q_FALLTHROUGH();
+    case funcModeGet:
+    case funcModeTR:
+    case funcSelectedMode:
+    case funcUnselectedMode:
+    case funcDataModeWithFilter:
+    {
+        funcs originalFunc = func;
+        if (func == funcModeTR || func == funcModeGet || func == funcDataModeWithFilter) {
+            if (rigCaps.commands.contains(funcMode))
+                queueFunc = funcMode;
+            else if (rigCaps.commands.contains(funcSelectedMode))
+                queueFunc = funcSelectedMode;
+        } else if (func == funcUnselectedMode) {
+            vfo = 1;
+        }
+
+        modeInfo mi = queue->getCache(queueFunc, receiver).value.value<modeInfo>();
+        if (originalFunc == funcDataModeWithFilter) {
+            if (payload.size() < 2)
+                return false;
+            mi.filter = bcdHexToUChar(payload.at(1));
+            mi.data = bcdHexToUChar(payload.at(0));
+        } else {
+            if (!payload.isEmpty())
+                mi.reg = bcdHexToUChar(payload.at(0));
+            if (payload.size() == 2)
+                mi.filter = uchar(payload.at(1));
+            if (payload.size() >= 3) {
+                mi.data = uchar(payload.at(1));
+                mi.filter = uchar(payload.at(2));
+            }
+        }
+        if (mi.filter == 0 || mi.filter == 0xff)
+            mi.filter = 1;
+        mi = parseMode(mi.reg, mi.data, mi.filter, receiver, vfo);
+        mi.VFO = selVFO_t(receiver);
+        value.setValue(mi);
+        break;
+    }
+
+    case funcTuningStep:
+    case funcAttenuator:
+    case funcQuickSplit:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0)));
+        break;
+
+    case funcSplitStatus:
+        if (payload.isEmpty())
+            return false;
+        value.setValue(static_cast<duplexMode_t>(uchar(payload.at(0))));
+        break;
+
+    case funcAntenna:
+    {
+        if (payload.isEmpty())
+            return false;
+        antennaInfo ant;
+        ant.antenna = bcdHexToUChar(payload.at(0));
+        ant.rx = payload.size() > 1 ? bool(payload.at(1)) : false;
+        value.setValue(ant);
+        break;
+    }
+
+    case funcAfGain:
+        if (payload.size() < 2)
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0), payload.at(1)));
+        break;
+
+    case funcKeySpeed:
+    {
+        if (payload.size() < 2)
+            return false;
+        const uchar level = bcdHexToUChar(payload.at(0), payload.at(1));
+        value.setValue<ushort>(round((level / 6.071) + 6));
+        break;
+    }
+    case funcCwPitch:
+    {
+        if (payload.size() < 2)
+            return false;
+        const uchar level = bcdHexToUChar(payload.at(0), payload.at(1));
+        value.setValue<ushort>(round((((600.0 / 255.0) * level) + 300) / 5.0) * 5.0);
+        break;
+    }
+
+    case funcRfGain:
+    case funcSquelch:
+    case funcAPFLevel:
+    case funcNRLevel:
+    case funcPBTInner:
+    case funcPBTOuter:
+    case funcIFShift:
+    case funcRFPower:
+    case funcMicGain:
+    case funcNotchFilter:
+    case funcCompressorLevel:
+    case funcBreakInDelay:
+    case funcNBLevel:
+    case funcDigiSelShift:
+    case funcDriveGain:
+    case funcMonitorGain:
+    case funcVoxGain:
+    case funcAntiVoxGain:
+    case funcBackLightLevel:
+    case funcBeepLevel:
+    case funcBeepMain:
+    case funcBeepSub:
+    case funcRFSQLControl:
+    case funcTXDelayHF:
+    case funcTXDelay50m:
+    case funcTimeOutTimer:
+    case funcTimeOutCIV:
+        if (payload.size() < 2)
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0), payload.at(1)));
+        break;
+
+    case funcAGC:
+    case funcAGCTimeConstant:
+    case funcBreakIn:
+    case funcPreamp:
+    case funcManualNotchWidth:
+    case funcSSBTXBandwidth:
+    case funcRoofingFilter:
+    case funcFilterShape:
+    case funcSSBRXBass:
+    case funcSSBRXTreble:
+    case funcAMRXBass:
+    case funcAMRXTreble:
+    case funcFMRXBass:
+    case funcFMRXTreble:
+    case funcSSBTXBass:
+    case funcSSBTXTreble:
+    case funcAMTXBass:
+    case funcAMTXTreble:
+    case funcFMTXBass:
+    case funcFMTXTreble:
+    case funcBandEdgeBeep:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<uchar>(bcdHexToUChar(payload.at(0)));
+        break;
+
+    case funcMainSubTracking:
+    case funcSatelliteMode:
+    case funcNoiseBlanker:
+    case funcAudioPeakFilter:
+    case funcNoiseReduction:
+    case funcAutoNotch:
+    case funcRepeaterTone:
+    case funcRepeaterTSQL:
+    case funcRepeaterDTCS:
+    case funcRepeaterCSQL:
+    case funcCompressor:
+    case funcMonitor:
+    case funcVox:
+    case funcManualNotch:
+    case funcDigiSel:
+    case funcTwinPeakFilter:
+    case funcDialLock:
+    case funcOverflowStatus:
+    case funcSMeterSqlStatus:
+    case funcVariousSql:
+    case funcRXAntenna:
+    case funcIPPlus:
+    case funcBeepLevelLimit:
+    case funcBeepConfirmation:
+    case funcRitStatus:
+    case funcXitStatus:
+    case funcTransceiverStatus:
+        if (payload.isEmpty())
+            return false;
+        value.setValue<bool>(bool(payload.at(0)));
+        break;
+
+    case funcTunerStatus:
+        if (payload.isEmpty())
+            return false;
+        switch (uchar(payload.at(0))) {
+        case 0:
+            value.setValue<uchar>(0);
+            break;
+        case 1:
+            value.setValue<uchar>(1);
+            break;
+        case 2:
+            value.setValue<uchar>(2);
+            break;
+        default:
+            ok = false;
+            break;
+        }
+        break;
+
+    case funcDATAOffMod:
+    case funcDATA1Mod:
+    case funcDATA2Mod:
+    case funcDATA3Mod:
+    {
+        if (payload.isEmpty())
+            return false;
+        const uchar reg = bcdHexToUChar(payload.at(0));
+        ok = false;
+        for (auto &input : rigCaps.inputs) {
+            if (input.reg == reg) {
+                value.setValue(input);
+                ok = true;
+                break;
+            }
+        }
+        break;
+    }
+
+    default:
+        return false;
+    }
+
+    if (!ok || !value.isValid())
+        return false;
+
+    queue->add(priorityImmediate, queueItem(queueFunc, value, false, receiver));
+    return true;
+}
+
+funcs icomCommander::lookupExternalCommand(const QByteArray &data, QByteArray *commandData,
+                                           QByteArray *lookupData, int *matchedLength) const
+{
+    if (commandData)
+        commandData->clear();
+    if (lookupData)
+        lookupData->clear();
+    if (matchedLength)
+        *matchedLength = 0;
+
+    int frameStart = -1;
+    for (int i = 0; i + 3 < data.size(); ++i) {
+        if (quint8(data.at(i)) == 0xfe && quint8(data.at(i + 1)) == 0xfe) {
+            frameStart = i;
+            break;
+        }
+    }
+
+    if (frameStart < 0 || data.size() <= frameStart + 4) {
+        return funcNone;
+    }
+
+    QByteArray command = data.mid(frameStart + 4);
+    const int terminator = command.indexOf(char(0xfd));
+    if (terminator >= 0) {
+        command.truncate(terminator);
+    }
+
+    if (command.isEmpty()) {
+        return funcNone;
+    }
+
+    QByteArray lookup = command;
+    if (rigCaps.hasCommand29 && lookup.size() >= 3 && quint8(lookup.at(0)) == 0x29) {
+        lookup.remove(0, 2);
+    }
+
+    if (commandData)
+        *commandData = command;
+    if (lookupData)
+        *lookupData = lookup;
+
+    for (int len = qMin(lookup.size(), 10); len > 0; --len) {
+        auto it = rigCaps.commandsReverse.constFind(lookup.left(len));
+        if (it == rigCaps.commandsReverse.constEnd()) {
+            continue;
+        }
+
+        if (matchedLength)
+            *matchedLength = len;
+        return it.value();
+    }
+
+    return funcNone;
+}
+
+bool icomCommander::isExternalReadCommand(funcs func, const QByteArray &lookupData, int matchedLength, uchar *receiver) const
+{
+    if (matchedLength <= 0 || lookupData.size() < matchedLength)
+        return false;
+
+    if (lookupData.size() == matchedLength) {
+        switch (func) {
+        case funcVFOMainSelect:
+        case funcVFOSubSelect:
+        case funcVFOASelect:
+        case funcVFOBSelect:
+        case funcVFODualWatchOn:
+        case funcVFODualWatchOff:
+            return false;
+        default:
+            return true;
+        }
+    }
+
+    const QByteArray payload = lookupData.mid(matchedLength);
+    if (payload.size() != 1)
+        return false;
+
+    const uchar selectedReceiver = uchar(payload.at(0));
+    if (selectedReceiver > 1)
+        return false;
+
+    switch (func) {
+    case funcFreq:
+    case funcMode:
+        if (receiver)
+            *receiver = selectedReceiver;
+        return true;
+    default:
+        return false;
+    }
+}
+
+void icomCommander::recordLastExternalCommand(const QByteArray &data)
+{
+    QByteArray commandData;
+    const funcs func = lookupExternalCommand(data, &commandData);
+    const auto cmdIt = rigCaps.commands.find(func);
+    if (func != funcNone && cmdIt != rigCaps.commands.end()) {
+        const funcType cmd = cmdIt.value();
+        lastCommand.func = cmd.cmd;
+        lastCommand.data = commandData;
+        lastCommand.minValue = cmd.minVal;
+        lastCommand.maxValue = cmd.maxVal;
+        lastCommand.bytes = cmd.bytes;
+        return;
+    }
+
+    lastCommand.func = funcNone;
+    lastCommand.data = commandData;
+    lastCommand.minValue = 0;
+    lastCommand.maxValue = 0;
+    lastCommand.bytes = 0;
+}
+
+bool icomCommander::detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const
+{
+    QByteArray lookupData;
+    int matchedLength = 0;
+    const funcs func = lookupExternalCommand(data, nullptr, &lookupData, &matchedLength);
+    if (func != funcTransceiverStatus || matchedLength <= 0 || lookupData.size() <= matchedLength)
+        return false;
+
+    if (transmit)
+        *transmit = quint8(lookupData.at(matchedLength)) != 0;
+    return true;
 }
 
 funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver)
@@ -539,6 +1587,7 @@ void icomCommander::setCIVAddr(quint16 civAddr)
 
 void icomCommander::handleNewData(const QByteArray& data)
 {
+    MCP_RADIO_RX(this, data);
     emit haveDataForServer(data);
     parseData(data);
 }
@@ -921,15 +1970,8 @@ void icomCommander::parseCommand()
     // Register 13 (speech) has no get values
     // Register 14 (levels) starts here:
     }
-    case funcAfGain:        
-        if (udp == Q_NULLPTR) {
-            value.setValue(bcdHexToUChar(payloadIn.at(0),payloadIn.at(1)));
-        }
-        else
-        {
-            // Network connected, so ignore!
-            return;
-        }
+    case funcAfGain:
+        value.setValue(bcdHexToUChar(payloadIn.at(0),payloadIn.at(1)));
         break;
     // The following group are 2 bytes converted to uchar (0-255) but require special processing
     case funcKeySpeed: {
@@ -1118,6 +2160,10 @@ void icomCommander::parseCommand()
             }
             qInfo(logRig()) << QString("Have new rig ID: 0x%0").arg(rigCaps.modelID,2,16);
             determineRigCaps();
+            this->civAddr = incomingCIVAddr & 0xff; // Override and use immediately.
+            payloadPrefix = QByteArray("\xFE\xFE");
+            payloadPrefix.append((char)civAddr);
+            payloadPrefix.append((char)compCivAddr);
         }
         value.setValue(rigCaps.modelID);
         break;
@@ -1499,452 +2545,10 @@ void icomCommander::parseCommand()
     }
 #endif
 
-    if (value.isValid() && queue != Q_NULLPTR) {
+    if (value.isValid() && queue != nullptr) {
         queue->receiveValue(func,value,receiver);
     }
 
-}
-
-void icomCommander::determineRigCaps()
-{
-    // First clear all of the current settings
-    rigCaps.preamps.clear();
-    rigCaps.attenuators.clear();
-    rigCaps.inputs.clear();
-    rigCaps.scopeCenterSpans.clear();
-    rigCaps.bands.clear();
-    rigCaps.modes.clear();
-    rigCaps.commands.clear();
-    rigCaps.commandsReverse.clear();
-    rigCaps.antennas.clear();
-    rigCaps.filters.clear();
-    rigCaps.steps.clear();
-    rigCaps.memParser.clear();
-    rigCaps.satParser.clear();
-    rigCaps.periodic.clear();
-    rigCaps.roofing.clear();
-    rigCaps.scopeModes.clear();
-
-    for (int i = meterNone; i < meterUnknown; i++)
-    {
-        rigCaps.meters[i].clear();
-        rigCaps.meterLines[i] = 0.0;
-    }
-
-    // modelID should already be set!
-    while (!rigList.contains(rigCaps.modelID))
-    {
-        if (!rigCaps.modelID) {
-            qWarning(logRig()) << "No default rig definition found, cannot continue (sorry!)";
-            return;
-        }
-        // Unknown rig, load default
-        qInfo(logRig()) << QString("No rig definition found for CI-V address: 0x%0, using defaults (some functions may not be available)").arg(rigCaps.modelID,2,16);
-        rigCaps.modelID=0;
-    }
-    rigCaps.filename = rigList.find(rigCaps.modelID).value().path;
-    QSettings* settings = new QSettings(rigCaps.filename, QSettings::Format::IniFormat);
-#if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
-    settings->setIniCodec("UTF-8");
-#endif
-    if (!settings->childGroups().contains("Rig"))
-    {
-        qWarning(logRig()) << rigCaps.filename << "Cannot be loaded!";
-        return;
-    }
-    settings->beginGroup("Rig");
-    // Populate rigcaps
-
-    rigCaps.modelName = settings->value("Model", "").toString();
-    rigCaps.rigctlModel = settings->value("RigCtlDModel", 0).toInt();
-    rigCaps.manufacturer = manufIcom;
-
-    qInfo(logRig()) << QString("Loading Rig: %0 from %1").arg(rigCaps.modelName,rigCaps.filename);
-
-    rigCaps.numReceiver = settings->value("NumberOfReceivers",1).toUInt();
-    rigCaps.numVFO = settings->value("NumberOfVFOs",1).toUInt();
-    rigCaps.spectSeqMax = settings->value("SpectrumSeqMax",0).toUInt();
-    rigCaps.spectAmpMax = settings->value("SpectrumAmpMax",0).toUInt();
-    rigCaps.spectLenMax = settings->value("SpectrumLenMax",0).toUInt();
-
-    rigCaps.hasSpectrum = settings->value("HasSpectrum",false).toBool();
-    rigCaps.hasLan = settings->value("HasLAN",false).toBool();
-    rigCaps.hasEthernet = settings->value("HasEthernet",false).toBool();
-    rigCaps.hasWiFi = settings->value("HasWiFi",false).toBool();
-    rigCaps.hasQuickSplitCommand = settings->value("HasQuickSplit",false).toBool();
-    rigCaps.hasDD = settings->value("HasDD",false).toBool();
-    rigCaps.hasDV = settings->value("HasDV",false).toBool();
-    rigCaps.hasTransmit = settings->value("HasTransmit",false).toBool();
-    rigCaps.hasFDcomms = settings->value("HasFDComms",false).toBool();
-    rigCaps.hasCommand29 = settings->value("HasCommand29",false).toBool();
-
-    rigCaps.memGroups = settings->value("MemGroups",0).toUInt();
-    rigCaps.memories = settings->value("Memories",0).toUInt();
-    rigCaps.memStart = settings->value("MemStart",1).toUInt();
-    rigCaps.memFormat = settings->value("MemFormat","").toString();
-    rigCaps.satMemories = settings->value("SatMemories",0).toUInt();
-    rigCaps.satFormat = settings->value("SatFormat","").toString();
-
-    // If rig doesn't have FD comms, tell the commhandler early.
-    emit setHalfDuplex(!rigCaps.hasFDcomms);
-
-    // Temporary QHash to hold the function string lookup // I would still like to find a better way of doing this!
-    QHash<QString, funcs> funcsLookup;
-    for (int i=0;i<funcLastFunc;i++)
-    {
-        if (!funcString[i].startsWith("+")) {
-            funcsLookup.insert(funcString[i].toUpper(), funcs(i));
-        }
-    }
-
-    int numCommands = settings->beginReadArray("Commands");
-    if (numCommands == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numCommands; c++)
-        {
-            settings->setArrayIndex(c);
-
-            if (funcsLookup.contains(settings->value("Type", "****").toString().toUpper()))
-            {
-                funcs func = funcsLookup.find(settings->value("Type", "").toString().toUpper()).value();
-                            rigCaps.commands.insert(func, funcType(func, funcString[int(func)],
-                                QByteArray::fromHex(settings->value("String", "").toString().toUtf8()),
-                                                       settings->value("Min", 0).toInt(NULL), settings->value("Max", 0).toInt(NULL),
-                                                       settings->value("PadRight",false).toBool(),
-                                                       settings->value("Command29",false).toBool(),
-                                                       settings->value("GetCommand",true).toBool(),
-                                                       settings->value("SetCommand",true).toBool(),
-                                                       settings->value("Bytes",0).toInt(),
-                                                       settings->value("Admin",false).toBool())
-                                        );
-
-                            rigCaps.commandsReverse.insert(QByteArray::fromHex(settings->value("String", "").toString().toUtf8()),func);
-            } else {
-                qWarning(logRig()) << "**** Function" << settings->value("Type", "").toString() << "Not Found, rig file may be out of date?";
-            }
-        }
-        settings->endArray();
-    }
-
-    int numPeriodic = settings->beginReadArray("Periodic");
-    if (numPeriodic == 0){
-        qWarning(logRig())<< "No periodic commands defined, please check rigcaps file";
-        settings->endArray();
-    } else {
-        for (int c=0; c < numPeriodic; c++)
-        {
-            settings->setArrayIndex(c);
-
-            if(funcsLookup.contains(settings->value("Command", "****").toString().toUpper())) {
-                funcs func = funcsLookup.find(settings->value("Command", "").toString().toUpper()).value();
-                if (!rigCaps.commands.contains(func)) {
-                    qWarning(logRig()) << "Cannot find periodic command" << settings->value("Command", "").toString() << "in rigcaps, ignoring";
-                } else {
-                    rigCaps.periodic.append(periodicType(func,
-                         settings->value("Priority","").toString(),priorityMap[settings->value("Priority","").toString()],
-                         settings->value("VFO",-1).toInt()));
-                }
-            }
-        }
-        settings->endArray();
-    }
-
-    int numModes = settings->beginReadArray("Modes");
-    if (numModes == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numModes; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.modes.push_back(modeInfo(rigMode_t(settings->value("Num", 0).toUInt()),
-                settings->value("Reg", 0).toString().toUInt(), settings->value("Name", "").toString(), settings->value("Min", 0).toInt(), settings->value("Max", 0).toInt()));
-        }
-        settings->endArray();
-    }
-
-    int numCTCSS = settings->beginReadArray("CTCSS");
-    if (numCTCSS == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numCTCSS; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.ctcss.push_back(toneInfo(settings->value("Reg", 0).toUInt(), QString::number(settings->value("Tone", 0.0).toFloat(),'f',1)));
-        }
-        settings->endArray();
-    }
-
-    int numDTCS = settings->beginReadArray("DTCS");
-    if (numDTCS == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numDTCS; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.dtcs.push_back(toneInfo(settings->value("Reg", 0).toInt(), QString::number(settings->value("Reg", 0).toInt()).rightJustified(4,'0')));
-        }
-        settings->endArray();
-    }
-
-    int numSpans = settings->beginReadArray("Spans");
-    if (numSpans == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numSpans; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.scopeCenterSpans.push_back(centerSpanData(uchar(settings->value("Num", 0).toUInt()),
-                settings->value("Name", "").toString(), settings->value("Freq", 0).toUInt()));
-        }
-        settings->endArray();
-    }
-
-    int numInputs = settings->beginReadArray("Inputs");
-    if (numInputs == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numInputs; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.inputs.append(rigInput(inputTypes(settings->value("Num", 0).toUInt()),
-                settings->value("Reg", 0).toString().toUInt(),settings->value("Name", "").toString()));
-        }
-        settings->endArray();
-    }
-
-    int numSteps = settings->beginReadArray("Tuning Steps");
-    if (numSteps == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numSteps; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.steps.push_back(stepType(settings->value("Num", 0).toString().toUInt(),
-                settings->value("Name", "").toString(),settings->value("Hz", 0ULL).toULongLong()));
-        }
-        settings->endArray();
-    }
-
-    int numPreamps = settings->beginReadArray("Preamps");
-    if (numPreamps == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numPreamps; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.preamps.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
-        }
-        settings->endArray();
-    }
-
-    int numAntennas = settings->beginReadArray("Antennas");
-    if (numAntennas == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numAntennas; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.antennas.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
-        }
-        settings->endArray();
-    }
-
-    int numAttenuators = settings->beginReadArray("Attenuators");
-    if (numAttenuators == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numAttenuators; c++)
-        {
-            settings->setArrayIndex(c);
-            if (settings->value("Num", -1).toString().toInt() == -1) {
-                rigCaps.attenuators.push_back(genericType(settings->value("dB", 0).toString().toUInt(),QString("%0 dB").arg(settings->value("dB", 0).toString().toUInt())));
-            } else {
-                rigCaps.attenuators.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
-            }
-        }
-        settings->endArray();
-    }
-
-    int numFilters = settings->beginReadArray("Filters");
-    if (numFilters == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numFilters; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.filters.push_back(filterType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", "").toString(), settings->value("Modes", 0).toUInt()));
-        }
-        settings->endArray();
-    }
-
-    int numBands = settings->beginReadArray("Bands");
-    if (numBands == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numBands; c++)
-        {
-            settings->setArrayIndex(c);
-            QString region = settings->value("Region","").toString();
-            availableBands band =  availableBands(settings->value("Num", 0).toInt());
-            quint64 start = settings->value("Start", 0ULL).toULongLong();
-            quint64 end = settings->value("End", 0ULL).toULongLong();
-            uchar bsr = static_cast<uchar>(settings->value("BSR", 0).toInt());
-            double range = settings->value("Range", 0.0).toDouble();
-            int memGroup = settings->value("MemoryGroup", -1).toInt();
-            char bytes = settings->value("Bytes", 5).toInt();
-            bool ants = settings->value("Antennas",true).toBool();
-            QColor color(settings->value("Color", "#00000000").toString()); // Default color should be none!
-            QString name(settings->value("Name", "None").toString());
-            float power = settings->value("Power", 0.0f).toFloat();
-            quint64 offset = settings->value("Offset", 0).toLongLong();
-            rigCaps.bands.push_back(bandType(region,band,bsr,start,end,range,memGroup,bytes,ants,power,color,name,offset));
-            rigCaps.bsr[band] = bsr;
-            qDebug(logRig()) << "Adding Band " << band << "Start" << start << "End" << end << "BSR" << QString::number(bsr,16);
-        }
-        settings->endArray();
-    }
-
-    int numMeters = settings->beginReadArray("Meters");
-    if (numMeters == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numMeters; c++)
-        {
-            settings->setArrayIndex(c);
-            QString meterName = settings->value("Meter", "None").toString();
-            if (meterName != "None" && meterName != "")
-            for (int i = meterNone; i < meterUnknown; i++)
-            {
-                if (meterName == meterString[i] && i != meterNone)
-                {
-                    if (settings->value("RedLine", false).toBool())
-                    {
-                        rigCaps.meterLines[i] = settings->value("ActualVal", 0.0).toDouble();
-                    }
-                    rigCaps.meters[i].insert(settings->value("RigVal", 0).toInt(),settings->value("ActualVal", 0.0).toDouble());
-                    break;
-                }
-            }
-        }
-        settings->endArray();
-    }
-
-    int numRoofing = settings->beginReadArray("Roofing");
-    if (numRoofing == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numRoofing; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.roofing.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
-        }
-        settings->endArray();
-    }
-
-
-    int numScopeModes = settings->beginReadArray("ScopeModes");
-    if (numScopeModes == 0) {
-        settings->endArray();
-    }
-    else {
-        for (int c = 0; c < numScopeModes; c++)
-        {
-            settings->setArrayIndex(c);
-            rigCaps.scopeModes.push_back(genericType(settings->value("Num", 0).toString().toUInt(), settings->value("Name", 0).toString()));
-        }
-        settings->endArray();
-    }
-
-    settings->endGroup();
-
-    delete settings;
-
-    // Setup memory formats.
-    static QRegularExpression memFmtEx("%(?<flags>[-+#0])?(?<pos>\\d+|\\*)?(?:\\.(?<width>\\d+|\\*))?(?<spec>[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+])");
-    QRegularExpressionMatchIterator i = memFmtEx.globalMatch(rigCaps.memFormat);
-    while (i.hasNext()) {
-        QRegularExpressionMatch qmatch = i.next();
-
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        if (qmatch.hasCaptured("spec") && qmatch.hasCaptured("pos") && qmatch.hasCaptured("width")) {
-#endif
-            rigCaps.memParser.append(memParserFormat(qmatch.captured("spec").at(0).toLatin1(),qmatch.captured("pos").toInt(),qmatch.captured("width").toInt()));
-        }
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-    }
-#endif
-
-    QRegularExpressionMatchIterator i2 = memFmtEx.globalMatch(rigCaps.satFormat);
-
-    while (i2.hasNext()) {
-        QRegularExpressionMatch qmatch = i2.next();
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        if (qmatch.hasCaptured("spec") && qmatch.hasCaptured("pos") && qmatch.hasCaptured("width")) {
-#endif
-            rigCaps.satParser.append(memParserFormat(qmatch.captured("spec").at(0).toLatin1(),qmatch.captured("pos").toInt(),qmatch.captured("width").toInt()));
-#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
-        }
-#endif
-    }
-
-    // Copy received guid so we can recognise this radio.
-    memcpy(rigCaps.guid, this->guid, GUIDLEN);
-
-    haveRigCaps = true;
-    queue->setRigCaps(&rigCaps);
-
-    // Also signal that a radio is connected to the radio status window
-    if (!usingNativeLAN) {
-        QList<radio_cap_packet>radios;
-        radio_cap_packet r;
-        r.civ = char(rigCaps.modelID & 0xff);
-        r.baudrate = qToBigEndian(rigCaps.baudRate);
-#ifdef Q_OS_WINDOWS
-        strncpy_s(r.name,rigCaps.modelName.toLocal8Bit(),sizeof(r.name)-1);
-#else
-        strncpy(r.name,rigCaps.modelName.toLocal8Bit(),sizeof(r.name)-1);
-#endif
-        radios.append(r);
-        emit requestRadioSelection(radios);
-        emit setRadioUsage(0, true, true, QString("<Local>"), QString("127.0.0.1"));
-    }
-
-    if(lookingForRig)
-    {
-        lookingForRig = false;
-        foundRig = true;
-
-        qDebug(logRig()) << "---Rig FOUND from broadcast query:";
-        this->civAddr = incomingCIVAddr & 0xff; // Override and use immediately.
-        payloadPrefix = QByteArray("\xFE\xFE");
-        payloadPrefix.append((char)civAddr);
-        payloadPrefix.append((char)compCivAddr);
-        // if there is a compile-time error, remove the following line, the "hex" part is the issue:
-        qInfo(logRig()) << "Using incomingCIVAddr: (int): " << this->civAddr << " hex: " << QString("0x%1").arg(this->civAddr,0,16);
-        emit discoveredRigID(rigCaps);
-    } else {
-        if(!foundRig)
-        {
-            emit discoveredRigID(rigCaps);
-            foundRig = true;
-        }
-        emit haveRigID(rigCaps);
-    }
 }
 
 bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
@@ -1963,128 +2567,18 @@ bool icomCommander::parseSpectrum(scopeData& d, uchar receiver)
         return ret;
     }
 
-    if (receiver)
-        d = subScopeData;
-    else
-        d = mainScopeData;
+    d = receiver ? subScopeData : mainScopeData;
+    quint8 &nextSequence = receiver ? subScopeNextSequence : mainScopeNextSequence;
 
-    // Here is what to expect:
-    // payloadIn[00] = '\x27';
-    // payloadIn[01] = '\x00';
-    // payloadIn[02] = '\x00';
-    //
-    // Example long: (sequences 2-10, 50 pixels)
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 "
-    // "DATA:  27 00 00 07 11 27 13 15 01 00 22 21 09 08 06 19 0e 20 23 25 2c 2d 17 27 29 16 14 1b 1b 21 27 1a 18 17 1e 21 1b 24 21 22 23 13 19 23 2f 2d 25 25 0a 0e 1e 20 1f 1a 0c fd "
-    //                  ^--^--(seq 7/11)
-    //                        ^-- start waveform data 0x00 to 0xA0, index 05 to 54
-    //
+    ret = IcomScopeFrameAssembler::parsePayload(d,
+                                                payloadIn,
+                                                receiver,
+                                                rigCaps.modelID,
+                                                rigCaps.spectLenMax,
+                                                oldScopeMode,
+                                                nextSequence);
 
-    // Example medium: (sequence #11)
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 "
-    // "DATA:  27 00 00 11 11 0b 13 21 23 1a 1b 22 1e 1a 1d 13 21 1d 26 28 1f 19 1a 18 09 2c 2c 2c 1a 1b fd "
-
-    // Example short: (sequence #1) includes center/fixed mode at [05]. No pixels.
-    // "INDEX: 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 "
-    // "DATA:  27 00 00 01 11 01 00 00 00 14 00 00 00 35 14 00 00 fd "
-    //                        ^-- mode 00 (center) or 01 (fixed)
-    //                                     ^--14.00 MHz lower edge
-    //                                                    ^-- 14.350 MHz upper edge
-    //                                                          ^-- possibly 00=in range 01 = out of range
-
-    // Note, the index used here, -1, matches the ICD in the owner's manual.
-    // Owner's manual + 1 = our index.
-
-    // divs: Mode: Waveinfo: Len:   Comment:
-    // 2-10  var   var       56     Minimum wave information w/waveform data
-    // 11    10    26        31     Minimum wave information w/waveform data
-    // 1     1     0         18     Only Wave Information without waveform data
-
-    freqt fStart;
-    freqt fEnd;
-
-    d.receiver = receiver;
-    quint8 sequence = bcdHexToUChar(payloadIn.at(0));
-    quint8 sequenceMax = bcdHexToUChar(payloadIn.at(1));
-
-    int freqLen = 5;
-    // M0VSE THIS SHOULD BE FIXED, BUT NOT SURE HOW AS WE DON'T KNOW WHICH BAND WE ARE ON?
-    // On the IC-905 10GHz+ uses 6 bytes for freq!
-    if (rigCaps.modelID == 0xAC && (payloadIn.size()==491 || payloadIn.size() == 16)) {
-        freqLen = 6;
-    }
-
-    // Sequnce 2, index 05 is the start of data
-    // Sequence 11. index 05, is the last chunk
-    // Sequence 11, index 29, is the actual last pixel (it seems)
-
-    // It looks like the data length may be variable, so we need to detect it each time.
-    // start at payloadIn.length()-1 (to override the FD). Never mind, index -1 bad.
-    // chop off FD.
-    if (sequence == 1)
-    {
-        // This should work on Qt5, but I need to test, use the switch below instead for now.
-        d.mode = static_cast<uchar>(payloadIn.at(2));
-
-        if(d.mode != oldScopeMode)
-        {
-            // Modes:
-            // 0x00 Center
-            // 0x01 Fixed
-            // 0x02 Scroll-C
-            // 0x03 Scroll-F
-            oldScopeMode = d.mode;
-        }
-
-        d.oor=(bool)payloadIn[3+(freqLen*2)];
-        if (d.oor) {
-            d.data = QByteArray(rigCaps.spectLenMax,'\0');
-            d.valid=true;
-            return true;
-        }
-
-        // clear wave information
-        d.data.clear();
-
-        // For Fixed, and both scroll modes, the following produces correct information:
-        fStart = parseFreqData(payloadIn.mid(3,freqLen),receiver);
-        d.startFreq = fStart.MHzDouble;
-        fEnd = parseFreqData(payloadIn.mid(3+freqLen,freqLen),receiver);
-        d.endFreq = fEnd.MHzDouble;
-
-        if(d.mode == 0)
-        {
-            // "center" mode, start is actual center, end is bandwidth.
-            d.startFreq -= d.endFreq;
-            d.endFreq = d.startFreq + 2*(d.endFreq);
-        }
-
-        if (sequence == sequenceMax) // Must be a LAN packet.
-        {
-            d.data.append(payloadIn.right(payloadIn.length()-4-(freqLen*2)));
-            ret = true;
-        }
-
-        //qInfo(logRig()) << "Spectrum Data received start:" << d.startFreq << "end:" << d.endFreq << "seq:" << sequence << "/" << sequenceMax << "mode:" << d.mode << "oor" << d.oor << "scopelen:" << d.data.size() << "length:" << payloadIn.length();
-    }
-    else if ((sequence > 1) && (sequence < sequenceMax))
-    {
-        // spectrum from index 05 to index 54, length is 55 per segment. Length is 56 total. Pixel data is 50 pixels.
-        // sequence numbers 2 through 10, 50 pixels each. Total after sequence 10 is 450 pixels.
-        d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
-        ret = false;
-        //qInfo(logRig()) << "sequence: " << sequence << "spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
-    } else if (sequence == sequenceMax)
-    {
-        // last spectrum, a little bit different (last 25 pixels). Total at end is 475 pixels (7300).
-        d.data.insert(d.data.length(), payloadIn.right(payloadIn.length() - 2));
-        ret = true;
-        //qInfo(logRig()) << "sequence: " << sequence << " spec index: " << (sequence-2)*55 << " payloadPosition: " << payloadIn.length() - 2 << " payload length: " << payloadIn.length();
-    }
-    d.valid=ret;
-
-    if (!ret) {
-        // We need to temporarilly store the scope data somewhere.
+    if (!ret && (nextSequence != 0 || !d.data.isEmpty())) {
         if (receiver)
             subScopeData = d;
         else
@@ -2810,6 +3304,10 @@ void icomCommander::setRigID(quint16 rigID)
     rigCaps.modelID = rigID & 0xff;
     rigCaps.model = this->model;
     determineRigCaps();
+    this->civAddr = incomingCIVAddr & 0xff; // Override and use immediately.
+    payloadPrefix = QByteArray("\xFE\xFE");
+    payloadPrefix.append((char)civAddr);
+    payloadPrefix.append((char)compCivAddr);
 }
 
 
@@ -2877,13 +3375,6 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             qDebug(logRig()) << "Memory Command" << funcString[func] << "with valuetype "  << QString(value.typeName());
             val = val & 0xffff;
         }
-    }
-
-    if (func == funcAfGain && value.isValid() && udp != Q_NULLPTR) {
-        // Ignore the AF Gain command, just queue it for processing
-        emit haveSetVolume(static_cast<uchar>(value.toInt()));
-        queue->receiveValue(func,value,false);
-        return;
     }
 
     // Need to work out what to do with older dual-VFO rigs.
@@ -3559,4 +4050,3 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         queue->del(func,receiver);
     }
 }
-

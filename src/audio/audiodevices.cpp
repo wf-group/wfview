@@ -8,6 +8,18 @@
 #include "audiodevices.h"
 #include "logcategories.h"
 
+namespace {
+
+bool isDefaultDeviceRequest(const QString& name)
+{
+    const QString normalized = name.trimmed().toLower();
+    return normalized == QLatin1String("default") ||
+           normalized == QLatin1String("default input device") ||
+           normalized == QLatin1String("default output device");
+}
+
+}
+
 audioDevices::audioDevices(audioType type, QFontMetrics fm, QObject* parent) :
     QObject(parent),
     system(type),
@@ -28,6 +40,8 @@ void audioDevices::enumerate()
     numOutputDevices = 0;
     numCharsIn = 0;
     numCharsOut = 0;
+    defaultInputDeviceName.clear();
+    defaultOutputDeviceName.clear();
     inputs.clear();
     outputs.clear();
 
@@ -40,14 +54,28 @@ void audioDevices::enumerate()
             qInfo(logAudio()) << "Audio device(s) found (*=default)";
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            defaultInputDeviceName = QAudioDeviceInfo::defaultInputDevice().deviceName();
             for(const auto &deviceInfo: QAudioDeviceInfo::availableDevices(QAudio::AudioInput))
 #else
+            defaultInputDeviceName = mediaDevices.defaultAudioInput().description();
             const auto audioInputs = mediaDevices.audioInputs();
             for (const QAudioDevice& deviceInfo : audioInputs)
 #endif
             {
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+                const QAudioFormat preferred = deviceInfo.preferredFormat();
+                qInfo(logAudio()) << "Qt audio input candidate:" << deviceInfo.description()
+                                  << "preferred channels:" << preferred.channelCount()
+                                  << "min/max channels:" << deviceInfo.minimumChannelCount() << "/" << deviceInfo.maximumChannelCount()
+                                  << "preferred rate:" << preferred.sampleRate()
+                                  << "min/max rate:" << deviceInfo.minimumSampleRate() << "/" << deviceInfo.maximumSampleRate();
+                if (deviceInfo.maximumChannelCount() < 1) {
+                    qWarning(logAudio()) << "Skipping Qt audio input with no reported channels:" << deviceInfo.description();
+                    continue;
+                }
+#endif
                 bool isDefault = false;
-                if (numInputDevices == 0) {
+                if (defaultInputDeviceName.isEmpty() && numInputDevices == 0) {
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
                     defaultInputDeviceName = QString(deviceInfo.deviceName());
@@ -99,14 +127,28 @@ void audioDevices::enumerate()
             }
 
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
+            defaultOutputDeviceName = QAudioDeviceInfo::defaultOutputDevice().deviceName();
             for(const auto &deviceInfo: QAudioDeviceInfo::availableDevices(QAudio::AudioOutput))
 #else
+            defaultOutputDeviceName = mediaDevices.defaultAudioOutput().description();
             const auto audioOutputs = mediaDevices.audioOutputs();
             for (const QAudioDevice& deviceInfo : audioOutputs)
 #endif
             {
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+                const QAudioFormat preferred = deviceInfo.preferredFormat();
+                qInfo(logAudio()) << "Qt audio output candidate:" << deviceInfo.description()
+                                  << "preferred channels:" << preferred.channelCount()
+                                  << "min/max channels:" << deviceInfo.minimumChannelCount() << "/" << deviceInfo.maximumChannelCount()
+                                  << "preferred rate:" << preferred.sampleRate()
+                                  << "min/max rate:" << deviceInfo.minimumSampleRate() << "/" << deviceInfo.maximumSampleRate();
+                if (deviceInfo.maximumChannelCount() < 1) {
+                    qWarning(logAudio()) << "Skipping Qt audio output with no reported channels:" << deviceInfo.description();
+                    continue;
+                }
+#endif
                 bool isDefault = false;
-                if (numOutputDevices == 0)
+                if (defaultOutputDeviceName.isEmpty() && numOutputDevices == 0)
                 {
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
                     defaultOutputDeviceName = QString(deviceInfo.deviceName());
@@ -268,55 +310,45 @@ void audioDevices::enumerate()
 #endif
                 if (info.inputChannels > 0) {
                     bool isDefault = false;
-                    QString devName = QString::fromStdString(info.name);
-                    QString displayName = QString("%1 [%2ch %3kHz]")
-                        .arg(devName)
-                        .arg(info.inputChannels)
-                        .arg(info.preferredSampleRate / 1000);
-                    qInfo(logAudio()) << (info.isDefaultInput ? "*" : " ") << "(" << i << ") Input Device  : " << displayName;
+                    qInfo(logAudio()) << (info.isDefaultInput ? "*" : " ") << "(" << i << ") Input Device  : " << QString::fromStdString(info.name);
                     numInputDevices++;
 
                     if (info.isDefaultInput) {
-                        defaultInputDeviceName = displayName;
+                        defaultInputDeviceName = QString::fromStdString(info.name);
                         isDefault = true;
                     }
 
 #if (RTAUDIO_VERSION_MAJOR > 5)
-                    inputs.append(new audioDevice(displayName, devices[i], isDefault));
+                    inputs.append(new audioDevice(QString::fromStdString(info.name), devices[i], isDefault));
 #else
-                    inputs.append(new audioDevice(displayName, i, isDefault));
+                    inputs.append(new audioDevice(QString::fromStdString(info.name), i, isDefault));
 #endif
 
 #ifndef BUILD_WFSERVER
-                    if (fm.boundingRect(displayName).width() > numCharsIn)
-                        numCharsIn = fm.boundingRect(displayName).width();
+                    if (fm.boundingRect(QString::fromStdString(info.name)).width() > numCharsIn)
+                        numCharsIn = fm.boundingRect(QString::fromStdString(info.name)).width();
 #endif
 
                 }
                 if (info.outputChannels > 0) {
                     bool isDefault = false;
-                    QString devName = QString::fromStdString(info.name);
-                    QString displayName = QString("%1 [%2ch %3kHz]")
-                        .arg(devName)
-                        .arg(info.outputChannels)
-                        .arg(info.preferredSampleRate / 1000);
-                    qInfo(logAudio()) << (info.isDefaultOutput ? "*" : " ") << "(" << i << ") Output Device : " << displayName;
+                    qInfo(logAudio()) << (info.isDefaultOutput ? "*" : " ") << "(" << i << ") Output Device : " << QString::fromStdString(info.name);
                     numOutputDevices++;
 
                     if (info.isDefaultOutput) {
-                        defaultOutputDeviceName = displayName;
+                        defaultOutputDeviceName = QString::fromStdString(info.name);
                         isDefault = true;
                     }
 
 #if (RTAUDIO_VERSION_MAJOR > 5)
-                    outputs.append(new audioDevice(displayName, devices[i], isDefault));
+                    outputs.append(new audioDevice(QString::fromStdString(info.name), devices[i], isDefault));
 #else
-                    outputs.append(new audioDevice(displayName, i, isDefault));
+                    outputs.append(new audioDevice(QString::fromStdString(info.name), i, isDefault));
 #endif
 
 #ifndef BUILD_WFSERVER
-                    if (fm.boundingRect(displayName).width() > numCharsOut)
-                        numCharsOut = fm.boundingRect(displayName).width();
+                    if (fm.boundingRect(QString::fromStdString(info.name)).width() > numCharsOut)
+                        numCharsOut = fm.boundingRect(QString::fromStdString(info.name)).width();
 #endif
                 }
             }
@@ -324,13 +356,6 @@ void audioDevices::enumerate()
             delete audio;
             break;
         }
-        case tciAudio:
-        {
-            inputs.append(new audioDevice("<TCI Audio>",0,1));
-            outputs.append(new audioDevice("<TCI Audio>",0,1));
-            break;
-        }
-
     }
     emit updated();
 
@@ -366,34 +391,35 @@ QStringList audioDevices::getOutputs()
 
 int audioDevices::findInput(QString type, QString name, bool ignoreDefault)
 {
-    if (type != "Server" && system == tciAudio)
-    {
-        return 0;
-    }
-
     int ret = -1;
     int def = -1;
     int usb = -1;
+    const bool defaultRequested = isDefaultDeviceRequest(name);
     QString msg;
     QTextStream s(&msg);
 
     for (int f = 0; f < inputs.size(); f++)
     {
         //qInfo(logAudio()) << "Found device" << inputs[f].name;
-        if (inputs[f]->name.startsWith(name)) {
+        if (!defaultRequested && !name.isEmpty() && inputs[f]->name.startsWith(name)) {
             s << type << " Audio input device " << name << " found! ";
             ret = f;
         }
+        if (inputs[f]->isDefault == true)
+        {
+            def = f;
+        }
         if (!ignoreDefault) {
-            if (inputs[f]->isDefault == true)
-            {
-                def = f;
-            }
             if (inputs[f]->name.contains("USB",Qt::CaseInsensitive)) {
                 // This is a USB device...
                 usb = f;
             }
         }
+    }
+
+    if (ret == -1 && defaultRequested && def > -1) {
+        s << type << " Audio input default requested; selecting " << inputs[def]->name;
+        ret = def;
     }
  
     if (ret == -1 && !ignoreDefault)
@@ -428,35 +454,36 @@ int audioDevices::findInput(QString type, QString name, bool ignoreDefault)
 
 int audioDevices::findOutput(QString type, QString name, bool ignoreDefault)
 {
-    if (type != "Server" && system == tciAudio)
-    {
-        return 0;
-    }
-
     int ret = -1;
     int def = -1;
     int usb = -1;
+    const bool defaultRequested = isDefaultDeviceRequest(name);
     QString msg;
     QTextStream s(&msg);
 
     for (int f = 0; f < outputs.size(); f++)
     {
         //qInfo(logAudio()) << "Found device" << outputs[f].name;
-        if (outputs[f]->name.startsWith(name)) {
+        if (!defaultRequested && !name.isEmpty() && outputs[f]->name.startsWith(name)) {
             ret = f;
             s << type << " Audio output device " << name << " found! ";
         }
+        if (outputs[f]->isDefault == true)
+        {
+            def = f;
+        }
         if (!ignoreDefault) {
-            if (outputs[f]->isDefault == true)
-            {
-                def = f;
-            }
             if (outputs[f]->name.contains("USB",Qt::CaseInsensitive)) {
                 // This is a USB device...
                 usb = f;
             }
         }
 
+    }
+
+    if (ret == -1 && defaultRequested && def > -1) {
+        s << type << " Audio output default requested; selecting " << outputs[def]->name;
+        ret = def;
     }
 
     if (ret == -1 && !ignoreDefault)

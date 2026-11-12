@@ -1,5 +1,6 @@
 #include "icomudpbase.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 void icomUdpBase::init(quint16 lport)
 {
@@ -14,8 +15,7 @@ void icomUdpBase::init(quint16 lport)
     {
         localPort = udp->localPort();
         qInfo(logUdp()) << "UDP Stream bound to local port:" << localPort << " remote port:" << port;
-        uint32_t addr = localIP.toIPv4Address();
-        myId = (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (localPort & 0xffff);
+        myId = endpointId(localIP, localPort);
 
         retransmitTimer = new QTimer(this);
         connect(retransmitTimer, &QTimer::timeout, this, &icomUdpBase::sendRetransmitRequest);
@@ -24,10 +24,22 @@ void icomUdpBase::init(quint16 lport)
     }
 }
 
+quint32 icomUdpBase::endpointId(const QHostAddress& address, quint16 port) const
+{
+    if (address.protocol() == QAbstractSocket::IPv4Protocol) {
+        const quint32 addr = address.toIPv4Address();
+        return (addr >> 8 & 0xff) << 24 | (addr & 0xff) << 16 | (port & 0xffff);
+    }
+
+    const quint32 high = qHash(address.toString()) & 0xffff;
+    const quint32 id = (high << 16) | (port & 0xffff);
+    return id == 0 ? port : id;
+}
+
 icomUdpBase::~icomUdpBase()
 {
     qInfo(logUdp()) << "Closing UDP stream :" << radioIP.toString() << ":" << port;
-    if (udp != Q_NULLPTR) {
+    if (udp != nullptr) {
         sendControl(false, 0x05, 0x00); // Send disconnect
         udp->close();
         delete udp;
@@ -78,7 +90,7 @@ void icomUdpBase::dataReceived(QByteArray r)
             areYouThereCounter = 0;
             // I don't think that we will ever receive an "I am here" other than in response to "Are you there?"
             remoteId = in->sentid;
-            if (areYouThereTimer != Q_NULLPTR && areYouThereTimer->isActive()) {
+            if (areYouThereTimer != nullptr && areYouThereTimer->isActive()) {
                 // send ping packets every second
                 areYouThereTimer->stop();
             }
@@ -102,59 +114,10 @@ void icomUdpBase::dataReceived(QByteArray r)
              */
             if (in->reply == 0x00)
             {
-
-                static constexpr int DayMs = 24 * 60 * 60 * 1000;
-
-                auto normDay = [](int ms) {
-                    ms %= DayMs;
-                    if (ms < 0) ms += DayMs;
-                    return ms;
-                };
-                auto signedDeltaDay = [&](int a, int b) {
-                    int d = normDay(a) - normDay(b);
-                    if (d >  DayMs/2) d -= DayMs;
-                    if (d < -DayMs/2) d += DayMs;
-                    return d;
-                };
-
-                const qint64 localNow = mono.elapsed();          // monotonic ms
-                const int    radioNow = normDay(int(in->time));  // ms since startup, wrapped daily
-
-                // Maintain a prediction of radioNow from monotonic time (one-time sync / occasional rebase)
-                static bool  haveSync = false;
-                static int   radioBase = 0;
-                static qint64 localBase = 0;
-
-                if (!haveSync) {
-                    haveSync = true;
-                    radioBase = radioNow;
-                    localBase = localNow;
-                }
-
-                // Predicted radio time "right now" based on last base + elapsed
-                const int predictedRadioNow = normDay(radioBase + int(localNow - localBase));
-
-                // Here is the key metric:
-                // Positive means the ping timestamp is behind where it "should" be now => latency/queuing.
-                // Negative means it appears ahead (usually reorder/clock wobble).
-                pingLatenessMs = signedDeltaDay(predictedRadioNow, radioNow);
-
-                static bool baselineValid = false;
-                static int  baselineMs = 0;
-                constexpr int MaxBaselineClamp = 2000; // safety clamp
-
-                // Initialise / update baseline slowly (tracks pipeline delay but not spikes)
-                if (!baselineValid) {
-                    baselineMs = pingLatenessMs;
-                    baselineValid = true;
-                } else {
-                    // Only learn baseline when we're not in a big spike
-                    int dev = pingLatenessMs - baselineMs;
-                    if (std::abs(dev) < 200) { // don't "learn" huge spikes into baseline
-                        baselineMs = (baselineMs * 31 + pingLatenessMs) / 32;
-                        baselineMs = qBound(0, baselineMs, MaxBaselineClamp);
-                    }
-                }
+                // in->time is the sender's clock: ms since radio startup, or ms since
+                // midnight for wfview servers. Its offset and rate relative to our clock
+                // are unknown, so measure delay relative to the recent best case.
+                pingLatenessMs = pingDelay.update(mono.elapsed(), in->time);
 
                 ping_packet p;
                 memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
@@ -402,6 +365,7 @@ void icomUdpBase::sendControl(bool tracked = true, quint8 type = 0, quint16 seq 
 
     if (!tracked) {
         p.seq = seq;
+        MCP_NETWORK_TX(this, QByteArray::fromRawData((const char*)p.packet, sizeof(p)));
         udpMutex.lock();
         udp->writeDatagram(QByteArray::fromRawData((const char*)p.packet, sizeof(p)), radioIP, port);
         udpMutex.unlock();
@@ -466,6 +430,7 @@ void icomUdpBase::sendTrackedPacket(QByteArray d)
     //purgeOldEntries(); // Delete entries older than PURGE_SECONDS seconds (currently 5)
     sendSeq++;
 
+    MCP_NETWORK_TX(this, d);
     udpMutex.lock();
     udp->writeDatagram(d, radioIP, port);
 
@@ -474,7 +439,7 @@ void icomUdpBase::sendTrackedPacket(QByteArray d)
         if (congestion > 20) // Even worse so send again.
             udp->writeDatagram(d, radioIP, port);
     } */
-    if (idleTimer != Q_NULLPTR && idleTimer->isActive()) {
+    if (idleTimer != nullptr && idleTimer->isActive()) {
         idleTimer->start(IDLE_PERIOD); // Reset idle counter if it's running
     }
     udpMutex.unlock();
@@ -581,5 +546,3 @@ void icomUdpBase::printHex(const QByteArray& pdata, bool printVert, bool printHo
     }
     qDebug(logUdp()) << "----- End hex dump -----";
 }
-
-

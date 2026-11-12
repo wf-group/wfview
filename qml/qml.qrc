@@ -1,0 +1,27 @@
+<RCC>
+    <qresource prefix="/qml">
+        <file>MainWindow.qml</file>
+        <file>Receiver.qml</file>
+        <file>MeterPanel.qml</file>
+        <file>MeterChoiceMenu.qml</file>
+        <file>MeterPopoutWindow.qml</file>
+        <file>RigCreator.qml</file>
+        <file>LoggingWindow.qml</file>
+        <file>Settings.qml</file>
+        <file>Debug.qml</file>
+        <file>Memories.qml</file>
+        <file>RepeaterSetup.qml</file>
+        <file>AboutBox.qml</file>
+        <file>SelectRadio.qml</file>
+        <file>CWSender.qml</file>
+        <file>FirstTimeSetup.qml</file>
+        <file>ControllerSettings.qml</file>
+        <file>AudioProcessing.qml</file>
+        <file>CollapsibleSection.qml</file>
+        <file>WheelArea.qml</file>
+        <file>TuningKnob.qml</file>
+        <file>TextEditMenu.qml</file>
+        <file>MacroEditor.qml</file>
+        <file>FitToolTip.qml</file>
+    </qresource>
+</RCC>

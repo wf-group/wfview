@@ -1,6 +1,7 @@
 #ifndef ICOMCOMMANDER_H
 #define ICOMCOMMANDER_H
 
+#include "iaxclientsession.h"
 #include "rigcommander.h"
 
 // This file figures out what to send to the comm and also
@@ -11,6 +12,8 @@
 #define compCivAddr 0xE1
 
 //#define DEBUG_PARSE // Enable to output Info messages every 10s with command parse timing.
+
+class RadioTransport;
 
 class icomCommander : public rigCommander
 {
@@ -23,8 +26,18 @@ public:
 
 public slots:
     void process() override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, quint16 tcp, quint8 wf) override;
-    void commSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, quint16 tcp) override;
+    void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf) override;
+    void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp) override;
+    void wfShareCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString host, quint16 port,
+                          QString username, QString password, QString calledNumber,
+                          audioSetup rxSetup, audioSetup txSetup) override;
+    void setLocalAudioVolume(quint8 level) override;
+    void dataFromServer(QByteArray data) override;
+    void dataFromVspClient(QByteArray data);
+    void dataFromExternalClient(QByteArray data);
+    void dataFromRigToExternalClient(QByteArray data);
+    void receiveRawExternalCommand(QByteArray data, uchar receiver);
+    void receiveTxAudioData(const audioPacket &packet) override;
     void closeComm() override;
     void setPTTType(pttType_t) override;
 
@@ -48,8 +61,18 @@ signals:
     // All signals are defined in rigcommander.h as they should be common for all rig types.
     void sidetone(QString text);
     void stopsidetone();
+    void haveDataForVsp(QByteArray data);
 
 private:
+    struct PendingExternalRead {
+        QByteArray requestFrame;
+        QByteArray commandData;
+        funcs requestedFunc = funcNone;
+        funcs cacheFunc = funcNone;
+        uchar receiver = 0;
+        QDateTime created;
+    };
+
     void commonSetup();
 
     void parseData(QByteArray data); // new data come here
@@ -96,17 +119,42 @@ private:
     QByteArray getACCAddr(quint8 ab);
     void sendDataOut();
     void prepDataAndSend(QByteArray data);
+    funcs lookupExternalCommand(const QByteArray &data, QByteArray *commandData = nullptr,
+                                QByteArray *lookupData = nullptr, int *matchedLength = nullptr) const;
+    bool isExternalReadCommand(funcs func, const QByteArray &lookupData, int matchedLength, uchar *receiver = nullptr) const;
+    QVector<QByteArray> takeCompleteExternalFrames(QByteArray &buffer, const QByteArray &data);
+    void processExternalFrame(const QByteArray &data, bool fromVsp);
+    bool queueParsedExternalCommand(funcs func, const QByteArray &commandData, const QByteArray &lookupData, int matchedLength, uchar receiver, const QByteArray &rawFrame);
+    bool queueExternalCommand(QByteArray data);
+    bool isExternalCacheFresh(const cacheItem &cache) const;
+    bool sendExternalCacheReply(const PendingExternalRead &pending, const cacheItem &cache, const QString &action);
+    bool sendExternalAck(const QByteArray &requestFrame, funcs func, uchar receiver, const QString &action);
+    bool queueExternalActionCommand(funcs func, uchar receiver, const QByteArray &rawFrame);
+    void receiveExternalCacheUpdate(cacheItem item);
+    void logExternalFrame(const char *direction, const QByteArray &data, funcs func, uchar receiver,
+                          const QString &action, const cacheItem &cache = cacheItem()) const;
+    void recordLastExternalCommand(const QByteArray &data);
+    bool detectExternalTransmitStatus(const QByteArray &data, bool *transmit) const;
     void debugMe();
+    void closeWfShare();
 
     centerSpanData createScopeCenter(uchar s, QString name);
 
-    commHandler* comm = Q_NULLPTR;
-    pttyHandler* ptty = Q_NULLPTR;
-    tcpServer* tcp = Q_NULLPTR;
-    icomUdpHandler* udp=Q_NULLPTR;
-    QThread* udpHandlerThread = Q_NULLPTR;
+    commHandler* comm = nullptr;
+    vspHandler* vspPort = nullptr;
+    tcpServer* tcp = nullptr;
+    icomUdpHandler* udp=nullptr;
+    RadioTransport* wfShareTransport = nullptr;
+    audioHandlerBase* wfShareRxAudio = nullptr;
+    QThread* wfShareRxAudioThread = nullptr;
+    audioSetup wfShareRxSetup;
+    audioSetup wfShareTxSetup;
+    quint32 wfShareAudioRxFrames = 0;
+    quint32 wfShareAudioTxFrames = 0;
+    IaxStats wfShareStats;
+    networkStatus wfShareStatus;
+    QThread* udpHandlerThread = nullptr;
 
-    void determineRigCaps();
     QByteArray payloadIn;
     QByteArray echoPerfix;
     QByteArray replyPrefix;
@@ -116,6 +164,9 @@ private:
     QByteArray payloadSuffix;
 
     QByteArray rigData;
+    QByteArray vspInputBuffer;
+    QByteArray tcpInputBuffer;
+    QVector<PendingExternalRead> pendingExternalReads;
 
     QByteArray spectrumLine;
     //double spectrumStartFreq;
@@ -135,9 +186,13 @@ private:
     quint16 civAddr;
     quint16 incomingCIVAddr; // place to store the incoming CIV.
     bool pttAllowed;
+    bool vspQueueEnabled = false;
+    bool vspTransceiveDisabled = false;
 
     scopeData mainScopeData;
     scopeData subScopeData;
+    quint8 mainScopeNextSequence = 0;
+    quint8 subScopeNextSequence = 0;
 
     QString rigSerialPort;
     quint32 rigBaudRate;
