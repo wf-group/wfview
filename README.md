@@ -46,8 +46,6 @@ Special thanks to our translators:
 
 The developers of wfview wish to thank the many contributions from the wfview community at-large, including ideas, bug reports, and fixes.
 
-Stylesheet qdarkstyle used under MIT license, stored in /usr/share/wfview/stylesheets/. 
-
 Speex Resample library and DSP noise reduction code Copyright 2003-2008 Jean-Marc Valin 
 
 RT Audio, from Gary P. Scavone
@@ -57,8 +55,6 @@ Port Audio, from The Port Audio Community
 Special thanks to Norbert Varga (HA2NON), Akos Marton (ES1AKOS), and the nonoo/kappanhang team for their initial work on the OEM Icom protocol.
 
 Many thanks to KB3MMW who assisted with the reverse enginering of the Yaesu LAN protocol. Portions of his code which he has released under LGPL/GPL have been integrated within wfview Forum post
-
-The waterfall and spectrum plot graphics use QCustomPlot, from Emanuel Eichhammer
 
 Dyson Compressor (c) 1996, John S. Dyson. Redistribution of the Dyson Compressor requires this copyright notice.
 
