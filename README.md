@@ -20,7 +20,6 @@ Links for Users:
 
 Links for Developers: 
 - [Developer's Corner](https://wfview.org/developers/)
-- [Compiler Script for Debian-based Linux](https://gitlab.com/eliggett/scripts/-/blob/master/fullbuild-wfview.sh)
 - [Public Automated Builds](https://wfview.org/developers/)
 - [Source Code](https://github.com/wf-group/wfview/)
 - [GitHub beta builds (macOS and linux AppImage)](https://github.com/wf-group/wfview/releases)

@@ -27,7 +27,7 @@ When launching wfview or wfserver for manual testing, start the GUI visibly unle
 
 ## Coding Style & Naming Conventions
 
-Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant controller or QML component. Do not reformat bundled libraries, `old-source/`, generated build trees, or third-party DSP/audio code. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.
+Follow `CODING_STYLE.md` for wfview-owned C++ and QML. Use C++17, Qt containers and signal/slot patterns where they fit, and keep UI logic in the relevant controller or QML component. Do not reformat bundled libraries, generated build trees, or third-party DSP/audio code. Add new files to the appropriate `SOURCES`, `HEADERS`, `FORMS`, or `RESOURCES` section of the `.pro` file.
 
 ## Testing Guidelines
 

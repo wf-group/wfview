@@ -313,20 +313,12 @@ inside these classes.
 
 | Role | File | Class |
 |------|------|-------|
-| Legacy dialog (archived) | `old-source/txaudioprocessingwidget.cpp` / `old-source/txaudioprocessingwidget.h` | `TxAudioProcessingWidget` |
-| Legacy compatibility alias (archived) | `old-source/audioprocessingwidget.h` | `using AudioProcessingWidget = TxAudioProcessingWidget` |
-| Legacy parameter bridge (archived) | `old-source/wfmain.cpp` - `on_TXaudioProcBtn_clicked()`, `onAudioProcPrefsChanged()`, `applyAudioProcPrefs()` | `wfmain` |
+| Settings UI | `qml/AudioProcessing.qml` | QML component |
 | DSP engine | `src/audio/txaudioprocessor.cpp` / `include/txaudioprocessor.h` | `TxAudioProcessor` |
-| Level meter widget | `old-source/meter.cpp` / `old-source/meter.h` | `meter` |
 
-### Window lifetime
-
-`TxAudioProcessingWidget` is created lazily when the user first clicks the
-**TX Audio Proc** button (`on_TXaudioProcBtn_clicked()`, `old-source/wfmain.cpp`).
-`TxAudioProcessor` is created when the radio connection is set up
-(same file, just before `makeRig()`).  Both paths check whether the other
-object already exists and connect the level-meter signals at that point, so
-the window can be opened either before or after connecting to a radio.
+The legacy Qt Widgets dialog (`TxAudioProcessingWidget`), its `wfmain` parameter
+bridge and the old `meter` widget were removed with the `old-source/` archive;
+see git history before its removal if you need them for reference.
 
 ### Meter signals
 
@@ -488,8 +480,7 @@ The conditional branch checks `rxSetup.rxProc != nullptr`.
 
 | Role | File | Class |
 |------|------|-------|
-| Legacy dialog (archived) | `old-source/rxaudioprocessingwidget.cpp` / `old-source/rxaudioprocessingwidget.h` | `RxAudioProcessingWidget` |
-| Legacy parameter bridge (archived) | `old-source/wfmain.cpp` - `on_RXaudioProcBtn_clicked()`, `onRxAudioProcPrefsChanged()`, `applyRxAudioProcPrefs()` | `wfmain` |
+| Settings UI | `qml/AudioProcessing.qml` | QML component |
 | DSP engine | `src/audio/rxaudioprocessor.cpp` / `include/rxaudioprocessor.h` | `RxAudioProcessor` |
 | NR back-ends | `src/audio/speexnrprocessor.h`, `src/audio/anrnrprocessor.h` | `SpeexNrProcessor`, `AnrNrProcessor` |
 | RX EQ | `src/audio/plugins/triple_para.cpp` / `triple_para.h` | `TriplePara` |
@@ -502,9 +493,10 @@ reused across reconnects.
 
 ## Spectrum Display (TX and RX)
 
-Both the TX and RX audio processing dialogs include an optional spectrum display
-powered by the archived `SpectrumWidget` (`old-source/spectrumwidget.h`, inline
-Q_OBJECT class; `old-source/spectrumwidget.cpp` existed only to wire the moc).
+The TX and RX audio processing views in `qml/AudioProcessing.qml` include an
+optional spectrum display (`SpectrumBox`). The processors emit
+`txSpectrumBins()` / `rxSpectrumBins()`, which reach QML as
+`txAudioSpectrumChanged` / `rxAudioSpectrumChanged`.
 
 ### FFT back-end
 
@@ -577,12 +569,9 @@ Bin-to-frequency mapping: `freq = k × (effectiveSR / SPEC_FFT_LEN)`, where
 |------|-------------|
 | `src/audio/pocketfft/pocketfft.h` | pocketfft C API header |
 | `src/audio/pocketfft/pocketfft.c` | pocketfft implementation |
-| `old-source/spectrumwidget.h` | Archived `SpectrumWidget` inline QWidget (Q_OBJECT, paints spectrum) |
-| `old-source/spectrumwidget.cpp` | Archived translation unit for moc wiring |
 | `src/audio/txaudioprocessor.cpp` | `appendSpectrumSamples()` — TX spectrum FFT + decimation |
 | `src/audio/rxaudioprocessor.cpp` | `appendSpectrumSamples()` — RX spectrum FFT + decimation |
-| `old-source/txaudioprocessingwidget.cpp` | Archived `onSpectrumBins()` slot, feeds SpectrumWidget |
-| `old-source/rxaudioprocessingwidget.cpp` | Archived `onSpectrumBins()` slot, feeds SpectrumWidget |
+| `qml/AudioProcessing.qml` | `SpectrumBox` — draws input/output spectra |
 
 ### Preferences
 

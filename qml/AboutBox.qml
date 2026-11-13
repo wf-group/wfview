@@ -20,7 +20,7 @@ Item {
     // Helper function to build the about text
     function buildAboutText() {
         let head = "<html><head></head><body>";
-        let copyright = "Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://github.com/wf-group/wfview/blob/master/LICENSE\">licensed</a> under the GNU GPLv3.";
+        let copyright = "Copyright 2017-2026 Elliott H. Liggett, W6EL and Phil E. Taylor, M0VSE. All rights reserved.<br/>wfview source code is <a href=\"https://github.com/wf-group/wfview/blob/main/LICENSE\">licensed</a> under the GNU GPLv3.";
         let scm = "<br/><br/>Source code and issues managed by Roeland Jansen, PA3MET";
         let doctest = "<br/><br/>Testing and development mentorship from Jim Nijkamp, PA8E.";
         
