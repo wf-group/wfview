@@ -6,7 +6,20 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QVersionNumber>
 #include <utility>
+
+namespace {
+// Numeric part of a wfview version string: "v3.0-beta1" and "3.00" both give 3.0.
+// Returns a null QVersionNumber when there is no number, for example "unset".
+QVersionNumber parseWfviewVersion(QString text)
+{
+    text = text.trimmed();
+    if (text.startsWith('v', Qt::CaseInsensitive))
+        text.remove(0, 1);
+    return QVersionNumber::fromString(text);
+}
+}
 
 
 static inline QVariant qColorToVariant(const QColor& c) {
@@ -936,17 +949,28 @@ void SettingsController::load()
 
     qInfo(logSystem()) << "Loading settings from " << settings->fileName();
 
-    QString currentVersionString = QString(WFVIEW_VERSION);
-    float currentVersionFloat = currentVersionString.toFloat();
+    const QString currentVersionString = QString(WFVIEW_VERSION);
+    const QVersionNumber currentVersion = parseWfviewVersion(currentVersionString);
 
     settings->beginGroup("Program");
-    QString priorVersionString = settings->value("version", "unset").toString();
-    float priorVersionFloat = priorVersionString.toFloat();
-    if (currentVersionString != priorVersionString)
+    const QString priorVersionString = settings->value("version", "unset").toString();
+    const QVersionNumber priorVersion = parseWfviewVersion(priorVersionString);
+
+    // Only the numeric part (3.0 of v3.0-beta1) is compared. A different major
+    // version is handled below as an upgrade; anything smaller is only logged.
+    if (priorVersion.isNull())
     {
-        qWarning(logSystem()) << "Settings previously saved under version " << priorVersionString << ", you should review your settings and press SaveSettings.";
+        qInfo(logSystem()).noquote() << "No usable version in settings (" << priorVersionString << "), this wfview is" << currentVersionString;
     }
-    if(priorVersionFloat > currentVersionFloat)
+    else if (priorVersion.majorVersion() != currentVersion.majorVersion() || priorVersion.minorVersion() != currentVersion.minorVersion())
+    {
+        qWarning(logSystem()).noquote() << "Settings previously saved under version" << priorVersionString << "but this wfview is" << currentVersionString << ", you should review your settings and save them.";
+    }
+    else if (priorVersionString != currentVersionString)
+    {
+        qInfo(logSystem()).noquote() << "Settings previously saved under version" << priorVersionString << ", this wfview is" << currentVersionString;
+    }
+    if (!priorVersion.isNull() && QVersionNumber::compare(priorVersion, currentVersion) > 0)
     {
         qWarning(logSystem()).noquote().nospace() << "It looks like the previous version of wfview (" << priorVersionString << ") was newer than this version (" << currentVersionString << ")";
     }
@@ -960,7 +984,7 @@ void SettingsController::load()
     // Settings carried over from wfview 1.x/2.x are reviewed before the first
     // connect. A missing settings file leaves hasRunSetup false, which runs
     // first time setup instead.
-    const int priorMajorVersion = priorVersionString.section('.', 0, 0).toInt();
+    const int priorMajorVersion = priorVersion.isNull() ? 0 : priorVersion.majorVersion();
     m_upgradedFromLegacy = prefs.hasRunSetup && priorMajorVersion >= 1 && priorMajorVersion < 3;
     if (m_upgradedFromLegacy)
         qInfo(logSystem()) << "Settings from wfview" << priorVersionString << "found, not connecting automatically.";
@@ -1803,19 +1827,13 @@ void SettingsController::save()
     if (m_currentRadioProfileIndex >= 0 && m_currentRadioProfileIndex < m_radioProfiles.size())
         updateRadioProfile(m_currentRadioProfileIndex);
 
-    QString versionstr = QString(WFVIEW_VERSION);
-    QString majorVersion = "-1";
-    QString minorVersion = "-1";
-    if(versionstr.contains(".") && (versionstr.split(".").length() == 2))
-    {
-        majorVersion = versionstr.split(".").at(0);
-        minorVersion = versionstr.split(".").at(1);
-    }
+    const QString versionstr = QString(WFVIEW_VERSION);
+    const QVersionNumber version = parseWfviewVersion(versionstr);
 
     settings->beginGroup("Program");
     settings->setValue("version", versionstr);
-    settings->setValue("majorVersion", int(majorVersion.toInt()));
-    settings->setValue("minorVersion", int(minorVersion.toInt()));
+    settings->setValue("majorVersion", version.isNull() ? -1 : version.majorVersion());
+    settings->setValue("minorVersion", version.isNull() ? -1 : version.minorVersion());
     settings->setValue("gitShort", QString(GITSHORT));
     settings->setValue("hasRunSetup", prefs.hasRunSetup);
     settings->endGroup();

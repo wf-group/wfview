@@ -199,7 +199,7 @@ Item {
             Layout.fillWidth: true
             Layout.leftMargin: 10
             Layout.rightMargin: 10
-            text: "wfview version " + wfviewVersion
+            text: "wfview " + wfviewVersion
             horizontalAlignment: Text.AlignLeft
             wrapMode: Text.WordWrap
         }

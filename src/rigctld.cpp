@@ -2001,7 +2001,7 @@ int rigCtlClient::dumpState(QStringList &response, bool extended)
         response.append(QString("has_get_ant=0x%1").arg(rigCaps->commands.contains(funcAntenna), 0, 16));
         response.append(QString("has_set_ant=0x%1").arg(rigCaps->commands.contains(funcAntenna), 0, 16));
         response.append(QString("rig_model=%1").arg(rigCaps->rigctlModel));
-        response.append("rigctld_version=wfview 3.00");
+        response.append(QString("rigctld_version=wfview %1").arg(WFVIEW_VERSION));
         response.append("level_gran=0=0,0,0");
         response.append("parm_gran=0=0,0,0");
         response.append("hamlib_version=4.7");

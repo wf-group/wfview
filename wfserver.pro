@@ -14,7 +14,7 @@ TEMPLATE = app
 CONFIG += console
 CONFIG += c++17
 
-DEFINES += WFVIEW_VERSION=\\\"3.00\\\"
+include(version.pri)
 
 DEFINES += BUILD_WFSERVER
 

@@ -3,6 +3,8 @@ QT += core gui qml quick testlib network xml multimedia
 TEMPLATE = app
 TARGET = wfview-tests
 CONFIG += c++17 console
+
+include(../version.pri)
 CONFIG -= app_bundle
 
 DEFINES += OUTSIDE_SPEEX

@@ -51,11 +51,11 @@ jobs:
           TAG=$(git -C wfview tag --points-at HEAD | head -1)
           if [ -n "$TAG" ]; then
             VERSION_STRING="$TAG"
-            VERSION_NUMBER="${TAG#v}"
+            VERSION_NUMBER=$(echo "${TAG#v}" | sed -E 's/^([0-9]+(\.[0-9]+)*).*/\1/')
             HAS_TAG=true
           else
             VERSION_STRING="$SHORT"
-            VERSION_NUMBER="$SHORT"
+            VERSION_NUMBER=$(grep '^WFVIEW_BASE_VERSION' wfview/version.pri | grep -oE '[0-9]+(\.[0-9]+)*')
             HAS_TAG=false
           fi
           echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
@@ -184,7 +184,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }} VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }})
+          qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }}
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -202,6 +202,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ steps.version_info.outputs.version_number }}"
+          $VERSION_STRING = "${{ steps.version_info.outputs.version_string }}"
           $DATE = Get-Date -Format 'yyyy-MM-dd'
           $PKG_DIR = "wfview\installer\packages\org.wfview.wfview"
 
@@ -213,7 +214,7 @@ jobs:
 
           (Get-Content "wfview\installer\config\config.xml") `
             -replace '<Version>.*</Version>', "<Version>$VERSION</Version>" `
-            -replace '<Title>.*</Title>', "<Title>Welcome to the wfview v$VERSION (x86) installer</Title>" `
+            -replace '<Title>.*</Title>', "<Title>Welcome to the wfview $VERSION_STRING (x86) installer</Title>" `
             -replace 'wfview \(x64\)', 'wfview (x86)' |
             Set-Content "wfview\installer\config\config.xml"
 
@@ -260,11 +261,11 @@ jobs:
           TAG=$(git -C wfview tag --points-at HEAD | head -1)
           if [ -n "$TAG" ]; then
             VERSION_STRING="$TAG"
-            VERSION_NUMBER="${TAG#v}"
+            VERSION_NUMBER=$(echo "${TAG#v}" | sed -E 's/^([0-9]+(\.[0-9]+)*).*/\1/')
             HAS_TAG=true
           else
             VERSION_STRING="$SHORT"
-            VERSION_NUMBER="$SHORT"
+            VERSION_NUMBER=$(grep '^WFVIEW_BASE_VERSION' wfview/version.pri | grep -oE '[0-9]+(\.[0-9]+)*')
             HAS_TAG=false
           fi
           echo "version_string=$VERSION_STRING" >> "$GITHUB_OUTPUT"
@@ -380,7 +381,7 @@ jobs:
         shell: cmd
         working-directory: wfview
         run: |
-          if "${{ steps.version_info.outputs.has_tag }}"=="true" (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }} VERSION="${{ steps.version_info.outputs.version_number }}") else (qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }})
+          qmake wfview.pro CONFIG+=release ${{ env.WFVIEW_MCP_CONFIG }}
           jom -j %NUMBER_OF_PROCESSORS%
 
       - name: Deploy Qt dependencies
@@ -398,6 +399,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ steps.version_info.outputs.version_number }}"
+          $VERSION_STRING = "${{ steps.version_info.outputs.version_string }}"
           $DATE = Get-Date -Format 'yyyy-MM-dd'
           $PKG_DIR = "wfview\installer\packages\org.wfview.wfview"
 
@@ -412,7 +414,7 @@ jobs:
           # Inject version and date into config.xml and package.xml
           (Get-Content "wfview\installer\config\config.xml") `
             -replace '<Version>.*</Version>', "<Version>$VERSION</Version>" `
-            -replace '<Title>.*</Title>', "<Title>Welcome to the wfview v$VERSION (x64) installer</Title>" |
+            -replace '<Title>.*</Title>', "<Title>Welcome to the wfview $VERSION_STRING (x64) installer</Title>" |
             Set-Content "wfview\installer\config\config.xml"
 
           (Get-Content "$PKG_DIR\meta\package.xml") `
@@ -530,7 +532,12 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'WFVIEW_VERSION' wfview/wfview.pro | grep -oE '[0-9]+\.[0-9]+')
+          TAG=$(git -C wfview tag --points-at HEAD | head -1)
+          if [ -n "$TAG" ]; then
+            VERSION=$(echo "${TAG#v}" | sed -E 's/^([0-9]+(\.[0-9]+)*).*/\1/')
+          else
+            VERSION=$(grep '^WFVIEW_BASE_VERSION' wfview/version.pri | grep -oE '[0-9]+(\.[0-9]+)*')
+          fi
           BUNDLE_VERSION=$(git -C wfview rev-list --count HEAD)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "bundle_version=$BUNDLE_VERSION" >> $GITHUB_OUTPUT
@@ -556,8 +563,7 @@ jobs:
             QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
             QMAKE_MACOSX_DEPLOYMENT_TARGET=12.0 \
             INCLUDEPATH+="$SYSROOT/include" \
-            LIBS+="-L$SYSROOT/lib" \
-            VERSION="${{ steps.version_info.outputs.version_string }}"
+            LIBS+="-L$SYSROOT/lib"
           make -j$(sysctl -n hw.logicalcpu)
 
       - name: Deploy macOS App
@@ -854,8 +860,14 @@ jobs:
       - name: Update Info.plist version
         run: |
           PLIST="wfview/resources/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version_info.outputs.version_string }}" "$PLIST" || \
-            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${{ steps.version_info.outputs.version_string }}" "$PLIST"
+          TAG=$(git -C wfview tag --points-at HEAD | head -1)
+          if [ -n "$TAG" ]; then
+            SHORT_VERSION=$(echo "${TAG#v}" | sed -E 's/^([0-9]+(\.[0-9]+)*).*/\1/')
+          else
+            SHORT_VERSION=$(grep '^WFVIEW_BASE_VERSION' wfview/version.pri | grep -oE '[0-9]+(\.[0-9]+)*')
+          fi
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT_VERSION" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $SHORT_VERSION" "$PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PLIST" || \
             /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${{ github.run_number }}" "$PLIST"
 
@@ -870,8 +882,7 @@ jobs:
             QMAKE_APPLE_DEVICE_ARCHS=x86_64 \
             QMAKE_MACOSX_DEPLOYMENT_TARGET="${{ env.MACOS_LEGACY_DEPLOYMENT_TARGET }}" \
             INCLUDEPATH+="$SYSROOT/include" \
-            LIBS+="-L$SYSROOT/lib" \
-            VERSION="${{ steps.version_info.outputs.version_string }}"
+            LIBS+="-L$SYSROOT/lib"
           make -j"$(sysctl -n hw.logicalcpu)"
 
       - name: Deploy Qt frameworks and third-party libraries
@@ -1084,8 +1095,7 @@ jobs:
         qmake wfview.pro \
           CONFIG+=release \
           ${{ env.WFVIEW_MCP_CONFIG }} \
-          PREFIX=/usr \
-          VERSION="${{ steps.version_info.outputs.version_string }}"
+          PREFIX=/usr
 
     - name: Build with make
       run: |
@@ -1317,8 +1327,7 @@ jobs:
         qmake wfview.pro \
           CONFIG+=release \
           ${{ env.WFVIEW_MCP_CONFIG }} \
-          PREFIX=/usr \
-          VERSION="${{ steps.version_info.outputs.version_string }}"
+          PREFIX=/usr
 
     - name: Build with make
       run: |

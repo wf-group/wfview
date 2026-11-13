@@ -25,7 +25,7 @@ contains(DEFINES,USB_CONTROLLER){
 TARGET = wfview
 TEMPLATE = app
 
-DEFINES += WFVIEW_VERSION=\\\"3.00\\\"
+include(version.pri)
 
 DEFINES += BUILD_WFVIEW
 
