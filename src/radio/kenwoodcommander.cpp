@@ -824,7 +824,10 @@ void kenwoodCommander::parseData(QByteArray data)
             if (ok)
             {
                 f.MHzDouble = f.Hz/1000000.0;
-                value.setValue(f);
+                if (func == funcSelectedFreq && memoryModeActive && memoryModeFreq.Hz != 0)
+                    value.setValue(memoryModeFreq); // FA is VFO A, not the memory channel.
+                else
+                    value.setValue(f);
             }
             break;
         }
@@ -902,6 +905,23 @@ void kenwoodCommander::parseData(QByteArray data)
             }
 
             queue->receiveValue(funcRitStatus,QVariant::fromValue(bool(d.at(21) - NUMTOASCII)),receiver);
+
+            // P10 (index 28) is 0/1 for VFO A/B and 2 for memory. In memory mode FA keeps
+            // reporting VFO A, so use the operating frequency in P1 as the selected frequency.
+            if (d.length() > 28) {
+                const bool memMode = (d.at(28) == '2');
+                if (memMode != memoryModeActive) {
+                    memoryModeActive = memMode;
+                    emit haveMemoryMode(memoryModeActive, receiver);
+                }
+                bool freqOk = false;
+                const quint64 hz = d.mid(0,11).toULongLong(&freqOk);
+                if (memoryModeActive && freqOk && hz != 0) {
+                    memoryModeFreq.Hz = hz;
+                    memoryModeFreq.MHzDouble = hz / 1000000.0;
+                    queue->receiveValue(funcSelectedFreq,QVariant::fromValue(memoryModeFreq),receiver);
+                }
+            }
 
             // This is PTT status
             value.setValue(bool(d.at(26) - NUMTOASCII));
@@ -1137,8 +1157,11 @@ void kenwoodCommander::parseData(QByteArray data)
         case funcVFOASelect:
         case funcVFOBSelect:
         case funcMemoryMode:
-            // Do we need to do anything with this?
-
+            // Track memory mode so FA (VFO A) isn't shown as the operating frequency.
+            // The frequency itself comes from the next IF reply.
+            memoryModeActive = (func == funcMemoryMode);
+            memoryModeFreq = freqt();
+            emit haveMemoryMode(memoryModeActive, receiver);
             break;
         case funcConnectionRequest:
             qInfo() << "Received connection request command";
@@ -1659,7 +1682,8 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
             }
             else if(!strcmp(value.typeName(),"uint"))
             {
-                if (func == funcMemoryContents) {
+                if (func == funcMemoryContents || func == funcMemorySelect) {
+                    // Memory number is in the low 16 bits; the group (unused on Kenwood) is in the high 16 bits.
                     payload.append(QString::number(quint16(value.value<uint>() & 0xffff)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
                 } else {
                     payload.append(QString::number(value.value<uint>()).rightJustified(cmd.bytes, QChar('0')).toLatin1());

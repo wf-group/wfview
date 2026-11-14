@@ -131,6 +131,7 @@ signals:
     void haveDTCS(quint16 dcscode, bool tinv, bool rinv);
     void haveRptOffsetFrequency(freqt f);
     void haveMemory(memoryType mem);
+    void haveMemoryMode(bool active, uchar receiver); // Radio entered/left memory (channel) mode
 
     // Housekeeping:
     void requestRadioSelection(QList<radio_cap_packet> radios);

@@ -111,6 +111,10 @@ private:
     connectionType_t connType = connectionLAN;
 
     bool aiModeEnabled=false;
+
+    // In memory mode FA still reports VFO A, so the operating frequency comes from IF instead.
+    bool memoryModeActive = false;
+    freqt memoryModeFreq;
     // Kenwood RIT can only be stepped with RU/RD, so we track the radio's
     // offset to work out the step. Reports from the radio resync it, except
     // just after we sent a step, when they may predate that step.

@@ -477,6 +477,16 @@ Control {
 
                                 visible: controller && ((controller.uiFlags & ReceiverController.ShowVFOA) !== 0)
 
+                                // The radio is on a memory channel; tuning here would only change the hidden VFO.
+                                readOnly: controller ? controller.memoryMode : false
+
+                                HoverHandler { id: leftFreqHover }
+
+                                AboveToolTip {
+                                    text: qsTr("Memory mode active. Switch to VFO mode for tuning")
+                                    visible: leftFreq.readOnly && leftFreqHover.hovered
+                                }
+
                                 onWheelTuning: {
                                     if (controller)
                                         controller.holdFrequencyUpdates(false)

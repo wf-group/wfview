@@ -53,6 +53,7 @@ class FreqCtrlQuick : public QQuickPaintedItem
     Q_PROPERTY(bool resetLowerDigits READ getResetLowerDigits WRITE setResetLowerDigits NOTIFY resetLowerDigitsChanged)
     Q_PROPERTY(qint64 tuningStep READ getTuningStep WRITE setTuningStep NOTIFY tuningStepChanged)
     Q_PROPERTY(bool invertScrolling READ getInvertScrolling WRITE setInvertScrolling NOTIFY invertScrollingChanged)
+    Q_PROPERTY(bool readOnly READ getReadOnly WRITE setReadOnly NOTIFY readOnlyChanged) // Ignore clicks, wheel and keys
     Q_PROPERTY(int unit READ getUnitInt WRITE setUnitInt NOTIFY unitChanged)
     Q_PROPERTY(QColor digitColor READ getDigitColor WRITE setDigitColor NOTIFY colorsChanged)
     Q_PROPERTY(QColor backgroundColor READ getBgColor WRITE setBgColor NOTIFY colorsChanged)
@@ -102,6 +103,7 @@ public:
     bool getResetLowerDigits() const { return m_ResetLowerDigits; }
     qint64 getTuningStep() const { return m_TuningStep; }
     bool getInvertScrolling() const { return m_InvertScrolling; }
+    bool getReadOnly() const { return m_ReadOnly; }
 
     FctlUnit getUnit() const { return m_Unit; }
     int getUnitInt() const { return static_cast<int>(m_Unit); }
@@ -153,6 +155,7 @@ public:
         }
     }
     void setInvertScrolling(bool invert) { m_InvertScrolling = invert; }
+    void setReadOnly(bool readOnly);
 
 signals:
     void newFrequency(qint64 freq);     // emitted when frequency has changed
@@ -161,6 +164,7 @@ signals:
     void resetLowerDigitsChanged();
     void tuningStepChanged();
     void invertScrollingChanged();
+    void readOnlyChanged();
     void unitChanged();
     void colorsChanged();
     void freqDigitsChanged();
@@ -237,6 +241,7 @@ private:
     bool        m_ResetLowerDigits = false;
     qint64      m_TuningStep = 0;
     bool        m_InvertScrolling = false;
+    bool        m_ReadOnly = false;
 
     int         m_FirstEditableDigit = 0;
     int         m_LastLeadZeroPos = 0;

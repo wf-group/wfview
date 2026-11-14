@@ -4708,6 +4708,13 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::connectionLost, this, &MainController::handleRigConnectionLost);
         connect(rig, &rigCommander::haveAudioData, this, &MainController::routeRxAudioToSinks);
         connect(rig, &rigCommander::externalPttChanged, this, &MainController::handleExternalTransmitRequested);
+        connect(rig, &rigCommander::haveMemoryMode, this, [this](bool active, uchar r) {
+            // Reflect the radio's state only; don't send anything back to it.
+            for (const auto &rx : std::as_const(receivers)) {
+                if (rx->getReceiver() == r)
+                    rx->setMemoryMode(active, false);
+            }
+        });
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
 
         /*

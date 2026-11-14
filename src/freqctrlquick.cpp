@@ -656,6 +656,29 @@ void FreqCtrlQuick::geometryChanged(const QRectF &newGeometry,
 #endif
 
 
+void FreqCtrlQuick::setReadOnly(bool readOnly)
+{
+    if (m_ReadOnly == readOnly)
+        return;
+
+    m_ReadOnly = readOnly;
+
+    if (m_ReadOnly) {
+        // Drop any edit in progress and the digit highlight.
+        if (m_DirectEntryMode)
+            cancelDirectEntry();
+        if (m_ActiveEditDigit >= 0 && m_DigitInfo[m_ActiveEditDigit].editmode) {
+            m_DigitInfo[m_ActiveEditDigit].editmode = false;
+            m_DigitInfo[m_ActiveEditDigit].modified = true;
+            m_ActiveEditDigit = -1;
+            updateCtrl(false);
+        }
+        scrollWheelOffsetAccumulated = 0;
+    }
+
+    emit readOnlyChanged();
+}
+
 void FreqCtrlQuick::hoverLeaveEvent(QHoverEvent *event)
 {
     if (m_DirectEntryMode) {
@@ -716,6 +739,9 @@ void FreqCtrlQuick::paint(QPainter *p)
 void FreqCtrlQuick::hoverMoveEvent(QHoverEvent *event)
 {
     event->setAccepted(true);
+    if (m_ReadOnly)
+        return; // No digit highlight or focus grab while locked
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QPointF pt = event->posF();
 #else
@@ -738,6 +764,9 @@ void FreqCtrlQuick::hoverMoveEvent(QHoverEvent *event)
 void FreqCtrlQuick::mouseMoveEvent(QMouseEvent *event)
 {
     event->setAccepted(true);
+    if (m_ReadOnly)
+        return;
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QPointF pt = event->localPos();
 #else
@@ -756,6 +785,11 @@ void FreqCtrlQuick::mouseMoveEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
 {
+    if (m_ReadOnly) {
+        event->accept();
+        return;
+    }
+
     if (m_DirectEntryMode) {
         forceActiveFocus(Qt::MouseFocusReason);
         m_DirectEntryAllSelected = true;
@@ -816,6 +850,11 @@ void FreqCtrlQuick::mousePressEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    if (m_ReadOnly) {
+        event->accept();
+        return;
+    }
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     const QPointF pt = event->localPos();
 #else
@@ -841,6 +880,11 @@ void FreqCtrlQuick::mouseDoubleClickEvent(QMouseEvent *event)
 
 void FreqCtrlQuick::wheelEvent(QWheelEvent *event)
 {
+    if (m_ReadOnly) {
+        event->accept(); // Swallow it so it doesn't scroll a parent instead
+        return;
+    }
+
     if (m_DirectEntryMode) {
         event->ignore();
         return;
@@ -1112,6 +1156,11 @@ void FreqCtrlQuick::drawDirectEntry(QPainter &painter)
 
 void FreqCtrlQuick::keyPressEvent(QKeyEvent *event)
 {
+    if (m_ReadOnly) {
+        QQuickPaintedItem::keyPressEvent(event); // Let shortcuts elsewhere still see it
+        return;
+    }
+
     if (m_DirectEntryMode) {
         const int key = event->key();
 
