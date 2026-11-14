@@ -112,7 +112,7 @@ private:
 
     modeInfo parseMode(uchar mode, uchar data, uchar filter, uchar receiver=0,uchar vfo=0);
     bool parseSpectrum(scopeData& d, uchar receiver);
-    funcType getCommand(funcs func, QByteArray& payload, int value=INT_MIN, uchar receiver=0);
+    funcType getCommand(funcs func, QByteArray& payload, int value=INT_MIN, uchar receiver=0, bool isGet=false);
 
     QByteArray getLANAddr();
     QByteArray getUSBAddr();

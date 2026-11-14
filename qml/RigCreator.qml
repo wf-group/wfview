@@ -248,7 +248,7 @@ ApplicationWindow {
         id: commandsModel
         store: rig.store
         group: "Rig/Commands"
-        columns: ["Type","String","Min","Max","Bytes","PadRight","Command29","GetCommand","SetCommand","Admin"]
+        columns: ["Type","String","Min","Max","Bytes","PadRight","Command29","GetCommand","SetCommand","Admin","GetLacksSubCmd"]
     }
 
     IniSortProxy {
@@ -608,14 +608,30 @@ ApplicationWindow {
         readonly property int verticalScrollBarWidth: 14
         readonly property int minColumnWidth: 20
 
+        // When true, a column is never narrower than its header title (plus the sort arrow).
+        property bool fitHeaders: false
+
         // Widths the user has dragged, keyed by column index. Reassign (don't mutate)
         // so bindings that read it re-evaluate.
         property var columnWidthOverrides: ({})
 
+        // Same font as the header titles, used to measure them.
+        Text { id: headerFontProbe; visible: false; font.bold: true }
+        FontMetrics { id: headerMetrics; font: headerFontProbe.font }
+
+        function headerFitWidth(col) {
+            // Title margins (6 + 6) and sort arrow right margin (6), see the header delegate.
+            var title = columns[col].title ?? ""
+            void headerMetrics.height // re-evaluate width bindings if the header font changes
+            return Math.ceil(headerMetrics.advanceWidth(title) + headerMetrics.advanceWidth("▲")) + 18
+        }
+
         function columnWidthAt(col) {
             if (!columns || col < 0 || col >= columns.length) return 0
             var w = columnWidthOverrides[col]
-            return (w !== undefined) ? w : (columns[col].width ?? 140)
+            if (w !== undefined) return w
+            var base = columns[col].width ?? 140
+            return fitHeaders ? Math.max(base, headerFitWidth(col)) : base
         }
 
         function setColumnWidth(col, w) {
@@ -628,6 +644,7 @@ ApplicationWindow {
         }
 
         onColumnWidthOverridesChanged: tv.forceLayout()
+        onContentColumnsWidthChanged: tv.forceLayout()
 
         readonly property int contentColumnsWidth: {
             var total = 0
@@ -759,8 +776,11 @@ ApplicationWindow {
                         border.width: 1
                         clip: true
 
+                        // Follows the table's horizontal scroll position.
                         Row {
-                            anchors.fill: parent
+                            x: -tv.contentX
+                            width: panel.contentColumnsWidth
+                            height: parent.height
                             spacing: 0
 
                             Repeater {
@@ -889,8 +909,26 @@ ApplicationWindow {
                                     border.width: 1
                                 }
                             }
+                            // Keep the last column and row clear of the scroll bars.
+                            rightMargin: panel.verticalScrollBarWidth
+                            bottomMargin: hScrollBar.visible ? hScrollBar.height : 0
+
                             ScrollBar.horizontal: ScrollBar {
-                                policy: ScrollBar.AlwaysOff
+                                id: hScrollBar
+                                policy: ScrollBar.AsNeeded
+                                interactive: true
+                                visible: size < 1.0
+                                implicitHeight: panel.verticalScrollBarWidth
+                                contentItem: Rectangle {
+                                    implicitHeight: panel.verticalScrollBarWidth
+                                    radius: 3
+                                    color: parent.pressed ? rigCreator.palette.highlight : rigCreator.palette.mid
+                                }
+                                background: Rectangle {
+                                    color: rigCreator.palette.dark
+                                    border.color: rigCreator.palette.mid
+                                    border.width: 1
+                                }
                             }
 
                             columnWidthProvider: function(col) {
@@ -1696,8 +1734,10 @@ ApplicationWindow {
                                     { title: qsTr("Cmd29"),   name: "Command29",  width: 60, editor: "bool" },
                                     { title: qsTr("Get"),     name: "GetCommand", width: 40, editor: "bool" },
                                     { title: qsTr("Set"),     name: "SetCommand", width: 40, editor: "bool" },
-                                    { title: qsTr("Admin"),   name: "Admin",      width: 60, editor: "bool" }
+                                    { title: qsTr("Admin"),   name: "Admin",      width: 60, editor: "bool" },
+                                    { title: qsTr("Get w/o Sub Cmd"), name: "GetLacksSubCmd", width: 60, editor: "bool" }
                                 ]
+                                fitHeaders: true
                             }
                         }
                     }

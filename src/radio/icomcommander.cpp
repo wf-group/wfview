@@ -1346,7 +1346,7 @@ bool icomCommander::detectExternalTransmitStatus(const QByteArray &data, bool *t
     return true;
 }
 
-funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver)
+funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, uchar receiver, bool isGet)
 {
     funcType cmd;
     // Value is set to INT_MIN by default as this should be outside any "real" values
@@ -1380,7 +1380,14 @@ funcType icomCommander::getCommand(funcs func, QByteArray &payload, int value, u
                     break;
                 }
             }
-            payload.append(it.value().data);
+            if (isGet && it.value().getLacksSubCmd)
+            {
+                // Icom "*" commands are read by sending only the command byte;
+                // the sub command is used for set (and appears in the reply).
+                payload.append(it.value().data.left(1));
+            } else {
+                payload.append(it.value().data);
+            }
             cmd = it.value();
         }
         else if (value != INT_MIN)
@@ -3403,7 +3410,7 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
     QByteArray payload;
     funcType cmd;
-    cmd = getCommand(func,payload,val,receiver);
+    cmd = getCommand(func,payload,val,receiver,!value.isValid());
     if (cmd.cmd != funcNone)
     {
         // Certain commands need the receiver number adding first!

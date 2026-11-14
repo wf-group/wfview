@@ -577,9 +577,9 @@ struct spanType {
 };
 
 struct funcType {
-    funcType() {cmd=funcNone, name="None", data=QByteArray(), minVal=0, maxVal=0, padr=false,cmd29=false, getCmd=false, setCmd=false, bytes=0, admin=false; }
-    funcType(funcs cmd, QString name, QByteArray data, int minVal, int maxVal, bool padr, bool cmd29, bool getCmd, bool setCmd, uchar bytes, bool admin) :
-        cmd(cmd), name(name), data(data), minVal(minVal), maxVal(maxVal), padr(padr), cmd29(cmd29), getCmd(getCmd), setCmd(setCmd), bytes(bytes), admin(admin) {}
+    funcType() {cmd=funcNone, name="None", data=QByteArray(), minVal=0, maxVal=0, padr=false,cmd29=false, getCmd=false, setCmd=false, bytes=0, admin=false, getLacksSubCmd=false; }
+    funcType(funcs cmd, QString name, QByteArray data, int minVal, int maxVal, bool padr, bool cmd29, bool getCmd, bool setCmd, uchar bytes, bool admin, bool getLacksSubCmd=false) :
+        cmd(cmd), name(name), data(data), minVal(minVal), maxVal(maxVal), padr(padr), cmd29(cmd29), getCmd(getCmd), setCmd(setCmd), bytes(bytes), admin(admin), getLacksSubCmd(getLacksSubCmd) {}
     funcs cmd;
     QString name;
     QByteArray data;
@@ -591,6 +591,9 @@ struct funcType {
     bool setCmd;
     uchar bytes;
     bool admin;
+    // Icom "*" commands: a get is sent as the bare command byte, without the
+    // sub command that the set (and the reply) carry.
+    bool getLacksSubCmd;
 };
 
 //struct commandtype {

@@ -216,6 +216,7 @@ Commands\19\Command29=false
 Commands\19\GetCommand=true
 Commands\19\SetCommand=true
 Commands\19\Admin=false
+Commands\19\GetLacksSubCmd=true
 Commands\20\Type=Speech
 Commands\20\String=\\x13
 Commands\20\Min=0

@@ -384,7 +384,8 @@ void rigCommander::determineRigCaps()
                                                        settings->value("GetCommand",true).toBool(),
                                                        settings->value("SetCommand",true).toBool(),
                                                        settings->value("Bytes",0).toInt(),
-                                                       settings->value("Admin",false).toBool())
+                                                       settings->value("Admin",false).toBool(),
+                                                       settings->value("GetLacksSubCmd",false).toBool())
                                         );
 
                 rigCaps.commandsReverse.insert(commandString,func);
