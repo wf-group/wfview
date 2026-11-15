@@ -135,6 +135,54 @@ ApplicationWindow {
         return list
     }
 
+    // ComboBox for audio device names, which can be very long. The closed box
+    // fits its widest entry up to maxBoxWidth and abbreviates the selection
+    // beyond that; the open list is as wide as the longest name (kept inside
+    // the window) so full names can be read when choosing.
+    component DeviceComboBox : ComboBox {
+        id: deviceCombo
+
+        property int maxBoxWidth: 300
+        property string hint: ""
+
+        readonly property real widestText: {
+            let max = 0
+            for (let i = 0; i < count; ++i)
+                max = Math.max(max, deviceMetrics.advanceWidth(textAt(i)))
+            return Math.max(max, deviceMetrics.advanceWidth(displayText))
+        }
+
+        implicitWidth: Math.min(widestText + leftPadding + rightPadding + indicator.width + 12,
+                                maxBoxWidth)
+        Layout.preferredWidth: implicitWidth
+        Layout.maximumWidth: implicitWidth
+
+        FontMetrics { id: deviceMetrics; font: deviceCombo.font }
+
+        // Fusion's contentItem is a TextField, which cannot elide.
+        contentItem: Text {
+            topPadding: 4
+            bottomPadding: 4
+            leftPadding: 4 - deviceCombo.padding
+            text: deviceCombo.displayText
+            font: deviceCombo.font
+            color: deviceCombo.palette.buttonText
+            verticalAlignment: Text.AlignVCenter
+            // Middle elision keeps the end of names such as
+            // "USB Audio CODEC #1" / "#2" distinguishable.
+            elide: Text.ElideMiddle
+        }
+
+        // Room for item padding, the bold current item and the scroll bar.
+        popup.width: Math.max(deviceCombo.width,
+                              Math.min(deviceCombo.widestText + 48, deviceCombo.Window.width - 16))
+        popup.leftMargin: 8
+        popup.rightMargin: 8
+
+        ToolTip.visible: hovered && !popup.visible
+        ToolTip.text: contentItem.truncated ? hint + "\n" + displayText : hint
+    }
+
     // Model for the serial port ComboBox, built like audioDeviceModel(). A
     // configured port that is not enumerated but does exist (for example a
     // /dev/serial/by-id link) is listed by name, without "(not found)".
@@ -911,9 +959,11 @@ ApplicationWindow {
                                 // Fixed preferred width so the (unwrapped) label text does not
                                 // dictate the group box width; the label wraps to fit instead.
                                 Layout.preferredWidth: 280
-                                Layout.maximumWidth: 380
+                                Layout.maximumWidth: 480
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
+                                // Never squeeze the wrapped text off the bottom.
+                                Layout.minimumHeight: implicitHeight
 
                                 Label {
                                     width: parent.width
@@ -971,7 +1021,7 @@ ApplicationWindow {
                                         text: qsTr("Audio Output")
                                         Accessible.name: "Computer Speaker"
                                     }
-                                    ComboBox {
+                                    DeviceComboBox {
                                         id: audioOutputCombo
                                         readonly property var spec: controller ? controller.uiSpecs["audioOutputs"] : null
                                         model: audioDeviceModel(spec, controller ? controller.options["UDP.RxAudio"] : "")
@@ -980,24 +1030,12 @@ ApplicationWindow {
                                         visible: spec ? (spec.visible ?? true) : false
                                         currentIndex: controller ? indexFromValue(audioOutputCombo,controller.options["UDP.RxAudio"]) : -1
                                         onActivated: selectDeviceOption(audioOutputCombo, "UDP.RxAudio")
-                                        readonly property real widestText: {
-                                            let max = 0
-                                            for (let i = 0; i < count; ++i)
-                                                max = Math.max(max, audioOutMetrics.advanceWidth(textAt(i)))
-                                            max = Math.max(max, audioOutMetrics.advanceWidth(displayText))
-                                            return max
-                                        }
-                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
-                                        Layout.preferredWidth: implicitWidth
-                                        Layout.maximumWidth: implicitWidth
-                                        FontMetrics { id: audioOutMetrics; font: audioOutputCombo.font }
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("Select your computer's speaker or headphones")
+                                        hint: qsTr("Select your computer's speaker or headphones")
                                         Accessible.name: "Audio Output Selector"
                                     }
 
                                     Label { text: qsTr("Audio Input") }
-                                    ComboBox {
+                                    DeviceComboBox {
                                         id: audioInputCombo
                                         readonly property var spec: controller ? controller.uiSpecs["audioInputs"] : null
                                         model: audioDeviceModel(spec, controller ? controller.options["UDP.TxAudio"] : "")
@@ -1006,19 +1044,7 @@ ApplicationWindow {
                                         visible: spec ? (spec.visible ?? true) : false
                                         currentIndex: controller ? indexFromValue(audioInputCombo,controller.options["UDP.TxAudio"]) : -1
                                         onActivated: selectDeviceOption(audioInputCombo, "UDP.TxAudio")
-                                        readonly property real widestText: {
-                                            let max = 0
-                                            for (let i = 0; i < count; ++i)
-                                                max = Math.max(max, audioInMetrics.advanceWidth(textAt(i)))
-                                            max = Math.max(max, audioInMetrics.advanceWidth(displayText))
-                                            return max
-                                        }
-                                        implicitWidth: widestText + leftPadding + rightPadding + indicator.width + 12
-                                        Layout.preferredWidth: implicitWidth
-                                        Layout.maximumWidth: implicitWidth
-                                        FontMetrics { id: audioInMetrics; font: audioInputCombo.font }
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: qsTr("Select your computer's microphone")
+                                        hint: qsTr("Select your computer's microphone")
                                         Accessible.name: "Audio Input Selector"
                                     }
 
