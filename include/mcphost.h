@@ -57,6 +57,8 @@ public:
     // that the application does not support them.
     virtual McpHostResult setOption(const QString &key, const QJsonValue &value, bool save);
     virtual McpHostResult setTransmit(bool on);
+    // Connects to or disconnects from the radio, as the Connect button does.
+    virtual McpHostResult setRadioConnected(bool connect);
 
     // The built-in radio server: its state, logged-in users and accounts.
     // The default reports that the application does not report one.

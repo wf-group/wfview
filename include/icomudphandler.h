@@ -80,6 +80,8 @@ private:
 	void dataReceived();
 
 	void sendRequestStream();
+	void requestStreamIfReady();
+	void lingerAndDisconnect();
 	void sendLogin();
 	void sendToken(uint8_t magic);
 
@@ -97,8 +99,11 @@ private:
 	quint16 civPort;
 	quint16 audioPort;
 
-	quint16 civLocalPort;
-	quint16 audioLocalPort;
+	quint16 civLocalPort = 0;
+	quint16 audioLocalPort = 0;
+	// True once setCurrentRadio() has filled in the radio's identity, ports and
+	// sample rates; a stream request must not be sent before then.
+	bool radioSelected = false;
 
 	audioSetup rxSetup;
 	audioSetup txSetup;
@@ -111,8 +116,8 @@ private:
 	quint16 tokRequest;
 	quint32 token;
 	// These are for stream ident info.
-	quint8 macaddress[8];
-	quint8 guid[GUIDLEN];
+	quint8 macaddress[8] = {};
+	quint8 guid[GUIDLEN] = {};
 	bool useGuid = false;
 	QByteArray usernameEncoded;
 	QByteArray passwordEncoded;

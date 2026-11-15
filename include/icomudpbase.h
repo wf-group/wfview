@@ -94,6 +94,12 @@ public:
 
 	void sendControl(bool tracked, quint8 id, quint16 seq);
 
+	// Shutdown: sends this stream's disconnect (the destructor then skips its own).
+	void sendDisconnect();
+	// Shutdown: reads what the radio sent without the normal receive path, answers
+	// its retransmit requests, and returns true if it closed the stream.
+	bool lingerReceive();
+
 	void printHex(const QByteArray& pdata);
 	void printHex(const QByteArray& pdata, bool printVert, bool printHoriz);
 
@@ -140,6 +146,8 @@ public:
 
 	void sendTrackedPacket(QByteArray d);
 	void purgeOldEntries();
+	void resendRequested(const QByteArray& r);
+	bool disconnectSent = false;
     quint32 endpointId(const QHostAddress& address, quint16 port) const;
 
 	QTimer* areYouThereTimer = nullptr; // Send are-you-there packets every second until a response is received.

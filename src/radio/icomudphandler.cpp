@@ -138,28 +138,74 @@ void icomUdpHandler::shutdown()
         retransmitTimer->stop();
     }
 
-    if (streamOpened) {
-        if (audio != nullptr) {
-            delete audio;
-            audio = nullptr;
-        }
+    if (civ != nullptr)
+        civ->sendClose();
 
-        if (civ != nullptr) {
-            delete civ;
-            civ = nullptr;
-        }
-
+    // Give the token back whenever the login took, not only with streams open: a
+    // token left behind (a refused stream request, a rig in standby) kept an
+    // IC-7851 busy for minutes before it accepted a new login.
+    if (isAuthenticated && udp != nullptr) {
         qInfo(logUdp()) << "Sending token removal packet";
         sendToken(0x01);
-        streamOpened = false;
     }
 
     if (udp != nullptr) {
         qInfo(logUdp()) << "Sending Icom UDP disconnect packet";
-        sendControl(false, 0x05, 0x00);
+        lingerAndDisconnect();
         udp->close();
         delete udp;
         udp = nullptr;
+    }
+
+    if (audio != nullptr) {
+        delete audio;
+        audio = nullptr;
+    }
+    if (civ != nullptr) {
+        delete civ;
+        civ = nullptr;
+    }
+    streamOpened = false;
+}
+
+// Sends the disconnect on every stream, then keeps the sockets open for up to
+// LINGER_PERIOD so the radio can ask again for a lost close, token removal or
+// disconnect, and repeats the disconnect every BYE_PERIOD, BYE_REPEATS times in
+// all. Ends early when the radio closes the control stream. Sending everything
+// once and closing the sockets at once left an IC-7851 holding the session until
+// its own timeout.
+void icomUdpHandler::lingerAndDisconnect()
+{
+    QVector<icomUdpBase*> streams;
+    if (civ != nullptr)
+        streams.append(civ);
+    if (audio != nullptr)
+        streams.append(audio);
+
+    auto sendBye = [this, &streams]() {
+        for (icomUdpBase* s : streams)
+            s->sendDisconnect();
+        sendDisconnect();
+    };
+
+    sendBye();
+    int sent = 1;
+    QElapsedTimer elapsed;
+    elapsed.start();
+    while (elapsed.elapsed() < LINGER_PERIOD)
+    {
+        bool radioClosed = lingerReceive();
+        for (icomUdpBase* s : streams)
+            s->lingerReceive();
+        if (radioClosed) {
+            qInfo(logUdp()) << "Radio closed the connection after" << elapsed.elapsed() << "ms";
+            return;
+        }
+        if (sent < BYE_REPEATS && elapsed.elapsed() >= sent * BYE_PERIOD) {
+            sendBye();
+            sent++;
+        }
+        QThread::msleep(10);
     }
 }
 
@@ -355,7 +401,7 @@ void icomUdpHandler::dataReceived()
                         gotAuthOK = true;
                         if (!streamOpened)
                         {
-                           sendRequestStream();
+                            requestStreamIfReady();
                         }
 
                     }
@@ -366,7 +412,7 @@ void icomUdpHandler::dataReceived()
                         tokRequest = in->tokrequest;
                         token = in->token;
                         streamOpened = false;
-                        sendRequestStream();
+                        requestStreamIfReady();
                         // Got new token response
                         //sendToken(0x02); // Update it.
                     }
@@ -404,6 +450,21 @@ void icomUdpHandler::dataReceived()
 
                             streamOpened = false;
                         }
+                    }
+                    else if (!streamOpened &&
+                             (in->error != 0x00000000 || in->civport == 0 || in->audioport == 0))
+                    {
+                        // The radio refused the stream request (for example it is still
+                        // busy with an earlier session). Do not open CI-V/audio streams to
+                        // port 0; the next token renewal asks again.
+                        qInfo(logUdp()) << this->metaObject()->className()
+                                        << QString(": Stream request refused, error 0x%1 civ port %2 audio port %3, retrying in %4 s")
+                                               .arg(qFromBigEndian(in->error), 8, 16, QChar('0'))
+                                               .arg(qFromBigEndian(in->civport))
+                                               .arg(qFromBigEndian(in->audioport))
+                                               .arg(TOKEN_RENEWAL / 1000);
+                        status.message = devName + " refused the stream request, retrying";
+                        emit haveNetworkError(errorType(radioIP.toString(), "Radio refused the stream request, retrying."));
                     }
                     else {
                         civPort = qFromBigEndian(in->civport);
@@ -535,6 +596,13 @@ void icomUdpHandler::dataReceived()
                             sendControl(false, 0x00, in->seq); // Respond with an idle
                         }
                         else {
+                            // Busy, but with no other client named (IP 0.0.0.0) or with our own
+                            // computer name: most likely a stale session of ours. Ask for the
+                            // stream now instead of waiting for the next token renewal; if the
+                            // radio refuses, the status handler retries on each renewal.
+                            qInfo(logUdp()) << this->metaObject()->className()
+                                            << ": Radio reports busy with no other client, requesting stream";
+                            setCurrentRadio(0);
                         }
                     }
                     else if (!in->busy)
@@ -596,6 +664,11 @@ void icomUdpHandler::dataReceived()
 
 void icomUdpHandler::setCurrentRadio(quint8 radio) {
 
+    if (radio >= radios.size()) {
+        qWarning(logUdp()) << this->metaObject()->className() << ": No radio" << radio << "to select, have" << radios.size();
+        return;
+    }
+
     // If we are currently connected to a different radio, disconnect first
     if (audio != nullptr) {
         delete audio;
@@ -642,8 +715,19 @@ void icomUdpHandler::setCurrentRadio(quint8 radio) {
     civId = radios[radio].civ;
     rxSampleRates = radios[radio].rxsample;
     txSampleRates = radios[radio].txsample;
+    radioSelected = true;
 
     sendRequestStream();
+}
+
+// Asks for the CI-V and audio streams, but only once a radio has been selected:
+// before that the request would carry no radio identity and no local ports.
+void icomUdpHandler::requestStreamIfReady()
+{
+    if (radioSelected)
+        sendRequestStream();
+    else if (radios.size() == 1)
+        setCurrentRadio(0);
 }
 
 

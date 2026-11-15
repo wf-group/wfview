@@ -28,6 +28,7 @@ public:
     QJsonObject windows() override;
     McpHostResult setOption(const QString &key, const QJsonValue &value, bool save) override;
     McpHostResult setTransmit(bool on) override;
+    McpHostResult setRadioConnected(bool connect) override;
     QJsonObject radioServer() override;
     McpHostResult setServerUserAccess(const QString &username, const QString &access, bool save) override;
 

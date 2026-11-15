@@ -94,6 +94,7 @@ Only with `--mcp-allow-write`. Each call is logged at info level in the `mcp` lo
 | `set_frequency` | Tunes a receiver to a frequency in Hz. |
 | `set_mode` | Sets the mode by name, keeping the current data mode and filter unless given. |
 | `set_ptt` | Keys or unkeys the transmitter. Keying always has a time limit (default 10 s, at most 120 s), after which MCP unkeys the radio. In wfview it goes through the normal PTT path and honours `Controls.EnablePTT`. |
+| `set_connection` | Connects to or disconnects from the radio the way the Connect button does, with the saved connection settings. Returns at once; disconnecting runs the on-disconnect actions first. wfview only. |
 | `send_command` | Reads or sets any radio function by its cache name (for example `AF Gain`). The value type comes from the cached value. |
 | `send_raw` | Sends bytes as given (hex or text) and returns the radio traffic that follows. |
 | `invalidate_cache` | Removes one function's cache entries and asks the radio again, or empties the cache. |

@@ -43,6 +43,13 @@ McpHostResult McpHost::setTransmit(bool)
     return r;
 }
 
+McpHostResult McpHost::setRadioConnected(bool)
+{
+    McpHostResult r;
+    r.error = QStringLiteral("%1 cannot connect or disconnect the radio through MCP.").arg(appName());
+    return r;
+}
+
 QJsonObject McpHost::radioServer()
 {
     return QJsonObject{{"available", false},

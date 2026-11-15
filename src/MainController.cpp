@@ -5701,7 +5701,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
 
     if (rigCaps == nullptr)
     {
-        qWarning(logSystem()) << "Data received before we have rigCaps(), aborting";
+        qDebug(logSystem()) << "Data received before we have rigCaps(), ignoring" << funcString[val.command] << "for receiver" << val.receiver;
         return;
     }
     else if (val.receiver >= receivers.size())

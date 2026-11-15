@@ -34,6 +34,8 @@ class icomUdpCivData : public icomUdpBase
 public:
 	icomUdpCivData(QHostAddress local, QHostAddress ip, quint16 civPort, bool splitWf, quint16 lport);
 	~icomUdpCivData();
+	// Shutdown: tells the radio to stop sending CI-V (the destructor then skips it).
+	void sendClose();
 	QMutex serialmutex;
 
 signals:
@@ -50,6 +52,7 @@ private:
 
 	QTimer* startCivDataTimer = nullptr;
 	bool splitWaterfall = false;
+	bool closeSent = false;
 };
 
 

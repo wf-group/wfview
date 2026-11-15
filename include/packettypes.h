@@ -10,6 +10,9 @@
 #define AREYOUTHERE_PERIOD 500
 #define WATCHDOG_PERIOD 500             
 #define RETRANSMIT_PERIOD 100           // How often to attempt retransmit
+#define LINGER_PERIOD 1000              // After a disconnect, how long to answer the radio's retransmit requests (ms)
+#define BYE_PERIOD 250                  // ... repeating the disconnect at this period (ms)
+#define BYE_REPEATS 3                   // ... this many times in all
 #define LOCK_PERIOD 10                  // How long to try to lock mutex (ms)
 #define STALE_CONNECTION 15             // Not heard from in this many seconds
 #define BUFSIZE 500 // Number of packets to buffer

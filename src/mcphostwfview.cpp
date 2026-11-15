@@ -426,6 +426,44 @@ McpHostResult McpHostWfview::setTransmit(bool on)
     return r;
 }
 
+McpHostResult McpHostWfview::setRadioConnected(bool connect)
+{
+    McpHostResult r;
+    if (!m_mc || m_mc->shuttingDown)
+    {
+        r.error = QStringLiteral("wfview is shutting down.");
+        return r;
+    }
+
+    const MainController::connectionStatus_t before = m_mc->connStatus;
+    r.ok = true;
+    r.data["requested"] = connect ? QStringLiteral("connect") : QStringLiteral("disconnect");
+    r.data["connectionBefore"] = connStatusName(before);
+
+    if (connect == (before != MainController::connDisconnected))
+    {
+        r.data["changed"] = false;
+        r.data["note"] = connect ? QStringLiteral("Already connected or connecting.")
+                                 : QStringLiteral("Already disconnected.");
+        return r;
+    }
+    if (!connect && m_mc->m_disconnectPending)
+    {
+        r.data["changed"] = false;
+        r.data["note"] = QStringLiteral("A disconnect is already running its on-disconnect actions.");
+        return r;
+    }
+
+    // Same path as the Connect/Disconnect button, so disconnect actions, macros
+    // and the radio's disconnect messages all run. Queued, so the MCP call
+    // returns at once and the connection proceeds on the main event loop.
+    QMetaObject::invokeMethod(m_mc.data(), "connectionHandler", Qt::QueuedConnection);
+    r.data["changed"] = true;
+    r.data["note"] = connect ? QStringLiteral("Connecting; follow progress with get_overview or get_log.")
+                             : QStringLiteral("Disconnecting; on-disconnect actions may delay it.");
+    return r;
+}
+
 namespace
 {
 

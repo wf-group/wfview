@@ -40,7 +40,8 @@ icomUdpBase::~icomUdpBase()
 {
     qInfo(logUdp()) << "Closing UDP stream :" << radioIP.toString() << ":" << port;
     if (udp != nullptr) {
-        sendControl(false, 0x05, 0x00); // Send disconnect
+        if (!disconnectSent)
+            sendControl(false, 0x05, 0x00); // Send disconnect
         udp->close();
         delete udp;
     }
@@ -374,6 +375,55 @@ void icomUdpBase::sendControl(bool tracked = true, quint8 type = 0, quint16 seq 
         sendTrackedPacket(QByteArray::fromRawData((const char*)p.packet, sizeof(p)));
     }
     return;
+}
+
+void icomUdpBase::sendDisconnect()
+{
+    if (udp == nullptr)
+        return;
+    sendControl(false, 0x05, 0x00);
+    disconnectSent = true;
+}
+
+bool icomUdpBase::lingerReceive()
+{
+    bool radioClosed = false;
+    while (udp != nullptr && udp->hasPendingDatagrams())
+    {
+        const QByteArray r = udp->receiveDatagram().data();
+        if (r.length() < CONTROL_SIZE)
+            continue;
+        control_packet_t in = (control_packet_t)r.constData();
+        if (in->type == 0x01)
+            resendRequested(r);
+        else if (r.length() == CONTROL_SIZE && in->type == 0x05)
+            radioClosed = true;
+    }
+    return radioClosed;
+}
+
+// A retransmit request is either the bare 16-byte header naming one sequence
+// number, or the header followed by a list of them.
+void icomUdpBase::resendRequested(const QByteArray& r)
+{
+    QVector<quint16> seqs;
+    if (r.length() == CONTROL_SIZE) {
+        seqs.append(((control_packet_t)r.constData())->seq);
+    } else {
+        for (int i = CONTROL_SIZE; i + 1 < r.length(); i += 2)
+            seqs.append(quint16((quint8)r[i] | (quint8)r[i + 1] << 8));
+    }
+
+    QMutexLocker txLock(&txBufferMutex);
+    for (quint16 seq : seqs)
+    {
+        auto match = txSeqBuf.find(seq);
+        if (match == txSeqBuf.end())
+            continue;
+        qDebug(logUdp()) << this->metaObject()->className() << ": Sending (shutdown) retransmit of " << QString("0x%1").arg(seq, 0, 16);
+        QMutexLocker udpLock(&udpMutex);
+        udp->writeDatagram(match->data, radioIP, port);
+    }
 }
 
 // Send periodic ping packets

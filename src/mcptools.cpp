@@ -1025,6 +1025,14 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
                    schemaInt("Unkey after this many seconds (default 10).", 1, maxTransmitSeconds)}},
                  [this](const QJsonObject &a) { return toolSetPtt(a); });
 
+    addWriteTool("set_connection",
+                 "Connect or disconnect",
+                 "Connects to or disconnects from the radio, as the Connect button does, using the saved connection "
+                 "settings (see get_connection). Disconnecting runs the on-disconnect actions and sends the radio's "
+                 "disconnect messages. It returns at once; follow the connection with get_overview or get_log.",
+                 {{"connect", schemaBool("true to connect, false to disconnect.")}},
+                 [this](const QJsonObject &a) { return toolSetConnection(a); });
+
     addWriteTool("send_command",
                  "Send radio command",
                  "Queues one radio function by the name get_cache shows (for example \"AF Gain\"). Without value it "
@@ -2019,6 +2027,29 @@ McpToolResult McpTools::toolSetPtt(const QJsonObject &args)
         r.error = hostTimeoutText(hostTimeoutMs);
         if (on)
             r.error += QStringLiteral(" The transmit request may still be carried out when the main thread recovers.");
+        return r;
+    }
+    if (!result.ok)
+        r.error = result.error;
+    r.data = result.data;
+    return r;
+}
+
+McpToolResult McpTools::toolSetConnection(const QJsonObject &args)
+{
+    McpToolResult r;
+    if (!args.value("connect").isBool())
+    {
+        r.error = QStringLiteral("Give connect: true or false.");
+        return r;
+    }
+    const bool connect = args.value("connect").toBool();
+
+    McpHostResult result;
+    McpHost *host = m_host;
+    if (!onHost<McpHostResult>([host, connect]() { return host->setRadioConnected(connect); }, &result))
+    {
+        r.error = hostTimeoutText(hostTimeoutMs);
         return r;
     }
     if (!result.ok)

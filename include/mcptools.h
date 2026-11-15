@@ -135,6 +135,7 @@ private:
     McpToolResult toolSetFrequency(const QJsonObject &args);
     McpToolResult toolSetMode(const QJsonObject &args);
     McpToolResult toolSetPtt(const QJsonObject &args);
+    McpToolResult toolSetConnection(const QJsonObject &args);
     McpToolResult toolSendCommand(const QJsonObject &args);
     McpToolResult toolSendRaw(const QJsonObject &args);
     McpToolResult toolInvalidateCache(const QJsonObject &args);

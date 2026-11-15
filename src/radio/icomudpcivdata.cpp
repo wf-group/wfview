@@ -41,7 +41,14 @@ icomUdpCivData::icomUdpCivData(QHostAddress local, QHostAddress ip, quint16 civP
 
 icomUdpCivData::~icomUdpCivData()
 {
+    if (!closeSent)
+        sendOpenClose(true);
+}
+
+void icomUdpCivData::sendClose()
+{
     sendOpenClose(true);
+    closeSent = true;
 }
 
 void icomUdpCivData::watchdog()
