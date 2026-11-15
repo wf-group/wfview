@@ -1772,10 +1772,16 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: win.radioConnected
-            //Layout.preferredHeight: implicitHeight   // content drives height
+            // With every receiver detached the content's implicit height is 0,
+            // which Qt Layouts treat as "unset" and replace with the frame's
+            // current height. That pinned the window's minimumHeight to its
+            // current height, so it could not be shrunk. Say 0 explicitly.
+            // (Hiding the frame instead stops the inner layout updating.)
+            Layout.preferredHeight: scopeColumn.implicitHeight > 0 ? -1 : 0
             padding: 0
 
             contentItem: ColumnLayout {
+                id: scopeColumn
                 spacing: 0
 
                 Repeater {
