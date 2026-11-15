@@ -2381,7 +2381,21 @@ void MainController::setDualScope(bool enabled)
         return;
 
     queue->add(priorityImmediate, queueItem(funcScopeSingleDual, QVariant::fromValue(enabled), false, uchar(0)));
-    queue->add(priorityImmediate, funcScopeMainSub, false, uchar(0));
+    if (enabled)
+        queue->add(priorityImmediate, funcScopeMainSub, false, uchar(0));
+    else
+        syncSingleScopeReceiver();
+}
+
+// In single scope mode only the active receiver's scope is shown, so the
+// radio's scope must be streaming that receiver. Otherwise the visible
+// scope freezes while data goes to the hidden receiver.
+void MainController::syncSingleScopeReceiver()
+{
+    if (m_dualScope || !rigCaps || !rigCaps->commands.contains(funcScopeMainSub))
+        return;
+
+    queue->addUnique(priorityImmediate, queueItem(funcScopeMainSub, QVariant::fromValue<bool>(currentReceiver != 0), false, uchar(0)));
 }
 
 void MainController::setDualWatch(bool enabled)
@@ -5776,14 +5790,12 @@ void MainController::receiveValueFromQueue(cacheItem val)
         {
             // VFO has swapped, make sure scope follows if we only have a single scope.
             // Th radio doesn't do this, but I don't see why we would want it without a scope?
-            if (!rigCaps->hasCommand29 && rigCaps->commands.contains(funcScopeMainSub))
-                queue->add(priorityImmediate,queueItem(funcScopeMainSub,val.value,false,0));
-
             for (const auto& rx: receivers)
             {
                 rx->setActive(rx->getReceiver() == r);
             }
             currentReceiver = r;
+            syncSingleScopeReceiver();
             emit currentReceiverChanged();
             updatePrimaryMeterForTransmit(m_transmitting);
         }
@@ -6313,7 +6325,11 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     case funcScopeMainSub:
     {
-        // Has the primary scope changed?
+        // In single scope mode, keep the radio's scope on the active receiver
+        // (it may have been changed from the front panel or at connect).
+        const bool sub = val.value.value<bool>();
+        if (!m_dualScope && sub != (currentReceiver != 0))
+            syncSingleScopeReceiver();
         break;
     }
     case funcScopeSingleDual:
@@ -6322,6 +6338,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
         if (m_dualScope != enabled) {
             m_dualScope = enabled;
             emit dualScopeChanged();
+            syncSingleScopeReceiver();
         }
         break;
     }
