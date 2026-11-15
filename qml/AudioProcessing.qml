@@ -1048,7 +1048,7 @@ ApplicationWindow {
                     id: rxChannelCombo
                     textRole: "text"
                     valueRole: "value"
-                    model: [{ text: qsTr("Auto"), value: 0 }, { text: qsTr("Left"), value: 1 }, { text: qsTr("Right"), value: 2 }, { text: qsTr("Mono"), value: 3 }]
+                    model: [{ text: qsTr("Auto"), value: 0 }, { text: qsTr("Left"), value: 1 }, { text: qsTr("Right"), value: 2 }, { text: qsTr("Sum to Mono"), value: 3 }]
                     currentIndex: win.comboIndex(rxChannelCombo, win.opt("AudioProc.Rx.ChannelSelect", 0))
                     onActivated: win.setOpt("AudioProc.Rx.ChannelSelect", currentValue)
                 }
