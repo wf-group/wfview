@@ -143,7 +143,8 @@ public:
     Q_FLAGS(prefUDPItems)
     Q_FLAGS(prefServerItems)
 
-    explicit MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *parent=nullptr);
+    explicit MainController(QString settingsFile, QString logFileName, bool debugMode,
+                            bool noAutoConnect = false, QObject *parent=nullptr);
 
     ~MainController() override { shutdown(); } // still fine as a backup
 
@@ -168,6 +169,9 @@ public:
     // raised before then (the startup connect runs before QML loads) are
     // held and emitted here.
     Q_INVOKABLE void windowReady();
+    // True when started with --no-autoconnect: the radio is not opened at
+    // startup and the window opens Settings instead.
+    Q_INVOKABLE bool noAutoConnect() const { return m_noAutoConnect; }
 
     Q_INVOKABLE QObject* receiver(int i) const {
         if (i < 0 || i >= receivers.size()) return nullptr;
@@ -601,6 +605,7 @@ private:
     // this connection; reconnect attempts repeat the same error.
     bool m_serialPortProblemReported = false;
     bool m_windowReady = false;
+    bool m_noAutoConnect = false;
     QList<std::function<void()>> m_pendingWindowAlerts;
     void emitWhenWindowReady(std::function<void()> alert);
     QString m_rigFilesProblem;

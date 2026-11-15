@@ -2833,8 +2833,16 @@ ApplicationWindow {
         // the radio connection until hasRunSetup is true.
         if (MainController.settings && MainController.settings.option("Program.HasRunSetup") !== true)
             Qt.callLater(firstTimeSetup.begin)
-        else
+        else if (MainController.settings && MainController.settings.upgradedFromLegacyVersion())
             Qt.callLater(legacyUpgradeDialog.showIfNeeded)
+        else if (MainController.noAutoConnect())
+            // --no-autoconnect: let the user review settings before connecting.
+            Qt.callLater(function() {
+                if (!settingsLoader.active)
+                    settingsLoader.active = true
+                if (settingsLoader.item)
+                    settingsLoader.item.showRadioAccess(win)
+            })
         // The rig file scan runs before this window exists.
         Qt.callLater(rigFilesProblemDialog.showIfNeeded)
         // Serial/audio alerts raised by the startup connect, before this

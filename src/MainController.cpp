@@ -233,7 +233,8 @@ static bool focusedControlAcceptsTextInput()
     return inputMethod->queryFocusObject(Qt::ImEnabled, QVariant()).toBool();
 }
 
-MainController::MainController(QString settingsFile, QString logFileName, bool debugMode, QObject *p)
+MainController::MainController(QString settingsFile, QString logFileName, bool debugMode,
+                               bool noAutoConnect, QObject *p)
     : QObject(p)
     , m_settings(std::make_unique<SettingsController>(settingsFile,this))
     , m_selRad(std::make_unique<SelectRadioController>())
@@ -333,7 +334,10 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     setupRigCtlServer();
     setupTciServer();
     setupClusterClient();
-    if (prefs->hasRunSetup && !m_settings->upgradedFromLegacyVersion()) {
+    m_noAutoConnect = noAutoConnect;
+    if (m_noAutoConnect) {
+        qInfo(logSystem()) << "Automatic radio connection disabled (--no-autoconnect)";
+    } else if (prefs->hasRunSetup && !m_settings->upgradedFromLegacyVersion()) {
         if (prefs->wfShareEnabled) {
             QTimer::singleShot(3000, this, &MainController::openRigConnection);
         } else {

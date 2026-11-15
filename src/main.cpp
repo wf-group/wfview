@@ -979,6 +979,9 @@ int main(int argc, char *argv[])
 
     const QString helpText = QString("\nUsage:\n-l --logfile filename.log,\n-s --settings filename.ini,\n-c --clearconfig CONFIRM,\n-b --background (not Windows),\n-d --debug,\n-v --version"
                                      ",\n--use-mcp, --mcp-port PORT, --mcp-bind ADDRESS, --mcp-token TOKEN, --mcp-allow-write"
+#ifndef BUILD_WFSERVER
+                                     ",\n--no-autoconnect, --no-auto (do not connect to the radio at startup; open Settings instead)"
+#endif
 #ifdef BUILD_WFSERVER
                                      ",\n--setup (interactive config wizard; modify or replace settings)"
 #ifdef Q_OS_WIN
@@ -1002,6 +1005,7 @@ int main(int argc, char *argv[])
 
     bool showVersion = false;
 #ifndef BUILD_WFSERVER
+    bool noAutoConnect = false;
     QString languageOverride = qEnvironmentVariable("WFVIEW_LANGUAGE");
 #endif
 
@@ -1126,6 +1130,12 @@ int main(int argc, char *argv[])
             std::cout << helpText.toStdString();
             exit(-1);
         }
+#ifndef BUILD_WFSERVER
+        else if ((currentArg == "--no-autoconnect") || (currentArg == "--no-auto"))
+        {
+            noAutoConnect = true;
+        }
+#endif
 #ifdef BUILD_WFSERVER
         else if ((currentArg == "-b") || (currentArg == "--background"))
         {
@@ -1310,7 +1320,7 @@ int main(int argc, char *argv[])
     QObject::connect(&engine, &QQmlEngine::quit, &a, &QCoreApplication::quit);
 
     std::cout << "DEBUG: Creating MainController" << std::endl;
-    auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, &a);
+    auto g_mwc = std::make_unique<MainController>(settingsFile, logFilename, debugMode, noAutoConnect, &a);
     std::cout << "DEBUG: MainController created successfully" << std::endl;
 
     // The MCP server can also be started, stopped and reconfigured from the
