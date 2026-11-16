@@ -920,7 +920,9 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
     addTool("get_queue",
             "Command queue",
             "Returns the commands waiting to be sent to the radio, with priority, receiver, whether each is a get or "
-            "a set, its value, and whether it repeats.",
+            "a set, its value, and whether it repeats, plus queue health counters: commands sent, the immediate "
+            "backlog and its high-water mark, time since a routine (polling) command went out, and how many "
+            "duplicate reads, too-frequent cache refreshes and unreadable reads were kept out of the queue.",
             {{"func", schemaString("Only functions whose name contains this text.")},
              {"limit", schemaInt("Maximum number of entries (default 300).", 1, maxRowLimit)}},
             [this](const QJsonObject &a) { return toolQueue(a); });
@@ -1650,6 +1652,20 @@ McpToolResult McpTools::toolQueue(const QJsonObject &args)
     r.data["returnedEntries"] = rows.size();
     r.data["truncated"] = truncated;
     r.data["entries"] = rows;
+
+    const queueStats st = m_info.queue->getStats();
+    r.data["health"] = QJsonObject{
+        {"intervalMs", double(m_info.queue->interval())},
+        {"sent", double(st.sent)},
+        {"immediateSent", double(st.immediateSent)},
+        {"immediateWaiting", st.immediateWaiting},
+        {"immediateHighWater", st.immediateHighWater},
+        {"msSinceRoutineCommand", double(st.msSinceRoutine)},
+        {"routineTurnsWhileImmediateWaiting", double(st.fairnessTurns)},
+        {"duplicateReadsMerged", double(st.coalesced)},
+        {"cacheRefreshesSkipped", double(st.refreshesSkipped)},
+        {"unreadableReadsRefused", double(st.unreadableRejected)},
+        {"backlogWarnings", double(st.warnings)}};
     return r;
 }
 
