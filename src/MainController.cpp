@@ -3007,19 +3007,9 @@ void MainController::routeTciTxAudioToRadio(const audioPacket &packet)
     if (m_txAudioArbiter.activeSource() != TxAudioInput::Tci)
         return;
 
+    // The audio itself is connected straight to the radio in
+    // setupTciUsbTxBridge(); only the TX level meter is updated here.
     publishTxAudioDiagnosticLevel(packet, TxAudioInput::Tci);
-
-    if (usbRadioTxAudio) {
-        QMetaObject::invokeMethod(usbRadioTxAudio, "incomingAudio",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(audioPacket, packet));
-    }
-
-    const AudioRouteState route = currentAudioRoute();
-    if (route.rxSource == RadioRxAudioSource::WfShare ||
-        route.rxSource == RadioRxAudioSource::NativeNetwork) {
-        emit sendTxAudioToRig(packet);
-    }
 }
 
 void MainController::handleTciTransmitRequested(bool transmit)
@@ -3318,7 +3308,9 @@ void MainController::setupTciUsbTxBridge()
     tciTx.isinput = true;
     tciTx.tci = tci;
     tciTx.portInt = 0;
-    tciTx.txProc = prefs->txSetup.txProc;
+    // TCI transmit audio goes to the radio unprocessed (no gate, compressor,
+    // EQ or processor gain), matching the unity-gain TCI receive path.
+    tciTx.txProc = nullptr;
     radioTx.type = prefs->audioSystem;
     radioTx.isinput = false;
     radioTx.codec = tciTx.codec;
@@ -3339,6 +3331,23 @@ void MainController::setupTciUsbTxBridge()
     tciTxInputThread->setObjectName(QStringLiteral("tciTxInputAudio()"));
     tciTxInputAudio->moveToThread(tciTxInputThread);
     connect(tciTxInputThread, &QThread::finished, tciTxInputAudio, &QObject::deleteLater);
+    // TCI transmit audio goes from the TCI input handler straight to the radio
+    // (its USB output handler, or the rig for network audio), not through this
+    // (GUI) thread. The GUI thread can be held up for a second at a time, for
+    // example while XWayland throttles drawing of a covered window, and audio
+    // queued behind it then reaches the radio in one burst, which the radio
+    // plays with clicks and gaps. The TCI input handler only exists while TCI
+    // owns transmit audio, so no ownership check is needed per packet.
+    if (usbRadioTxAudio) {
+        connect(tciTxInputAudio, SIGNAL(haveAudioData(audioPacket)),
+                usbRadioTxAudio, SLOT(incomingAudio(audioPacket)),
+                Qt::QueuedConnection);
+    } else if (haveNetworkTxOutput && rig) {
+        connect(tciTxInputAudio, &audioHandlerBase::haveAudioData,
+                rig, &rigCommander::receiveTxAudioData,
+                Qt::QueuedConnection);
+    }
+    // Levels for the TX meter only; a late update here does not affect the audio.
     connect(tciTxInputAudio, &audioHandlerBase::haveAudioData,
             this, &MainController::routeTciTxAudioToRadio,
             Qt::QueuedConnection);
@@ -3982,6 +3991,9 @@ void MainController::setupTciRxBridge()
     tciRx.tci = tci;
     tciRx.portInt = 0;
     tciRx.rxProc = nullptr;
+    // TCI clients get the radio's receive audio at unity gain. The local "Vol"
+    // control is for the speaker only and must not scale the TCI stream.
+    tciRx.localAFgain = 255;
 
     tciRxOutputAudio = new audioHandlerTciOutput();
     tciRxOutputThread = new QThread(this);

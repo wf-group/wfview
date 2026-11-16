@@ -17,46 +17,117 @@ bool audioHandlerTciInput::openDevice() noexcept
     } else {
         qCritical(logAudio()) << "***** TCI NOT FOUND *****";
     }
-    inRB = std::make_unique<ByteRing>(nativeFormat.bytesForDuration(setupData.latency*2000));
 
+    blockMs = setupData.blockSize > 0 ? int(setupData.blockSize) : 20;
+    bytesPerFrame = qMax(1, nativeFormat.bytesPerFrame());
+    bytesPerBlock = nativeFormat.bytesForDuration(qint64(blockMs) * 1000);
+    prebufferBytes = nativeFormat.bytesForDuration(qint64(prebufferMs) * 1000);
+    maxBufferBytes = nativeFormat.bytesForDuration(qint64(qMax(maxBufferMs, prebufferMs + 2 * blockMs)) * 1000);
+    pending.clear();
+    pending.reserve(maxBufferBytes + bytesPerBlock);
+    priming = true;
+    blocksSent = 0;
+    statsLog.start();
+
+    // This runs in the handler's own thread, so the timer and the queued
+    // receiveTCIAudio() calls never run at the same time.
+    paceTimer = new QTimer(this);
+    paceTimer->setTimerType(Qt::PreciseTimer);
+    paceTimer->setInterval(5);
+    connect(paceTimer, &QTimer::timeout, this, &audioHandlerTciInput::pace);
+    paceTimer->start();
+
+    qDebug(logAudio()) << "TCI TX audio pacing:" << blockMs << "ms blocks, prebuffer" << prebufferMs
+                       << "ms, max" << maxBufferMs << "ms";
     return true;
 }
 
 void audioHandlerTciInput::closeDevice() noexcept
 {
+    if (paceTimer)
+        paceTimer->stop();
+    logPacingStats(true);
+    pending.clear();
 }
 
-void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet) {
-
-    if (packet.size()==0 || !inRB) return;
-    inRB->push(static_cast<const char*>(packet), packet.size());
-    QMetaObject::invokeMethod(this, [this]{ onReadyRead(); }, Qt::QueuedConnection);
-}
-
-
-void audioHandlerTciInput::onReadyRead()
+void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet)
 {
+    if (packet.isEmpty() || bytesPerBlock <= 0)
+        return;
 
-    if (!inRB) return;
-    QByteArray chunk;
-    chunk.resize(static_cast<int>(inRB->size()));
-    const size_t got = inRB->pop(chunk.data(), static_cast<size_t>(chunk.size()));
-    if (!got) return;
-    chunk.resize(static_cast<int>(got));
+    pending.append(packet);
 
-    tempBuf.data += chunk;
+    // Keep the delay bounded: if the client got far ahead, drop the oldest audio.
+    if (pending.size() > maxBufferBytes) {
+        int drop = pending.size() - maxBufferBytes;
+        drop += (bytesPerFrame - drop % bytesPerFrame) % bytesPerFrame; // whole frames only
+        pending.remove(0, drop);
+        droppedBytes += quint64(drop);
+        isOverrun.store(true, std::memory_order_relaxed);
+        logPacingStats(false);
+    }
+}
 
-    const int bytesPerBlock = nativeFormat.bytesForDuration(setupData.blockSize * 1000);
-    while (tempBuf.data.size() >= bytesPerBlock) {
+void audioHandlerTciInput::pace()
+{
+    if (bytesPerBlock <= 0)
+        return;
+
+    if (priming) {
+        if (pending.size() < prebufferBytes)
+            return;
+        priming = false;
+        isUnderrun.store(false, std::memory_order_relaxed);
+        paceClock.start();
+        blocksSent = 0;
+    }
+
+    // Block deadlines come from the elapsed time, so the output rate does not
+    // drift when a timer tick is late. The first block goes out straight away.
+    const quint64 due = quint64(paceClock.nsecsElapsed()) / (quint64(blockMs) * 1000000ull) + 1;
+    if (due > blocksSent + maxCatchUpBlocks) {
+        // This thread was held up. Send a few blocks now, not the whole backlog.
+        ++lateResyncs;
+        blocksSent = due - maxCatchUpBlocks;
+        logPacingStats(false);
+    }
+
+    while (blocksSent < due) {
+        if (pending.size() < bytesPerBlock) {
+            // Ran dry: collect the prebuffer again before restarting.
+            ++underruns;
+            priming = true;
+            isUnderrun.store(true, std::memory_order_relaxed);
+            logPacingStats(false);
+            return;
+        }
+
         audioPacket pkt;
         pkt.time   = QTime::currentTime();
         pkt.sent   = 0;
         pkt.volume = volume;
         std::memcpy(&pkt.guid, setupData.guid, GUIDLEN);
-        pkt.data   = tempBuf.data.left(bytesPerBlock);
-        tempBuf.data.remove(0, bytesPerBlock);
+        pkt.data   = pending.left(bytesPerBlock);
+        pending.remove(0, bytesPerBlock);
         emit sendToConverter(pkt);
+        ++blocksSent;
     }
+}
+
+void audioHandlerTciInput::logPacingStats(bool force)
+{
+    if (!force && statsLog.isValid() && statsLog.elapsed() < 5000)
+        return;
+    if (underruns || droppedBytes || lateResyncs) {
+        qDebug(logAudio()) << "TCI TX audio pacing: underruns" << underruns
+                           << "dropped" << (bytesPerFrame > 0 ? droppedBytes / quint64(bytesPerFrame) : 0) << "frames"
+                           << "late resyncs" << lateResyncs
+                           << "buffered" << (bytesPerFrame > 0 ? pending.size() / bytesPerFrame : 0) << "frames";
+        underruns = 0;
+        droppedBytes = 0;
+        lateResyncs = 0;
+    }
+    statsLog.restart();
 }
 
 void audioHandlerTciInput::onConverted(audioPacket audio)

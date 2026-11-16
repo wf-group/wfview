@@ -32,6 +32,8 @@ private:
     unsigned bytesPerSample{2};
     unsigned bytesPerFrame{2};
     QByteArray arrayBuffer;
+    quint64 lateDrops{0};
+    QElapsedTimer lateDropLog;
 };
 
 #endif // AUDIOHANDLERTCIOUTPUT_H

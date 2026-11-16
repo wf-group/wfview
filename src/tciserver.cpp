@@ -1,4 +1,5 @@
 #include "tciserver.h"
+#include "audiohandlertciinput.h"
 
 #include "logcategories.h"
 
@@ -119,7 +120,12 @@ void tciServer::init(quint16 port) {
     rigCaps = queue->getRigCaps();
 
     connect(queue, SIGNAL(rigCapsUpdated(rigCapabilities*)), this, SLOT(receiveRigCaps(rigCapabilities*)));
-    connect(queue,SIGNAL(cacheUpdated(cacheItem)),this,SLOT(receiveCache(cacheItem)));
+    // cachingQueue emits cacheUpdated() while holding its mutex, and it does so in
+    // whichever thread called add(). When a TCI client sets the frequency or mode,
+    // that is this thread, so an automatic connection would call receiveCache()
+    // directly and its queue calls (vfoFreqSwapped(), getCache()) would deadlock
+    // on the non-recursive mutex. Always queue it.
+    connect(queue, &cachingQueue::cacheUpdated, this, &tciServer::receiveCache, Qt::QueuedConnection);
 
     // Setup txChrono packet.
     txChrono.resize(iqHeaderSize);
@@ -133,6 +139,71 @@ void tciServer::init(quint16 port) {
     pStream->length = TCI_AUDIO_LENGTH;
     pStream->channels = 1u;
 
+    chronoTimer = new QTimer(this);
+    chronoTimer->setTimerType(Qt::PreciseTimer);
+    chronoTimer->setInterval(5);
+    connect(chronoTimer, &QTimer::timeout, this, &tciServer::sendDueChronos);
+
+    unkeyTimer = new QTimer(this);
+    unkeyTimer->setSingleShot(true);
+    unkeyTimer->setTimerType(Qt::PreciseTimer);
+    // Pacing buffer plus a couple of blocks for the converter and the radio link.
+    unkeyTimer->setInterval(audioHandlerTciInput::prebufferMs + 40);
+    connect(unkeyTimer, &QTimer::timeout, this, [this]() {
+        emit transmitRequested(false);
+        queueIfSupported(funcTransceiverStatus, QVariant::fromValue(false), unkeyReceiver);
+    });
+}
+
+void tciServer::updateChronoTimer()
+{
+    if (!chronoTimer)
+        return;
+
+    bool needed = false;
+    for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+        if (wantsChrono(it.value())) {
+            needed = true;
+            break;
+        }
+    }
+
+    if (needed && !chronoTimer->isActive()) {
+        chronoClock.start();
+        chronosSent = 0;
+        chronoTimer->start();
+        sendDueChronos();
+    } else if (!needed && chronoTimer->isActive()) {
+        chronoTimer->stop();
+    }
+}
+
+void tciServer::sendDueChronos()
+{
+    // One chrono per TCI_AUDIO_SAMPLES frames of elapsed time at 48 kHz (42.67 ms),
+    // the first one straight away. Deadlines come from the elapsed time, so the
+    // average rate does not drift even if a timer tick is late.
+    constexpr quint64 rate = 48000;
+    const quint64 elapsedNs = quint64(chronoClock.nsecsElapsed());
+    const quint64 due = (elapsedNs * rate / 1000000000ull) / TCI_AUDIO_SAMPLES + 1;
+
+    // If this thread was held up, do not ask the client for all the missed
+    // audio at once: that burst is what this timer is here to prevent.
+    constexpr quint64 maxCatchUp = 2;
+    if (due > chronosSent + maxCatchUp) {
+        ++chronoResyncs;
+        qWarning(logTCIServer()) << "TX chrono timer was late by" << (due - chronosSent - 1)
+                                 << "chrono period(s); skipping ahead (resync" << chronoResyncs << ")";
+        chronosSent = due - maxCatchUp;
+    }
+
+    while (chronosSent < due) {
+        for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+            if (wantsChrono(it.value()))
+                it.key()->sendBinaryMessage(txChrono);
+        }
+        ++chronosSent;
+    }
 }
 
 void tciServer::setupTxPacket(int length)
@@ -433,6 +504,8 @@ void tciServer::updateClientState(QWebSocket *client, const QString &command, co
         else
             it.value().audioSampleType = IqFloat32;
     }
+
+    updateChronoTimer();
 }
 
 bool tciServer::setCommandValue(const QString &command, const QStringList &args)
@@ -473,8 +546,21 @@ bool tciServer::setCommandValue(const QString &command, const QStringList &args)
     }
     if (command == QLatin1String("trx") && args.size() >= 2) {
         const bool transmitting = boolValue(args[1]);
-        emit transmitRequested(transmitting);
-        queueIfSupported(funcTransceiverStatus, QVariant::fromValue(transmitting), rx);
+        if (transmitting) {
+            // A new transmission before the last one finished unkeying: stay keyed.
+            if (unkeyTimer)
+                unkeyTimer->stop();
+            emit transmitRequested(true);
+            queueIfSupported(funcTransceiverStatus, QVariant::fromValue(true), rx);
+        } else if (unkeyTimer) {
+            // wfview still holds up to prebufferMs of the client's audio; let it
+            // reach the radio before releasing TX audio and unkeying.
+            unkeyReceiver = rx;
+            unkeyTimer->start();
+        } else {
+            emit transmitRequested(false);
+            queueIfSupported(funcTransceiverStatus, QVariant::fromValue(false), rx);
+        }
         return true;
     }
     if (command == QLatin1String("tune") && args.size() >= 2) {
@@ -722,6 +808,7 @@ void tciServer::socketDisconnected()
         pClient->deleteLater();
         if (wasTxAudioClient)
             emit transmitRequested(false);
+        updateChronoTimer();
     }
 
     bool haveConnectedClient = false;
@@ -769,8 +856,9 @@ void tciServer::receiveTCIAudio(audioPacket audio){
     pStream->codec = 0u;
     pStream->type = RxAudioStream;
     pStream->crc = 0u;
+    // length counts every float in the data field (all channels).
     pStream->length = quint32(audio.data.size() / sizeof (float));
-    pStream->channels = 1u;
+    pStream->channels = audio.channels == 0 ? 2u : quint32(audio.channels);
 
     memcpy(pStream->data,audio.data.data(),audio.data.size());
     ++rxAudioFrameCount;
@@ -796,7 +884,7 @@ void tciServer::receiveTCIAudio(audioPacket audio){
         if (it.value().connected && it.value().rxaudio)
         {
             //qInfo() << "Sending audio to client:" << it.key() << "size" << audio.data.size();
-            it.key()->sendBinaryMessage(txChrono);
+            // TX chrono frames are sent by sendDueChronos() on a steady clock.
             it.key()->sendBinaryMessage(rxAudioData);
 
         }

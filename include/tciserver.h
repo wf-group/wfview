@@ -2,6 +2,8 @@
 #define TCISERVER_H
 
 #include <QObject>
+#include <QElapsedTimer>
+#include <QTimer>
 #include <QtWebSockets/QtWebSockets>
 #include <QtWebSockets/QWebSocketServer>
 
@@ -106,6 +108,7 @@ private slots:
     void socketDisconnected();
     void receiveCache(cacheItem item);
     void setupTxPacket(int packetLen);
+    void sendDueChronos();
 
 private:
     int getValueRange(funcs func,char min=0, char max=0, uchar rx=0);
@@ -124,8 +127,21 @@ private:
     freqt cacheFreq(funcs func, uchar receiver = 0) const;
     modeInfo cacheMode(funcs func, uchar receiver = 0) const;
     void queueIfSupported(funcs func, const QVariant &value, uchar receiver = 0, bool unique = false);
+    bool wantsChrono(const connStatus &status) const { return status.connected && status.rxaudio; }
+    void updateChronoTimer();
 
     QWebSocketServer *server;
+    // TX chrono frames are sent from a steady clock, one per TCI_AUDIO_SAMPLES
+    // frames of time at 48 kHz, so that RX audio jitter or a stall elsewhere
+    // in wfview does not turn into bursts of transmit audio from the client.
+    QTimer *chronoTimer = nullptr;
+    // trx:false is held back while wfview's TX pacing buffer plays out, so the
+    // end of the client's transmission is not cut off.
+    QTimer *unkeyTimer = nullptr;
+    uchar unkeyReceiver = 0;
+    QElapsedTimer chronoClock;
+    quint64 chronosSent = 0;
+    quint64 chronoResyncs = 0;
     QMap<QWebSocket *, connStatus> clients;
     cachingQueue *queue;
     QByteArray rxAudioData;
