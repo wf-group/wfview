@@ -990,10 +990,22 @@ void tciServer::receiveCache(cacheItem item)
         messages << QStringLiteral("rx_sensors:%1,%2;").arg(item.receiver).arg(level, 0, 'f', 1);
         messages << QStringLiteral("rx_channel_sensors:%1,%2,%3;").arg(item.receiver).arg(vfo).arg(level, 0, 'f', 1);
     } else if (func == funcPowerMeter || func == funcSWRMeter || func == funcALCMeter || func == funcCompMeter) {
-        const double mic = cacheDouble(funcALCMeter, item.receiver, 0.0);
-        const double power = cacheDouble(funcPowerMeter, item.receiver, 0.0);
-        const double swr = cacheDouble(funcSWRMeter, item.receiver, 1.0);
-        messages << QStringLiteral("tx_sensors:%1,%2,%3,%4,%5;").arg(item.receiver).arg(mic, 0, 'f', 1).arg(power, 0, 'f', 1).arg(power, 0, 'f', 1).arg(swr, 0, 'f', 1);
+        // Use the readings as they arrive. Reading the others through the
+        // cache (getCache()) queued a new immediate read for each one on every
+        // meter update, and SWR is always re-read. While transmitting that
+        // kept the queue's immediate list from ever emptying, so no other
+        // command reached the radio, and a TS-890S (whose meter reads the
+        // radio code discards, see cachingQueue::getCache()) dropped the LAN
+        // connection after about 20 s.
+        if (item.value.isValid()) {
+            if (func == funcALCMeter)
+                txMeterAlc = item.value.toDouble();
+            else if (func == funcPowerMeter)
+                txMeterPower = item.value.toDouble();
+            else if (func == funcSWRMeter)
+                txMeterSwr = item.value.toDouble();
+        }
+        messages << QStringLiteral("tx_sensors:%1,%2,%3,%4,%5;").arg(item.receiver).arg(txMeterAlc, 0, 'f', 1).arg(txMeterPower, 0, 'f', 1).arg(txMeterPower, 0, 'f', 1).arg(txMeterSwr, 0, 'f', 1);
     }
 
     if (messages.isEmpty())
