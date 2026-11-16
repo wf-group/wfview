@@ -145,6 +145,11 @@ private:
     QString tciMode(modeInfo m) const;
     modeInfo rigMode(const QString &mode, funcs modeFunc, uchar receiver) const;
     int dBmConversion = 73;
+    // Latest TX meter readings, kept from receiveCache() so tx_sensors can be
+    // built without queue->getCache(), which queues a fresh read each time.
+    double txMeterAlc = 0.0;
+    double txMeterPower = 0.0;
+    double txMeterSwr = 1.0;
 };
 
 #endif // TCISERVER_H

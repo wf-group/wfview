@@ -526,7 +526,16 @@ cacheItem cachingQueue::getCache(funcs func, uchar receiver)
     }
     // If the cache is more than 5-20 seconds old, re-request it as it may be stale (maybe make this a config option?)
     // Using priorityhighest WILL slow down the S-Meter when a command intensive client is connected to rigctl
-    if (func != funcPowerControl && func != funcSelectVFO && ((!ret.value.isValid() && ret.retries < 5)|| ret.command == funcSWRMeter || ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= QDateTime::currentDateTime())) {
+    // SWR is always re-read, but only where the rig file has a read command
+    // for SWR on its own. Some radios have none: the TS-890S reads its meters
+    // together with "RM;" and, once a meter is enabled ("RM21;"), sends it by
+    // itself while transmitting, so its rig file marks SWR GetCommand=false.
+    // There each call queued an immediate read that the radio code threw away,
+    // and frequent callers kept the immediate list from ever emptying, which
+    // stopped every other command (the TS-890S then dropped the LAN link).
+    const bool swrReadable = func == funcSWRMeter && rigCaps != nullptr &&
+                             rigCaps->commands.value(funcSWRMeter).getCmd;
+    if (func != funcPowerControl && func != funcSelectVFO && ((!ret.value.isValid() && ret.retries < 5)|| swrReadable || ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= QDateTime::currentDateTime())) {
         add(priorityImmediate,func,false,receiver);
     }
     return ret;
