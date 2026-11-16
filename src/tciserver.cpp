@@ -2,6 +2,7 @@
 #include "audiohandlertciinput.h"
 
 #include "logcategories.h"
+#include "mcphooks.h"
 
 #include <QtGlobal>
 
@@ -192,6 +193,9 @@ void tciServer::sendDueChronos()
     constexpr quint64 maxCatchUp = 2;
     if (due > chronosSent + maxCatchUp) {
         ++chronoResyncs;
+        MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciChronoSent,
+                                             "chrono timer late, skipped ahead (value: periods)",
+                                             double(due - chronosSent - 1)));
         qWarning(logTCIServer()) << "TX chrono timer was late by" << (due - chronosSent - 1)
                                  << "chrono period(s); skipping ahead (resync" << chronoResyncs << ")";
         chronosSent = due - maxCatchUp;
@@ -203,6 +207,7 @@ void tciServer::sendDueChronos()
                 it.key()->sendBinaryMessage(txChrono);
         }
         ++chronosSent;
+        MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::TciChronoSent, qint64(chronosSent)));
     }
 }
 
@@ -790,6 +795,11 @@ void tciServer::processIncomingBinaryMessage(QByteArray message)
                 lastTxAudioChannels = quint8(pStream->channels);
                 lastTxAudioPayloadSize = tempData.size();
             }
+            MCP_AUDIO_DIAG({
+                const int ch = pStream->channels ? int(pStream->channels) : 2;
+                McpAudioDiag::event(McpAudioDiag::TciTxFromClient, qint64(pStream->length) / ch);
+                McpAudioDiag::continuityFloat(McpAudioDiag::TciTxFromClient, pStream->data, int(pStream->length), ch);
+            });
             emit sendTCIAudio(tempData);
         }
     }
@@ -890,6 +900,7 @@ void tciServer::receiveTCIAudio(audioPacket audio){
         }
         ++it;
     }
+    MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::TciRxToClient, qint64(pStream->length)));
 }
 
 

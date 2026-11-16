@@ -1,5 +1,6 @@
 #include "audiohandlertcioutput.h"
 #include "tciserver.h"
+#include "mcphooks.h"
 
 bool audioHandlerTciOutput::openDevice() noexcept
 {
@@ -41,6 +42,8 @@ void audioHandlerTciOutput::onConverted(audioPacket pkt)
     const int maxAgeMs = qMax(1000, int(setupData.latency) * 10);
     if (nowToPktMs > maxAgeMs) {
         ++lateDrops;
+        MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciRxToClient,
+                                             "RX audio too late for TCI, dropped (value: ms old)", nowToPktMs));
         if (!lateDropLog.isValid() || lateDropLog.elapsed() > 5000) {
             qDebug(logAudio()) << "TCI RX audio: dropped" << lateDrops
                                << "late packet(s), last age" << nowToPktMs << "ms, limit" << maxAgeMs << "ms";

@@ -463,12 +463,14 @@ HEADERS  += \
 contains(CONFIG, mcp) {
     DEFINES += WFVIEW_MCP
     SOURCES += \
+        src/mcpaudiodiag.cpp \
         src/mcphost.cpp \
         src/mcphostwfview.cpp \
         src/mcpprobe.cpp \
         src/mcpserver.cpp \
         src/mcptools.cpp
     HEADERS += \
+        include/mcpaudiodiag.h \
         include/mcphost.h \
         include/mcphostwfview.h \
         include/mcpprobe.h \

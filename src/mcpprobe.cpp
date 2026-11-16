@@ -1,4 +1,5 @@
 #include "mcpprobe.h"
+#include "mcpaudiodiag.h"
 
 #include "audiohandlerbase.h"
 #include "cachingqueue.h"
@@ -324,7 +325,10 @@ void McpProbe::setEnabled(bool on)
 {
     s_enabled.store(on, std::memory_order_relaxed);
     if (!on)
+    {
         stopCapture();
+        McpAudioDiag::stop();
+    }
 }
 
 qint64 McpProbe::uptimeMs()

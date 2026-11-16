@@ -1,5 +1,6 @@
 #include "rtpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 // Audio stream
 rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup,
@@ -155,6 +156,13 @@ void rtpAudio::dataReceived()
         tempAudio.time = QTime::currentTime().addMSecs(0);
         tempAudio.sent = 0;
         tempAudio.data = d.mid(12);
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+            McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(tempAudio.seq));
+            if (const int ch = McpAudioDiag::pcm16Channels(outSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioRxPacket, tempAudio.data.constData(),
+                                              int(tempAudio.data.size()), ch);
+        });
         emit haveAudioData(tempAudio);
         packetCount++;
         size = size + tempAudio.data.size();
@@ -191,6 +199,13 @@ void rtpAudio::receiveAudioData(audioPacket audio)
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         emit haveInLevels(peak, rms, inSetup.latency, 0, false, false);
 
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(inSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
+
         int len = 0;
 
         while (len < audio.data.length()) {
@@ -211,6 +226,7 @@ void rtpAudio::receiveAudioData(audioPacket audio)
             len = len + partial.length();
             //qInfo(logUdp()) << "Audio In: " << in.length() << "to" << ip.toString() << "port" << port << "ver" << p.version << "type" << p.payloadType << "seq" << p.seq << "ssrc" << QString::number(p.ssrc,16);
             udp->writeDatagram(in, ip, port);
+            MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size()));
         }
     }
 }

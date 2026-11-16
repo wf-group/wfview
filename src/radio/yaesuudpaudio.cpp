@@ -1,5 +1,6 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 namespace {
 quint16 yaesuFrameBytes(quint8 codec, quint32 sampleRate, quint8 channels)
@@ -264,6 +265,10 @@ void yaesuUdpAudio::incomingUdp(void* buf, size_t bufLen)
                     tempAudio.sampleRate = rxSetup.sampleRate;
                     tempAudio.channels = rxAudioChannels;
                     tempAudio.codec = rxSetup.codec;
+                    MCP_AUDIO_DIAG({
+                        McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+                        McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(r->data.seqNum));
+                    });
                     emit haveAudioData(tempAudio);
                 }
             }
@@ -385,6 +390,13 @@ void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         getTxLevels(peak, rms, txSetup.latency, 0, false, false);
 
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
+
         if (yaesuPacketizedCodec(txSetup.codec) && audio.data.size() > int(sizeof(yaesuAudioData::pcmData))) {
             qWarning(logUdp()) << "Yaesu TX encoded audio packet too large" << audio.data.size() << "bytes codec" << txSetup.codec;
             return;
@@ -415,6 +427,8 @@ void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
             len = len + partial.length();
             outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
             outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
+            // Each packet is sent twice; counted once.
+            MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size()));
             if (yaesuPacketizedCodec(txSetup.codec))
                 break;
         }

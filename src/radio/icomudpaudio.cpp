@@ -1,5 +1,6 @@
 #include "icomudpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 static inline quint32 makeExtendedSeq(quint32 prefix, quint16 seq16) {
     return (prefix << 16) | quint32(seq16);
@@ -107,6 +108,13 @@ void icomUdpAudio::receiveAudioData(audioPacket audio) {
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         emit haveTxLevels(peak, rms, txSetup.latency, 0, false, false);
 
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
+
         int len = 0;
 
         while (len < audio.data.length()) {
@@ -129,6 +137,7 @@ void icomUdpAudio::receiveAudioData(audioPacket audio) {
             len = len + partial.length();
             //qInfo(logUdp()) << "Sending audio packet length: " << tx.length();
             sendTrackedPacket(tx);
+            MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size()));
             sendAudioSeq++;
         }
     }
@@ -197,6 +206,8 @@ void icomUdpAudio::dataReceived()
 
                 if (excessMs > dropThresholdMs) {
                     ++droppedLatencyPackets;
+                    MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::RadioRxPacket,
+                                                         "RX packet dropped as too late (value: ms over)", excessMs));
                     if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
                         qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
                                         << "excessDelay" << excessMs
@@ -215,6 +226,10 @@ void icomUdpAudio::dataReceived()
                 tempAudio.time = QTime::currentTime();
                 tempAudio.sent = 0;
                 tempAudio.data = r.mid(0x18);
+                MCP_AUDIO_DIAG({
+                    McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+                    McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(in->seq));
+                });
                 emit haveAudioData(tempAudio);
                 lastReceived = QTime::currentTime();
             }

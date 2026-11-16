@@ -1,4 +1,5 @@
 #include "MainController.h"
+#include "mcphooks.h"
 
 #include "audiohandlertciinput.h"
 #include "audiohandlertcioutput.h"
@@ -2998,10 +2999,14 @@ void MainController::routeRxAudioToSinks(const audioPacket &packet)
 void MainController::forwardLocalTxAudio(const audioPacket &packet)
 {
     // Mic audio thread. Decided on the GUI thread by updateLocalTxForwarding().
-    if (m_localTxToUsb.load(std::memory_order_acquire))
+    const bool toUsb = m_localTxToUsb.load(std::memory_order_acquire);
+    const bool toRig = m_localTxToRig.load(std::memory_order_acquire);
+    if (toUsb)
         emit sendTxAudioToUsb(packet);
-    if (m_localTxToRig.load(std::memory_order_acquire))
+    if (toRig)
         emit sendTxAudioToRig(packet);
+    if (toUsb || toRig)
+        MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::MicTxForwarded, packet.data.size()));
 }
 
 void MainController::updateLocalTxForwarding()

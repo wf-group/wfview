@@ -59,8 +59,8 @@ or SSH tunnel rather than exposing the port to the internet; the server does not
 
 ### Read tools
 
-None of these change the radio or the application. `set_traffic_capture` only switches MCP's own
-recording on or off.
+None of these change the radio or the application. `set_traffic_capture` and
+`set_audio_diagnostics` only switch MCP's own recording on or off.
 
 | Tool | Returns |
 |---|---|
@@ -81,6 +81,8 @@ recording on or off.
 | `get_spectrum` | The latest scope sweep: frequency range, levels reduced to N points, noise floor and strongest signals. |
 | `set_traffic_capture` | Start (for up to 15 minutes) or stop recording radio and network traffic. |
 | `get_traffic` | Captured traffic as hex, and as text for Kenwood/Yaesu CAT, filterable by kind, direction and content. |
+| `set_audio_diagnostics` | Start (for up to an hour, default 2 minutes) or stop audio timing diagnostics. Off until started. |
+| `get_audio_diagnostics` | What audio timing diagnostics recorded: per-stage rates, interval statistics, values, continuity and sequence results, and timed unusual events. |
 | `get_setting_options` | Settings that can be changed by name, with their current values (including unsaved changes). |
 | `get_radio_server` | The built-in radio server: enabled, running or why not, protocol, address, ports and audio devices, who is logged in from where, logins since it started, and each user's access level and status. wfview only. |
 
@@ -124,6 +126,35 @@ Capture is off until a client starts it, and stops by itself when its time runs 
 
 Up to 5000 radio and 2000 network entries are kept, each with at most 1024 bytes.
 
+### Audio timing diagnostics
+
+For tracking down clicks, gaps and bursts on audio paths. Off until a client starts them with
+`set_audio_diagnostics`, and they stop by themselves when their time runs out. While off, each hook
+is one atomic check; without `CONFIG+=mcp` they are not compiled at all. While on, the hooks only
+update atomics and never take a lock or allocate, since they run on audio and network threads.
+
+Each stage is a point on an audio path:
+
+| Stage | Where |
+|---|---|
+| `tciChronoSent` | TCI server sends a TX chrono frame. |
+| `tciTxFromClient` | A TX audio frame arrives from a TCI client. |
+| `tciTxPaced` | The TCI TX pacer releases a 20 ms block (value: frames still buffered). Underruns, drops and late timer runs are listed as unusual events. |
+| `tciTxConverted` | That block after conversion to the radio's format. |
+| `micTxForwarded` | A microphone block is routed towards the radio. |
+| `radioTxPacket` | A TX audio datagram is sent to the radio (Kenwood, Icom or Yaesu LAN). |
+| `radioTxAgeMs` | How old each TX block is when sent to the radio, from when the pacer or audio input made it. |
+| `radioRxPacket` | An RX audio datagram arrives from the radio; sequence numbers are checked. |
+| `tciRxToClient` | An RX audio frame is sent to TCI clients. |
+
+For each stage: how often it ran, the mean, minimum and maximum interval between runs with a
+histogram, and its value (bytes, frames, buffer level or age). Where the audio is float or 16-bit
+PCM, consecutive blocks are checked for continuity: a jump between blocks of more than twice the
+steepest step inside them, and at least 1% of full scale, is counted as a discontinuity (first
+channel only). Late runs (over 2.5 times the mean interval and 15 ms above it), discontinuities,
+sequence gaps, underruns and drops are kept as a list of the last 1000 unusual events with their
+times, to line up with what was heard or recorded elsewhere.
+
 Passwords are masked everywhere, including the raw settings file: the first and last characters are
 kept with `XXX` between them (`secret` becomes `sXXXt`), and values of one or two characters become
 `XXX`.
@@ -145,8 +176,8 @@ wfview is known for low-latency audio and a responsive GUI, so MCP is built to s
   afterwards.
 - **Writes use existing paths.** Radio commands go through the command queue and settings through
   `SettingsController::setOption()`, so wfview reacts exactly as it would to the GUI, rigctld or TCI.
-- **Capture only on request.** Traffic hooks cost one atomic check unless a capture is running, and
-  a capture always ends by itself.
+- **Capture only on request.** Traffic and audio diagnostics hooks cost one atomic check unless a
+  capture or diagnostics run is active, and both always end by themselves.
 - **Nothing when off.** Each hook is a single atomic check when MCP is built but not running, and is
   not compiled at all without `CONFIG+=mcp`. While running, the only steady cost is a 4 Hz heartbeat
   timer on the main thread.

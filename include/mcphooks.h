@@ -7,7 +7,21 @@
 
 #ifdef WFVIEW_MCP
 
+#include "mcpaudiodiag.h"
 #include "mcpprobe.h"
+
+// Audio timing diagnostics (mcpaudiodiag.h): the statement runs only while an
+// MCP client has them turned on, for example
+//   MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::RadioTxPacket, bytes));
+// Without CONFIG+=mcp the statement is not compiled at all.
+#define MCP_AUDIO_DIAG(statement)                                                                                     \
+    do                                                                                                                \
+    {                                                                                                                 \
+        if (McpAudioDiag::active())                                                                                   \
+        {                                                                                                             \
+            statement;                                                                                                \
+        }                                                                                                             \
+    } while (0)
 
 #define MCP_LOG_MESSAGE(type, category, msg) McpProbe::logMessage((type), (category), (msg))
 #define MCP_ATTACH_RIG(rig) McpProbe::attachRig(rig)
@@ -30,5 +44,6 @@
 #define MCP_RADIO_RX(source, data) ((void)0)
 #define MCP_NETWORK_TX(source, data) ((void)0)
 #define MCP_NETWORK_RX(source, data) ((void)0)
+#define MCP_AUDIO_DIAG(statement) ((void)0)
 
 #endif

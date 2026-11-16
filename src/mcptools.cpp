@@ -2,6 +2,7 @@
 
 #include "audioconverter.h"
 #include "cachingqueue.h"
+#include "mcpaudiodiag.h"
 #include "mcphost.h"
 #include "mcpprobe.h"
 #include "rigidentities.h"
@@ -40,6 +41,8 @@ constexpr int overviewHostTimeoutMs = 1000;
 constexpr int defaultCaptureSeconds = 60;
 constexpr int maxCaptureSeconds = 900;
 constexpr int defaultTrafficLimit = 200;
+constexpr int defaultAudioDiagSeconds = 120;
+constexpr int defaultAudioDiagAnomalies = 100;
 constexpr int defaultSpectrumPoints = 128;
 constexpr int defaultSpectrumPeaks = 10;
 constexpr int maxSpectrumPeaks = 50;
@@ -959,6 +962,30 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
              {"contains", schemaString("Only entries whose hex or text contains this, for example \"FA;\" or \"fe fe\".")}},
             [this](const QJsonObject &a) { return toolTraffic(a); });
 
+    addTool("set_audio_diagnostics",
+            "Audio timing diagnostics",
+            "Starts or stops audio timing diagnostics, which are off until started and stop by themselves after the "
+            "given time. While on, each point on the audio paths records how often it runs and the spread of "
+            "intervals between runs, buffer levels and block ages, discontinuities between consecutive blocks, "
+            "and lost or repeated radio packets; unusual events are listed with their time. Covers TCI TX (chrono, "
+            "client audio, pacer, conversion), microphone TX, TX packets to the radio (Kenwood, Icom and Yaesu "
+            "LAN), RX packets from the radio, and RX audio to TCI clients. Costs little, but leave it off when not "
+            "needed. Read the result with get_audio_diagnostics.",
+            {{"seconds",
+              schemaInt("How long to run (default 120).", 1, McpAudioDiag::maxSeconds)},
+             {"stop", schemaBool("Stop now instead of starting.")},
+             {"clear", schemaBool("Discard what was recorded before (default true).")}},
+            [this](const QJsonObject &a) { return toolSetAudioDiagnostics(a); });
+
+    addTool("get_audio_diagnostics",
+            "Audio timing diagnostics results",
+            "Returns what audio timing diagnostics recorded, per stage: count and rate, interval statistics with a "
+            "histogram, the stage's value (bytes, frames, buffer level or age), continuity and sequence results, "
+            "and the most recent unusual events with their times. Start them with set_audio_diagnostics first.",
+            {{"anomalies", schemaInt("Most recent unusual events to list (default 100).", 0, 1000)},
+             {"reset", schemaBool("Clear the results after reading them, keeping diagnostics running (default false).")}},
+            [this](const QJsonObject &a) { return toolAudioDiagnostics(a); });
+
     addTool("get_spectrum",
             "Spectrum",
             "Returns the latest spectrum scope sweep for a receiver: frequency range, levels reduced to the requested "
@@ -1694,6 +1721,26 @@ McpToolResult McpTools::toolTraffic(const QJsonObject &args)
                                args.value("direction").toString(),
                                argInt(args, "limit", defaultTrafficLimit, 1, maxRowLimit),
                                args.value("contains").toString());
+    return r;
+}
+
+McpToolResult McpTools::toolSetAudioDiagnostics(const QJsonObject &args)
+{
+    McpToolResult r;
+    if (args.value("stop").toBool())
+        McpAudioDiag::stop();
+    else
+        McpAudioDiag::start(argInt(args, "seconds", defaultAudioDiagSeconds, 1, McpAudioDiag::maxSeconds),
+                            args.value("clear").toBool(true));
+    r.data = McpAudioDiag::status();
+    return r;
+}
+
+McpToolResult McpTools::toolAudioDiagnostics(const QJsonObject &args)
+{
+    McpToolResult r;
+    r.data = McpAudioDiag::report(argInt(args, "anomalies", defaultAudioDiagAnomalies, 0, 1000),
+                                  args.value("reset").toBool());
     return r;
 }
 

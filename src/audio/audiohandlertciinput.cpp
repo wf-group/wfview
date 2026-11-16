@@ -1,5 +1,6 @@
 #include "audiohandlertciinput.h"
 #include "tciserver.h"
+#include "mcphooks.h"
 
 bool audioHandlerTciInput::openDevice() noexcept
 {
@@ -64,6 +65,9 @@ void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet)
         pending.remove(0, drop);
         droppedBytes += quint64(drop);
         isOverrun.store(true, std::memory_order_relaxed);
+        MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
+                                             "buffer over the limit, oldest audio dropped (value: frames)",
+                                             double(drop / bytesPerFrame)));
         logPacingStats(false);
     }
 }
@@ -88,6 +92,9 @@ void audioHandlerTciInput::pace()
     if (due > blocksSent + maxCatchUpBlocks) {
         // This thread was held up. Send a few blocks now, not the whole backlog.
         ++lateResyncs;
+        MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
+                                             "pacer timer late, skipped ahead (value: blocks)",
+                                             double(due - blocksSent - maxCatchUpBlocks)));
         blocksSent = due - maxCatchUpBlocks;
         logPacingStats(false);
     }
@@ -96,6 +103,9 @@ void audioHandlerTciInput::pace()
         if (pending.size() < bytesPerBlock) {
             // Ran dry: collect the prebuffer again before restarting.
             ++underruns;
+            MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
+                                                 "underrun, buffering again (value: frames left)",
+                                                 double(pending.size() / bytesPerFrame)));
             priming = true;
             isUnderrun.store(true, std::memory_order_relaxed);
             logPacingStats(false);
@@ -109,6 +119,13 @@ void audioHandlerTciInput::pace()
         std::memcpy(&pkt.guid, setupData.guid, GUIDLEN);
         pkt.data   = pending.left(bytesPerBlock);
         pending.remove(0, bytesPerBlock);
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::event(McpAudioDiag::TciTxPaced, qint64(pending.size() / bytesPerFrame));
+            McpAudioDiag::continuityFloat(McpAudioDiag::TciTxPaced,
+                                          reinterpret_cast<const float *>(pkt.data.constData()),
+                                          int(pkt.data.size() / int(sizeof(float))),
+                                          nativeFormat.channelCount());
+        });
         emit sendToConverter(pkt);
         ++blocksSent;
     }
@@ -133,6 +150,14 @@ void audioHandlerTciInput::logPacingStats(bool force)
 void audioHandlerTciInput::onConverted(audioPacket audio)
 {
     if (audio.data.isEmpty()) return;
+
+    MCP_AUDIO_DIAG({
+        McpAudioDiag::event(McpAudioDiag::TciTxConverted, audio.data.size());
+        // Converted to the radio's codec; only plain 16-bit PCM can be checked.
+        if (codec == codecType::LPCM && radioFormat.bytesPerFrame() == 2 * radioFormat.channelCount())
+            McpAudioDiag::continuityInt16(McpAudioDiag::TciTxConverted, audio.data.constData(),
+                                          int(audio.data.size()), radioFormat.channelCount());
+    });
 
     emit haveAudioData(audio);
 
