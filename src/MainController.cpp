@@ -2858,6 +2858,7 @@ void MainController::updateAudioRouteState()
         return;
 
     m_audioRoute = route;
+    updateLocalTxForwarding();
     qDebug(logAudio()) << "Audio route changed:" << audioRouteDebugString(m_audioRoute);
     if (m_cwSender)
         m_cwSender->setSidetoneAvailable(m_audioRoute.localOutputEnabled);
@@ -2872,6 +2873,7 @@ bool MainController::requestTxAudioOwnership(PttOrigin origin, TxAudioInput sour
                        << "activeSource" << txAudioInputName(m_txAudioArbiter.activeSource());
 
     const bool accepted = m_txAudioArbiter.request(origin, source);
+    updateLocalTxForwarding();
     qDebug(logAudio()) << "TX audio ownership" << (accepted ? "granted" : "rejected")
                        << "origin" << pttOriginName(origin)
                        << "source" << txAudioInputName(source);
@@ -2889,6 +2891,7 @@ bool MainController::releaseTxAudioOwnership(PttOrigin origin)
 {
     const TxAudioInput activeSource = m_txAudioArbiter.activeSource();
     const bool released = m_txAudioArbiter.release(origin);
+    updateLocalTxForwarding();
     qDebug(logAudio()) << "TX audio ownership release"
                        << (released ? "accepted" : "ignored")
                        << "origin" << pttOriginName(origin)
@@ -2909,6 +2912,7 @@ void MainController::resetTxAudioOwnership()
                            << "source" << txAudioInputName(m_txAudioArbiter.activeSource());
     }
     m_txAudioArbiter.reset();
+    updateLocalTxForwarding();
     setTxAudioSource(TxAudioInput::None);
     clearTxAudioInterlockError();
     if (m_selRad)
@@ -2967,48 +2971,65 @@ void MainController::publishTxAudioDiagnosticLevel(const audioPacket& packet, Tx
         m_selRad->audioInputLevel(quint16(level));
 }
 
+// Audio off the GUI thread
+// ------------------------
+// Audio must not pass through this (GUI) thread on its way between the
+// radio and an audio handler. The GUI thread can be held up for a second or
+// more at a time: with the basic Qt Quick render loop it waits for each buffer
+// swap, and XWayland completes swaps of a covered window only once a second.
+// Audio queued behind such a stall reaches the radio (or a TCI client) in one
+// burst, which the radio plays with clicks and gaps.
+//
+// So audio handlers' haveAudioData signals are connected with
+// Qt::DirectConnection to the small routing slots below. Those run in the
+// handler's own thread, read only atomics, and emit relay signals
+// (sendTxAudioToRig, sendTxAudioToUsb, sendRxAudioToTci) that are queued to
+// the receiving handler's thread. Qt drops a queued call whose receiver has
+// been deleted, so handlers can still be created and disposed on the GUI
+// thread. The GUI thread gets a separate queued connection for level meters,
+// where a late update does no harm.
+
 void MainController::routeRxAudioToSinks(const audioPacket &packet)
 {
-    if (!tciRxOutputAudio)
-        return;
-
-    QMetaObject::invokeMethod(tciRxOutputAudio, "incomingAudio",
-                              Qt::QueuedConnection,
-                              Q_ARG(audioPacket, packet));
+    // Any thread. Receivers: the TCI RX output handler, when there is one.
+    emit sendRxAudioToTci(packet);
 }
 
-void MainController::routeLocalTxAudioToRadio(const audioPacket &packet)
+void MainController::forwardLocalTxAudio(const audioPacket &packet)
+{
+    // Mic audio thread. Decided on the GUI thread by updateLocalTxForwarding().
+    if (m_localTxToUsb.load(std::memory_order_acquire))
+        emit sendTxAudioToUsb(packet);
+    if (m_localTxToRig.load(std::memory_order_acquire))
+        emit sendTxAudioToRig(packet);
+}
+
+void MainController::updateLocalTxForwarding()
+{
+    // GUI thread. The same rules forwarding used when it ran here per packet:
+    // USB output whenever no other source owns TX audio; network audio only
+    // while local PTT owns it.
+    const AudioRouteState route = currentAudioRoute();
+    const bool network = route.rxSource == RadioRxAudioSource::WfShare ||
+                         route.rxSource == RadioRxAudioSource::NativeNetwork;
+    const bool micBridge = usbTxInputAudio != nullptr;
+    const bool toUsb = micBridge && usbRadioTxAudio != nullptr &&
+                       m_txAudioArbiter.accepts(TxAudioInput::LocalInput);
+    const bool toRig = micBridge && network &&
+                       m_txAudioArbiter.activeSource() == TxAudioInput::LocalInput;
+    m_localTxToUsb.store(toUsb, std::memory_order_release);
+    m_localTxToRig.store(toRig, std::memory_order_release);
+}
+
+void MainController::publishLocalTxAudioLevel(const audioPacket &packet)
 {
     publishTxAudioDiagnosticLevel(packet, TxAudioInput::LocalInput);
-
-    const AudioRouteState route = currentAudioRoute();
-    if (!usbRadioTxAudio || !m_txAudioArbiter.accepts(TxAudioInput::LocalInput)) {
-        if ((route.rxSource != RadioRxAudioSource::WfShare &&
-             route.rxSource != RadioRxAudioSource::NativeNetwork) ||
-            m_txAudioArbiter.activeSource() != TxAudioInput::LocalInput)
-            return;
-    }
-
-    if (usbRadioTxAudio) {
-        QMetaObject::invokeMethod(usbRadioTxAudio, "incomingAudio",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(audioPacket, packet));
-    }
-
-    if ((route.rxSource == RadioRxAudioSource::WfShare ||
-         route.rxSource == RadioRxAudioSource::NativeNetwork) &&
-        m_txAudioArbiter.activeSource() == TxAudioInput::LocalInput) {
-        emit sendTxAudioToRig(packet);
-    }
 }
 
-void MainController::routeTciTxAudioToRadio(const audioPacket &packet)
+void MainController::publishTciTxAudioLevel(const audioPacket &packet)
 {
     if (m_txAudioArbiter.activeSource() != TxAudioInput::Tci)
         return;
-
-    // The audio itself is connected straight to the radio in
-    // setupTciUsbTxBridge(); only the TX level meter is updated here.
     publishTxAudioDiagnosticLevel(packet, TxAudioInput::Tci);
 }
 
@@ -3179,9 +3200,10 @@ void MainController::setupUsbAudioBridge()
             connect(usbRadioRxAudio, SIGNAL(haveAudioData(audioPacket)),
                     usbRxOutputAudio, SLOT(incomingAudio(audioPacket)),
                     Qt::QueuedConnection);
+            // In the USB RX handler's thread (see "Audio off the GUI thread").
             connect(usbRadioRxAudio, &audioHandlerBase::haveAudioData,
                     this, &MainController::routeRxAudioToSinks,
-                    Qt::QueuedConnection);
+                    Qt::DirectConnection);
             QMetaObject::invokeMethod(usbRxOutputAudio, "setVolume",
                                       Qt::QueuedConnection, Q_ARG(quint8, prefs->localAFgain));
             qDebug(logAudio()) << "USB radio RX audio bridge enabled:" << radioRx.name << "->" << localRx.name;
@@ -3250,8 +3272,13 @@ void MainController::setupLocalTxBridge()
     usbTxInputThread->setObjectName(QStringLiteral("usbTxInputAudio()"));
     usbTxInputAudio->moveToThread(usbTxInputThread);
     connect(usbTxInputThread, &QThread::finished, usbTxInputAudio, &QObject::deleteLater);
+    // Audio: routed in the mic handler's thread (see "Audio off the GUI thread").
     connect(usbTxInputAudio, &audioHandlerBase::haveAudioData,
-            this, &MainController::routeLocalTxAudioToRadio,
+            this, &MainController::forwardLocalTxAudio,
+            Qt::DirectConnection);
+    // TX level meter only.
+    connect(usbTxInputAudio, &audioHandlerBase::haveAudioData,
+            this, &MainController::publishLocalTxAudioLevel,
             Qt::QueuedConnection);
     usbTxInputThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(usbTxInputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, localTx));
@@ -3261,11 +3288,15 @@ void MainController::setupLocalTxBridge()
         usbRadioTxThread->setObjectName(QStringLiteral("usbRadioTxAudio()"));
         usbRadioTxAudio->moveToThread(usbRadioTxThread);
         connect(usbRadioTxThread, &QThread::finished, usbRadioTxAudio, &QObject::deleteLater);
+        connect(this, SIGNAL(sendTxAudioToUsb(audioPacket)),
+                usbRadioTxAudio, SLOT(incomingAudio(audioPacket)),
+                Qt::QueuedConnection);
         usbRadioTxThread->start(QThread::TimeCriticalPriority);
         QMetaObject::invokeMethod(usbRadioTxAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radioTx));
     }
 
     m_activeTxAudioSource = TxAudioInput::LocalInput;
+    updateLocalTxForwarding();
     if (haveUsbTxOutput)
         qDebug(logAudio()) << "USB radio TX audio bridge enabled:" << localTx.name << "->" << radioTx.name;
     else if (haveNativeNetworkTxOutput)
@@ -3276,6 +3307,8 @@ void MainController::setupLocalTxBridge()
 
 void MainController::stopLocalTxBridge()
 {
+    m_localTxToUsb.store(false, std::memory_order_release);
+    m_localTxToRig.store(false, std::memory_order_release);
     disposeAudioHandler(tciTxInputAudio, tciTxInputThread);
     disposeAudioHandler(usbTxInputAudio, usbTxInputThread);
     disposeAudioHandler(usbRadioTxAudio, usbRadioTxThread);
@@ -3349,7 +3382,7 @@ void MainController::setupTciUsbTxBridge()
     }
     // Levels for the TX meter only; a late update here does not affect the audio.
     connect(tciTxInputAudio, &audioHandlerBase::haveAudioData,
-            this, &MainController::routeTciTxAudioToRadio,
+            this, &MainController::publishTciTxAudioLevel,
             Qt::QueuedConnection);
     tciTxInputThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(tciTxInputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, tciTx));
@@ -3716,13 +3749,27 @@ void MainController::setupRadioServer()
                 stopServerHostAudio();
         });
         // Transmit audio from the client, for the radio's USB audio output.
+        // The audio itself goes from the server thread straight to the TX
+        // handler (see "Audio off the GUI thread"). This makes sure that
+        // handler exists and is connected to this server, and passes on a
+        // packet that arrived before that connection was made.
         connect(server, &rigServer::haveAudioData, this, [this, generation](audioPacket packet) {
             if (generation != m_serverGeneration)
                 return;
             SERVERCONFIG* c = m_settings->getServerConfig();
-            ensureServerTxAudio(packet.codec, packet.sampleRate);
-            if (!c->rigs.isEmpty() && c->rigs.first()->txaudio)
-                QMetaObject::invokeMethod(c->rigs.first()->txaudio, "incomingAudio",
+            if (c->rigs.isEmpty())
+                return;
+            const bool created = !c->rigs.first()->txaudio;
+            if (created)
+                ensureServerTxAudio(packet.codec, packet.sampleRate);
+            audioHandlerBase* txaudio = c->rigs.first()->txaudio;
+            if (!txaudio)
+                return;
+            const bool newlyConnected = bool(connect(server, SIGNAL(haveAudioData(audioPacket)),
+                                                     txaudio, SLOT(incomingAudio(audioPacket)),
+                                                     Qt::ConnectionType(Qt::QueuedConnection | Qt::UniqueConnection)));
+            if (created || newlyConnected)
+                QMetaObject::invokeMethod(txaudio, "incomingAudio",
                                           Qt::QueuedConnection, Q_ARG(audioPacket, packet));
         });
     }
@@ -3960,6 +4007,11 @@ void MainController::ensureServerTxAudio(quint8 codec, quint32 sampleRate)
     radio->txAudioThread->setObjectName(QStringLiteral("serverTxAudio()"));
     radio->txaudio->moveToThread(radio->txAudioThread);
     connect(radio->txAudioThread, &QThread::finished, radio->txaudio, &QObject::deleteLater);
+    // Client transmit audio goes from the server thread straight to the
+    // handler, not through the GUI thread (see "Audio off the GUI thread").
+    connect(server, SIGNAL(haveAudioData(audioPacket)),
+            radio->txaudio, SLOT(incomingAudio(audioPacket)),
+            Qt::ConnectionType(Qt::QueuedConnection | Qt::UniqueConnection));
     radio->txAudioThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(radio->txaudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, radio->txAudioSetup));
 }
@@ -4000,6 +4052,10 @@ void MainController::setupTciRxBridge()
     tciRxOutputThread->setObjectName(QStringLiteral("tciRxOutputAudio()"));
     tciRxOutputAudio->moveToThread(tciRxOutputThread);
     connect(tciRxOutputThread, &QThread::finished, tciRxOutputAudio, &QObject::deleteLater);
+    // Fed from the rig or USB RX thread via routeRxAudioToSinks().
+    connect(this, SIGNAL(sendRxAudioToTci(audioPacket)),
+            tciRxOutputAudio, SLOT(incomingAudio(audioPacket)),
+            Qt::QueuedConnection);
     tciRxOutputThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(tciRxOutputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, tciRx));
     qInfo(logAudio()) << "TCI RX audio bridge enabled";
@@ -4736,7 +4792,9 @@ void MainController::startRigConnection()
         connect(rig, &rigCommander::haveNetworkAudioLevels, this, &MainController::receiveNetworkAudioLevels);
         connect(rig, &rigCommander::havePortError, this, &MainController::receivePortError);
         connect(rig, &rigCommander::connectionLost, this, &MainController::handleRigConnectionLost);
-        connect(rig, &rigCommander::haveAudioData, this, &MainController::routeRxAudioToSinks);
+        // In the rig thread (see "Audio off the GUI thread").
+        connect(rig, &rigCommander::haveAudioData, this, &MainController::routeRxAudioToSinks,
+                Qt::DirectConnection);
         connect(rig, &rigCommander::externalPttChanged, this, &MainController::handleExternalTransmitRequested);
         connect(rig, &rigCommander::haveMemoryMode, this, [this](bool active, uchar r) {
             // Reflect the radio's state only; don't send anything back to it.

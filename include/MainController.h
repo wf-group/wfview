@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QVariantMap>
 #include <QVersionNumber>
+#include <atomic>
 #include <functional>
 
 #include "ReceiverController.h"
@@ -390,7 +391,12 @@ signals:
                               audioSetup rxSetup, audioSetup txSetup);
     void sendCloseComm();
     void sendLocalAudioVolume(quint8 level);
+    // Audio relays. These are emitted from audio threads (see the
+    // "audio off the GUI thread" note in MainController.cpp) and are always
+    // queued to the receiving handler's thread.
     void sendTxAudioToRig(const audioPacket &packet);
+    void sendTxAudioToUsb(const audioPacket &packet);
+    void sendRxAudioToTci(const audioPacket &packet);
 
     void setCIVAddr(quint16 newRigCIVAddr);
     void setRigID(quint16 rigID);
@@ -458,9 +464,13 @@ private slots:
     void receiveRigCaps(rigCapabilities* caps);
     void receiveStatusUpdate(networkStatus status);
     void receiveNetworkAudioLevels(networkAudioLevels levels);
+    // Run in the emitting audio thread (Qt::DirectConnection); they only read
+    // atomics and emit the relay signals above.
     void routeRxAudioToSinks(const audioPacket &packet);
-    void routeLocalTxAudioToRadio(const audioPacket &packet);
-    void routeTciTxAudioToRadio(const audioPacket &packet);
+    void forwardLocalTxAudio(const audioPacket &packet);
+    // GUI thread: TX level meters only.
+    void publishLocalTxAudioLevel(const audioPacket &packet);
+    void publishTciTxAudioLevel(const audioPacket &packet);
     void handleTciTransmitRequested(bool transmit);
     void handleRigCtlTransmitRequested(bool transmit);
     void handleExternalTransmitRequested(bool transmit);
@@ -578,6 +588,7 @@ private:
     void setRxAudioLevel(int level);
     void setTxAudioLevel(int level);
     void publishTxAudioDiagnosticLevel(const audioPacket& packet, TxAudioInput source);
+    void updateLocalTxForwarding();
     audioHandlerBase* createAudioHandler(const audioSetup& setup);
     void disposeAudioHandler(audioHandlerBase*& handler, QThread*& thread);
     AudioRouteState currentAudioRoute() const;
@@ -669,6 +680,11 @@ private:
     AudioRouteState m_audioRoute;
     TxAudioSourceArbiter m_txAudioArbiter;
     TxAudioInput m_activeTxAudioSource = TxAudioInput::None;
+    // Where local (mic) TX audio may go, decided on the GUI thread from the
+    // arbiter and the route (updateLocalTxForwarding()) and read by the mic
+    // audio thread in forwardLocalTxAudio().
+    std::atomic<bool> m_localTxToUsb{false};
+    std::atomic<bool> m_localTxToRig{false};
     int m_rxAudioLevel = 0;
     int m_txAudioLevel = 0;
     double m_txAudioInputLevel = 0.0;
