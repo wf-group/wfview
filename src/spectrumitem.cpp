@@ -1483,6 +1483,8 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             if (x2 < x1) std::swap(x1, x2);
 
             auto *geom = root->passband->geometry();
+            if (geom->vertexCount() != 4)
+                geom->allocate(4);
             auto *v = geom->vertexDataAsPoint2D();
             v[0].set(x1, 0.0f);
             v[1].set(x1, plotH);
@@ -1523,6 +1525,8 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             const float x = freqToX(center);
 
             auto *geom = root->frequencyLine->geometry();
+            if (geom->vertexCount() != 2)
+                geom->allocate(2);
             auto *v = geom->vertexDataAsPoint2D();
             v[0].set(x, 0.0f);
             v[1].set(x, plotH);
