@@ -75,7 +75,7 @@ recording on or off.
 | `get_audio_config` | Audio system, devices, sample rates, codecs, latency, gains, active audio paths and processing. |
 | `get_audio_levels` | Latest peak/RMS, latency, underruns and update age for every open audio device, plus network audio status. |
 | `get_cache` | The radio state cache, with request and reply times. |
-| `get_queue` | Commands waiting to be sent to the radio. |
+| `get_queue` | Commands waiting to be sent to the radio, and queue health counters (backlog, time since a routine command, reads merged or refused). |
 | `get_meters` | Latest meter readings from the cache. |
 | `get_log` | Recent log lines, filterable by level, category and text. |
 | `get_spectrum` | The latest scope sweep: frequency range, levels reduced to N points, noise floor and strongest signals. |

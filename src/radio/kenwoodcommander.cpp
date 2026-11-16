@@ -1969,7 +1969,7 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
             {
                 // Get command not supported
                 qDebug(logRig()) << "Removing unsupported get command from queue" << funcString[func] << "VFO" << receiver;
-                queue->del(func,receiver);
+                queue->delReads(func,receiver);
                 return;
             }
             if (cmd.cmd == funcSelectedMode)

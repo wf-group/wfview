@@ -33,6 +33,7 @@ INCLUDEPATH += $$PWD/../src/audio/anr
 SOURCES += \
     $$PWD/tst_main.cpp \
     $$PWD/tst_audiorouting.cpp \
+    $$PWD/tst_cachingqueue.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
