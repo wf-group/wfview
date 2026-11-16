@@ -248,8 +248,12 @@
     </message>
     <message>
         <location filename="../qml/AudioProcessing.qml" line="1051"/>
+        <source>Sum to Mono</source>
+        <translation type="unfinished">Сумування в моно</translation>
+    </message>
+    <message>
         <source>Mono</source>
-        <translation type="unfinished">Мононуклеоз</translation>
+        <translation type="obsolete">Мононуклеоз</translation>
     </message>
     <message>
         <location filename="../qml/AudioProcessing.qml" line="1060"/>
@@ -1355,334 +1359,334 @@ For Icom radios, enter the command bytes in hex, for example 0x14 0x0A 0x01 0x28
 <context>
     <name>MainController</name>
     <message>
-        <location filename="../src/MainController.cpp" line="787"/>
+        <location filename="../src/MainController.cpp" line="791"/>
         <source>S+Power</source>
         <translation type="unfinished">S+Потужність</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="809"/>
+        <location filename="../src/MainController.cpp" line="813"/>
         <source>Debug Window</source>
         <translation type="unfinished">Вікно налагодження</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="814"/>
+        <location filename="../src/MainController.cpp" line="818"/>
         <source>Raise Main Window</source>
         <translation type="unfinished">Підняти головне вікно</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="815"/>
+        <location filename="../src/MainController.cpp" line="819"/>
         <source>Open Settings</source>
         <translation type="unfinished">Відкрити налаштування</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="816"/>
+        <location filename="../src/MainController.cpp" line="820"/>
         <source>Toggle Fullscreen</source>
         <translation type="unfinished">Перемикання повноекранного режиму</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="817"/>
+        <location filename="../src/MainController.cpp" line="821"/>
         <source>Quit wfview</source>
         <translation type="unfinished">Закрити wfview</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="818"/>
+        <location filename="../src/MainController.cpp" line="822"/>
         <source>Close Window</source>
         <translation type="unfinished">Закрити вікно</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="819"/>
+        <location filename="../src/MainController.cpp" line="823"/>
         <source>Open Memories</source>
         <translation type="unfinished">Відкриті спогади</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="820"/>
+        <location filename="../src/MainController.cpp" line="824"/>
         <source>Open CW Sender</source>
         <translation type="unfinished">Відкрити CW Sender</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="821"/>
+        <location filename="../src/MainController.cpp" line="825"/>
         <source>Pop Out Receiver</source>
         <translation type="unfinished">Висувний приймач</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="822"/>
+        <location filename="../src/MainController.cpp" line="826"/>
         <source>Pop In Receiver</source>
         <translation type="unfinished">Вставний приймач</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="823"/>
+        <location filename="../src/MainController.cpp" line="827"/>
         <source>Enter Frequency</source>
         <translation type="unfinished">Введіть частоту</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="886"/>
+        <location filename="../src/MainController.cpp" line="890"/>
         <source>CAT command, e.g. FA00007215000;</source>
         <translation type="unfinished">Команда CAT , наприклад, FA00007215000 ;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="887"/>
+        <location filename="../src/MainController.cpp" line="891"/>
         <source>CI-V command bytes, e.g. 0x14 0x0A 0x01 0x28</source>
         <translation type="unfinished">Байти команди CI-V , наприклад, 0x14 0x0A 0x01 0x28</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="904"/>
-        <location filename="../src/MainController.cpp" line="1662"/>
+        <location filename="../src/MainController.cpp" line="908"/>
+        <location filename="../src/MainController.cpp" line="1666"/>
         <source>None</source>
         <translation type="unfinished">Жоден</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="904"/>
-        <location filename="../src/MainController.cpp" line="905"/>
+        <location filename="../src/MainController.cpp" line="908"/>
+        <location filename="../src/MainController.cpp" line="909"/>
         <source>General</source>
         <translation type="unfinished">Загальне</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="905"/>
+        <location filename="../src/MainController.cpp" line="909"/>
         <source>Raw radio command</source>
         <translation type="unfinished">Сира радіокоманда</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="908"/>
+        <location filename="../src/MainController.cpp" line="912"/>
         <source>Transmit (PTT on)</source>
         <translation type="unfinished">Передача (увімкнено PTT)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="908"/>
-        <location filename="../src/MainController.cpp" line="909"/>
-        <location filename="../src/MainController.cpp" line="910"/>
+        <location filename="../src/MainController.cpp" line="912"/>
+        <location filename="../src/MainController.cpp" line="913"/>
+        <location filename="../src/MainController.cpp" line="914"/>
         <source>Transmit</source>
         <translation type="unfinished">Передача</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="909"/>
+        <location filename="../src/MainController.cpp" line="913"/>
         <source>Receive (PTT off)</source>
         <translation type="unfinished">Отримання (PTT вимкнено)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="910"/>
+        <location filename="../src/MainController.cpp" line="914"/>
         <source>Toggle PTT</source>
         <translation type="unfinished">Перемикання PTT</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="913"/>
+        <location filename="../src/MainController.cpp" line="917"/>
         <source>Restore mode</source>
         <translation type="unfinished">Режим відновлення</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="913"/>
-        <location filename="../src/MainController.cpp" line="915"/>
+        <location filename="../src/MainController.cpp" line="917"/>
+        <location filename="../src/MainController.cpp" line="919"/>
         <source>Restore</source>
         <translation type="unfinished">Відновити</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="915"/>
+        <location filename="../src/MainController.cpp" line="919"/>
         <source>Restore TX power</source>
         <translation type="unfinished">Відновлення живлення TX</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="922"/>
+        <location filename="../src/MainController.cpp" line="926"/>
         <source>wfview</source>
         <translation>wfview</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="943"/>
+        <location filename="../src/MainController.cpp" line="947"/>
         <source>Frequency in MHz, e.g. 7.215</source>
         <translation type="unfinished">Частота в MHz , наприклад 7,215</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="945"/>
+        <location filename="../src/MainController.cpp" line="949"/>
         <source>Mode, e.g. LSB</source>
         <translation type="unfinished">Режим, наприклад, LSB</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="945"/>
+        <location filename="../src/MainController.cpp" line="949"/>
         <source>Mode: %1</source>
         <translation type="unfinished">Режим: %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="947"/>
+        <location filename="../src/MainController.cpp" line="951"/>
         <source>Antenna number, e.g. 2</source>
         <translation type="unfinished">Номер антени, наприклад, 2</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="949"/>
+        <location filename="../src/MainController.cpp" line="953"/>
         <source>on, off, or tune</source>
         <translation type="unfinished">увімкнення, вимкнення або налаштування</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="951"/>
+        <location filename="../src/MainController.cpp" line="955"/>
         <source>on (transmit) or off (receive)</source>
         <translation type="unfinished">увімкнено (передача) або вимкнено (отримання)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="953"/>
+        <location filename="../src/MainController.cpp" line="957"/>
         <source>Percent, e.g. 25%</source>
         <translation type="unfinished">Відсоток, наприклад, 25%</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="955"/>
+        <location filename="../src/MainController.cpp" line="959"/>
         <source>on or off</source>
         <translation type="unfinished">увімкнено або вимкнено</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="957"/>
+        <location filename="../src/MainController.cpp" line="961"/>
         <source>Value %1 to %2, or a percent such as 50%</source>
         <translation type="unfinished">Значення %1 до %2 або відсоток, наприклад, 50%</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="959"/>
+        <location filename="../src/MainController.cpp" line="963"/>
         <source>Value, or blank to send the command alone</source>
         <translation type="unfinished">Значення або порожнє поле для надсилання окремої команди</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="960"/>
+        <location filename="../src/MainController.cpp" line="964"/>
         <source>Radio</source>
         <translation type="unfinished">Радіо</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1087"/>
+        <location filename="../src/MainController.cpp" line="1091"/>
         <source>unknown command</source>
         <translation type="unfinished">невідома команда</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1099"/>
-        <location filename="../src/MainController.cpp" line="1299"/>
+        <location filename="../src/MainController.cpp" line="1103"/>
+        <location filename="../src/MainController.cpp" line="1303"/>
         <source>no radio connected</source>
         <translation type="unfinished">радіо не підключено</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1103"/>
+        <location filename="../src/MainController.cpp" line="1107"/>
         <source>the rig file has no such command</source>
         <translation type="unfinished">у файлі rig такої команди немає</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1113"/>
+        <location filename="../src/MainController.cpp" line="1117"/>
         <source>frequency must be in MHz, e.g. 7.215</source>
         <translation type="unfinished">частота має бути в MHz , наприклад, 7,215</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1117"/>
+        <location filename="../src/MainController.cpp" line="1121"/>
         <source>frequency is locked</source>
         <translation type="unfinished">частота заблокована</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1148"/>
+        <location filename="../src/MainController.cpp" line="1152"/>
         <source>the radio has no mode named &quot;%1&quot;</source>
         <translation type="unfinished">радіо не має режиму з назвою &quot; %1 &quot;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1174"/>
+        <location filename="../src/MainController.cpp" line="1178"/>
         <source>unknown antenna &quot;%1&quot;</source>
         <translation type="unfinished">невідома антена &quot; %1 &quot;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1189"/>
+        <location filename="../src/MainController.cpp" line="1193"/>
         <source>use on, off, or tune</source>
         <translation type="unfinished">використовувати увімкнення, вимкнення або налаштування</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1198"/>
-        <location filename="../src/MainController.cpp" line="1226"/>
+        <location filename="../src/MainController.cpp" line="1202"/>
+        <location filename="../src/MainController.cpp" line="1230"/>
         <source>use on or off</source>
         <translation type="unfinished">використовувати увімкнено або вимкнено</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1240"/>
+        <location filename="../src/MainController.cpp" line="1244"/>
         <source>value must be a number</source>
         <translation type="unfinished">значення має бути числом</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1245"/>
+        <location filename="../src/MainController.cpp" line="1249"/>
         <source>percent must be from 0 to 100</source>
         <translation type="unfinished">відсоток має бути від 0 до 100</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1283"/>
+        <location filename="../src/MainController.cpp" line="1287"/>
         <source>this command uses %1 values, which macros cannot set; use a raw command</source>
         <translation type="unfinished">ця команда використовує значення %1 , які макроси не можуть встановити; використовуйте необроблену команду</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1288"/>
+        <location filename="../src/MainController.cpp" line="1292"/>
         <source>value is out of range</source>
         <translation type="unfinished">значення поза діапазоном</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1311"/>
+        <location filename="../src/MainController.cpp" line="1315"/>
         <source>raw Icom commands must be pairs of hex digits</source>
         <translation type="unfinished">необроблені команди Icom повинні бути парами шістнадцяткових цифр</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1329"/>
+        <location filename="../src/MainController.cpp" line="1333"/>
         <source>empty command</source>
         <translation type="unfinished">порожня команда</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1775"/>
+        <location filename="../src/MainController.cpp" line="1779"/>
         <source>Setting transmit mod input sources</source>
         <translation type="unfinished">Налаштування джерел вхідного сигналу передачі</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1791"/>
+        <location filename="../src/MainController.cpp" line="1795"/>
         <source>Running macro &quot;%1&quot;</source>
         <translation type="unfinished">Виконання макросу &quot; %1 &quot;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2648"/>
+        <location filename="../src/MainController.cpp" line="2666"/>
         <source>Invalid repeater offset</source>
         <translation type="unfinished">Недійсне зміщення ретранслятора</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2663"/>
+        <location filename="../src/MainController.cpp" line="2681"/>
         <source>Cannot set split before a receive frequency is available</source>
         <translation type="unfinished">Неможливо встановити розділення, поки не стане доступною частота прийому</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2669"/>
+        <location filename="../src/MainController.cpp" line="2687"/>
         <source>Invalid split offset</source>
         <translation type="unfinished">Недійсний зсув поділу</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2697"/>
+        <location filename="../src/MainController.cpp" line="2715"/>
         <source>Invalid split transmit frequency</source>
         <translation type="unfinished">Недійсна частота розділеної передачі</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3842"/>
+        <location filename="../src/MainController.cpp" line="3860"/>
         <source>Disabled</source>
         <translation type="unfinished">Інвалід</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3845"/>
+        <location filename="../src/MainController.cpp" line="3863"/>
         <source>Running</source>
         <translation type="unfinished">Біг</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3847"/>
+        <location filename="../src/MainController.cpp" line="3865"/>
         <source>Not running: %1</source>
         <translation type="unfinished">Не працює: %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3848"/>
+        <location filename="../src/MainController.cpp" line="3866"/>
         <source>Starting</source>
         <translation type="unfinished">Початок</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3851"/>
+        <location filename="../src/MainController.cpp" line="3869"/>
         <source>Not running: the server is only available when the radio is connected by a serial (USB) port</source>
         <translation type="unfinished">Не працює: сервер доступний лише тоді, коли радіоприймач підключено через послідовний (USB) порт</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3853"/>
+        <location filename="../src/MainController.cpp" line="3871"/>
         <source>Not running: waiting for the radio to be connected</source>
         <translation type="unfinished">Не працює: очікується підключення радіо</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3854"/>
+        <location filename="../src/MainController.cpp" line="3872"/>
         <source>Not running: waiting for the radio to be identified</source>
         <translation type="unfinished">Не працює: очікується ідентифікація радіостанції</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4118"/>
+        <location filename="../src/MainController.cpp" line="4136"/>
         <source>
 No TCP cluster server is selected.
 </source>
@@ -1691,37 +1695,37 @@ No TCP cluster server is selected.
 </translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4281"/>
+        <location filename="../src/MainController.cpp" line="4299"/>
         <source>Connecting...</source>
         <translation type="unfinished">Підключення...</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4282"/>
+        <location filename="../src/MainController.cpp" line="4300"/>
         <source>Connected, no traffic</source>
         <translation type="unfinished">Підключено, без заторів</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4283"/>
+        <location filename="../src/MainController.cpp" line="4301"/>
         <source>Connected, traffic received</source>
         <translation type="unfinished">Підключено, трафік отримано</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4284"/>
+        <location filename="../src/MainController.cpp" line="4302"/>
         <source>NC, Error</source>
         <translation type="unfinished">NC , Помилка</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4285"/>
+        <location filename="../src/MainController.cpp" line="4303"/>
         <source>Not connected</source>
         <translation type="unfinished">Не підключено</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4617"/>
+        <location filename="../src/MainController.cpp" line="4635"/>
         <source>The port was set to auto, but no serial ports are available on this computer. The radio may be off, unplugged, or its USB driver may not be installed.</source>
         <translation type="unfinished">Порт було встановлено на автоматичний режим, але на цьому комп’ютері немає доступних послідовних портів. Можливо, радіомодуль вимкнено, від’єднано від мережі або його драйвер USB не встановлено.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/MainController.cpp" line="4622"/>
+        <location filename="../src/MainController.cpp" line="4640"/>
         <source>The port was set to auto, but %n serial ports were found and none could be identified as the radio. Select the radio&apos;s port by name.</source>
         <translation type="unfinished">
             <numerusform>Порт було встановлено на автоматичний режим, але знайдено %n послідовних портів, і жоден не вдалося ідентифікувати як радіомодуль. Виберіть порт радіомодуля за назвою.</numerusform>
@@ -1730,137 +1734,137 @@ No TCP cluster server is selected.
         </translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4627"/>
+        <location filename="../src/MainController.cpp" line="4645"/>
         <source>That port isn&apos;t present on this computer. The radio may be off, unplugged, or connected to a different port.</source>
         <translation type="unfinished">Цього порту немає на цьому комп’ютері. Можливо, радіомодуль вимкнено, від’єднано від мережі або підключено до іншого порту.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4633"/>
+        <location filename="../src/MainController.cpp" line="4651"/>
         <source>This user does not have permission to use the port. Add your user to the group that owns the port (usually dialout or uucp), then log out and back in.</source>
         <translation type="unfinished">Цей користувач не має дозволу на використання порту. Додайте свого користувача до групи, якій належить порт (зазвичай dialout або uucp), потім вийдіть із системи та знову ввійдіть.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4637"/>
+        <location filename="../src/MainController.cpp" line="4655"/>
         <source>This user does not have permission to use the port.</source>
         <translation type="unfinished">Цей користувач не має дозволу на використання порту.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4839"/>
+        <location filename="../src/MainController.cpp" line="4864"/>
         <source>audio output device (speaker/headphones)</source>
         <translation type="unfinished">пристрій виведення аудіо (динамік/навушники)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4842"/>
+        <location filename="../src/MainController.cpp" line="4867"/>
         <source>audio input device (microphone)</source>
         <translation type="unfinished">вхідний аудіопристрій (мікрофон)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4845"/>
+        <location filename="../src/MainController.cpp" line="4870"/>
         <source>radio USB audio input device (receive audio from the radio)</source>
         <translation type="unfinished">Вхідний аудіопристрій USB для радіо (отримання аудіо з радіо)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4848"/>
+        <location filename="../src/MainController.cpp" line="4873"/>
         <source>radio USB audio output device (transmit audio to the radio)</source>
         <translation type="unfinished">USB аудіовихідний пристрій радіо (передача аудіо на радіо)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4851"/>
+        <location filename="../src/MainController.cpp" line="4876"/>
         <source>audio input device</source>
         <translation type="unfinished">пристрій введення аудіо</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4851"/>
+        <location filename="../src/MainController.cpp" line="4876"/>
         <source>audio output device</source>
         <translation type="unfinished">пристрій виведення аудіо</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4858"/>
+        <location filename="../src/MainController.cpp" line="4883"/>
         <source>The selected %1 was blank. No device has been chosen.</source>
         <translation type="unfinished">Вибраний %1 був порожнім. Пристрій не вибрано.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4861"/>
+        <location filename="../src/MainController.cpp" line="4886"/>
         <source>The selected %1 could not be found.</source>
         <translation type="unfinished">Вибраний %1 не знайдено.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4864"/>
+        <location filename="../src/MainController.cpp" line="4889"/>
         <source>The selected %1 could not be used.</source>
         <translation type="unfinished">Вибраний %1 не може бути використаний.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4879"/>
+        <location filename="../src/MainController.cpp" line="4904"/>
         <source>Specified Device: &quot;%1&quot;</source>
         <translation type="unfinished">Вказаний пристрій: &quot; %1 &quot;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4881"/>
+        <location filename="../src/MainController.cpp" line="4906"/>
         <source>Reason: %1</source>
         <translation type="unfinished">Причина: %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4883"/>
+        <location filename="../src/MainController.cpp" line="4908"/>
         <source>The device may have been unplugged, renamed, or is in use by a different audio system.</source>
         <translation type="unfinished">Можливо, пристрій було відключено, перейменовано або він використовується іншою аудіосистемою.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4885"/>
+        <location filename="../src/MainController.cpp" line="4910"/>
         <source>The device may be in use by another program, or may not support the required audio format.</source>
         <translation type="unfinished">Пристрій може використовуватися іншою програмою або не підтримувати потрібний аудіоформат.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4913"/>
+        <location filename="../src/MainController.cpp" line="4938"/>
         <source>wfview cannot use the serial port for running the radio server.</source>
         <translation type="unfinished">wfview не може використовувати послідовний порт для запуску радіосервера.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4914"/>
+        <location filename="../src/MainController.cpp" line="4939"/>
         <source>wfview cannot use the serial port for connecting to the radio.</source>
         <translation type="unfinished">wfview не може використовувати послідовний порт для підключення до радіо.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4917"/>
+        <location filename="../src/MainController.cpp" line="4942"/>
         <source>Serial port: &quot;%1&quot;</source>
         <translation type="unfinished">Послідовний порт: &quot; %1 &quot;</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4920"/>
+        <location filename="../src/MainController.cpp" line="4945"/>
         <source>To use a different port, disconnect from the radio, go to Settings → Radio Access, and select a new serial device. Then connect again.</source>
         <translation type="unfinished">Щоб скористатися іншим портом, від’єднайтеся від радіо, перейдіть до меню «Налаштування» → «Доступ до радіо» та виберіть новий послідовний пристрій. Потім підключіться знову.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4924"/>
+        <location filename="../src/MainController.cpp" line="4949"/>
         <source>For an unattended server, this warning can be turned off in Settings → Radio Server; wfview will then keep retrying the port.</source>
         <translation type="unfinished">Для сервера без нагляду це попередження можна вимкнути в розділі Налаштування → Радіосервер; тоді wfview продовжуватиме спробувати підключитися до порту.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4966"/>
+        <location filename="../src/MainController.cpp" line="4991"/>
         <source>ERROR: %1</source>
         <translation>ERROR: %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4967"/>
+        <location filename="../src/MainController.cpp" line="4992"/>
         <source>ERROR: %1: %2</source>
         <translation>ERROR: %1: %2</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="5069"/>
+        <location filename="../src/MainController.cpp" line="5094"/>
         <source>Mic</source>
         <translation type="unfinished">Мікрофон</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7392"/>
+        <location filename="../src/MainController.cpp" line="7420"/>
         <source>%1 (no rig files)</source>
         <translation type="unfinished">%1 (без файлів rig)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7393"/>
+        <location filename="../src/MainController.cpp" line="7421"/>
         <source>%1 (folder not found)</source>
         <translation type="unfinished">%1 (папку не знайдено)</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7409"/>
+        <location filename="../src/MainController.cpp" line="7437"/>
         <source>No rig definition files were found, so wfview cannot identify or control a radio. Reinstalling wfview should restore them.
 
 Locations searched:
@@ -1871,17 +1875,17 @@ Locations searched:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7470"/>
+        <location filename="../src/MainController.cpp" line="7498"/>
         <source>Radio clock sync is not available for this connection.</source>
         <translation type="unfinished">Синхронізація радіогодинника недоступна для цього підключення.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7496"/>
+        <location filename="../src/MainController.cpp" line="7524"/>
         <source>Setting radio clock at the next minute boundary.</source>
         <translation type="unfinished">Встановлення радіогодинника на наступну хвилинну межу.</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7506"/>
+        <location filename="../src/MainController.cpp" line="7534"/>
         <source>Setting radio clock now.</source>
         <translation type="unfinished">Налаштування радіогодинника зараз.</translation>
     </message>
@@ -2069,220 +2073,220 @@ Locations searched:
         <translation type="unfinished">Тайм-аут PTT можна вимкнути в Налаштуваннях → Налаштування радіо.</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="1885"/>
+        <location filename="../qml/MainWindow.qml" line="1891"/>
         <source>Receiver %1</source>
         <translation type="unfinished">Приймач %1</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2065"/>
+        <location filename="../qml/MainWindow.qml" line="2071"/>
         <source>Disconnected</source>
         <translation type="unfinished">Відключено</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2130"/>
+        <location filename="../qml/MainWindow.qml" line="2136"/>
         <source>Power On</source>
         <translation type="unfinished">Увімкнення живлення</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2131"/>
+        <location filename="../qml/MainWindow.qml" line="2137"/>
         <source>Power Off</source>
         <translation type="unfinished">Вимкнення живлення</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2194"/>
+        <location filename="../qml/MainWindow.qml" line="2200"/>
         <source>F Lock</source>
         <translation type="unfinished">F-блокування</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2227"/>
         <location filename="../qml/MainWindow.qml" line="2233"/>
-        <location filename="../qml/MainWindow.qml" line="2258"/>
-        <location filename="../qml/MainWindow.qml" line="2292"/>
+        <location filename="../qml/MainWindow.qml" line="2239"/>
+        <location filename="../qml/MainWindow.qml" line="2264"/>
+        <location filename="../qml/MainWindow.qml" line="2298"/>
         <source>RIT</source>
         <translation>RIT</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2273"/>
+        <location filename="../qml/MainWindow.qml" line="2279"/>
         <source>Hz</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2340"/>
+        <location filename="../qml/MainWindow.qml" line="2346"/>
         <source>RX audio</source>
         <translation type="unfinished">RX аудіо</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2344"/>
+        <location filename="../qml/MainWindow.qml" line="2350"/>
         <source>Vol</source>
         <translation type="unfinished">Том</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2365"/>
+        <location filename="../qml/MainWindow.qml" line="2371"/>
         <source>TX</source>
         <translation>TX</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2388"/>
+        <location filename="../qml/MainWindow.qml" line="2394"/>
         <source>Mon</source>
         <translation type="unfinished">Пн</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2431"/>
+        <location filename="../qml/MainWindow.qml" line="2437"/>
         <source>TX audio</source>
         <translation type="unfinished">Аудіо TX</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2463"/>
+        <location filename="../qml/MainWindow.qml" line="2469"/>
         <source>Receive</source>
         <translation type="unfinished">Отримати</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2463"/>
+        <location filename="../qml/MainWindow.qml" line="2469"/>
         <source>Transmit</source>
         <translation type="unfinished">Передача</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2473"/>
+        <location filename="../qml/MainWindow.qml" line="2479"/>
         <source>Enable ATU</source>
         <translation type="unfinished">Увімкнути ATU</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2481"/>
+        <location filename="../qml/MainWindow.qml" line="2487"/>
         <source>Tune</source>
         <translation type="unfinished">Налаштувати</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2488"/>
+        <location filename="../qml/MainWindow.qml" line="2494"/>
         <source>CW</source>
         <translation>CW</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2496"/>
+        <location filename="../qml/MainWindow.qml" line="2502"/>
         <source>Rpt/Split</source>
         <translation type="unfinished">Повернути/Розділити</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2503"/>
+        <location filename="../qml/MainWindow.qml" line="2509"/>
         <source>Memories</source>
         <translation type="unfinished">Спогади</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2520"/>
+        <location filename="../qml/MainWindow.qml" line="2526"/>
         <source>Run macro %1</source>
         <translation type="unfinished">Запустити макрос %1</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2559"/>
+        <location filename="../qml/MainWindow.qml" line="2565"/>
         <source>Scope Settings</source>
         <translation type="unfinished">Налаштування області застосування</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2569"/>
+        <location filename="../qml/MainWindow.qml" line="2575"/>
         <source>Dual Scope</source>
         <translation type="unfinished">Подвійний приціл</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2577"/>
+        <location filename="../qml/MainWindow.qml" line="2583"/>
         <source>Dual Watch</source>
         <translation type="unfinished">Подвійний годинник</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2585"/>
+        <location filename="../qml/MainWindow.qml" line="2591"/>
         <source>Split</source>
         <translation type="unfinished">Спліт</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2595"/>
+        <location filename="../qml/MainWindow.qml" line="2601"/>
         <source>Main/Sub</source>
         <translation type="unfinished">Основний/Допоміжний</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2601"/>
+        <location filename="../qml/MainWindow.qml" line="2607"/>
         <source>Main&lt;&gt;Sub</source>
         <translation type="unfinished">Головний&lt;&gt;Підрозділ</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2607"/>
+        <location filename="../qml/MainWindow.qml" line="2613"/>
         <source>Main=Sub</source>
         <translation type="unfinished">Головне=Допоміжне</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2626"/>
+        <location filename="../qml/MainWindow.qml" line="2632"/>
         <source>CMP</source>
         <translation>CMP</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2633"/>
+        <location filename="../qml/MainWindow.qml" line="2639"/>
         <source>VOX</source>
         <translation>VOX</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2665"/>
+        <location filename="../qml/MainWindow.qml" line="2671"/>
         <source>About</source>
         <translation type="unfinished">Про нас</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2672"/>
+        <location filename="../qml/MainWindow.qml" line="2678"/>
         <source>Settings</source>
         <translation type="unfinished">Налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2676"/>
+        <location filename="../qml/MainWindow.qml" line="2682"/>
         <source>TX Audio Proc</source>
         <translation type="unfinished">Аудіопроцесор TX</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2681"/>
+        <location filename="../qml/MainWindow.qml" line="2687"/>
         <source>RX Audio Proc</source>
         <translation type="unfinished">RX Audio Proc</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2687"/>
+        <location filename="../qml/MainWindow.qml" line="2693"/>
         <source>Radio Status</source>
         <translation type="unfinished">Стан радіо</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2691"/>
+        <location filename="../qml/MainWindow.qml" line="2697"/>
         <source>Log</source>
         <translation type="unfinished">Журнал</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2699"/>
+        <location filename="../qml/MainWindow.qml" line="2705"/>
         <source>Rig Creator</source>
         <translation type="unfinished">Творець бурових установок</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2734"/>
+        <location filename="../qml/MainWindow.qml" line="2740"/>
         <source>Connect to Radio</source>
         <translation type="unfinished">Підключення до радіо</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2736"/>
+        <location filename="../qml/MainWindow.qml" line="2742"/>
         <source>Cancel Connection</source>
         <translation type="unfinished">Скасувати з&apos;єднання</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2738"/>
+        <location filename="../qml/MainWindow.qml" line="2744"/>
         <source>Disconnect from Radio</source>
         <translation type="unfinished">Відключитися від радіо</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2738"/>
+        <location filename="../qml/MainWindow.qml" line="2744"/>
         <source>Unknown status!</source>
         <translation type="unfinished">Невідомий статус!</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2744"/>
+        <location filename="../qml/MainWindow.qml" line="2750"/>
         <source>Exit Program</source>
         <translation type="unfinished">Вихід з програми</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2778"/>
+        <location filename="../qml/MainWindow.qml" line="2784"/>
         <source>NONE</source>
         <translation>NONE</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2792"/>
+        <location filename="../qml/MainWindow.qml" line="2798"/>
         <source>About wfview</source>
         <translation type="unfinished">Про wfview</translation>
     </message>
@@ -2690,330 +2694,335 @@ Locations searched:
     </message>
     <message>
         <location filename="../qml/Receiver.qml" line="303"/>
-        <location filename="../qml/Receiver.qml" line="2324"/>
+        <location filename="../qml/Receiver.qml" line="2335"/>
         <source>☰</source>
         <translation>☰</translation>
     </message>
     <message>
         <location filename="../qml/Receiver.qml" line="303"/>
-        <location filename="../qml/Receiver.qml" line="943"/>
+        <location filename="../qml/Receiver.qml" line="954"/>
         <source>Bands</source>
         <translation type="unfinished">Гурти</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="518"/>
+        <location filename="../qml/Receiver.qml" line="486"/>
+        <source>Memory mode active. Switch to VFO mode for tuning</source>
+        <translation type="unfinished">Режим пам&apos;яті активний. Перемкніться в режим VFO для налаштування</translation>
+    </message>
+    <message>
+        <location filename="../qml/Receiver.qml" line="529"/>
         <source>VFO:</source>
         <translation>VFO:</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="524"/>
+        <location filename="../qml/Receiver.qml" line="535"/>
         <source>A</source>
         <translation type="unfinished">А</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="532"/>
+        <location filename="../qml/Receiver.qml" line="543"/>
         <source>B</source>
         <translation type="unfinished">Б</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="551"/>
+        <location filename="../qml/Receiver.qml" line="562"/>
         <source>A↔B</source>
         <translation type="unfinished">A↔B</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="559"/>
+        <location filename="../qml/Receiver.qml" line="570"/>
         <source>A=B</source>
         <translation type="unfinished">А=Б</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="569"/>
+        <location filename="../qml/Receiver.qml" line="580"/>
         <source>V/M</source>
         <translation type="unfinished">В/М</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="580"/>
+        <location filename="../qml/Receiver.qml" line="591"/>
         <source>SAT</source>
         <translation>SAT</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="589"/>
+        <location filename="../qml/Receiver.qml" line="600"/>
         <source>SPLIT</source>
         <translation>SPLIT</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="673"/>
+        <location filename="../qml/Receiver.qml" line="684"/>
         <source>Scope display mode</source>
         <translation type="unfinished">Режим відображення осцилографа</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="689"/>
+        <location filename="../qml/Receiver.qml" line="700"/>
         <source>Center-mode span</source>
         <translation type="unfinished">Центральний діапазон моди</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="705"/>
+        <location filename="../qml/Receiver.qml" line="716"/>
         <source>Fixed edge range</source>
         <translation type="unfinished">Фіксований діапазон країв</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="714"/>
+        <location filename="../qml/Receiver.qml" line="725"/>
         <source>Custom Edge</source>
         <translation type="unfinished">Користувацький край</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="721"/>
+        <location filename="../qml/Receiver.qml" line="732"/>
         <source>To Fixed</source>
         <translation type="unfinished">Виправлено</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="730"/>
+        <location filename="../qml/Receiver.qml" line="741"/>
         <source>Hold</source>
         <translation type="unfinished">Утримувати</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="753"/>
+        <location filename="../qml/Receiver.qml" line="764"/>
         <source>Operating mode</source>
         <translation type="unfinished">Режим роботи</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="769"/>
+        <location filename="../qml/Receiver.qml" line="780"/>
         <source>Data mode</source>
         <translation type="unfinished">Режим даних</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="785"/>
+        <location filename="../qml/Receiver.qml" line="796"/>
         <source>IF filter selection</source>
         <translation type="unfinished">Вибір IF-фільтра</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="802"/>
+        <location filename="../qml/Receiver.qml" line="813"/>
         <source>Filter shape</source>
         <translation type="unfinished">Форма фільтра</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="818"/>
+        <location filename="../qml/Receiver.qml" line="829"/>
         <source>Roofing filter</source>
         <translation type="unfinished">Покрівельний фільтр</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="830"/>
+        <location filename="../qml/Receiver.qml" line="841"/>
         <source>Clear Peaks</source>
         <translation type="unfinished">Ясні вершини</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="934"/>
-        <location filename="../qml/Receiver.qml" line="1198"/>
+        <location filename="../qml/Receiver.qml" line="945"/>
+        <location filename="../qml/Receiver.qml" line="1209"/>
         <source>Unlock drawer</source>
         <translation type="unfinished">Розблокувати шухляду</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="934"/>
-        <location filename="../qml/Receiver.qml" line="1198"/>
+        <location filename="../qml/Receiver.qml" line="945"/>
+        <location filename="../qml/Receiver.qml" line="1209"/>
         <source>Lock drawer</source>
         <translation type="unfinished">Замок шухляди</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="976"/>
+        <location filename="../qml/Receiver.qml" line="987"/>
         <source>BSR 1</source>
         <translation>BSR 1</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="977"/>
+        <location filename="../qml/Receiver.qml" line="988"/>
         <source>BSR 2</source>
         <translation>BSR 2</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="978"/>
+        <location filename="../qml/Receiver.qml" line="989"/>
         <source>BSR 3</source>
         <translation>BSR 3</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="988"/>
+        <location filename="../qml/Receiver.qml" line="999"/>
         <source>Store</source>
         <translation type="unfinished">Магазин</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1251"/>
+        <location filename="../qml/Receiver.qml" line="1262"/>
         <source>Full screen</source>
         <translation type="unfinished">Повний екран</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1267"/>
+        <location filename="../qml/Receiver.qml" line="1278"/>
         <source>Use a borderless full-screen detached receiver</source>
         <translation type="unfinished">Використовуйте окремий приймач без рамок на весь екран</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1272"/>
+        <location filename="../qml/Receiver.qml" line="1283"/>
         <source>Ref</source>
         <translation type="unfinished">Посилання</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1302"/>
+        <location filename="../qml/Receiver.qml" line="1313"/>
         <source>Length</source>
         <translation type="unfinished">Довжина</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1335"/>
+        <location filename="../qml/Receiver.qml" line="1346"/>
         <source>Ceiling</source>
         <translation type="unfinished">Стеля</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1366"/>
+        <location filename="../qml/Receiver.qml" line="1377"/>
         <source>Floor</source>
         <translation type="unfinished">Підлога</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1397"/>
+        <location filename="../qml/Receiver.qml" line="1408"/>
         <source>Speed</source>
         <translation type="unfinished">Швидкість</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1416"/>
+        <location filename="../qml/Receiver.qml" line="1427"/>
         <source>Theme</source>
         <translation type="unfinished">Тема</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1440"/>
+        <location filename="../qml/Receiver.qml" line="1451"/>
         <source>PBT Inner</source>
         <translation type="unfinished">PBT внутрішній</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1469"/>
+        <location filename="../qml/Receiver.qml" line="1480"/>
         <source>PBT Outer</source>
         <translation type="unfinished">Зовнішній PBT</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1498"/>
+        <location filename="../qml/Receiver.qml" line="1509"/>
         <source>IF Shift</source>
         <translation type="unfinished">IF</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1520"/>
+        <location filename="../qml/Receiver.qml" line="1531"/>
         <source>R</source>
         <translation type="unfinished">Р</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1529"/>
+        <location filename="../qml/Receiver.qml" line="1540"/>
         <source>Filter width</source>
         <translation type="unfinished">Ширина фільтра</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1555"/>
+        <location filename="../qml/Receiver.qml" line="1566"/>
         <source>NB</source>
         <translation>NB</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1603"/>
+        <location filename="../qml/Receiver.qml" line="1614"/>
         <source>NR</source>
         <translation>NR</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1657"/>
+        <location filename="../qml/Receiver.qml" line="1668"/>
         <source>IP+</source>
         <translation>IP+</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1670"/>
+        <location filename="../qml/Receiver.qml" line="1681"/>
         <source>MN</source>
         <translation>MN</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1683"/>
+        <location filename="../qml/Receiver.qml" line="1694"/>
         <source>DS</source>
         <translation>DS</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1695"/>
+        <location filename="../qml/Receiver.qml" line="1706"/>
         <source>RF Gain</source>
         <translation type="unfinished">Підсилення RF</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1722"/>
+        <location filename="../qml/Receiver.qml" line="1733"/>
         <source>AF Gain</source>
         <translation type="unfinished">Підсилення AF</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1749"/>
+        <location filename="../qml/Receiver.qml" line="1760"/>
         <source>Squelch</source>
         <translation type="unfinished">Шум</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1777"/>
+        <location filename="../qml/Receiver.qml" line="1788"/>
         <source>Attenuator</source>
         <translation type="unfinished">Атенюатор</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1975"/>
+        <location filename="../qml/Receiver.qml" line="1986"/>
         <source>Preamp</source>
         <translation type="unfinished">Передпідсилювач</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2170"/>
+        <location filename="../qml/Receiver.qml" line="2181"/>
         <source>AGC</source>
         <translation>AGC</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2240"/>
+        <location filename="../qml/Receiver.qml" line="2251"/>
         <source>RX</source>
         <translation>RX</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2261"/>
+        <location filename="../qml/Receiver.qml" line="2272"/>
         <source>Scope enabled</source>
         <translation type="unfinished">Область увімкнено</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2324"/>
+        <location filename="../qml/Receiver.qml" line="2335"/>
         <source>RX Settings</source>
         <translation type="unfinished">Налаштування RX</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2368"/>
+        <location filename="../qml/Receiver.qml" line="2379"/>
         <source>Edge to replace:</source>
         <translation type="unfinished">Край для заміни:</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2389"/>
+        <location filename="../qml/Receiver.qml" line="2400"/>
         <source>Custom Fixed Edge</source>
         <translation type="unfinished">Фіксований край на замовлення</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2409"/>
+        <location filename="../qml/Receiver.qml" line="2420"/>
         <source>Enter both edges in MHz</source>
         <translation type="unfinished">Введіть обидва ребра в MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2411"/>
+        <location filename="../qml/Receiver.qml" line="2422"/>
         <source>End must be above start</source>
         <translation type="unfinished">Кінець має бути вище початку</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2413"/>
+        <location filename="../qml/Receiver.qml" line="2424"/>
         <source>Start is below %1 MHz</source>
         <translation type="unfinished">Початок нижче %1 MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2415"/>
+        <location filename="../qml/Receiver.qml" line="2426"/>
         <source>End is above %1 MHz</source>
         <translation type="unfinished">Кінець вище %1 MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2419"/>
+        <location filename="../qml/Receiver.qml" line="2430"/>
         <source>Span must be at least %1 kHz</source>
         <translation type="unfinished">Діапазон має бути щонайменше %1 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2421"/>
+        <location filename="../qml/Receiver.qml" line="2432"/>
         <source>Span must be at most %1 kHz</source>
         <translation type="unfinished">Діапазон має бути не більше %1 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2464"/>
+        <location filename="../qml/Receiver.qml" line="2475"/>
         <source>Start frequency (MHz):</source>
         <translation type="unfinished">Початкова частота (MHz):</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2477"/>
+        <location filename="../qml/Receiver.qml" line="2488"/>
         <source>End frequency (MHz):</source>
         <translation type="unfinished">Кінцева частота (MHz):</translation>
     </message>
@@ -3230,472 +3239,477 @@ Locations searched:
         <translation type="unfinished">Скасувати</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="656"/>
+        <location filename="../qml/RigCreator.qml" line="673"/>
         <source>Copy</source>
         <translation type="unfinished">Копіювати</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="661"/>
+        <location filename="../qml/RigCreator.qml" line="678"/>
         <source>Paste</source>
         <translation type="unfinished">Вставити</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="668"/>
+        <location filename="../qml/RigCreator.qml" line="685"/>
         <source>Add row</source>
         <translation type="unfinished">Додати рядок</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="673"/>
+        <location filename="../qml/RigCreator.qml" line="690"/>
         <source>Delete row</source>
         <translation type="unfinished">Видалити рядок</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1118"/>
+        <location filename="../qml/RigCreator.qml" line="1156"/>
         <source>Search commands</source>
         <translation type="unfinished">Команди пошуку</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1261"/>
+        <location filename="../qml/RigCreator.qml" line="1299"/>
         <source>All modes</source>
         <translation type="unfinished">Усі режими</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1294"/>
+        <location filename="../qml/RigCreator.qml" line="1332"/>
         <source>Empty means all modes</source>
         <translation type="unfinished">Пусто означає всі режими</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1336"/>
+        <location filename="../qml/RigCreator.qml" line="1374"/>
         <source>Clear</source>
         <translation type="unfinished">Очистити</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1346"/>
+        <location filename="../qml/RigCreator.qml" line="1384"/>
         <source>Done</source>
         <translation type="unfinished">Готово</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1501"/>
+        <location filename="../qml/RigCreator.qml" line="1539"/>
         <source>Load File</source>
         <translation type="unfinished">Завантажити файл</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1502"/>
+        <location filename="../qml/RigCreator.qml" line="1540"/>
         <source>Save File</source>
         <translation type="unfinished">Зберегти файл</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1506"/>
+        <location filename="../qml/RigCreator.qml" line="1544"/>
         <source>Default Rigs</source>
         <translation type="unfinished">Ріги за замовчуванням</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1508"/>
+        <location filename="../qml/RigCreator.qml" line="1546"/>
         <source>Manufacturer</source>
         <translation type="unfinished">Виробник</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1514"/>
+        <location filename="../qml/RigCreator.qml" line="1552"/>
         <source>Icom</source>
         <translation>Icom</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1515"/>
+        <location filename="../qml/RigCreator.qml" line="1553"/>
         <source>Kenwood</source>
         <translation>Kenwood</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1516"/>
+        <location filename="../qml/RigCreator.qml" line="1554"/>
         <source>Yaesu</source>
         <translation>Yaesu</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1548"/>
+        <location filename="../qml/RigCreator.qml" line="1586"/>
         <source>Model</source>
         <translation type="unfinished">Модель</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1556"/>
+        <location filename="../qml/RigCreator.qml" line="1594"/>
         <source>C-IV Address</source>
         <translation type="unfinished">Адреса C-IV</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1565"/>
+        <location filename="../qml/RigCreator.qml" line="1603"/>
         <source>RigCtlD Model</source>
         <translation type="unfinished">Модель RigCtlD</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1611"/>
+        <location filename="../qml/RigCreator.qml" line="1649"/>
         <source>Inputs</source>
         <translation type="unfinished">Входи</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1615"/>
-        <location filename="../qml/RigCreator.qml" line="1633"/>
-        <location filename="../qml/RigCreator.qml" line="1651"/>
-        <location filename="../qml/RigCreator.qml" line="1668"/>
-        <location filename="../qml/RigCreator.qml" line="1716"/>
-        <location filename="../qml/RigCreator.qml" line="1743"/>
-        <location filename="../qml/RigCreator.qml" line="1786"/>
-        <location filename="../qml/RigCreator.qml" line="1800"/>
-        <location filename="../qml/RigCreator.qml" line="1814"/>
-        <location filename="../qml/RigCreator.qml" line="1828"/>
-        <location filename="../qml/RigCreator.qml" line="1842"/>
-        <location filename="../qml/RigCreator.qml" line="1856"/>
-        <location filename="../qml/RigCreator.qml" line="1920"/>
+        <location filename="../qml/RigCreator.qml" line="1653"/>
+        <location filename="../qml/RigCreator.qml" line="1671"/>
+        <location filename="../qml/RigCreator.qml" line="1689"/>
+        <location filename="../qml/RigCreator.qml" line="1706"/>
+        <location filename="../qml/RigCreator.qml" line="1756"/>
+        <location filename="../qml/RigCreator.qml" line="1783"/>
+        <location filename="../qml/RigCreator.qml" line="1826"/>
+        <location filename="../qml/RigCreator.qml" line="1840"/>
+        <location filename="../qml/RigCreator.qml" line="1854"/>
+        <location filename="../qml/RigCreator.qml" line="1868"/>
+        <location filename="../qml/RigCreator.qml" line="1882"/>
+        <location filename="../qml/RigCreator.qml" line="1896"/>
+        <location filename="../qml/RigCreator.qml" line="1960"/>
         <source>Num</source>
         <translation type="unfinished">Число</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1616"/>
-        <location filename="../qml/RigCreator.qml" line="1669"/>
-        <location filename="../qml/RigCreator.qml" line="1873"/>
-        <location filename="../qml/RigCreator.qml" line="1887"/>
+        <location filename="../qml/RigCreator.qml" line="1654"/>
+        <location filename="../qml/RigCreator.qml" line="1707"/>
+        <location filename="../qml/RigCreator.qml" line="1913"/>
+        <location filename="../qml/RigCreator.qml" line="1927"/>
         <source>Reg</source>
         <translation type="unfinished">Рег</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1617"/>
-        <location filename="../qml/RigCreator.qml" line="1634"/>
+        <location filename="../qml/RigCreator.qml" line="1655"/>
         <location filename="../qml/RigCreator.qml" line="1672"/>
-        <location filename="../qml/RigCreator.qml" line="1722"/>
-        <location filename="../qml/RigCreator.qml" line="1744"/>
-        <location filename="../qml/RigCreator.qml" line="1786"/>
-        <location filename="../qml/RigCreator.qml" line="1800"/>
-        <location filename="../qml/RigCreator.qml" line="1814"/>
-        <location filename="../qml/RigCreator.qml" line="1828"/>
-        <location filename="../qml/RigCreator.qml" line="1842"/>
-        <location filename="../qml/RigCreator.qml" line="1856"/>
-        <location filename="../qml/RigCreator.qml" line="1920"/>
+        <location filename="../qml/RigCreator.qml" line="1710"/>
+        <location filename="../qml/RigCreator.qml" line="1762"/>
+        <location filename="../qml/RigCreator.qml" line="1784"/>
+        <location filename="../qml/RigCreator.qml" line="1826"/>
+        <location filename="../qml/RigCreator.qml" line="1840"/>
+        <location filename="../qml/RigCreator.qml" line="1854"/>
+        <location filename="../qml/RigCreator.qml" line="1868"/>
+        <location filename="../qml/RigCreator.qml" line="1882"/>
+        <location filename="../qml/RigCreator.qml" line="1896"/>
+        <location filename="../qml/RigCreator.qml" line="1960"/>
         <source>Name</source>
         <translation type="unfinished">Ім&apos;я</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1629"/>
+        <location filename="../qml/RigCreator.qml" line="1667"/>
         <source>Scope Modes</source>
         <translation type="unfinished">Режими осцилографа</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1646"/>
+        <location filename="../qml/RigCreator.qml" line="1684"/>
         <source>Widths</source>
         <translation type="unfinished">Ширина</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1650"/>
-        <location filename="../qml/RigCreator.qml" line="1711"/>
+        <location filename="../qml/RigCreator.qml" line="1688"/>
+        <location filename="../qml/RigCreator.qml" line="1751"/>
         <source>Bands</source>
         <translation type="unfinished">Гурти</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1652"/>
-        <location filename="../qml/RigCreator.qml" line="1745"/>
+        <location filename="../qml/RigCreator.qml" line="1690"/>
+        <location filename="../qml/RigCreator.qml" line="1785"/>
         <source>Hz</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1664"/>
-        <location filename="../qml/RigCreator.qml" line="1771"/>
-        <location filename="../qml/RigCreator.qml" line="1814"/>
+        <location filename="../qml/RigCreator.qml" line="1702"/>
+        <location filename="../qml/RigCreator.qml" line="1811"/>
+        <location filename="../qml/RigCreator.qml" line="1854"/>
         <source>Modes</source>
         <translation type="unfinished">Режими</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1670"/>
-        <location filename="../qml/RigCreator.qml" line="1692"/>
+        <location filename="../qml/RigCreator.qml" line="1708"/>
+        <location filename="../qml/RigCreator.qml" line="1730"/>
         <source>Min</source>
         <translation type="unfinished">Хв</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1671"/>
-        <location filename="../qml/RigCreator.qml" line="1693"/>
+        <location filename="../qml/RigCreator.qml" line="1709"/>
+        <location filename="../qml/RigCreator.qml" line="1731"/>
         <source>Max</source>
         <translation type="unfinished">Макс</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1686"/>
+        <location filename="../qml/RigCreator.qml" line="1724"/>
         <source>Commands</source>
         <translation type="unfinished">Команди</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1690"/>
+        <location filename="../qml/RigCreator.qml" line="1728"/>
         <source>Type</source>
         <translation type="unfinished">Тип</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1691"/>
-        <location filename="../qml/RigCreator.qml" line="1769"/>
+        <location filename="../qml/RigCreator.qml" line="1729"/>
+        <location filename="../qml/RigCreator.qml" line="1809"/>
         <source>Command</source>
         <translation type="unfinished">Команда</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1694"/>
-        <location filename="../qml/RigCreator.qml" line="1723"/>
+        <location filename="../qml/RigCreator.qml" line="1732"/>
+        <location filename="../qml/RigCreator.qml" line="1763"/>
         <source>Bytes</source>
         <translation type="unfinished">Байти</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1695"/>
+        <location filename="../qml/RigCreator.qml" line="1733"/>
         <source>PadR</source>
         <translation type="unfinished">PadR</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1696"/>
+        <location filename="../qml/RigCreator.qml" line="1734"/>
         <source>Cmd29</source>
         <translation type="unfinished">Команда29</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1697"/>
+        <location filename="../qml/RigCreator.qml" line="1735"/>
         <source>Get</source>
         <translation type="unfinished">Отримати</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1698"/>
+        <location filename="../qml/RigCreator.qml" line="1736"/>
         <source>Set</source>
         <translation type="unfinished">Набір</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1699"/>
+        <location filename="../qml/RigCreator.qml" line="1737"/>
         <source>Admin</source>
         <translation type="unfinished">Адміністратор</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1715"/>
+        <location filename="../qml/RigCreator.qml" line="1738"/>
+        <source>Get w/o Sub Cmd</source>
+        <translation type="unfinished">Отримати без підкоманди</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="1755"/>
         <source>Region</source>
         <translation type="unfinished">Регіон</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1717"/>
+        <location filename="../qml/RigCreator.qml" line="1757"/>
         <source>BSR</source>
         <translation>BSR</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1718"/>
-        <location filename="../qml/RigCreator.qml" line="1998"/>
+        <location filename="../qml/RigCreator.qml" line="1758"/>
+        <location filename="../qml/RigCreator.qml" line="2038"/>
         <source>Start</source>
         <translation type="unfinished">Початок</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1719"/>
+        <location filename="../qml/RigCreator.qml" line="1759"/>
         <source>End</source>
         <translation type="unfinished">Кінець</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1720"/>
+        <location filename="../qml/RigCreator.qml" line="1760"/>
         <source>Range</source>
         <translation type="unfinished">Діапазон</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1721"/>
+        <location filename="../qml/RigCreator.qml" line="1761"/>
         <source>MemGrp</source>
         <translation type="unfinished">Група пам&apos;яті</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1724"/>
+        <location filename="../qml/RigCreator.qml" line="1764"/>
         <source>Power</source>
         <translation type="unfinished">Потужність</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1725"/>
+        <location filename="../qml/RigCreator.qml" line="1765"/>
         <source>Ant</source>
         <translation type="unfinished">Мураха</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1726"/>
+        <location filename="../qml/RigCreator.qml" line="1766"/>
         <source>Offset</source>
         <translation type="unfinished">Зсув</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1727"/>
+        <location filename="../qml/RigCreator.qml" line="1767"/>
         <source>Color</source>
         <translation type="unfinished">Колір</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1739"/>
+        <location filename="../qml/RigCreator.qml" line="1779"/>
         <source>Tuning Steps</source>
         <translation type="unfinished">Кроки налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1757"/>
+        <location filename="../qml/RigCreator.qml" line="1797"/>
         <source>Periodic Commands</source>
         <translation type="unfinished">Періодичні команди</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1761"/>
+        <location filename="../qml/RigCreator.qml" line="1801"/>
         <source>Priority</source>
         <translation type="unfinished">Пріоритет</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1762"/>
+        <location filename="../qml/RigCreator.qml" line="1802"/>
         <source>Highest</source>
         <translation type="unfinished">Найвищий</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1763"/>
+        <location filename="../qml/RigCreator.qml" line="1803"/>
         <source>High</source>
         <translation type="unfinished">Високий</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1764"/>
+        <location filename="../qml/RigCreator.qml" line="1804"/>
         <source>Medium High</source>
         <translation type="unfinished">Середній Високий</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1765"/>
+        <location filename="../qml/RigCreator.qml" line="1805"/>
         <source>Medium</source>
         <translation type="unfinished">Середній</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1766"/>
+        <location filename="../qml/RigCreator.qml" line="1806"/>
         <source>Medium Low</source>
         <translation type="unfinished">Середній Низький</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1767"/>
+        <location filename="../qml/RigCreator.qml" line="1807"/>
         <source>Low</source>
         <translation type="unfinished">Низький</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1770"/>
+        <location filename="../qml/RigCreator.qml" line="1810"/>
         <source>VFO</source>
         <translation>VFO</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1783"/>
+        <location filename="../qml/RigCreator.qml" line="1823"/>
         <source>Antennas</source>
         <translation type="unfinished">Антени</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1797"/>
+        <location filename="../qml/RigCreator.qml" line="1837"/>
         <source>Attenuators</source>
         <translation type="unfinished">Атенюатори</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1811"/>
+        <location filename="../qml/RigCreator.qml" line="1851"/>
         <source>Filters</source>
         <translation type="unfinished">Фільтри</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1825"/>
+        <location filename="../qml/RigCreator.qml" line="1865"/>
         <source>Spans</source>
         <translation type="unfinished">Прольоти</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1828"/>
+        <location filename="../qml/RigCreator.qml" line="1868"/>
         <source>Freq</source>
         <translation type="unfinished">Частота</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1839"/>
+        <location filename="../qml/RigCreator.qml" line="1879"/>
         <source>Preamps</source>
         <translation type="unfinished">Передпідсилювачі</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1853"/>
+        <location filename="../qml/RigCreator.qml" line="1893"/>
         <source>AGC</source>
         <translation>AGC</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1857"/>
+        <location filename="../qml/RigCreator.qml" line="1897"/>
         <source>SetOnly</source>
         <translation type="unfinished">Тільки встановити</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1858"/>
+        <location filename="../qml/RigCreator.qml" line="1898"/>
         <source>ReadOnly</source>
         <translation type="unfinished">Тільки для читання</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1869"/>
+        <location filename="../qml/RigCreator.qml" line="1909"/>
         <source>CTCSS</source>
         <translation>CTCSS</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1873"/>
+        <location filename="../qml/RigCreator.qml" line="1913"/>
         <source>Tone</source>
         <translation type="unfinished">Тон</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1884"/>
+        <location filename="../qml/RigCreator.qml" line="1924"/>
         <source>DTCS</source>
         <translation>DTCS</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1898"/>
+        <location filename="../qml/RigCreator.qml" line="1938"/>
         <source>Meters</source>
         <translation type="unfinished">Метри</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1902"/>
+        <location filename="../qml/RigCreator.qml" line="1942"/>
         <source>Meter</source>
         <translation type="unfinished">Метр</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1903"/>
+        <location filename="../qml/RigCreator.qml" line="1943"/>
         <source>Rig</source>
         <translation type="unfinished">Ріг</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1904"/>
+        <location filename="../qml/RigCreator.qml" line="1944"/>
         <source>Act</source>
         <translation type="unfinished">Закон</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1905"/>
+        <location filename="../qml/RigCreator.qml" line="1945"/>
         <source>Red</source>
         <translation type="unfinished">Червоний</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1917"/>
+        <location filename="../qml/RigCreator.qml" line="1957"/>
         <source>Roofing</source>
         <translation type="unfinished">Покрівля</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1941"/>
+        <location filename="../qml/RigCreator.qml" line="1981"/>
         <source>Features</source>
         <translation type="unfinished">Особливості</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1945"/>
+        <location filename="../qml/RigCreator.qml" line="1985"/>
         <source>Has Spectrum</source>
         <translation type="unfinished">Має спектр</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1946"/>
+        <location filename="../qml/RigCreator.qml" line="1986"/>
         <source>Has LAN</source>
         <translation type="unfinished">Має LAN</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1947"/>
+        <location filename="../qml/RigCreator.qml" line="1987"/>
         <source>Has Ethernet</source>
         <translation type="unfinished">Має Ethernet</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1948"/>
+        <location filename="../qml/RigCreator.qml" line="1988"/>
         <source>Has WiFi</source>
         <translation type="unfinished">Є Wi-Fi</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1949"/>
+        <location filename="../qml/RigCreator.qml" line="1989"/>
         <source>Has Transmit</source>
         <translation type="unfinished">Має передачу</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1950"/>
+        <location filename="../qml/RigCreator.qml" line="1990"/>
         <source>Has FD Comms</source>
         <translation type="unfinished">Має FD Comms</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1951"/>
+        <location filename="../qml/RigCreator.qml" line="1991"/>
         <source>Has Cmd 29</source>
         <translation type="unfinished">Має команду 29</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1953"/>
+        <location filename="../qml/RigCreator.qml" line="1993"/>
         <source>Absolute VFO Freq</source>
         <translation type="unfinished">Абсолютна частота VFO</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1958"/>
+        <location filename="../qml/RigCreator.qml" line="1998"/>
         <source>Enable when the Selected Freq and Unselected Freq commands always address VFO A and VFO B (for example Kenwood FA/FB), rather than the active and inactive VFO.
 When VFO B is selected, wfview then sends tuning to the Unselected Freq command and shows its replies as the active frequency.
 Leave off when the radio&apos;s frequency commands follow the active VFO (for example Icom 0x25).</source>
@@ -3704,77 +3718,77 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
 Вимкніть, коли команди частоти радіостанції відповідають активному VFO (наприклад, Icom 0x25).</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1971"/>
+        <location filename="../qml/RigCreator.qml" line="2011"/>
         <source>Spectrum</source>
         <translation type="unfinished">Спектр</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1977"/>
+        <location filename="../qml/RigCreator.qml" line="2017"/>
         <source>Num RX</source>
         <translation type="unfinished">Номер RX</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1978"/>
+        <location filename="../qml/RigCreator.qml" line="2018"/>
         <source>VFO/RX</source>
         <translation>VFO/RX</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1979"/>
+        <location filename="../qml/RigCreator.qml" line="2019"/>
         <source>Seq Max</source>
         <translation type="unfinished">Макс. послідовність</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1980"/>
+        <location filename="../qml/RigCreator.qml" line="2020"/>
         <source>Amp Max</source>
         <translation type="unfinished">Макс. підсилювач</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1981"/>
+        <location filename="../qml/RigCreator.qml" line="2021"/>
         <source>Len Max</source>
         <translation type="unfinished">Лен Макс</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1982"/>
+        <location filename="../qml/RigCreator.qml" line="2022"/>
         <source>dB per DN</source>
         <translation type="unfinished">dB на DN</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1989"/>
+        <location filename="../qml/RigCreator.qml" line="2029"/>
         <source>Memories</source>
         <translation type="unfinished">Спогади</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1995"/>
+        <location filename="../qml/RigCreator.qml" line="2035"/>
         <source>Grp</source>
         <translation type="unfinished">ВРП</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1996"/>
+        <location filename="../qml/RigCreator.qml" line="2036"/>
         <source>Mem</source>
         <translation type="unfinished">Мем</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1997"/>
+        <location filename="../qml/RigCreator.qml" line="2037"/>
         <source>Sat</source>
         <translation type="unfinished">Субота</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2016"/>
+        <location filename="../qml/RigCreator.qml" line="2056"/>
         <source>Main Memory Format</source>
         <translation type="unfinished">Формат основної пам&apos;яті</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2022"/>
+        <location filename="../qml/RigCreator.qml" line="2062"/>
         <source>See your QWidget tooltip text (keep it in docs/help).</source>
         <translation type="unfinished">Перегляньте текст підказки QWidget (зберігайте його в документації/довідці).</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2028"/>
+        <location filename="../qml/RigCreator.qml" line="2068"/>
         <source>Satellite Memory Format</source>
         <translation type="unfinished">Формат пам&apos;яті супутників</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2043"/>
+        <location filename="../qml/RigCreator.qml" line="2083"/>
         <source>Close</source>
         <translation type="unfinished">Закрити</translation>
     </message>
@@ -3979,186 +3993,186 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="134"/>
-        <location filename="../qml/Settings.qml" line="158"/>
+        <location filename="../qml/Settings.qml" line="206"/>
         <source>%1 (not found)</source>
         <translation type="unfinished">%1 (не знайдено)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="154"/>
+        <location filename="../qml/Settings.qml" line="202"/>
         <source>(no port selected)</source>
         <translation type="unfinished">(порт не вибрано)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="311"/>
+        <location filename="../qml/Settings.qml" line="359"/>
         <source>Spectrum line</source>
         <translation type="unfinished">Лінія спектру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="390"/>
+        <location filename="../qml/Settings.qml" line="438"/>
         <source>#AARRGGBB</source>
         <translation>#AARRGGBB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="428"/>
+        <location filename="../qml/Settings.qml" line="476"/>
         <source>Select </source>
         <translation type="unfinished">Виберіть </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="555"/>
+        <location filename="../qml/Settings.qml" line="603"/>
         <source>No macros defined</source>
         <translation type="unfinished">Макроси не визначено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="556"/>
+        <location filename="../qml/Settings.qml" line="604"/>
         <source>Select a macro</source>
         <translation type="unfinished">Виберіть макрос</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="630"/>
+        <location filename="../qml/Settings.qml" line="678"/>
         <source>Radio Access</source>
         <translation type="unfinished">Доступ до радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="631"/>
+        <location filename="../qml/Settings.qml" line="679"/>
         <source>User Interface</source>
         <translation type="unfinished">Інтерфейс користувача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="632"/>
+        <location filename="../qml/Settings.qml" line="680"/>
         <source>UI Colors</source>
         <translation type="unfinished">Кольори UI</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="633"/>
+        <location filename="../qml/Settings.qml" line="681"/>
         <source>Radio Settings</source>
         <translation type="unfinished">Налаштування радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="634"/>
+        <location filename="../qml/Settings.qml" line="682"/>
         <source>Radio Server</source>
         <translation type="unfinished">Радіосервер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="635"/>
+        <location filename="../qml/Settings.qml" line="683"/>
         <source>External Control</source>
         <translation type="unfinished">Зовнішній контроль</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="636"/>
+        <location filename="../qml/Settings.qml" line="684"/>
         <source>Controllers</source>
         <translation type="unfinished">Контролери</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="637"/>
+        <location filename="../qml/Settings.qml" line="685"/>
         <source>DX Cluster</source>
         <translation type="unfinished">DX кластер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="638"/>
+        <location filename="../qml/Settings.qml" line="686"/>
         <source>Shortcuts</source>
         <translation type="unfinished">Скорочення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="639"/>
-        <location filename="../qml/Settings.qml" line="3834"/>
+        <location filename="../qml/Settings.qml" line="687"/>
+        <location filename="../qml/Settings.qml" line="3862"/>
         <source>Macros</source>
         <translation type="unfinished">Макроси</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="640"/>
+        <location filename="../qml/Settings.qml" line="688"/>
         <source>Experimental</source>
         <translation type="unfinished">Експериментальний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="682"/>
+        <location filename="../qml/Settings.qml" line="730"/>
         <source>Radio</source>
         <translation type="unfinished">Радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="732"/>
+        <location filename="../qml/Settings.qml" line="780"/>
         <source>Move the selected radio profile up.</source>
         <translation type="unfinished">Перемістити вибраний радіопрофіль вгору.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="745"/>
+        <location filename="../qml/Settings.qml" line="793"/>
         <source>Move the selected radio profile down.</source>
         <translation type="unfinished">Перемістити вибраний радіопрофіль вниз.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="758"/>
+        <location filename="../qml/Settings.qml" line="806"/>
         <source>Update</source>
         <translation type="unfinished">Оновлення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="761"/>
+        <location filename="../qml/Settings.qml" line="809"/>
         <source>Store the current radio settings in the selected radio profile.</source>
         <translation type="unfinished">Збережіть поточні налаштування радіо у вибраному профілі радіо.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="766"/>
-        <location filename="../qml/Settings.qml" line="2785"/>
-        <location filename="../qml/Settings.qml" line="3222"/>
+        <location filename="../qml/Settings.qml" line="814"/>
+        <location filename="../qml/Settings.qml" line="2813"/>
+        <location filename="../qml/Settings.qml" line="3250"/>
         <source>Add</source>
         <translation type="unfinished">Додати</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="768"/>
+        <location filename="../qml/Settings.qml" line="816"/>
         <source>Create a new radio profile from the current radio settings.</source>
         <translation type="unfinished">Створіть новий профіль радіо з поточних налаштувань радіо.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="773"/>
-        <location filename="../qml/Settings.qml" line="3894"/>
+        <location filename="../qml/Settings.qml" line="821"/>
+        <location filename="../qml/Settings.qml" line="3922"/>
         <source>Delete</source>
         <translation type="unfinished">Видалити</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="776"/>
+        <location filename="../qml/Settings.qml" line="824"/>
         <source>Delete the selected radio profile.</source>
         <translation type="unfinished">Видалити вибраний радіопрофіль.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="790"/>
+        <location filename="../qml/Settings.qml" line="838"/>
         <source>Radio Connection</source>
         <translation type="unfinished">Радіоз&apos;єднання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="808"/>
+        <location filename="../qml/Settings.qml" line="856"/>
         <source>Icom</source>
         <translation>Icom</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="809"/>
+        <location filename="../qml/Settings.qml" line="857"/>
         <source>Kenwood</source>
         <translation>Kenwood</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="810"/>
+        <location filename="../qml/Settings.qml" line="858"/>
         <source>Yaesu</source>
         <translation>Yaesu</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="818"/>
+        <location filename="../qml/Settings.qml" line="866"/>
         <source>Serial (USB)</source>
         <translation type="unfinished">Послідовний (USB)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="829"/>
+        <location filename="../qml/Settings.qml" line="877"/>
         <source>Network</source>
         <translation type="unfinished">Мережа</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="842"/>
+        <location filename="../qml/Settings.qml" line="890"/>
         <source>CI-V and Model</source>
         <translation type="unfinished">CI-V та модель</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="854"/>
+        <location filename="../qml/Settings.qml" line="902"/>
         <source>Manual Radio CI-V Address:</source>
         <translation type="unfinished">Адреса CI-V для ручного радіо:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="867"/>
+        <location filename="../qml/Settings.qml" line="915"/>
         <source>If you are using an older (year 2010) radio, you may need to enable this option to manually specify the CI-V address. This option is also useful for radios that do not have CI-V Transceive enabled and thus will not answer our broadcast query for connected rigs on the CI-V bus.
 
 If you have a modern radio with CI-V Transceive enabled, you should not need to check this box.
@@ -4171,38 +4185,38 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
 Вам потрібно буде зберегти налаштування та перезапустити wfview , щоб це набуло чинності.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="877"/>
+        <location filename="../qml/Settings.qml" line="925"/>
         <source>Enter the address in hexadecimal, no prefix. Examples: IC-706:58, IC-756:50, IC-7300:94, IC-7100:88, etc. After changing, press Save Settings and re-launch wfview.</source>
         <translation type="unfinished">Введіть адресу у шістнадцятковому форматі, без префікса. Приклади: IC-706 :58, IC-756 :50, IC-7300 :94, IC-7100 :88 тощо. Після зміни натисніть «Зберегти налаштування» та перезапустіть wfview .</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="879"/>
-        <location filename="../qml/Settings.qml" line="889"/>
+        <location filename="../qml/Settings.qml" line="927"/>
+        <location filename="../qml/Settings.qml" line="937"/>
         <source>auto</source>
         <translation type="unfinished">авто</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="898"/>
+        <location filename="../qml/Settings.qml" line="946"/>
         <source>Use CI-V address as Model ID too</source>
         <translation type="unfinished">Використовуйте адресу CI-V також як ID моделі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="901"/>
+        <location filename="../qml/Settings.qml" line="949"/>
         <source>Only check for older radios! Forces wfview to trust the CI-V address is also the model number. Do not check unless you have an older radio.</source>
         <translation type="unfinished">Перевіряйте лише для старіших радіостанцій! Змушує wfview довіряти адресі CI-V , яка також є номером моделі. Не перевіряйте, якщо у вас не старіша радіостанція.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="910"/>
+        <location filename="../qml/Settings.qml" line="958"/>
         <source>Information</source>
         <translation type="unfinished">Інформація</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="921"/>
+        <location filename="../qml/Settings.qml" line="971"/>
         <source>Local audio controls apply to network and USB audio paths. </source>
         <translation type="unfinished">Локальні елементи керування звуком застосовуються до мережевих та USB аудіодоріжок. </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="922"/>
+        <location filename="../qml/Settings.qml" line="972"/>
         <source>If you&apos;re running your own radio server, see the  &quot;Radio Server&quot; page.
 
 </source>
@@ -4211,7 +4225,7 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
 </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="923"/>
+        <location filename="../qml/Settings.qml" line="973"/>
         <source>ONLY use Manual CI-V when Transceive mode is not supported (older radios).
 
 </source>
@@ -4220,1723 +4234,1732 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
 </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="924"/>
+        <location filename="../qml/Settings.qml" line="974"/>
         <source>You MUST disconnect from the radio before making any changes, </source>
         <translation type="unfinished">Ви MUST відключитися від радіо, перш ніж вносити будь-які зміни, </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="925"/>
+        <location filename="../qml/Settings.qml" line="975"/>
         <source>using the Connect/Disconnect button below.</source>
         <translation type="unfinished">за допомогою кнопки Підключитися/Відключитися нижче.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="933"/>
+        <location filename="../qml/Settings.qml" line="983"/>
         <source>Local Audio</source>
         <translation type="unfinished">Локальне аудіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="947"/>
-        <location filename="../qml/Settings.qml" line="2741"/>
+        <location filename="../qml/Settings.qml" line="997"/>
+        <location filename="../qml/Settings.qml" line="2769"/>
         <source>Audio System</source>
         <translation type="unfinished">Аудіосистема</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="954"/>
-        <location filename="../qml/Settings.qml" line="2745"/>
+        <location filename="../qml/Settings.qml" line="1004"/>
+        <location filename="../qml/Settings.qml" line="2773"/>
         <source>Qt Audio</source>
         <translation type="unfinished">Qt Audio</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="955"/>
-        <location filename="../qml/Settings.qml" line="2746"/>
+        <location filename="../qml/Settings.qml" line="1005"/>
+        <location filename="../qml/Settings.qml" line="2774"/>
         <source>PortAudio</source>
         <translation>PortAudio</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="956"/>
-        <location filename="../qml/Settings.qml" line="2747"/>
+        <location filename="../qml/Settings.qml" line="1006"/>
+        <location filename="../qml/Settings.qml" line="2775"/>
         <source>RT Audio</source>
         <translation type="unfinished">RT Audio</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="971"/>
+        <location filename="../qml/Settings.qml" line="1021"/>
         <source>Audio Output</source>
         <translation type="unfinished">Аудіовихід</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="995"/>
+        <location filename="../qml/Settings.qml" line="1033"/>
         <source>Select your computer&apos;s speaker or headphones</source>
         <translation type="unfinished">Виберіть динамік або навушники вашого комп&apos;ютера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="999"/>
+        <location filename="../qml/Settings.qml" line="1037"/>
         <source>Audio Input</source>
         <translation type="unfinished">Аудіовхід</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1021"/>
+        <location filename="../qml/Settings.qml" line="1047"/>
         <source>Select your computer&apos;s microphone</source>
         <translation type="unfinished">Виберіть мікрофон вашого комп&apos;ютера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1026"/>
-        <location filename="../qml/Settings.qml" line="1077"/>
+        <location filename="../qml/Settings.qml" line="1052"/>
+        <location filename="../qml/Settings.qml" line="1103"/>
         <source>Rescan</source>
         <translation type="unfinished">Повторне сканування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1029"/>
+        <location filename="../qml/Settings.qml" line="1055"/>
         <source>Look for audio devices again, for example after plugging one in.</source>
         <translation type="unfinished">Знову пошукайте аудіопристрої, наприклад, після підключення одного з них.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1041"/>
+        <location filename="../qml/Settings.qml" line="1067"/>
         <source>Serial Connected Radios</source>
         <translation type="unfinished">Послідовно підключені радіостанції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1054"/>
+        <location filename="../qml/Settings.qml" line="1080"/>
         <source>Serial Device:</source>
         <translation type="unfinished">Послідовний пристрій:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1080"/>
+        <location filename="../qml/Settings.qml" line="1106"/>
         <source>Look for serial ports again, for example after plugging in a radio.</source>
         <translation type="unfinished">Знову пошукайте послідовні порти, наприклад, після підключення радіо.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1084"/>
+        <location filename="../qml/Settings.qml" line="1110"/>
         <source>Baud Rate</source>
         <translation type="unfinished">Швидкість передачі даних</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1110"/>
+        <location filename="../qml/Settings.qml" line="1136"/>
         <source>PTT Type</source>
         <translation type="unfinished">Тип PTT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1117"/>
-        <location filename="../qml/Settings.qml" line="1285"/>
+        <location filename="../qml/Settings.qml" line="1143"/>
+        <location filename="../qml/Settings.qml" line="1311"/>
         <source>CAT</source>
         <translation>CAT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1117"/>
+        <location filename="../qml/Settings.qml" line="1143"/>
         <source>CI-V</source>
         <translation>CI-V</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1118"/>
+        <location filename="../qml/Settings.qml" line="1144"/>
         <source>RTS</source>
         <translation>RTS</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1119"/>
+        <location filename="../qml/Settings.qml" line="1145"/>
         <source>DTR</source>
         <translation>DTR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1140"/>
+        <location filename="../qml/Settings.qml" line="1166"/>
         <source>USB Audio</source>
         <translation type="unfinished">USB-аудіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1142"/>
+        <location filename="../qml/Settings.qml" line="1168"/>
         <source>Enables USB audio processing and redirect
 for USB radios</source>
         <translation type="unfinished">Дозволяє обробку та перенаправлення аудіо USB
 для USB-радіоприймачів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1147"/>
+        <location filename="../qml/Settings.qml" line="1173"/>
         <source>Radio RX Audio</source>
         <translation type="unfinished">Радіо RX Аудіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1174"/>
+        <location filename="../qml/Settings.qml" line="1200"/>
         <source>Select the USB AUDIO CODEC device for your radio&apos;s receive audio</source>
         <translation type="unfinished">Виберіть пристрій USB AUDIO CODEC для отримання аудіо вашої радіостанції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1178"/>
+        <location filename="../qml/Settings.qml" line="1204"/>
         <source>Radio TX Audio</source>
         <translation type="unfinished">Радіо TX Audio</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1205"/>
+        <location filename="../qml/Settings.qml" line="1231"/>
         <source>Select the USB AUDIO CODEC device for your radio&apos;s transmit audio</source>
         <translation type="unfinished">Виберіть пристрій USB AUDIO CODEC для передачі аудіо вашої радіостанції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1221"/>
+        <location filename="../qml/Settings.qml" line="1247"/>
         <source>Network Connected Radios</source>
         <translation type="unfinished">Мережеві радіостанції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1232"/>
+        <location filename="../qml/Settings.qml" line="1258"/>
         <source>Hostname</source>
         <translation type="unfinished">Ім&apos;я хоста</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1248"/>
-        <location filename="../qml/Settings.qml" line="2637"/>
+        <location filename="../qml/Settings.qml" line="1274"/>
+        <location filename="../qml/Settings.qml" line="2665"/>
         <source>Control Port</source>
         <translation type="unfinished">Порт керування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1266"/>
+        <location filename="../qml/Settings.qml" line="1292"/>
         <source>Connection Type</source>
         <translation type="unfinished">Тип підключення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1274"/>
+        <location filename="../qml/Settings.qml" line="1300"/>
         <source>LAN</source>
         <translation>LAN</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1275"/>
+        <location filename="../qml/Settings.qml" line="1301"/>
         <source>WiFi</source>
         <translation type="unfinished">Wi-Fi</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1276"/>
+        <location filename="../qml/Settings.qml" line="1302"/>
         <source>WAN</source>
         <translation>WAN</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1303"/>
+        <location filename="../qml/Settings.qml" line="1329"/>
         <source>Audio</source>
         <translation type="unfinished">Аудіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1321"/>
+        <location filename="../qml/Settings.qml" line="1347"/>
         <source>Scope</source>
         <translation type="unfinished">Сфера застосування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1346"/>
-        <location filename="../qml/Settings.qml" line="2812"/>
-        <location filename="../qml/Settings.qml" line="3989"/>
+        <location filename="../qml/Settings.qml" line="1372"/>
+        <location filename="../qml/Settings.qml" line="2840"/>
+        <location filename="../qml/Settings.qml" line="4017"/>
         <source>Username</source>
         <translation type="unfinished">Ім&apos;я користувача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1363"/>
-        <location filename="../qml/Settings.qml" line="2813"/>
-        <location filename="../qml/Settings.qml" line="3273"/>
-        <location filename="../qml/Settings.qml" line="3999"/>
+        <location filename="../qml/Settings.qml" line="1389"/>
+        <location filename="../qml/Settings.qml" line="2841"/>
+        <location filename="../qml/Settings.qml" line="3301"/>
+        <location filename="../qml/Settings.qml" line="4027"/>
         <source>Password</source>
         <translation type="unfinished">Пароль</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1384"/>
+        <location filename="../qml/Settings.qml" line="1410"/>
         <source>Admin Login</source>
         <translation type="unfinished">Вхід адміністратора</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1399"/>
+        <location filename="../qml/Settings.qml" line="1425"/>
         <source>RX Codec</source>
         <translation type="unfinished">RX кодек</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1406"/>
-        <location filename="../qml/Settings.qml" line="1430"/>
+        <location filename="../qml/Settings.qml" line="1432"/>
+        <location filename="../qml/Settings.qml" line="1456"/>
         <source>LPCM 1ch 16bit</source>
         <translation type="unfinished">LPCM 1-канальний 16-бітний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1407"/>
-        <location filename="../qml/Settings.qml" line="1431"/>
+        <location filename="../qml/Settings.qml" line="1433"/>
+        <location filename="../qml/Settings.qml" line="1457"/>
         <source>PCM 1ch 8bit</source>
         <translation type="unfinished">PCM 1-канальний 8-бітний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1408"/>
-        <location filename="../qml/Settings.qml" line="1432"/>
+        <location filename="../qml/Settings.qml" line="1434"/>
+        <location filename="../qml/Settings.qml" line="1458"/>
         <source>uLaw 1ch 8bit</source>
         <translation type="unfinished">uLaw 1ch 8bit</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1409"/>
+        <location filename="../qml/Settings.qml" line="1435"/>
         <source>LPCM 2ch 16bit</source>
         <translation type="unfinished">LPCM 2-канальний 16-бітний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1410"/>
+        <location filename="../qml/Settings.qml" line="1436"/>
         <source>uLaw 2ch 8bit</source>
         <translation type="unfinished">uLaw 2-канальний 8-бітний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1411"/>
+        <location filename="../qml/Settings.qml" line="1437"/>
         <source>PCM 2ch 8bit</source>
         <translation type="unfinished">PCM 2-канальний 8-бітний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1412"/>
-        <location filename="../qml/Settings.qml" line="1433"/>
+        <location filename="../qml/Settings.qml" line="1438"/>
+        <location filename="../qml/Settings.qml" line="1459"/>
         <source>Opus 1ch</source>
         <translation type="unfinished">Opus 1-й гл</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1413"/>
+        <location filename="../qml/Settings.qml" line="1439"/>
         <source>Opus 2ch</source>
         <translation type="unfinished">Opus 2-й канал</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1414"/>
-        <location filename="../qml/Settings.qml" line="1434"/>
+        <location filename="../qml/Settings.qml" line="1440"/>
+        <location filename="../qml/Settings.qml" line="1460"/>
         <source>ADPCM 1ch</source>
         <translation type="unfinished">ADPCM 1-канальний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1423"/>
+        <location filename="../qml/Settings.qml" line="1449"/>
         <source>TX Codec</source>
         <translation type="unfinished">Кодек TX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1444"/>
+        <location filename="../qml/Settings.qml" line="1470"/>
         <source>Sample Rate</source>
         <translation type="unfinished">Частота дискретизації</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1457"/>
+        <location filename="../qml/Settings.qml" line="1483"/>
         <source>48 kHz</source>
         <translation>48 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1458"/>
+        <location filename="../qml/Settings.qml" line="1484"/>
         <source>24 kHz</source>
         <translation>24 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1459"/>
+        <location filename="../qml/Settings.qml" line="1485"/>
         <source>16 kHz</source>
         <translation>16 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1460"/>
+        <location filename="../qml/Settings.qml" line="1486"/>
         <source>8 kHz</source>
         <translation>8 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1464"/>
+        <location filename="../qml/Settings.qml" line="1490"/>
         <source>Duplex</source>
         <translation type="unfinished">Дуплекс</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1470"/>
+        <location filename="../qml/Settings.qml" line="1496"/>
         <source>Full Duplex</source>
         <translation type="unfinished">Повний дуплекс</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1471"/>
+        <location filename="../qml/Settings.qml" line="1497"/>
         <source>Half Duplex</source>
         <translation type="unfinished">Напівдуплекс</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1491"/>
+        <location filename="../qml/Settings.qml" line="1517"/>
         <source>Network latency settings</source>
         <translation type="unfinished">Налаштування затримки мережі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1501"/>
+        <location filename="../qml/Settings.qml" line="1527"/>
         <source>RX Latency (ms)</source>
         <translation type="unfinished">Затримка RX (ms)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1515"/>
+        <location filename="../qml/Settings.qml" line="1541"/>
         <source>TX Latency (ms)</source>
         <translation type="unfinished">Затримка TX (ms)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1550"/>
+        <location filename="../qml/Settings.qml" line="1576"/>
         <source>Waterfall and Spectrum</source>
         <translation type="unfinished">Водоспад і спектр</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1561"/>
+        <location filename="../qml/Settings.qml" line="1587"/>
         <source>Interpolate Waterfall</source>
         <translation type="unfinished">Інтерполяція водоспаду</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1565"/>
+        <location filename="../qml/Settings.qml" line="1591"/>
         <source>Enables interpolation between pixels. Note that this will increase CPU usage.</source>
         <translation type="unfinished">Вмикає інтерполяцію між пікселями. Зверніть увагу, що це збільшить використання CPU .</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1571"/>
+        <location filename="../qml/Settings.qml" line="1597"/>
         <source>Anti-Alias Waterfall</source>
         <translation type="unfinished">Водоспад Анти-Аліас</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1577"/>
         <source>Allow tuning via click and drag (experimental)</source>
-        <translation type="unfinished">Дозволити налаштування за допомогою клацання та перетягування (експериментально)</translation>
+        <translation type="obsolete">Дозволити налаштування за допомогою клацання та перетягування (експериментально)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1583"/>
+        <location filename="../qml/Settings.qml" line="1603"/>
+        <source>Adjustable Passband</source>
+        <translation type="unfinished">Регульована смуга пропускання</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="1605"/>
+        <source>Allows dragging the passband edges in the spectrum to change the filter width.</source>
+        <translation type="unfinished">Дозволяє перетягувати краї смуги пропускання в спектрі для зміни ширини фільтра.</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="1611"/>
         <source>Underlay Mode</source>
         <translation type="unfinished">Режим підкладки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1592"/>
-        <location filename="../qml/Settings.qml" line="1663"/>
-        <location filename="../qml/Settings.qml" line="1683"/>
-        <location filename="../qml/Settings.qml" line="1810"/>
-        <location filename="../qml/Settings.qml" line="4302"/>
+        <location filename="../qml/Settings.qml" line="1620"/>
+        <location filename="../qml/Settings.qml" line="1691"/>
+        <location filename="../qml/Settings.qml" line="1711"/>
+        <location filename="../qml/Settings.qml" line="1838"/>
+        <location filename="../qml/Settings.qml" line="4330"/>
         <source>None</source>
         <translation type="unfinished">Жоден</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1592"/>
+        <location filename="../qml/Settings.qml" line="1620"/>
         <source>No underlay graphics</source>
         <translation type="unfinished">Без підкладкової графіки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1593"/>
+        <location filename="../qml/Settings.qml" line="1621"/>
         <source>Peak</source>
         <translation type="unfinished">Пік</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1593"/>
+        <location filename="../qml/Settings.qml" line="1621"/>
         <source>Peak hold with configurable decay</source>
         <translation type="unfinished">Утримання піку з налаштованим спадом</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1594"/>
+        <location filename="../qml/Settings.qml" line="1622"/>
         <source>Average</source>
         <translation type="unfinished">Середній</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1594"/>
+        <location filename="../qml/Settings.qml" line="1622"/>
         <source>Average of recent spectrum data</source>
         <translation type="unfinished">Середнє значення останніх спектральних даних</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1597"/>
+        <location filename="../qml/Settings.qml" line="1625"/>
         <source>Peak Lifetime</source>
         <translation type="unfinished">Піковий період життя</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1597"/>
+        <location filename="../qml/Settings.qml" line="1625"/>
         <source>Average Count</source>
         <translation type="unfinished">Середня кількість</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1614"/>
+        <location filename="../qml/Settings.qml" line="1642"/>
         <source>Lower values decay rapidly; Higher values decay slowly. Maximum setting does not decay.</source>
         <translation type="unfinished">Нижчі значення швидко зникають; вищі значення зникають повільно. Максимальне налаштування не зникає.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1615"/>
+        <location filename="../qml/Settings.qml" line="1643"/>
         <source>Number of spectral frames to average (2-160)</source>
         <translation type="unfinished">Кількість спектральних кадрів для усереднення (2-160)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1626"/>
+        <location filename="../qml/Settings.qml" line="1654"/>
         <source>Show band limits</source>
         <translation type="unfinished">Показати обмеження діапазону</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1636"/>
+        <location filename="../qml/Settings.qml" line="1664"/>
         <source>0dB is bottom</source>
         <translation type="unfinished">0 дБ — це нижній рівень</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1640"/>
+        <location filename="../qml/Settings.qml" line="1668"/>
         <source>Label the spectrum amplitude scale with 0 dB at the bottom. When unchecked, 0 dB is the top of the radio&apos;s range and lower values are negative.</source>
         <translation type="unfinished">Позначте шкалу амплітуди спектра внизу значенням 0 dB . Якщо позначка знята, 0 dB – це верхня межа діапазону радіочастот, а нижчі значення – від’ємні.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1648"/>
+        <location filename="../qml/Settings.qml" line="1676"/>
         <source>Metering</source>
         <translation type="unfinished">Вимірювання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1657"/>
+        <location filename="../qml/Settings.qml" line="1685"/>
         <source>Meter Primary / Secondary:</source>
         <translation type="unfinished">Первинний / вторинний лічильник:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1657"/>
+        <location filename="../qml/Settings.qml" line="1685"/>
         <source>Additional Meter Selection:</source>
         <translation type="unfinished">Вибір додаткового лічильника:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1664"/>
-        <location filename="../qml/Settings.qml" line="1684"/>
+        <location filename="../qml/Settings.qml" line="1692"/>
+        <location filename="../qml/Settings.qml" line="1712"/>
         <source>S+Power</source>
         <translation type="unfinished">S+Потужність</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1665"/>
-        <location filename="../qml/Settings.qml" line="1685"/>
+        <location filename="../qml/Settings.qml" line="1693"/>
+        <location filename="../qml/Settings.qml" line="1713"/>
         <source>SWR</source>
         <translation>SWR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1666"/>
-        <location filename="../qml/Settings.qml" line="1686"/>
+        <location filename="../qml/Settings.qml" line="1694"/>
+        <location filename="../qml/Settings.qml" line="1714"/>
         <source>ALC</source>
         <translation>ALC</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1667"/>
-        <location filename="../qml/Settings.qml" line="1687"/>
+        <location filename="../qml/Settings.qml" line="1695"/>
+        <location filename="../qml/Settings.qml" line="1715"/>
         <source>Compression</source>
         <translation type="unfinished">Стиснення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1668"/>
-        <location filename="../qml/Settings.qml" line="1688"/>
+        <location filename="../qml/Settings.qml" line="1696"/>
+        <location filename="../qml/Settings.qml" line="1716"/>
         <source>Voltage</source>
         <translation type="unfinished">Напруга</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1669"/>
-        <location filename="../qml/Settings.qml" line="1689"/>
-        <location filename="../qml/Settings.qml" line="3735"/>
+        <location filename="../qml/Settings.qml" line="1697"/>
+        <location filename="../qml/Settings.qml" line="1717"/>
+        <location filename="../qml/Settings.qml" line="3763"/>
         <source>Current</source>
         <translation type="unfinished">Поточний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1670"/>
-        <location filename="../qml/Settings.qml" line="1690"/>
+        <location filename="../qml/Settings.qml" line="1698"/>
+        <location filename="../qml/Settings.qml" line="1718"/>
         <source>Center</source>
         <translation type="unfinished">Центр</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1671"/>
-        <location filename="../qml/Settings.qml" line="1691"/>
+        <location filename="../qml/Settings.qml" line="1699"/>
+        <location filename="../qml/Settings.qml" line="1719"/>
         <source>Tx/Rx Audio</source>
         <translation type="unfinished">Аудіо передавача/приймача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1672"/>
-        <location filename="../qml/Settings.qml" line="1692"/>
+        <location filename="../qml/Settings.qml" line="1700"/>
+        <location filename="../qml/Settings.qml" line="1720"/>
         <source>Tx Audio</source>
         <translation type="unfinished">Аудіо передавача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1673"/>
-        <location filename="../qml/Settings.qml" line="1693"/>
+        <location filename="../qml/Settings.qml" line="1701"/>
+        <location filename="../qml/Settings.qml" line="1721"/>
         <source>Rx Audio</source>
         <translation type="unfinished">Rx Audio</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1700"/>
+        <location filename="../qml/Settings.qml" line="1728"/>
         <source>Reverse Comp Meter</source>
         <translation type="unfinished">Зворотний компенсатор</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1703"/>
+        <location filename="../qml/Settings.qml" line="1731"/>
         <source>Broadcast-style reduction meter</source>
         <translation type="unfinished">Лічильник скорочення у стилі трансляції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1708"/>
+        <location filename="../qml/Settings.qml" line="1736"/>
         <source>S-Meter on top</source>
         <translation type="unfinished">S-метр зверху</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1712"/>
+        <location filename="../qml/Settings.qml" line="1740"/>
         <source>Show the S-meter in the receiver title bar instead of beside the frequency display</source>
         <translation type="unfinished">Відображати S-метр у рядку заголовка приймача, а не поруч із дисплеєм частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1721"/>
+        <location filename="../qml/Settings.qml" line="1749"/>
         <source>Additional Meters Larger</source>
         <translation type="unfinished">Додаткові метри більшого розміру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1725"/>
+        <location filename="../qml/Settings.qml" line="1753"/>
         <source>Draw the additional meters larger, with a larger font</source>
         <translation type="unfinished">Намалюйте додаткові метри більшим розміром, більшим шрифтом</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1735"/>
+        <location filename="../qml/Settings.qml" line="1763"/>
         <source>Additional meter style:</source>
         <translation type="unfinished">Додатковий стиль лічильника:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1744"/>
+        <location filename="../qml/Settings.qml" line="1772"/>
         <source>Two separate additional meters</source>
         <translation type="unfinished">Два окремих додаткових лічильники</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1745"/>
+        <location filename="../qml/Settings.qml" line="1773"/>
         <source>One vintage meter replaces both additional meters; right-click it to choose what it shows</source>
         <translation type="unfinished">Один старовинний лічильник замінює обидва додаткові лічильники; клацніть його правою кнопкою миші, щоб вибрати, що він показує</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1762"/>
+        <location filename="../qml/Settings.qml" line="1790"/>
         <source>Pop-out meter</source>
         <translation type="unfinished">Висувний лічильник</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1766"/>
+        <location filename="../qml/Settings.qml" line="1794"/>
         <source>Show a meter in its own window; right-click it to choose what it shows</source>
         <translation type="unfinished">Відображати лічильник у окремому вікні; клацніть його правою кнопкою миші, щоб вибрати, що він показує</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1780"/>
+        <location filename="../qml/Settings.qml" line="1808"/>
         <source>Show secondary VFO meter</source>
         <translation type="unfinished">Показати вторинний індикатор VFO</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1786"/>
+        <location filename="../qml/Settings.qml" line="1814"/>
         <source>Add a meter for the second receiver (dual-receiver radios only)</source>
         <translation type="unfinished">Додайте лічильник для другого приймача (лише для радіостанцій з двома приймачами)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1794"/>
+        <location filename="../qml/Settings.qml" line="1822"/>
         <source>Frequency and Region</source>
         <translation type="unfinished">Частота та регіон</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1803"/>
+        <location filename="../qml/Settings.qml" line="1831"/>
         <source>Frequency Display:</source>
         <translation type="unfinished">Відображення частоти:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1804"/>
+        <location filename="../qml/Settings.qml" line="1832"/>
         <source>Units</source>
         <translation type="unfinished">Одиниці</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1811"/>
+        <location filename="../qml/Settings.qml" line="1839"/>
         <source>Hz</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1812"/>
+        <location filename="../qml/Settings.qml" line="1840"/>
         <source>kHz</source>
         <translation>kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1813"/>
+        <location filename="../qml/Settings.qml" line="1841"/>
         <source>MHz</source>
         <translation>MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1814"/>
+        <location filename="../qml/Settings.qml" line="1842"/>
         <source>GHz</source>
         <translation>GHz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1821"/>
+        <location filename="../qml/Settings.qml" line="1849"/>
         <source>Separators:</source>
         <translation type="unfinished">Роздільники:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1822"/>
+        <location filename="../qml/Settings.qml" line="1850"/>
         <source>Decimal</source>
         <translation type="unfinished">Десятковий</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1839"/>
+        <location filename="../qml/Settings.qml" line="1867"/>
         <source>Groups</source>
         <translation type="unfinished">Групи</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1860"/>
+        <location filename="../qml/Settings.qml" line="1888"/>
         <source>Font</source>
         <translation type="unfinished">Шрифт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1865"/>
+        <location filename="../qml/Settings.qml" line="1893"/>
         <source>Custom...</source>
         <translation type="unfinished">Користувацькі...</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1891"/>
+        <location filename="../qml/Settings.qml" line="1919"/>
         <source>Font used for the frequency display. Choose Custom... to pick any installed font.</source>
         <translation type="unfinished">Шрифт, що використовується для відображення частоти. Виберіть «Налаштування...», щоб вибрати будь-який встановлений шрифт.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1897"/>
+        <location filename="../qml/Settings.qml" line="1925"/>
         <source>Select frequency display font</source>
         <translation type="unfinished">Виберіть шрифт відображення частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1909"/>
+        <location filename="../qml/Settings.qml" line="1937"/>
         <source>ITU Region, used to display band limits.</source>
         <translation type="unfinished">Регіон ITU , що використовується для відображення обмежень діапазону.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1910"/>
+        <location filename="../qml/Settings.qml" line="1938"/>
         <source>Region 1 comprises Europe, Africa, the Commonwealth of Independent States, Mongolia, and the Middle East west of the Persian Gulf, including Iraq.</source>
         <translation type="unfinished">Регіон 1 охоплює Європу, Африку, Співдружність Незалежних Держав, Монголію та Близький Схід на захід від Перської затоки, включаючи Ірак.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1911"/>
+        <location filename="../qml/Settings.qml" line="1939"/>
         <source>Region 2 covers the Americas including Greenland, and some of the eastern Pacific Islands.</source>
         <translation type="unfinished">Регіон 2 охоплює Америку, включаючи Гренландію, та деякі східні острови Тихого океану.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1912"/>
+        <location filename="../qml/Settings.qml" line="1940"/>
         <source>Region 3 contains most of non-FSU Asia east of and including Iran, and most of Oceania.</source>
         <translation type="unfinished">Регіон 3 охоплює більшу частину Азії поза межами колишнього Радянського Союзу на схід від Ірану включно, а також більшу частину Океанії.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1913"/>
+        <location filename="../qml/Settings.qml" line="1941"/>
         <source>(Text paraphrased from Wikipedia)</source>
         <translation type="unfinished">(Текст перефразований з Вікіпедії)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1916"/>
+        <location filename="../qml/Settings.qml" line="1944"/>
         <source>Region:</source>
         <translation type="unfinished">Регіон:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1951"/>
+        <location filename="../qml/Settings.qml" line="1979"/>
         <source>Other</source>
         <translation type="unfinished">Інше</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1964"/>
+        <location filename="../qml/Settings.qml" line="1992"/>
         <source>Show full screen (F11)</source>
         <translation type="unfinished">Показати на весь екран (F11)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1971"/>
+        <location filename="../qml/Settings.qml" line="1999"/>
         <source>Digits below tuning step are zero</source>
         <translation type="unfinished">Цифри нижче кроку налаштування дорівнюють нулю</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1975"/>
+        <location filename="../qml/Settings.qml" line="2003"/>
         <source>Auto SSB</source>
         <translation type="unfinished">Авто SSB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1981"/>
+        <location filename="../qml/Settings.qml" line="2009"/>
         <source>When using SSB, automatically switch to the standard sideband for a given band.</source>
         <translation type="unfinished">Під час використання SSB автоматично перемикається на стандартну бічну смугу для заданого діапазону.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1985"/>
+        <location filename="../qml/Settings.qml" line="2013"/>
         <source>Enable PTT Controls</source>
         <translation type="unfinished">Увімкнути керування PTT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1991"/>
+        <location filename="../qml/Settings.qml" line="2019"/>
         <source>Mini RX Buttons</source>
         <translation type="unfinished">Міні-кнопки RX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="1995"/>
+        <location filename="../qml/Settings.qml" line="2023"/>
         <source>Use compact menu buttons to open the Bands and RX Settings panels</source>
         <translation type="unfinished">Використовуйте компактні кнопки меню, щоб відкрити панелі «Діапазон» та «Налаштування RX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2003"/>
+        <location filename="../qml/Settings.qml" line="2031"/>
         <source>Show tuning dial</source>
         <translation type="unfinished">Показати циферблат налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2007"/>
+        <location filename="../qml/Settings.qml" line="2035"/>
         <source>Show the main tuning knob. Uncheck to recover space in the controls area.</source>
         <translation type="unfinished">Показати головну ручку налаштування. Зніміть позначку, щоб звільнити місце в області керування.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2011"/>
+        <location filename="../qml/Settings.qml" line="2039"/>
         <source>Wide RIT slider</source>
         <translation type="unfinished">Широкий слайдер RIT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2015"/>
+        <location filename="../qml/Settings.qml" line="2043"/>
         <source>Replace the RIT knob with a wide, fine-step slider and an exact entry box. Useful for satellite operation.</source>
         <translation type="unfinished">Замініть ручку RIT широким слайдером з точним кроком та точним полем введення. Корисно для роботи сателітного зв&apos;язку.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2019"/>
+        <location filename="../qml/Settings.qml" line="2047"/>
         <source>Always save settings on exit</source>
         <translation type="unfinished">Завжди зберігати налаштування після виходу</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2023"/>
+        <location filename="../qml/Settings.qml" line="2051"/>
         <source>Save changed settings automatically when wfview exits, without asking.</source>
         <translation type="unfinished">Автоматично зберігати змінені налаштування після виходу з wfview , без запиту.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2032"/>
+        <location filename="../qml/Settings.qml" line="2060"/>
         <source>AutoPolling</source>
         <translation type="unfinished">Автоопитування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2036"/>
+        <location filename="../qml/Settings.qml" line="2064"/>
         <source>wfview will automatically calculate command polling. Recommended.</source>
         <translation type="unfinished">wfview автоматично розрахує опитування команд. Рекомендовано.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2041"/>
+        <location filename="../qml/Settings.qml" line="2069"/>
         <source>Manual Polling Interval:</source>
         <translation type="unfinished">Інтервал опитування вручну:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2045"/>
+        <location filename="../qml/Settings.qml" line="2073"/>
         <source>Manual (user-defined) command polling</source>
         <translation type="unfinished">Ручний (визначений користувачем) опитування команд</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2055"/>
+        <location filename="../qml/Settings.qml" line="2083"/>
         <source>Sets the polling interval, in ms. Automatic polling is recommended. Serial/USB radios should not poll quicker than about 75ms.</source>
         <translation type="unfinished">Встановлює інтервал опитування в ms . Рекомендовано автоматичне опитування. Послідовні/ USB радіомодулі не повинні опитуватися швидше, ніж приблизно 75 мс.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2059"/>
+        <location filename="../qml/Settings.qml" line="2087"/>
         <source>ms</source>
         <translation>ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2063"/>
+        <location filename="../qml/Settings.qml" line="2091"/>
         <source>Reverse scroll wheel</source>
         <translation type="unfinished">Колесо зворотного прокручування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2067"/>
+        <location filename="../qml/Settings.qml" line="2095"/>
         <source>Reverse the mouse-wheel direction when adjusting sliders and dials</source>
         <translation type="unfinished">Змінити напрямок обертання колеса миші під час налаштування повзунків та циферблатів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2075"/>
+        <location filename="../qml/Settings.qml" line="2103"/>
         <source>Larger digits and primary meter</source>
         <translation type="unfinished">Більші цифри та первинний лічильник</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2079"/>
+        <location filename="../qml/Settings.qml" line="2107"/>
         <source>Make the frequency display and the S/power meter 50% larger</source>
         <translation type="unfinished">Збільште дисплей частоти та вимірювач S/power на 50%</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2083"/>
+        <location filename="../qml/Settings.qml" line="2111"/>
         <source>Warn about audio device problems</source>
         <translation type="unfinished">Попереджати про проблеми з аудіопристроєм</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2087"/>
+        <location filename="../qml/Settings.qml" line="2115"/>
         <source>Show a warning when the selected audio input or output device is blank, cannot be found, or cannot be opened.</source>
         <translation type="unfinished">Показувати попередження, коли вибраний пристрій введення або виведення аудіо порожній, не знайдений або не може бути відкритий.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2116"/>
+        <location filename="../qml/Settings.qml" line="2144"/>
         <source>Use System Theme</source>
         <translation type="unfinished">Використати системну тему</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2124"/>
+        <location filename="../qml/Settings.qml" line="2152"/>
         <source>Color scheme</source>
         <translation type="unfinished">Колірна схема</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2125"/>
+        <location filename="../qml/Settings.qml" line="2153"/>
         <source>Preset:</source>
         <translation type="unfinished">Попередньо налаштовано:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2151"/>
+        <location filename="../qml/Settings.qml" line="2179"/>
         <source>Select a color preset here.</source>
         <translation type="unfinished">Виберіть тут шаблон кольору.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2154"/>
+        <location filename="../qml/Settings.qml" line="2182"/>
         <source>Name:</source>
         <translation type="unfinished">Ім&apos;я:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2175"/>
+        <location filename="../qml/Settings.qml" line="2203"/>
         <source>User-defined Color Editor</source>
         <translation type="unfinished">Користувацький редактор кольорів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2191"/>
+        <location filename="../qml/Settings.qml" line="2219"/>
         <source>Window</source>
         <translation type="unfinished">Вікно</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2191"/>
+        <location filename="../qml/Settings.qml" line="2219"/>
         <source>General window background color</source>
         <translation type="unfinished">Загальний колір фону вікна</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2192"/>
+        <location filename="../qml/Settings.qml" line="2220"/>
         <source>Window Text</source>
         <translation type="unfinished">Текст вікна</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2192"/>
+        <location filename="../qml/Settings.qml" line="2220"/>
         <source>General text color on Window background</source>
         <translation type="unfinished">Загальний колір тексту на фоні вікна</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2193"/>
+        <location filename="../qml/Settings.qml" line="2221"/>
         <source>Base</source>
         <translation type="unfinished">База</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2193"/>
+        <location filename="../qml/Settings.qml" line="2221"/>
         <source>Background for text input fields and item views</source>
         <translation type="unfinished">Фон для полів введення тексту та перегляду елементів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2195"/>
+        <location filename="../qml/Settings.qml" line="2223"/>
         <source>Alternate Base</source>
         <translation type="unfinished">Альтернативна база</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2195"/>
+        <location filename="../qml/Settings.qml" line="2223"/>
         <source>Alternate background (e.g., striped table rows)</source>
         <translation type="unfinished">Альтернативний фон (наприклад, смугасті рядки таблиці)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2196"/>
+        <location filename="../qml/Settings.qml" line="2224"/>
         <source>Main Text</source>
         <translation type="unfinished">Основний текст</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2196"/>
+        <location filename="../qml/Settings.qml" line="2224"/>
         <source>Text color for Base background (input fields)</source>
         <translation type="unfinished">Колір тексту для базового фону (поля введення)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2197"/>
+        <location filename="../qml/Settings.qml" line="2225"/>
         <source>Bright Text</source>
         <translation type="unfinished">Яскравий текст</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2197"/>
+        <location filename="../qml/Settings.qml" line="2225"/>
         <source>High-contrast text for dark backgrounds</source>
         <translation type="unfinished">Висококонтрастний текст для темного фону</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2199"/>
+        <location filename="../qml/Settings.qml" line="2227"/>
         <source>Button</source>
         <translation type="unfinished">Кнопка</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2199"/>
+        <location filename="../qml/Settings.qml" line="2227"/>
         <source>Button background color</source>
         <translation type="unfinished">Колір фону кнопки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2200"/>
+        <location filename="../qml/Settings.qml" line="2228"/>
         <source>Button Text</source>
         <translation type="unfinished">Текст кнопки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2200"/>
+        <location filename="../qml/Settings.qml" line="2228"/>
         <source>Button text color</source>
         <translation type="unfinished">Колір тексту кнопки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2201"/>
+        <location filename="../qml/Settings.qml" line="2229"/>
         <source>Light</source>
         <translation type="unfinished">Світло</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2201"/>
+        <location filename="../qml/Settings.qml" line="2229"/>
         <source>Lighter edge color for 3D effects</source>
         <translation type="unfinished">Світліший колір країв для 3D-ефектів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2203"/>
+        <location filename="../qml/Settings.qml" line="2231"/>
         <source>Mid Light</source>
         <translation type="unfinished">Середнє світло</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2203"/>
+        <location filename="../qml/Settings.qml" line="2231"/>
         <source>Medium-light edge color for 3D effects</source>
         <translation type="unfinished">Середньо-світлий колір краю для 3D ефектів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2204"/>
+        <location filename="../qml/Settings.qml" line="2232"/>
         <source>Dark</source>
         <translation type="unfinished">Темний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2204"/>
+        <location filename="../qml/Settings.qml" line="2232"/>
         <source>Darker edge color for 3D effects</source>
         <translation type="unfinished">Темніший колір країв для 3D-ефектів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2205"/>
+        <location filename="../qml/Settings.qml" line="2233"/>
         <source>Mid</source>
         <translation type="unfinished">Середина</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2205"/>
+        <location filename="../qml/Settings.qml" line="2233"/>
         <source>Medium-dark edge color for 3D effects</source>
         <translation type="unfinished">Середньо-темний колір краю для 3D ефектів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2207"/>
+        <location filename="../qml/Settings.qml" line="2235"/>
         <source>Shadow</source>
         <translation type="unfinished">Тінь</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2207"/>
+        <location filename="../qml/Settings.qml" line="2235"/>
         <source>Shadow color (darkest, typically black)</source>
         <translation type="unfinished">Колір тіні (найтемніший, зазвичай чорний)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2208"/>
+        <location filename="../qml/Settings.qml" line="2236"/>
         <source>Highlight</source>
         <translation type="unfinished">Виділити</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2208"/>
+        <location filename="../qml/Settings.qml" line="2236"/>
         <source>Selected item background color</source>
         <translation type="unfinished">Колір фону вибраного елемента</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2209"/>
+        <location filename="../qml/Settings.qml" line="2237"/>
         <source>Highlighted Text</source>
         <translation type="unfinished">Виділений текст</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2209"/>
+        <location filename="../qml/Settings.qml" line="2237"/>
         <source>Selected item text color</source>
         <translation type="unfinished">Колір тексту вибраного елемента</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2211"/>
+        <location filename="../qml/Settings.qml" line="2239"/>
         <source>Link</source>
         <translation type="unfinished">Посилання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2211"/>
+        <location filename="../qml/Settings.qml" line="2239"/>
         <source>Unvisited hyperlink color</source>
         <translation type="unfinished">Колір невідвіданого гіперпосилання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2212"/>
+        <location filename="../qml/Settings.qml" line="2240"/>
         <source>Link Visited</source>
         <translation type="unfinished">Посилання відвідано</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2212"/>
+        <location filename="../qml/Settings.qml" line="2240"/>
         <source>Visited hyperlink color</source>
         <translation type="unfinished">Колір відвіданого гіперпосилання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2215"/>
+        <location filename="../qml/Settings.qml" line="2243"/>
         <source>Tooltip Base</source>
         <translation type="unfinished">База підказок</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2215"/>
+        <location filename="../qml/Settings.qml" line="2243"/>
         <source>Tooltip background color</source>
         <translation type="unfinished">Колір фону підказки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2216"/>
+        <location filename="../qml/Settings.qml" line="2244"/>
         <source>Tooltip Text</source>
         <translation type="unfinished">Текст підказки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2216"/>
+        <location filename="../qml/Settings.qml" line="2244"/>
         <source>Tooltip text color</source>
         <translation type="unfinished">Колір тексту підказки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2217"/>
+        <location filename="../qml/Settings.qml" line="2245"/>
         <source>Placeholder</source>
         <translation type="unfinished">Заповнювач</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2217"/>
+        <location filename="../qml/Settings.qml" line="2245"/>
         <source>Placeholder text in empty input fields</source>
         <translation type="unfinished">Текст-заповнювач у порожніх полях введення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2223"/>
+        <location filename="../qml/Settings.qml" line="2251"/>
         <source>Grid</source>
         <translation type="unfinished">Сітка</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2224"/>
+        <location filename="../qml/Settings.qml" line="2252"/>
         <source>Tuning Line</source>
         <translation type="unfinished">Лінія налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2225"/>
+        <location filename="../qml/Settings.qml" line="2253"/>
         <source>Meter Scale</source>
         <translation type="unfinished">Шкала метра</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2227"/>
+        <location filename="../qml/Settings.qml" line="2255"/>
         <source>Axis</source>
         <translation type="unfinished">Вісь</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2228"/>
+        <location filename="../qml/Settings.qml" line="2256"/>
         <source>Passband</source>
         <translation type="unfinished">Смуга пропускання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2229"/>
+        <location filename="../qml/Settings.qml" line="2257"/>
         <source>Meter Text</source>
         <translation type="unfinished">Текст лічильника</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2231"/>
+        <location filename="../qml/Settings.qml" line="2259"/>
         <source>Text</source>
         <translation type="unfinished">Текст</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2232"/>
+        <location filename="../qml/Settings.qml" line="2260"/>
         <source>PBT Indicator</source>
         <translation type="unfinished">Індикатор PBT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2233"/>
+        <location filename="../qml/Settings.qml" line="2261"/>
         <source>Waterfall Back</source>
         <translation type="unfinished">Водоспад назад</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2235"/>
+        <location filename="../qml/Settings.qml" line="2263"/>
         <source>Plot Background</source>
         <translation type="unfinished">Передісторія сюжету</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2236"/>
+        <location filename="../qml/Settings.qml" line="2264"/>
         <source>Meter Level</source>
         <translation type="unfinished">Рівень вимірювача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2237"/>
+        <location filename="../qml/Settings.qml" line="2265"/>
         <source>Waterfall Grid</source>
         <translation type="unfinished">Сітка водоспаду</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2239"/>
+        <location filename="../qml/Settings.qml" line="2267"/>
         <source>Spectrum Line</source>
         <translation type="unfinished">Лінія спектру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2240"/>
+        <location filename="../qml/Settings.qml" line="2268"/>
         <source>Meter Average</source>
         <translation type="unfinished">Середнє значення лічильника</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2241"/>
+        <location filename="../qml/Settings.qml" line="2269"/>
         <source>Waterfall Axis</source>
         <translation type="unfinished">Вісь водоспаду</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2243"/>
+        <location filename="../qml/Settings.qml" line="2271"/>
         <source>Spectrum Fill</source>
         <translation type="unfinished">Заповнення спектру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2244"/>
+        <location filename="../qml/Settings.qml" line="2272"/>
         <source>Meter Peak Level</source>
         <translation type="unfinished">Піковий рівень вимірювача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2245"/>
+        <location filename="../qml/Settings.qml" line="2273"/>
         <source>Waterfall Text</source>
         <translation type="unfinished">Текст водоспаду</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2249"/>
+        <location filename="../qml/Settings.qml" line="2277"/>
         <source>Spectrum Gradient</source>
         <translation type="unfinished">Градієнт спектру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2254"/>
+        <location filename="../qml/Settings.qml" line="2282"/>
         <source>Meter High Scale</source>
         <translation type="unfinished">Шкала метра</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2257"/>
+        <location filename="../qml/Settings.qml" line="2285"/>
         <source>Underlay Gradient</source>
         <translation type="unfinished">Градієнт підкладки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2262"/>
+        <location filename="../qml/Settings.qml" line="2290"/>
         <source>Spectrum Fill Top</source>
         <translation type="unfinished">Спектр заповнення верхньої частини</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2263"/>
+        <location filename="../qml/Settings.qml" line="2291"/>
         <source>Underlay Line</source>
         <translation type="unfinished">Підкладкова лінія</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2264"/>
+        <location filename="../qml/Settings.qml" line="2292"/>
         <source>Underlay Fill Top</source>
         <translation type="unfinished">Верхня заливка підкладки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2266"/>
+        <location filename="../qml/Settings.qml" line="2294"/>
         <source>Spectrum Fill Bot</source>
         <translation type="unfinished">Бот для заповнення спектру</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2267"/>
+        <location filename="../qml/Settings.qml" line="2295"/>
         <source>Underlay Fill</source>
         <translation type="unfinished">Підкладка для заповнення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2268"/>
+        <location filename="../qml/Settings.qml" line="2296"/>
         <source>Underlay Fill Bot</source>
         <translation type="unfinished">Підкладка для заповнення Bot</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2270"/>
+        <location filename="../qml/Settings.qml" line="2298"/>
         <source>Cluster Spots</source>
         <translation type="unfinished">Кластерні плями</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2271"/>
+        <location filename="../qml/Settings.qml" line="2299"/>
         <source>Cluster Spot Line</source>
         <translation type="unfinished">Лінія плями кластера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2271"/>
+        <location filename="../qml/Settings.qml" line="2299"/>
         <source>Line from a cluster spot label down to its frequency</source>
         <translation type="unfinished">Лінія від мітки плями кластера до його частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2272"/>
+        <location filename="../qml/Settings.qml" line="2300"/>
         <source>Button Off</source>
         <translation type="unfinished">Кнопка вимкнена</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2273"/>
+        <location filename="../qml/Settings.qml" line="2301"/>
         <source>Button On</source>
         <translation type="unfinished">Кнопка увімкнена</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2280"/>
+        <location filename="../qml/Settings.qml" line="2308"/>
         <source>Freq Background</source>
         <translation type="unfinished">Частотний фон</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2280"/>
+        <location filename="../qml/Settings.qml" line="2308"/>
         <source>Frequency display background color</source>
         <translation type="unfinished">Колір фону відображення частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2284"/>
+        <location filename="../qml/Settings.qml" line="2312"/>
         <source>Freq Digits</source>
         <translation type="unfinished">Частотні цифри</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2284"/>
+        <location filename="../qml/Settings.qml" line="2312"/>
         <source>Frequency display digit color</source>
         <translation type="unfinished">Колір цифр відображення частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2288"/>
+        <location filename="../qml/Settings.qml" line="2316"/>
         <source>Freq Units</source>
         <translation type="unfinished">Одиниці частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2288"/>
+        <location filename="../qml/Settings.qml" line="2316"/>
         <source>Frequency display units text color (e.g. MHz)</source>
         <translation type="unfinished">Колір тексту одиниць відображення частоти (наприклад, MHz)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2292"/>
+        <location filename="../qml/Settings.qml" line="2320"/>
         <source>Freq Unused Digits</source>
         <translation type="unfinished">Частота невикористаних цифр</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2292"/>
+        <location filename="../qml/Settings.qml" line="2320"/>
         <source>Frequency display color for unused leading zeros</source>
         <translation type="unfinished">Колір відображення частоти для невикористаних початкових нулів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2296"/>
+        <location filename="../qml/Settings.qml" line="2324"/>
         <source>Freq Highlight</source>
         <translation type="unfinished">Виділення частоти</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2296"/>
+        <location filename="../qml/Settings.qml" line="2324"/>
         <source>Frequency display highlight behind the hovered digit and typed entry</source>
         <translation type="unfinished">Підсвічування відображення частоти за цифрою, на яку наведено курсор, та введеним текстом</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2319"/>
+        <location filename="../qml/Settings.qml" line="2347"/>
         <source>Current transmit modulation source</source>
         <translation type="unfinished">Джерело модуляції передачі струму</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2326"/>
+        <location filename="../qml/Settings.qml" line="2354"/>
         <source>Data Off Modulation Input:</source>
         <translation type="unfinished">Вхід модуляції вимкнених даних:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2344"/>
+        <location filename="../qml/Settings.qml" line="2372"/>
         <source>(Data Mod Inputs) DATA1:</source>
         <translation type="unfinished">(Входи модуля даних) DATA1 :</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2360"/>
+        <location filename="../qml/Settings.qml" line="2388"/>
         <source>DATA2:</source>
         <translation>DATA2:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2376"/>
+        <location filename="../qml/Settings.qml" line="2404"/>
         <source>DATA3:</source>
         <translation>DATA3:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2396"/>
+        <location filename="../qml/Settings.qml" line="2424"/>
         <source>On Connect</source>
         <translation type="unfinished">На зв&apos;язку</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2407"/>
+        <location filename="../qml/Settings.qml" line="2435"/>
         <source>Set transmit mod input sources on connect</source>
         <translation type="unfinished">Встановлення джерел вхідного сигналу передачі при підключенні</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2412"/>
-        <location filename="../qml/Settings.qml" line="2464"/>
+        <location filename="../qml/Settings.qml" line="2440"/>
+        <location filename="../qml/Settings.qml" line="2492"/>
         <source>Data Off:</source>
         <translation type="unfinished">Вимкнено дані:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2418"/>
-        <location filename="../qml/Settings.qml" line="2470"/>
+        <location filename="../qml/Settings.qml" line="2446"/>
+        <location filename="../qml/Settings.qml" line="2498"/>
         <source>Data On:</source>
         <translation type="unfinished">Дані про:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2424"/>
-        <location filename="../qml/Settings.qml" line="2476"/>
+        <location filename="../qml/Settings.qml" line="2452"/>
+        <location filename="../qml/Settings.qml" line="2504"/>
         <source>(connect to a radio to choose sources)</source>
         <translation type="unfinished">(підключіться до радіо, щоб вибрати джерела)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2433"/>
+        <location filename="../qml/Settings.qml" line="2461"/>
         <source>Set radio time on connect (takes up to a minute)</source>
         <translation type="unfinished">Встановити час радіоприймача під час підключення (займає до хвилини)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2439"/>
-        <location filename="../qml/Settings.qml" line="2484"/>
+        <location filename="../qml/Settings.qml" line="2467"/>
+        <location filename="../qml/Settings.qml" line="2512"/>
         <source>Execute macro</source>
         <translation type="unfinished">Виконати макрос</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2448"/>
+        <location filename="../qml/Settings.qml" line="2476"/>
         <source>On Disconnect</source>
         <translation type="unfinished">При відключенні</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2459"/>
+        <location filename="../qml/Settings.qml" line="2487"/>
         <source>Set transmit mod input sources on disconnect</source>
         <translation type="unfinished">Встановлення джерел вхідного сигналу передачі при відключенні</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2495"/>
+        <location filename="../qml/Settings.qml" line="2523"/>
         <source>Set Clock</source>
         <translation type="unfinished">Встановити годинник</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2498"/>
+        <location filename="../qml/Settings.qml" line="2526"/>
         <source>Set the radio clock at the next minute boundary.</source>
         <translation type="unfinished">Встановіть радіогодинник на наступну хвилинну межу.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2503"/>
+        <location filename="../qml/Settings.qml" line="2531"/>
         <source>Use UTC</source>
         <translation type="unfinished">Використовуйте UTC</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2506"/>
+        <location filename="../qml/Settings.qml" line="2534"/>
         <source>Set radio clock to UTC; otherwise uses local timezone.</source>
         <translation type="unfinished">Встановіть радіогодинник на UTC ; інакше використовується місцевий часовий пояс.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2517"/>
+        <location filename="../qml/Settings.qml" line="2545"/>
         <source>Satellite Ops</source>
         <translation type="unfinished">Супутникові операції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2522"/>
+        <location filename="../qml/Settings.qml" line="2550"/>
         <source>Adjust Reference</source>
         <translation type="unfinished">Налаштувати посилання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2531"/>
+        <location filename="../qml/Settings.qml" line="2559"/>
         <source>Force VFO Mode</source>
         <translation type="unfinished">Примусовий режим VFO</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2537"/>
+        <location filename="../qml/Settings.qml" line="2565"/>
         <source>Auto Power-on radio</source>
         <translation type="unfinished">Автоматичне ввімкнення радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2546"/>
+        <location filename="../qml/Settings.qml" line="2574"/>
         <source>PTT</source>
         <translation>PTT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2552"/>
+        <location filename="../qml/Settings.qml" line="2580"/>
         <source>Manual PTT Toggle</source>
         <translation type="unfinished">Ручне перемикання PTT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2553"/>
+        <location filename="../qml/Settings.qml" line="2581"/>
         <source>PTT On</source>
         <translation type="unfinished">PTT увімкнено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2554"/>
+        <location filename="../qml/Settings.qml" line="2582"/>
         <source>PTT Off</source>
         <translation type="unfinished">PTT вимкнено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2558"/>
+        <location filename="../qml/Settings.qml" line="2586"/>
         <source>PTT Timeout</source>
         <translation type="unfinished">Тайм-аут PTT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2562"/>
+        <location filename="../qml/Settings.qml" line="2590"/>
         <source>Sets a timer (within wfview) for the maximum transmission length.
 Not actually a radio setting.</source>
         <translation type="unfinished">Встановлює таймер (у wfview) для максимальної тривалості передачі.
 Насправді це не радіоприймач.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2574"/>
+        <location filename="../qml/Settings.qml" line="2602"/>
         <source>seconds</source>
         <translation type="unfinished">секунди</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2599"/>
+        <location filename="../qml/Settings.qml" line="2627"/>
         <source>Enable</source>
         <translation type="unfinished">Увімкнути</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2606"/>
+        <location filename="../qml/Settings.qml" line="2634"/>
         <source>Disable local user controls when in use (restart required)</source>
         <translation type="unfinished">Вимкнути локальні елементи керування користувача під час використання (потрібне перезавантаження)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2613"/>
+        <location filename="../qml/Settings.qml" line="2641"/>
         <source>Suppress serial port warnings</source>
         <translation type="unfinished">Придушити попередження послідовного порту</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2618"/>
+        <location filename="../qml/Settings.qml" line="2646"/>
         <source>While the server is enabled, do not show a warning when the radio&apos;s serial port cannot be opened. wfview keeps retrying the port, for headless or unattended servers.</source>
         <translation type="unfinished">Поки сервер увімкнено, не показувати попередження, коли послідовний порт радіомодуля неможливо відкрити. wfview постійно повторює спроби підключення до порту для серверів без керування або серверів без нагляду.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2626"/>
+        <location filename="../qml/Settings.qml" line="2654"/>
         <source>Server Setup</source>
         <translation type="unfinished">Налаштування сервера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2649"/>
+        <location filename="../qml/Settings.qml" line="2677"/>
         <source>CI-V Port</source>
         <translation type="unfinished">Порт CI-V</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2649"/>
+        <location filename="../qml/Settings.qml" line="2677"/>
         <source>CAT Port</source>
         <translation type="unfinished">Порт CAT</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2662"/>
+        <location filename="../qml/Settings.qml" line="2690"/>
         <source>Audio Port</source>
         <translation type="unfinished">Аудіопорт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2674"/>
+        <location filename="../qml/Settings.qml" line="2702"/>
         <source>Scope Port</source>
         <translation type="unfinished">Порт осцилографа</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2693"/>
+        <location filename="../qml/Settings.qml" line="2721"/>
         <source>Listen Interface</source>
         <translation type="unfinished">Інтерфейс прослуховування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2703"/>
+        <location filename="../qml/Settings.qml" line="2731"/>
         <source>Select the interface used by the built-in UDP server.</source>
         <translation type="unfinished">Виберіть інтерфейс, який використовуватиме вбудований UDP сервер.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2708"/>
+        <location filename="../qml/Settings.qml" line="2736"/>
         <source>Automatic prefers a non-loopback IPv4 address, then falls back to IPv6.</source>
         <translation type="unfinished">Автоматичний режим надає перевагу IPv4-адресі без зациклювання, а потім повертається до IPv6.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2716"/>
+        <location filename="../qml/Settings.qml" line="2744"/>
         <source>RX Audio Input</source>
         <translation type="unfinished">Аудіовхід RX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2728"/>
+        <location filename="../qml/Settings.qml" line="2756"/>
         <source>TX Audio Output</source>
         <translation type="unfinished">Аудіовихід TX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2754"/>
+        <location filename="../qml/Settings.qml" line="2782"/>
         <source>Server uses the global audio system setting.</source>
         <translation type="unfinished">Сервер використовує глобальні налаштування аудіосистеми.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2762"/>
+        <location filename="../qml/Settings.qml" line="2790"/>
         <source>Users</source>
         <translation type="unfinished">Користувачі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2790"/>
-        <location filename="../qml/Settings.qml" line="3230"/>
+        <location filename="../qml/Settings.qml" line="2818"/>
+        <location filename="../qml/Settings.qml" line="3258"/>
         <source>Remove</source>
         <translation type="unfinished">Видалити</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2814"/>
+        <location filename="../qml/Settings.qml" line="2842"/>
         <source>Access</source>
         <translation type="unfinished">Доступ</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2815"/>
-        <location filename="../qml/Settings.qml" line="3292"/>
-        <location filename="../qml/Settings.qml" line="4156"/>
+        <location filename="../qml/Settings.qml" line="2843"/>
+        <location filename="../qml/Settings.qml" line="3320"/>
+        <location filename="../qml/Settings.qml" line="4184"/>
         <source>Status</source>
         <translation type="unfinished">Статус</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2868"/>
+        <location filename="../qml/Settings.qml" line="2896"/>
         <source>(saved)</source>
         <translation type="unfinished">(збережено)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2883"/>
+        <location filename="../qml/Settings.qml" line="2911"/>
         <source>Admin User</source>
         <translation type="unfinished">Користувач-адміністратор</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2884"/>
+        <location filename="../qml/Settings.qml" line="2912"/>
         <source>Normal User</source>
         <translation type="unfinished">Звичайний користувач</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2885"/>
+        <location filename="../qml/Settings.qml" line="2913"/>
         <source>Normal with no TX</source>
         <translation type="unfinished">Звичайний, без TX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2886"/>
+        <location filename="../qml/Settings.qml" line="2914"/>
         <source>Disabled</source>
         <translation type="unfinished">Інвалід</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2903"/>
+        <location filename="../qml/Settings.qml" line="2931"/>
         <source>Status: %1</source>
         <translation type="unfinished">Стан: %1</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2917"/>
+        <location filename="../qml/Settings.qml" line="2945"/>
         <source>Press &quot;Connect to Radio&quot; before starting the server</source>
         <translation type="unfinished">Натисніть «Підключитися до радіо» перед запуском сервера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2918"/>
+        <location filename="../qml/Settings.qml" line="2946"/>
         <source>To make changes to the server settings, first press &quot;Disconnect from Radio&quot;</source>
         <translation type="unfinished">Щоб внести зміни до налаштувань сервера, спочатку натисніть «Відключитися від радіо»</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2928"/>
+        <location filename="../qml/Settings.qml" line="2956"/>
         <source>Server Status</source>
         <translation type="unfinished">Стан сервера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2937"/>
+        <location filename="../qml/Settings.qml" line="2965"/>
         <source>Status:</source>
         <translation type="unfinished">Статус:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2946"/>
+        <location filename="../qml/Settings.qml" line="2974"/>
         <source>Users logged in:</source>
         <translation type="unfinished">Користувачі, що ввійшли в систему:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2949"/>
+        <location filename="../qml/Settings.qml" line="2977"/>
         <source>Logins since start:</source>
         <translation type="unfinished">Входи з початку:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2972"/>
+        <location filename="../qml/Settings.qml" line="3000"/>
         <source>Enable RigCtld</source>
         <translation type="unfinished">Увімкнути RigCtld</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2976"/>
+        <location filename="../qml/Settings.qml" line="3004"/>
         <source>wfview can run a rigctld-compatible server, which provides basic information to third-party tools such as loggers and digital mode applications.
 wfview&apos;s rigctld-compatible server can accept multiple connections at the same time.</source>
         <translation type="unfinished">wfview може запускати сервер, сумісний з rigctld, який надає основну інформацію стороннім інструментам, таким як логери та програми цифрового режиму.
 Сервер wfview , сумісний з rigctld, може приймати кілька підключень одночасно.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2981"/>
-        <location filename="../qml/Settings.qml" line="3271"/>
-        <location filename="../qml/Settings.qml" line="3977"/>
-        <location filename="../qml/Settings.qml" line="4089"/>
+        <location filename="../qml/Settings.qml" line="3009"/>
+        <location filename="../qml/Settings.qml" line="3299"/>
+        <location filename="../qml/Settings.qml" line="4005"/>
+        <location filename="../qml/Settings.qml" line="4117"/>
         <source>Port</source>
         <translation type="unfinished">Порт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2995"/>
+        <location filename="../qml/Settings.qml" line="3023"/>
         <source>The default rigctld port for most applications is 4532.
 wfview recommends using 4533 so as not to conflict with any other rigctld you may already be using.</source>
         <translation type="unfinished">Порт rigctld за замовчуванням для більшості програм — 4532.
 wfview рекомендує використовувати 4533, щоб уникнути конфлікту з будь-якими іншими rigctld які ви вже можете використовувати.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3001"/>
+        <location filename="../qml/Settings.qml" line="3029"/>
         <source>Report frequencies as integers</source>
         <translation type="unfinished">Повідомляйте частоти у вигляді цілих чисел</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3005"/>
+        <location filename="../qml/Settings.qml" line="3033"/>
         <source>Alters the response of wfview&apos;s rigctld server to the &apos;f&apos;, &apos;i&apos; and &apos;k&apos; commands, reporting frequencies as integers rather than as numbers with decimals</source>
         <translation type="unfinished">Змінює відповідь сервера rigctld wfview на команди &apos;f&apos;, &apos;i&apos; та &apos;k&apos;, повідомляючи частоти як цілі числа, а не як числа з десятковими знаками</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3013"/>
+        <location filename="../qml/Settings.qml" line="3041"/>
         <source>Virtual Serial Port</source>
         <translation type="unfinished">Віртуальний послідовний порт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3020"/>
+        <location filename="../qml/Settings.qml" line="3048"/>
         <source>Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal.</source>
         <translation type="unfinished">Визначити віртуальний послідовний порт. У Windows: пристрій зворотного зв&apos;язку для інших програм. У Linux/macOS: псевдотермінал.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3034"/>
+        <location filename="../qml/Settings.qml" line="3062"/>
         <source>Use &quot;none&quot; to disable the virtual serial bridge.</source>
         <translation type="unfinished">Використовуйте &quot;none&quot;, щоб вимкнути віртуальний послідовний міст.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3038"/>
+        <location filename="../qml/Settings.qml" line="3066"/>
         <source>Use command queue</source>
         <translation type="unfinished">Використовувати чергу команд</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3043"/>
+        <location filename="../qml/Settings.qml" line="3071"/>
         <source>Route virtual serial CAT commands through wfview&apos;s command queue where possible.</source>
         <translation type="unfinished">По можливості, маршрутизуйте команди віртуального послідовного CAT через чергу команд wfview .</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3050"/>
+        <location filename="../qml/Settings.qml" line="3078"/>
         <source>TCP Server Port</source>
         <translation type="unfinished">Порт TCP сервера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3059"/>
+        <location filename="../qml/Settings.qml" line="3087"/>
         <source>Enter port for TCP server, 0 = disabled (restart required if changed)</source>
         <translation type="unfinished">Введіть порт для TCP сервера, 0 = вимкнено (потрібно перезавантажити, якщо змінено)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3065"/>
+        <location filename="../qml/Settings.qml" line="3093"/>
         <source>TCI Server Port</source>
         <translation type="unfinished">Порт сервера TCI</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3074"/>
+        <location filename="../qml/Settings.qml" line="3102"/>
         <source>Enter port for TCI server, 0 = disabled</source>
         <translation type="unfinished">Введіть порт для сервера TCI , 0 = вимкнено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3080"/>
+        <location filename="../qml/Settings.qml" line="3108"/>
         <source>Waterfall Format</source>
         <translation type="unfinished">Формат водоспаду</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3084"/>
+        <location filename="../qml/Settings.qml" line="3112"/>
         <source>Default</source>
         <translation type="unfinished">За замовчуванням</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3085"/>
+        <location filename="../qml/Settings.qml" line="3113"/>
         <source>Single (network)</source>
         <translation type="unfinished">Одинарний (мережевий)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3086"/>
+        <location filename="../qml/Settings.qml" line="3114"/>
         <source>Multi (serial)</source>
         <translation type="unfinished">Багатоканальний (послідовний)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3093"/>
+        <location filename="../qml/Settings.qml" line="3121"/>
         <source>Only change this if you are absolutely sure you need it (connecting to N1MM+ or similar)</source>
         <translation type="unfinished">Змінюйте це лише тоді, коли ви абсолютно впевнені, що вам це потрібно (підключення до N1MM + або подібного)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3116"/>
+        <location filename="../qml/Settings.qml" line="3144"/>
         <source>Enable USB Controllers</source>
         <translation type="unfinished">Увімкнути USB контролери</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3124"/>
+        <location filename="../qml/Settings.qml" line="3152"/>
         <source>Reset Buttons</source>
         <translation type="unfinished">Кнопки скидання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3132"/>
+        <location filename="../qml/Settings.qml" line="3160"/>
         <source>Only reset buttons/commands if you have issues.</source>
         <translation type="unfinished">Скидайте кнопки/команди лише у випадку виникнення проблем.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3159"/>
+        <location filename="../qml/Settings.qml" line="3187"/>
         <source>This page contains configuration for DX Cluster, either UDP style broadcast (from N1MM+/DXlog) or TCP connection to your favourite cluster</source>
         <translation type="unfinished">Ця сторінка містить конфігурацію для DX кластера, або широкомовлення у стилі UDP (від N1MM +/DXlog), або TCP з&apos;єднання з вашим улюбленим кластером</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3165"/>
-        <location filename="../qml/Settings.qml" line="3173"/>
+        <location filename="../qml/Settings.qml" line="3193"/>
+        <location filename="../qml/Settings.qml" line="3201"/>
         <source>Enable Cluster Connections (TCP)</source>
         <translation type="unfinished">Увімкнути кластерні з&apos;єднання (TCP)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3238"/>
+        <location filename="../qml/Settings.qml" line="3266"/>
         <source>Connect</source>
         <translation type="unfinished">Підключитися</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3250"/>
+        <location filename="../qml/Settings.qml" line="3278"/>
         <source>Disconnect</source>
         <translation type="unfinished">Відключитися</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3270"/>
+        <location filename="../qml/Settings.qml" line="3298"/>
         <source>Server</source>
         <translation type="unfinished">Сервер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3272"/>
+        <location filename="../qml/Settings.qml" line="3300"/>
         <source>User</source>
         <translation type="unfinished">Користувач</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3276"/>
+        <location filename="../qml/Settings.qml" line="3304"/>
         <source>Spot Lifetime (sec)</source>
         <translation type="unfinished">Час життя спота (сек)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3280"/>
+        <location filename="../qml/Settings.qml" line="3308"/>
         <source>How many seconds a spot is displayed</source>
         <translation type="unfinished">Скільки секунд відображається пляма</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3285"/>
+        <location filename="../qml/Settings.qml" line="3313"/>
         <source>Activate</source>
         <translation type="unfinished">Активувати</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3289"/>
+        <location filename="../qml/Settings.qml" line="3317"/>
         <source>Check the one server you wish to connect to
 All other servers listed are not connected to,
 but are recorded here for your convenience</source>
@@ -5945,64 +5968,64 @@ but are recorded here for your convenience</source>
 але записані тут для вашої зручності</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3413"/>
+        <location filename="../qml/Settings.qml" line="3441"/>
         <source>Not connected</source>
         <translation type="unfinished">Не підключено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3431"/>
-        <location filename="../qml/Settings.qml" line="3436"/>
+        <location filename="../qml/Settings.qml" line="3459"/>
+        <location filename="../qml/Settings.qml" line="3464"/>
         <source>Receive spots over UDP Broadcast</source>
         <translation type="unfinished">Отримуйте споти через UDP Broadcast</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3441"/>
+        <location filename="../qml/Settings.qml" line="3469"/>
         <source>Receives spots over broadcasted UDP data
 Format is XML using &lt;spot&gt;</source>
         <translation type="unfinished">Отримує споти поверх широкомовних даних UDP
 Формат XML з використанням &lt;spot&gt;</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3448"/>
+        <location filename="../qml/Settings.qml" line="3476"/>
         <source>UDP Port</source>
         <translation type="unfinished">UDP порт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3460"/>
+        <location filename="../qml/Settings.qml" line="3488"/>
         <source>UDP Spot Lifetime (sec)</source>
         <translation type="unfinished">Час життя споту UDP (сек)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3466"/>
+        <location filename="../qml/Settings.qml" line="3494"/>
         <source>Expire spots received over UDP in this many seconds
 When unchecked, only the UDP packets may indicate a spot expiration</source>
         <translation type="unfinished">Термін дії спотів, отриманих через UDP закінчується за стільки секунд
 Якщо позначку не позначено, лише UDP пакети можуть вказувати на закінчення терміну дії споту</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3528"/>
+        <location filename="../qml/Settings.qml" line="3556"/>
         <source>Show Skimmer Spots</source>
         <translation type="unfinished">Показати плями скімера</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3533"/>
+        <location filename="../qml/Settings.qml" line="3561"/>
         <source>Ask the cluster server to also send CW Skimmer and Reverse Beacon Network spots
 (sends set/skimmer). Not every cluster server supports this.</source>
         <translation type="unfinished">Попросіть сервер кластера також надсилати споти CW Skimmer та Reverse Beacon Network
 (надсилає set/skimmer). Не кожен сервер кластера підтримує це.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3537"/>
+        <location filename="../qml/Settings.qml" line="3565"/>
         <source>Clear Output</source>
         <translation type="unfinished">Очистити вихід</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3542"/>
+        <location filename="../qml/Settings.qml" line="3570"/>
         <source>Spots begin to fade at this percent lifetime</source>
         <translation type="unfinished">Плями починають блякнути на цьому відсотку життя</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3561"/>
+        <location filename="../qml/Settings.qml" line="3589"/>
         <source>Spots begin to linearly fade out at this percent of total spot lifetime
 Zero percent = begin to fade over entire lifetime
 Fifty percent = begin to fade when half way to expiration
@@ -6013,723 +6036,723 @@ Ninety percent = begin to fade when just ten percent life left</source>
 Дев&apos;яносто відсотків = починають згасати, коли залишається лише десять відсотків життя</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3607"/>
+        <location filename="../qml/Settings.qml" line="3635"/>
         <source>Configure keyboard shortcuts. wfview commands affect the application; radio commands send rig function commands.</source>
         <translation type="unfinished">Налаштуйте комбінації клавіш. Команди wfview впливають на програму; команди radio надсилають команди функцій установки.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3614"/>
-        <location filename="../qml/Settings.qml" line="3751"/>
+        <location filename="../qml/Settings.qml" line="3642"/>
+        <location filename="../qml/Settings.qml" line="3779"/>
         <source>Add Shortcut</source>
         <translation type="unfinished">Додати ярлик</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3618"/>
+        <location filename="../qml/Settings.qml" line="3646"/>
         <source>Reset Defaults</source>
         <translation type="unfinished">Скинути налаштування за замовчуванням</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3625"/>
+        <location filename="../qml/Settings.qml" line="3653"/>
         <source>Shortcut Bindings</source>
         <translation type="unfinished">Прив&apos;язки скорочень</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3635"/>
+        <location filename="../qml/Settings.qml" line="3663"/>
         <source>On</source>
         <translation type="unfinished">Увімкнено</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3636"/>
+        <location filename="../qml/Settings.qml" line="3664"/>
         <source>Shortcut</source>
         <translation type="unfinished">Скорочення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3637"/>
+        <location filename="../qml/Settings.qml" line="3665"/>
         <source>wfview Command</source>
         <translation type="unfinished">Команда wfview</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3638"/>
+        <location filename="../qml/Settings.qml" line="3666"/>
         <source>Radio Command</source>
         <translation type="unfinished">Радіокомандування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3639"/>
+        <location filename="../qml/Settings.qml" line="3667"/>
         <source>Action</source>
         <translation type="unfinished">Дія</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3640"/>
+        <location filename="../qml/Settings.qml" line="3668"/>
         <source>Value</source>
         <translation type="unfinished">Значення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3641"/>
+        <location filename="../qml/Settings.qml" line="3669"/>
         <source>Receiver</source>
         <translation type="unfinished">Приймач</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3668"/>
+        <location filename="../qml/Settings.qml" line="3696"/>
         <source>Ctrl+D</source>
         <translation type="unfinished">Ctrl+D</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3672"/>
+        <location filename="../qml/Settings.qml" line="3700"/>
         <source>Qt shortcut text, for example Ctrl+D, Alt+F, or Shift+F10.</source>
         <translation type="unfinished">Текст скорочень Qt , наприклад Ctrl+D, Alt+F або Shift+ F10 .</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3709"/>
+        <location filename="../qml/Settings.qml" line="3737"/>
         <source>Trigger</source>
         <translation type="unfinished">Тригер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3710"/>
+        <location filename="../qml/Settings.qml" line="3738"/>
         <source>Absolute</source>
         <translation type="unfinished">Абсолютний</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3711"/>
+        <location filename="../qml/Settings.qml" line="3739"/>
         <source>Increase</source>
         <translation type="unfinished">Збільшення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3712"/>
+        <location filename="../qml/Settings.qml" line="3740"/>
         <source>Decrease</source>
         <translation type="unfinished">Зменшення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3736"/>
+        <location filename="../qml/Settings.qml" line="3764"/>
         <source>Main</source>
         <translation type="unfinished">Головне</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3737"/>
+        <location filename="../qml/Settings.qml" line="3765"/>
         <source>Sub</source>
         <translation type="unfinished">Підрядник</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3755"/>
+        <location filename="../qml/Settings.qml" line="3783"/>
         <source>Duplicate Shortcut</source>
         <translation type="unfinished">Дублікат скорочення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3759"/>
+        <location filename="../qml/Settings.qml" line="3787"/>
         <source>Delete Shortcut</source>
         <translation type="unfinished">Видалити ярлик</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3771"/>
+        <location filename="../qml/Settings.qml" line="3799"/>
         <source>For radio shortcuts, use Absolute for fixed values and Increase or Decrease for step changes.</source>
         <translation type="unfinished">Для швидких змін радіо використовуйте «Абсолютний» для фіксованих значень та «Збільшити» або «Зменшити» для покрокових змін.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3804"/>
+        <location filename="../qml/Settings.qml" line="3832"/>
         <source>A macro sends up to %1 commands in order. Each macro is also a wfview command on the Shortcuts page, and can show a button on the main window.</source>
         <translation type="unfinished">Макрос надсилає до %1 команд по порядку. Кожен макрос також є командою wfview на сторінці «Ярлики» та може відображати кнопку в головному вікні.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3812"/>
+        <location filename="../qml/Settings.qml" line="3840"/>
         <source>Add Macro</source>
         <translation type="unfinished">Додати макрос</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3820"/>
+        <location filename="../qml/Settings.qml" line="3848"/>
         <source>Minimum time between commands (ms)</source>
         <translation type="unfinished">Мінімальний час між командами (ms)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3829"/>
+        <location filename="../qml/Settings.qml" line="3857"/>
         <source>No step is followed by a shorter wait than this, whatever its own delay.</source>
         <translation type="unfinished">Жоден крок не передбачає коротшого очікування, ніж цей, якою б не була його власна затримка.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3844"/>
+        <location filename="../qml/Settings.qml" line="3872"/>
         <source>#</source>
         <translation>#</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3845"/>
+        <location filename="../qml/Settings.qml" line="3873"/>
         <source>Name</source>
         <translation type="unfinished">Ім&apos;я</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3846"/>
+        <location filename="../qml/Settings.qml" line="3874"/>
         <source>Steps</source>
         <translation type="unfinished">Кроки</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3847"/>
+        <location filename="../qml/Settings.qml" line="3875"/>
         <source>Show Button</source>
         <translation type="unfinished">Показати кнопку</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3855"/>
+        <location filename="../qml/Settings.qml" line="3883"/>
         <source>No macros yet. Use Add Macro to create one.</source>
         <translation type="unfinished">Макросів поки що немає. Створіть його за допомогою функції &quot;Додати макрос&quot;.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3889"/>
+        <location filename="../qml/Settings.qml" line="3917"/>
         <source>Edit</source>
         <translation type="unfinished">Редагувати</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3926"/>
+        <location filename="../qml/Settings.qml" line="3954"/>
         <source>This page contains experimental features. Use at your own risk.</source>
         <translation type="unfinished">Ця сторінка містить експериментальні функції. Використовуйте на свій страх і ризик.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3932"/>
+        <location filename="../qml/Settings.qml" line="3960"/>
         <source>Enable Rig Creator Feature (use with care)</source>
         <translation type="unfinished">Увімкнути функцію створення установок (використовувати обережно)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3934"/>
+        <location filename="../qml/Settings.qml" line="3962"/>
         <source>Rig creator allows changing of all rig features and adding new rig profiles</source>
         <translation type="unfinished">Конструктор рігів дозволяє змінювати всі функції рігів та додавати нові профілі рігів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3940"/>
+        <location filename="../qml/Settings.qml" line="3968"/>
         <source>wfshare Remote Access</source>
         <translation type="unfinished">Віддалений доступ wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3951"/>
+        <location filename="../qml/Settings.qml" line="3979"/>
         <source>Enable wfshare</source>
         <translation type="unfinished">Увімкнути wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3959"/>
+        <location filename="../qml/Settings.qml" line="3987"/>
         <source>Direct point-to-point mode</source>
         <translation type="unfinished">Прямий режим точка-точка</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3966"/>
+        <location filename="../qml/Settings.qml" line="3994"/>
         <source>Remote host</source>
         <translation type="unfinished">Віддалений хост</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3971"/>
+        <location filename="../qml/Settings.qml" line="3999"/>
         <source>server hostname or IP</source>
         <translation type="unfinished">ім&apos;я хоста сервера або IP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3971"/>
+        <location filename="../qml/Settings.qml" line="3999"/>
         <source>pbx.wfshare.org</source>
         <translation type="unfinished">pbx.wfshare.org</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3975"/>
+        <location filename="../qml/Settings.qml" line="4003"/>
         <source>Remote wfserver address</source>
         <translation type="unfinished">Адреса віддаленого wfserver</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3975"/>
+        <location filename="../qml/Settings.qml" line="4003"/>
         <source>wfshare relay hostname</source>
         <translation type="unfinished">ім&apos;я хоста ретрансляції wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3987"/>
+        <location filename="../qml/Settings.qml" line="4015"/>
         <source>Default wfshare port is 4569</source>
         <translation type="unfinished">Порт wfshare за замовчуванням — 4569</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3997"/>
+        <location filename="../qml/Settings.qml" line="4025"/>
         <source>wfshare account username</source>
         <translation type="unfinished">ім&apos;я користувача облікового запису wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4008"/>
+        <location filename="../qml/Settings.qml" line="4036"/>
         <source>wfshare account password</source>
         <translation type="unfinished">пароль облікового запису wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4010"/>
+        <location filename="../qml/Settings.qml" line="4038"/>
         <source>Station ID</source>
         <translation type="unfinished">ID станції</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4015"/>
+        <location filename="../qml/Settings.qml" line="4043"/>
         <source>remote station</source>
         <translation type="unfinished">віддалена станція</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4019"/>
+        <location filename="../qml/Settings.qml" line="4047"/>
         <source>Not used in direct mode</source>
         <translation type="unfinished">Не використовується в прямому режимі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4019"/>
+        <location filename="../qml/Settings.qml" line="4047"/>
         <source>Remote station or PBX route to call</source>
         <translation type="unfinished">Маршрут виклику на віддалену станцію або PBX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4025"/>
+        <location filename="../qml/Settings.qml" line="4053"/>
         <source>Test wfshare Connection</source>
         <translation type="unfinished">Тестування підключення wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4041"/>
+        <location filename="../qml/Settings.qml" line="4069"/>
         <source>Handshake progress is written to the application log.</source>
         <translation type="unfinished">Хід встановлення зв&apos;язку записується в журнал програми.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4051"/>
+        <location filename="../qml/Settings.qml" line="4079"/>
         <source>MCP Diagnostics Server</source>
         <translation type="unfinished">Сервер діагностики MCP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4061"/>
+        <location filename="../qml/Settings.qml" line="4089"/>
         <source>MCP Disabled in this build</source>
         <translation type="unfinished">MCP вимкнено в цій збірці</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4069"/>
+        <location filename="../qml/Settings.qml" line="4097"/>
         <source>Enable MCP</source>
         <translation type="unfinished">Увімкнути MCP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4074"/>
+        <location filename="../qml/Settings.qml" line="4102"/>
         <source>Runs a Model Context Protocol (MCP) server inside wfview, so an AI assistant can read live diagnostics: connection state, rig capabilities, the command queue and cache, audio configuration and levels, meters, spectrum, radio and network traffic, the log, settings and main-thread health. Not saved; use --use-mcp to start with it on.</source>
         <translation type="unfinished">Запускає сервер Model Context Protocol (MCP) всередині wfview , щоб помічник AI міг зчитувати діагностику в реальному часі: стан з&apos;єднання, можливості обладнання, чергу команд та кеш, конфігурацію та рівні аудіо, лічильники, спектр, радіо- та мережевий трафік, журнал, налаштування та стан основного потоку. Не зберігається; використовуйте --use-mcp, щоб увімкнути його.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4080"/>
+        <location filename="../qml/Settings.qml" line="4108"/>
         <source>MCP Write Access</source>
         <translation type="unfinished">Доступ до запису MCP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4085"/>
+        <location filename="../qml/Settings.qml" line="4113"/>
         <source>Also lets MCP clients change the radio and wfview: frequency, mode, settings, raw commands and PTT (transmit). Leave off for read-only diagnostics.</source>
         <translation type="unfinished">Також дозволяє клієнтам MCP змінювати радіо та wfview : частоту, режим, налаштування, необроблені команди та PTT (передача). Вимкнено для діагностики лише для читання.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4098"/>
+        <location filename="../qml/Settings.qml" line="4126"/>
         <source>Default MCP port is 8765</source>
         <translation type="unfinished">Порт MCP за замовчуванням – 8765</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4101"/>
+        <location filename="../qml/Settings.qml" line="4129"/>
         <source>Bind address</source>
         <translation type="unfinished">Прив’язана адреса</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4112"/>
+        <location filename="../qml/Settings.qml" line="4140"/>
         <source>Local only (127.0.0.1)</source>
         <translation type="unfinished">Тільки локально (127.0.0.1)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4117"/>
+        <location filename="../qml/Settings.qml" line="4145"/>
         <source>All (0.0.0.0, needs a token)</source>
         <translation type="unfinished">Усі (0.0.0.0, потрібен токен)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4125"/>
+        <location filename="../qml/Settings.qml" line="4153"/>
         <source>Specific address</source>
         <translation type="unfinished">Конкретна адреса</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4137"/>
+        <location filename="../qml/Settings.qml" line="4165"/>
         <source>IP address of a local interface</source>
         <translation type="unfinished">IP адреса локального інтерфейсу</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4143"/>
+        <location filename="../qml/Settings.qml" line="4171"/>
         <source>Token</source>
         <translation type="unfinished">Токен</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4150"/>
+        <location filename="../qml/Settings.qml" line="4178"/>
         <source>optional for local only</source>
         <translation type="unfinished">необов&apos;язково лише для місцевих</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4153"/>
+        <location filename="../qml/Settings.qml" line="4181"/>
         <source>Clients send it as a Bearer token</source>
         <translation type="unfinished">Клієнти надсилають його як токен-носій</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4171"/>
+        <location filename="../qml/Settings.qml" line="4199"/>
         <source>Check the log for detailed information.</source>
         <translation type="unfinished">Перевірте журнал для отримання детальної інформації.</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4181"/>
+        <location filename="../qml/Settings.qml" line="4209"/>
         <source>Debug</source>
         <translation type="unfinished">Налагодження</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4208"/>
+        <location filename="../qml/Settings.qml" line="4236"/>
         <source>Transmit</source>
         <translation type="unfinished">Передача</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4213"/>
-        <location filename="../qml/Settings.qml" line="4284"/>
+        <location filename="../qml/Settings.qml" line="4241"/>
+        <location filename="../qml/Settings.qml" line="4312"/>
         <source>Bypass</source>
         <translation type="unfinished">Байпас</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4214"/>
+        <location filename="../qml/Settings.qml" line="4242"/>
         <source>EQ before compressor</source>
         <translation type="unfinished">EQ перед компресором</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4215"/>
+        <location filename="../qml/Settings.qml" line="4243"/>
         <source>Compressor</source>
         <translation type="unfinished">Компресор</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4216"/>
-        <location filename="../qml/Settings.qml" line="4286"/>
+        <location filename="../qml/Settings.qml" line="4244"/>
+        <location filename="../qml/Settings.qml" line="4314"/>
         <source>Equalizer</source>
         <translation type="unfinished">Еквалайзер</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4217"/>
+        <location filename="../qml/Settings.qml" line="4245"/>
         <source>Noise gate</source>
         <translation type="unfinished">Шумозахисний гейт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4218"/>
+        <location filename="../qml/Settings.qml" line="4246"/>
         <source>Sidetone</source>
         <translation type="unfinished">Побічний тон</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4219"/>
-        <location filename="../qml/Settings.qml" line="4287"/>
+        <location filename="../qml/Settings.qml" line="4247"/>
+        <location filename="../qml/Settings.qml" line="4315"/>
         <source>Spectrum</source>
         <translation type="unfinished">Спектр</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4224"/>
+        <location filename="../qml/Settings.qml" line="4252"/>
         <source>Transmit Levels</source>
         <translation type="unfinished">Рівні передачі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4228"/>
+        <location filename="../qml/Settings.qml" line="4256"/>
         <source>Input gain dB</source>
         <translation type="unfinished">Вхідне посилення dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4229"/>
-        <location filename="../qml/Settings.qml" line="4342"/>
+        <location filename="../qml/Settings.qml" line="4257"/>
+        <location filename="../qml/Settings.qml" line="4370"/>
         <source>Output gain dB</source>
         <translation type="unfinished">Вихідне посилення dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4230"/>
+        <location filename="../qml/Settings.qml" line="4258"/>
         <source>Comp peak dB</source>
         <translation type="unfinished">Піковий компензатор dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4231"/>
+        <location filename="../qml/Settings.qml" line="4259"/>
         <source>Comp release s</source>
         <translation type="unfinished">Комп&apos;ютерні релізи</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4232"/>
+        <location filename="../qml/Settings.qml" line="4260"/>
         <source>Fast ratio</source>
         <translation type="unfinished">Швидке співвідношення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4233"/>
+        <location filename="../qml/Settings.qml" line="4261"/>
         <source>Slow ratio</source>
         <translation type="unfinished">Повільне співвідношення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4234"/>
+        <location filename="../qml/Settings.qml" line="4262"/>
         <source>Sidetone level</source>
         <translation type="unfinished">Рівень бокового тону</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4239"/>
+        <location filename="../qml/Settings.qml" line="4267"/>
         <source>Transmit Gate</source>
         <translation type="unfinished">Передавальний шлюз</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4243"/>
+        <location filename="../qml/Settings.qml" line="4271"/>
         <source>Threshold dB</source>
         <translation type="unfinished">Поріг dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4244"/>
+        <location filename="../qml/Settings.qml" line="4272"/>
         <source>Attack ms</source>
         <translation type="unfinished">Атака ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4245"/>
+        <location filename="../qml/Settings.qml" line="4273"/>
         <source>Hold ms</source>
         <translation type="unfinished">Утримуйте ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4246"/>
+        <location filename="../qml/Settings.qml" line="4274"/>
         <source>Decay ms</source>
         <translation type="unfinished">Розпад ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4247"/>
+        <location filename="../qml/Settings.qml" line="4275"/>
         <source>Range dB</source>
         <translation type="unfinished">Діапазон dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4248"/>
+        <location filename="../qml/Settings.qml" line="4276"/>
         <source>LF cutoff Hz</source>
         <translation type="unfinished">Зріз LF Hz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4249"/>
+        <location filename="../qml/Settings.qml" line="4277"/>
         <source>HF cutoff Hz</source>
         <translation type="unfinished">Зріз HF Hz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4250"/>
-        <location filename="../qml/Settings.qml" line="4343"/>
+        <location filename="../qml/Settings.qml" line="4278"/>
+        <location filename="../qml/Settings.qml" line="4371"/>
         <source>Spectrum FPS</source>
         <translation type="unfinished">Спектр FPS</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4255"/>
+        <location filename="../qml/Settings.qml" line="4283"/>
         <source>Transmit EQ</source>
         <translation type="unfinished">EQ передачі</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4262"/>
+        <location filename="../qml/Settings.qml" line="4290"/>
         <source>Band </source>
         <translation type="unfinished">Гурт </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4279"/>
+        <location filename="../qml/Settings.qml" line="4307"/>
         <source>Receive</source>
         <translation type="unfinished">Отримати</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4285"/>
+        <location filename="../qml/Settings.qml" line="4313"/>
         <source>Noise reduction</source>
         <translation type="unfinished">Зменшення шуму</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4288"/>
+        <location filename="../qml/Settings.qml" line="4316"/>
         <source>Speex AGC</source>
         <translation type="unfinished">Speex AGC</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4289"/>
+        <location filename="../qml/Settings.qml" line="4317"/>
         <source>Speex VAD</source>
         <translation type="unfinished">Speex VAD</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4294"/>
+        <location filename="../qml/Settings.qml" line="4322"/>
         <source>Receive Noise Reduction</source>
         <translation type="unfinished">Отримання шумозаглушення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4299"/>
+        <location filename="../qml/Settings.qml" line="4327"/>
         <source>NR mode</source>
         <translation type="unfinished">Режим NR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4303"/>
+        <location filename="../qml/Settings.qml" line="4331"/>
         <source>Speex</source>
         <translation type="unfinished">Speex</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4304"/>
+        <location filename="../qml/Settings.qml" line="4332"/>
         <source>ANR</source>
         <translation>ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4308"/>
+        <location filename="../qml/Settings.qml" line="4336"/>
         <source>Channel</source>
         <translation type="unfinished">Канал</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4311"/>
+        <location filename="../qml/Settings.qml" line="4339"/>
         <source>Auto</source>
         <translation type="unfinished">Авто</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4312"/>
+        <location filename="../qml/Settings.qml" line="4340"/>
         <source>Left</source>
         <translation type="unfinished">Ліворуч</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4313"/>
+        <location filename="../qml/Settings.qml" line="4341"/>
         <source>Right</source>
         <translation type="unfinished">Праворуч</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4314"/>
+        <location filename="../qml/Settings.qml" line="4342"/>
         <source>Mono sum</source>
         <translation type="unfinished">Моносума</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4318"/>
+        <location filename="../qml/Settings.qml" line="4346"/>
         <source>Collect ANR</source>
         <translation type="unfinished">Збирати повідомлення про помилки ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4319"/>
+        <location filename="../qml/Settings.qml" line="4347"/>
         <source>Stop Collect</source>
         <translation type="unfinished">Зупинити збір</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4321"/>
+        <location filename="../qml/Settings.qml" line="4349"/>
         <source>Speex suppression</source>
         <translation type="unfinished">Придушення мовлення</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4322"/>
+        <location filename="../qml/Settings.qml" line="4350"/>
         <source>Speex bands</source>
         <translation type="unfinished">Speex bands</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4323"/>
+        <location filename="../qml/Settings.qml" line="4351"/>
         <source>Frame ms</source>
         <translation type="unfinished">Кадр ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4324"/>
+        <location filename="../qml/Settings.qml" line="4352"/>
         <source>AGC level</source>
         <translation type="unfinished">Рівень AGC</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4325"/>
+        <location filename="../qml/Settings.qml" line="4353"/>
         <source>AGC max dB</source>
         <translation type="unfinished">AGC макс. dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4326"/>
+        <location filename="../qml/Settings.qml" line="4354"/>
         <source>VAD start %</source>
         <translation type="unfinished">Початковий відсоток VAD</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4327"/>
+        <location filename="../qml/Settings.qml" line="4355"/>
         <source>VAD continue %</source>
         <translation type="unfinished">VAD продовжити %</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4328"/>
+        <location filename="../qml/Settings.qml" line="4356"/>
         <source>SNR decay</source>
         <translation type="unfinished">Згасання SNR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4329"/>
+        <location filename="../qml/Settings.qml" line="4357"/>
         <source>Noise update</source>
         <translation type="unfinished">Оновлення щодо шуму</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4330"/>
+        <location filename="../qml/Settings.qml" line="4358"/>
         <source>Prior base</source>
         <translation type="unfinished">Попередня база</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4331"/>
+        <location filename="../qml/Settings.qml" line="4359"/>
         <source>ANR reduction dB</source>
         <translation type="unfinished">Зниження ANR dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4332"/>
+        <location filename="../qml/Settings.qml" line="4360"/>
         <source>ANR sensitivity</source>
         <translation type="unfinished">Чутливість ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4333"/>
+        <location filename="../qml/Settings.qml" line="4361"/>
         <source>ANR smoothing</source>
         <translation type="unfinished">Згладжування ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4338"/>
+        <location filename="../qml/Settings.qml" line="4366"/>
         <source>Receive Output and EQ</source>
         <translation type="unfinished">Вихідний сигнал прийому та EQ</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4348"/>
+        <location filename="../qml/Settings.qml" line="4376"/>
         <source>EQ band </source>
         <translation type="unfinished">Діапазон EQ </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4349"/>
+        <location filename="../qml/Settings.qml" line="4377"/>
         <source>Gain dB</source>
         <translation type="unfinished">Посилення dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4350"/>
+        <location filename="../qml/Settings.qml" line="4378"/>
         <source>Freq Hz</source>
         <translation type="unfinished">Частота Hz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4351"/>
+        <location filename="../qml/Settings.qml" line="4379"/>
         <source>Q</source>
         <translation type="unfinished">П</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4370"/>
+        <location filename="../qml/Settings.qml" line="4398"/>
         <source>Save Settings</source>
         <translation type="unfinished">Зберегти налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4377"/>
+        <location filename="../qml/Settings.qml" line="4405"/>
         <source>Revert to Default</source>
         <translation type="unfinished">Повернутися до стандартних налаштувань</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4387"/>
+        <location filename="../qml/Settings.qml" line="4415"/>
         <source>Connect to Radio</source>
         <translation type="unfinished">Підключення до радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4389"/>
+        <location filename="../qml/Settings.qml" line="4417"/>
         <source>Cancel Connection</source>
         <translation type="unfinished">Скасувати з&apos;єднання</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4391"/>
+        <location filename="../qml/Settings.qml" line="4419"/>
         <source>Disconnect from Radio</source>
         <translation type="unfinished">Відключитися від радіо</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4391"/>
+        <location filename="../qml/Settings.qml" line="4419"/>
         <source>Unknown status!</source>
         <translation type="unfinished">Невідомий статус!</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4406"/>
+        <location filename="../qml/Settings.qml" line="4434"/>
         <source>Reset USB controllers</source>
         <translation type="unfinished">Скинути налаштування USB-контролерів</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4423"/>
+        <location filename="../qml/Settings.qml" line="4451"/>
         <source>Are you sure you wish to reset the USB controllers?</source>
         <translation type="unfinished">Ви впевнені, що хочете скинути налаштування USB контролерів?</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4434"/>
+        <location filename="../qml/Settings.qml" line="4462"/>
         <source>Manual serial port</source>
         <translation type="unfinished">Ручний послідовний порт</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4452"/>
+        <location filename="../qml/Settings.qml" line="4480"/>
         <source>Enter the full path of the serial port, for example /dev/ttyUSB0:</source>
         <translation type="unfinished">Введіть повний шлях до послідовного порту, наприклад /dev/ttyUSB0:</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4497"/>
+        <location filename="../qml/Settings.qml" line="4525"/>
         <source>Delete macro</source>
         <translation type="unfinished">Видалити макрос</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4513"/>
+        <location filename="../qml/Settings.qml" line="4541"/>
         <source>Delete macro %1, &quot;%2&quot;?</source>
         <translation type="unfinished">Видалити макрос %1 , &quot; %2 &quot;?</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4523"/>
+        <location filename="../qml/Settings.qml" line="4551"/>
         <source>Revert settings</source>
         <translation type="unfinished">Скасувати налаштування</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4540"/>
+        <location filename="../qml/Settings.qml" line="4568"/>
         <source>Are you sure you wish to reset all wfview settings?
 If so, wfview will exit and you will need to start the program again.</source>
         <translation type="unfinished">Ви впевнені, що хочете скинути всі налаштування wfview ?
@@ -6739,112 +6762,112 @@ If so, wfview will exit and you will need to start the program again.</source>
 <context>
     <name>SettingsController</name>
     <message>
-        <location filename="../src/SettingsController.cpp" line="334"/>
-        <location filename="../src/SettingsController.cpp" line="876"/>
-        <location filename="../src/SettingsController.cpp" line="915"/>
-        <location filename="../src/SettingsController.cpp" line="2958"/>
+        <location filename="../src/SettingsController.cpp" line="347"/>
+        <location filename="../src/SettingsController.cpp" line="889"/>
+        <location filename="../src/SettingsController.cpp" line="928"/>
+        <location filename="../src/SettingsController.cpp" line="2976"/>
         <source>None</source>
         <translation type="unfinished">Жоден</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="523"/>
+        <location filename="../src/SettingsController.cpp" line="536"/>
         <source>Automatic (IPv4 preferred)</source>
         <translation type="unfinished">Автоматично (бажано IPv4)</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="566"/>
+        <location filename="../src/SettingsController.cpp" line="579"/>
         <source>Unavailable (%1)</source>
         <translation type="unfinished">Недоступно (%1)</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="589"/>
+        <location filename="../src/SettingsController.cpp" line="602"/>
         <source>Radio %1</source>
         <translation type="unfinished">Радіо %1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="854"/>
+        <location filename="../src/SettingsController.cpp" line="867"/>
         <source>Manual ...</source>
         <translation type="unfinished">Керівництво ...</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="860"/>
+        <location filename="../src/SettingsController.cpp" line="873"/>
         <source>Auto</source>
         <translation type="unfinished">Авто</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="894"/>
+        <location filename="../src/SettingsController.cpp" line="907"/>
         <source>Select one of a virtual serial port pair</source>
         <translation type="unfinished">Виберіть одну з пари віртуальних послідовних портів</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="927"/>
+        <location filename="../src/SettingsController.cpp" line="940"/>
         <source>pty devices located in: %1</source>
         <translation type="unfinished">пристрої pty, розташовані в: %1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="1120"/>
-        <location filename="../src/SettingsController.cpp" line="3037"/>
-        <location filename="../src/SettingsController.cpp" line="3065"/>
+        <location filename="../src/SettingsController.cpp" line="1144"/>
+        <location filename="../src/SettingsController.cpp" line="3055"/>
+        <location filename="../src/SettingsController.cpp" line="3083"/>
         <source>Macro %1</source>
         <translation type="unfinished">Макрос %1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2959"/>
+        <location filename="../src/SettingsController.cpp" line="2977"/>
         <source>Debug Window</source>
         <translation type="unfinished">Вікно налагодження</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2960"/>
+        <location filename="../src/SettingsController.cpp" line="2978"/>
         <source>Raise Main Window</source>
         <translation type="unfinished">Підняти головне вікно</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2961"/>
+        <location filename="../src/SettingsController.cpp" line="2979"/>
         <source>Open Settings</source>
         <translation type="unfinished">Відкрити налаштування</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2962"/>
+        <location filename="../src/SettingsController.cpp" line="2980"/>
         <source>Toggle Fullscreen</source>
         <translation type="unfinished">Перемикання повноекранного режиму</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2963"/>
+        <location filename="../src/SettingsController.cpp" line="2981"/>
         <source>Quit wfview</source>
         <translation type="unfinished">Закрити wfview</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2964"/>
+        <location filename="../src/SettingsController.cpp" line="2982"/>
         <source>Close Window</source>
         <translation type="unfinished">Закрити вікно</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2965"/>
+        <location filename="../src/SettingsController.cpp" line="2983"/>
         <source>Open Memories</source>
         <translation type="unfinished">Відкриті спогади</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2966"/>
+        <location filename="../src/SettingsController.cpp" line="2984"/>
         <source>Open CW Sender</source>
         <translation type="unfinished">Відкрити CW Sender</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2967"/>
+        <location filename="../src/SettingsController.cpp" line="2985"/>
         <source>Pop Out Receiver</source>
         <translation type="unfinished">Висувний приймач</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2968"/>
+        <location filename="../src/SettingsController.cpp" line="2986"/>
         <source>Pop In Receiver</source>
         <translation type="unfinished">Вставний приймач</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2969"/>
+        <location filename="../src/SettingsController.cpp" line="2987"/>
         <source>Enter Frequency</source>
         <translation type="unfinished">Введіть частоту</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2972"/>
+        <location filename="../src/SettingsController.cpp" line="2990"/>
         <source>Macro %1: %2</source>
         <translation type="unfinished">Макрос %1 : %2</translation>
     </message>

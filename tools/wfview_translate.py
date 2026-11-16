@@ -12,6 +12,17 @@ Pipeline for one language:
 Modes:
   interactive (default)  Review each string and its proposed translation.
   --bulk                 Translate everything selected without prompting.
+  --all                  Update every translations/wfview_*.ts file (each
+                         language and region) in bulk: one lupdate pass picks
+                         up new source strings, only the strings that are
+                         still empty are machine-translated, then all .qm
+                         files are rebuilt. English files are only lupdated
+                         and lreleased.
+
+Existing translations are never re-sent: a new string whose exact English
+text is already translated elsewhere in the same file reuses that
+translation, and within one run each distinct string is sent to the API
+only once per target language (so es, es_ES and es_MX share one request).
 
 Machine translations written in bulk mode stay marked "unfinished" so a
 human can review them later in Qt Linguist (lrelease still includes them
@@ -33,6 +44,9 @@ Examples:
   tools/wfview_translate.py ja --bulk --scope unfinished
   tools/wfview_translate.py de --scope all         # re-review every German string
   tools/wfview_translate.py de --no-translate      # only lupdate + lrelease
+  tools/wfview_translate.py --all                  # add new strings to every language
+  tools/wfview_translate.py --all --dry-run        # show what --all would translate
+  tools/wfview_translate.py --all --no-translate   # lupdate + lrelease every language
 """
 
 import argparse
@@ -43,6 +57,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -268,17 +283,33 @@ class CloudTranslate:
         return out
 
 
+# Locales whose nearest API language is not simply the base language.
+LANG_FALLBACK = {
+    "zh": "zh-CN",
+    "zh_HK": "zh-TW",       # Hong Kong and Macau use Traditional characters
+    "zh_MO": "zh-TW",
+    "zh_SG": "zh-CN",
+}
+
+
 def api_lang(lang: str, override, supported):
+    """Map a Qt locale suffix to an API language code; raises ValueError if unsupported."""
     if override:
         if override not in supported:
-            sys.exit("error: the API does not support language %r" % override)
+            raise ValueError("the API does not support language %r" % override)
         return override
     parts = lang.split("_")
     if len(parts) == 2 and "%s-%s" % (parts[0], parts[1]) in supported:
         return "%s-%s" % (parts[0], parts[1])     # zh-CN, zh-TW, pt-PT, fr-CA
+    if LANG_FALLBACK.get(lang) in supported:
+        return LANG_FALLBACK[lang]
     if parts[0] in supported:
         return parts[0]
-    sys.exit("error: the API does not support language %r (use --api-lang)" % lang)
+    raise ValueError("the API does not support language %r (use --api-lang)" % lang)
+
+
+def is_english(lang: str) -> bool:
+    return lang.split("_")[0] == "en"
 
 
 # --------------------------------------------------------------------------
@@ -322,11 +353,16 @@ def translation_text(tr: ET.Element, numerus: bool) -> str:
 
 
 def collect_items(tree, scope: str, include_html: bool, context_re):
+    """Returns (items to process, translation memory, number of rich-text strings skipped).
+
+    The memory maps English source text to an existing translation of it in
+    this file, taken from messages that are not being processed. Finished
+    translations win over unfinished ones."""
     items, skipped_html = [], 0
+    finished_mem, unfinished_mem = {}, {}
     for ctx in tree.getroot().iter("context"):
         cname = ctx.findtext("name", "")
-        if context_re and not context_re.search(cname):
-            continue
+        ctx_selected = not context_re or context_re.search(cname)
         for msg in ctx.findall("message"):
             src_el = msg.find("source")
             tr = msg.find("translation")
@@ -337,12 +373,16 @@ def collect_items(tree, scope: str, include_html: bool, context_re):
                 continue
             numerus = msg.get("numerus") == "yes"
             current = translation_text(tr, numerus)
-            if scope == "untranslated" and current.strip():
-                continue
-            if scope == "unfinished" and status != "unfinished":
-                continue
             source = src_el.text or ""
             if not source.strip():
+                continue
+            selected = ctx_selected and not (
+                (scope == "untranslated" and current.strip()) or
+                (scope == "unfinished" and status != "unfinished"))
+            if not selected:
+                if current.strip() and not numerus:
+                    mem = unfinished_mem if status == "unfinished" else finished_mem
+                    mem.setdefault(source, current)
                 continue
             if is_rich_text(source) and not include_html:
                 skipped_html += 1
@@ -354,7 +394,7 @@ def collect_items(tree, scope: str, include_html: bool, context_re):
             items.append(Item(cname, source, msg.findtext("comment", ""),
                               msg.findtext("extracomment", ""), location, msg,
                               numerus, current, status))
-    return items, skipped_html
+    return items, {**unfinished_mem, **finished_mem}, skipped_html
 
 
 def apply_translation(item: Item, text: str, finished: bool):
@@ -444,47 +484,76 @@ def register_language(lang: str):
 # --------------------------------------------------------------------------
 
 class Engine:
-    def __init__(self, api, target, args):
+    def __init__(self, api, target, args, memory=None, cache=None):
         self.api = api
         self.target = target
         self.keep = DEFAULT_KEEP_TERMS + (args.keep or [])
         self.protect_acronyms = not args.translate_acronyms
+        self.memory = memory or {}      # source -> existing translation in this file
+        # (target, html) -> API result. Shared between files in --all so that
+        # languages and regions with the same API target pay for a string once.
+        self.cache = {} if cache is None else cache
+        self.error = None               # last API error, if any
+        self.reused = 0                 # strings filled from self.memory
+        self.cached = 0                 # strings answered from self.cache
 
     def propose(self, items):
         """Translate a list of items in as few requests as possible."""
+        self.error = None
         pending = []
         for item in items:
             item.problems, item.notes, item.failed = [], [], False
+            if not item.numerus and item.source in self.memory:
+                item.proposed, item.done = self.memory[item.source], True
+                item.notes.append("reused the existing translation of the same text")
+                self.reused += 1
+                continue
             p = protect(item.source, self.keep, self.protect_acronyms)
             if not has_words(p):
                 item.proposed, item.trivial, item.done = item.source, True, True
             else:
                 pending.append((item, p))
 
-        batch, size = [], 0
-        for entry in pending + [None]:
-            flush = entry is None or len(batch) >= BATCH_STRINGS or \
-                (batch and size + len(entry[1].html) > BATCH_CHARS)
-            if flush and batch:
-                self._send(batch)
-                batch, size = [], 0
-            if entry is not None:
-                batch.append(entry)
-                size += len(entry[1].html)
+        # Send each distinct string once, skipping anything already answered.
+        needed = []
+        for _, p in pending:
+            if (self.target, p.html) in self.cache:
+                self.cached += 1
+            elif p.html not in needed:
+                needed.append(p.html)
 
-    def _send(self, batch):
-        try:
-            results = self.api.translate([p.html for _, p in batch], self.target)
-        except ApiError as e:
-            for item, _ in batch:
-                item.proposed, item.problems = "", ["translation failed: %s" % e]
+        batch, size = [], 0
+        for text in needed + [None]:
+            flush = text is None or len(batch) >= BATCH_STRINGS or \
+                (batch and size + len(text) > BATCH_CHARS)
+            if flush and batch:
+                if not self._send(batch):
+                    break       # quota/network errors would just repeat
+                batch, size = [], 0
+            if text is not None:
+                batch.append(text)
+                size += len(text)
+
+        for item, p in pending:
+            out = self.cache.get((self.target, p.html))
+            if out is None:
+                item.proposed, item.problems = "", ["translation failed: %s" % self.error]
                 item.failed = item.done = True
-            return
-        for (item, p), out in zip(batch, results):
+                continue
             item.proposed, item.problems = restore(p, out)
             if item.proposed.strip() == item.source.strip():
                 item.notes.append("same as the English source")
             item.done = True
+
+    def _send(self, texts):
+        try:
+            results = self.api.translate(texts, self.target)
+        except ApiError as e:
+            self.error = str(e)
+            return False
+        for text, out in zip(texts, results):
+            self.cache[(self.target, text)] = out
+        return True
 
 
 def short(s, n=60):
@@ -512,12 +581,11 @@ def run_bulk(engine, items, args, tree, ts_path):
         print("  %d/%d processed" % (min(start + chunk_size, len(items)), len(items)))
         if not args.dry_run:
             write_ts(tree, ts_path)
-        errors = {p for i in chunk if i.failed for p in i.problems}
-        if errors:
-            print("Stopping: %s" % "; ".join(sorted(errors)))
+        if engine.error:
+            print("Stopping: %s" % engine.error)
             break
     print("Bulk: %d translated, %d flagged and left alone, %d failed." % (done, flagged, failed))
-    return done
+    return done, flagged, failed
 
 
 def input_prefilled(prompt, text):
@@ -598,7 +666,7 @@ def run_interactive(engine, items, args, tree, ts_path):
             elif choice == "b":
                 rest = items[i:]
                 print("Bulk-translating the remaining %d strings..." % len(rest))
-                changed += run_bulk(engine, rest, args, tree, ts_path)
+                changed += run_bulk(engine, rest, args, tree, ts_path)[0]
                 break
             elif choice == "q":
                 break
@@ -626,47 +694,177 @@ def setup_api(args):
         target = api_lang(args.lang, args.api_lang, api.languages())
     except ApiError as e:
         sys.exit("error: Cloud Translation API: %s" % e)
+    except ValueError as e:
+        sys.exit("error: %s" % e)
     return api, target
 
 
-def translate_file(args, ts_path: Path, api, target):
-    """Returns True if the .ts file was written."""
+@dataclass
+class FileResult:
+    selected: int = 0
+    translated: int = 0
+    reused: int = 0
+    flagged: int = 0
+    failed: int = 0
+    wrote: bool = False
+    error: str = ""
+
+
+def translate_file(args, ts_path: Path, api, target, cache=None) -> FileResult:
+    res = FileResult()
     tree = ET.parse(ts_path)
     context_re = re.compile(args.context) if args.context else None
-    items, skipped_html = collect_items(tree, args.scope, args.include_html, context_re)
+    items, memory, skipped_html = collect_items(tree, args.scope, args.include_html, context_re)
     if args.limit:
         items = items[: args.limit]
+    res.selected = len(items)
     print("%d strings selected (scope: %s)%s." % (
         len(items), args.scope,
         ", %d rich-text strings skipped (--include-html)" % skipped_html if skipped_html else ""))
     if not items:
-        return False
+        return res
 
     print("Translating en -> %s with Google Cloud Translation" % target)
-    engine = Engine(api, target, args)
+    engine = Engine(api, target, args, memory, cache)
+    chars_before = api.chars_sent
 
     if args.bulk:
-        changed = run_bulk(engine, items, args, tree, ts_path)
+        changed, res.flagged, res.failed = run_bulk(engine, items, args, tree, ts_path)
     else:
         changed = run_interactive(engine, items, args, tree, ts_path)
-    print("Sent %d characters to the API." % api.chars_sent)
+    res.reused, res.error = engine.reused, engine.error or ""
+    print("Sent %d characters to the API%s." % (
+        api.chars_sent - chars_before,
+        "; %d strings reused from this file, %d from earlier requests" % (engine.reused, engine.cached)
+        if engine.reused or engine.cached else ""))
 
     if changed is None:
         print("Quit without saving (strings saved earlier remain in the file).")
-        return False
+        return res
+    res.translated = changed
     if args.dry_run:
         print("Dry run: %s not written." % ts_path.name)
-        return False
+        return res
     write_ts(tree, ts_path)
+    res.wrote = True
     print("Wrote %s (%d strings changed)." % (ts_path.relative_to(REPO), changed))
-    return True
+    return res
+
+
+def lupdate_command(args, ts_paths):
+    # Scan the source folders directly rather than wfview.pro: the result is
+    # identical, but parsing the .pro makes lupdate warn about Qt5-only modules
+    # (gamepad) and trip over Qt's private headers via INCLUDEPATH.
+    cmd = [find_tool("lupdate", args.qt_bin), *LUPDATE_DIRS, "-ts",
+           *[os.path.relpath(p, REPO) for p in ts_paths]]
+    if args.no_obsolete:
+        cmd.insert(1, "-no-obsolete")
+    return cmd
+
+
+def lrelease_command(lrelease, args, ts_paths):
+    # Without -qm, lrelease writes each .qm next to its .ts with the same name.
+    cmd = [lrelease, *[str(p.relative_to(REPO)) for p in ts_paths]]
+    if args.finished_only:
+        cmd.insert(1, "-nounfinished")
+    return cmd
+
+
+def discover_languages():
+    """Locale suffixes of every translations/wfview_*.ts file, base languages before regions."""
+    langs = []
+    for p in sorted(TS_DIR.glob("wfview_*.ts")):
+        m = re.fullmatch(r"wfview_([a-z]{2,3}(?:_[A-Za-z]{2,4})?)\.ts", p.name)
+        if m:
+            langs.append(m.group(1))
+    return langs
+
+
+def run_all(args):
+    """Bulk-update every language and region that has a .ts file."""
+    langs = discover_languages()
+    if not langs:
+        sys.exit("error: no translations/wfview_*.ts files found")
+    ts_paths = {l: TS_DIR / ("wfview_%s.ts" % l) for l in langs}
+
+    # Everything that can fail cheaply is checked before any file is touched.
+    lupdate_cmd = None if args.no_lupdate else lupdate_command(args, ts_paths.values())
+    lrelease = None if args.no_lrelease else find_tool("lrelease", args.qt_bin)
+    api, targets, skipped = None, {}, {}
+    for l in langs:
+        if is_english(l):
+            skipped[l] = "English source; lupdate/lrelease only"
+    if not args.no_translate:
+        api = CloudTranslate(load_api_key(args.key_file))
+        try:
+            supported = api.languages()
+        except ApiError as e:
+            sys.exit("error: Cloud Translation API: %s" % e)
+        for l in langs:
+            if l in skipped:
+                continue
+            try:
+                targets[l] = api_lang(l, None, supported)
+            except ValueError as e:
+                skipped[l] = str(e)
+
+    print("Languages: %s" % ", ".join(
+        "%s->%s" % (l, targets[l]) if l in targets else l for l in langs))
+    for l, why in skipped.items():
+        if not (args.no_translate and is_english(l)):
+            print("  not translating %s: %s" % (l, why))
+
+    tmpdir = None
+    if lupdate_cmd and args.dry_run:
+        # Run lupdate on copies so the dry run sees the new strings without
+        # touching the real files.
+        tmpdir = tempfile.TemporaryDirectory(prefix="wfview_translate_")
+        for l in langs:
+            ts_paths[l] = Path(shutil.copy(ts_paths[l], tmpdir.name))
+        lupdate_cmd = lupdate_command(args, ts_paths.values())
+    if lupdate_cmd:
+        run(lupdate_cmd)
+
+    results, cache, stopped = {}, {}, ""
+    for l in langs:
+        if l not in targets:
+            continue
+        print("\n=== %s (%s) ===" % (l, targets[l]))
+        res = results[l] = translate_file(args, ts_paths[l], api, targets[l], cache)
+        if res.error:
+            stopped = res.error
+            print("Stopping before the remaining languages: %s" % res.error)
+            break
+
+    written = [ts_paths[l] for l, r in results.items() if r.wrote]
+    if written and lupdate_cmd:
+        run(lupdate_command(args, written))  # normalise to lupdate's own formatting
+    if lrelease:
+        run(lrelease_command(lrelease, args, ts_paths.values()))
+
+    if results:
+        print("\n%-8s %-7s %8s %10s %7s %8s %7s" % (
+            "lang", "api", "selected", "translated", "reused", "flagged", "failed"))
+        for l, r in results.items():
+            print("%-8s %-7s %8d %10d %7d %8d %7d" % (
+                l, targets[l], r.selected, r.translated, r.reused, r.flagged, r.failed))
+        print("Sent %d characters to the API in total." % api.chars_sent)
+    not_reached = [l for l in targets if l not in results]
+    if stopped and not_reached:
+        print("Not processed because of the API error: %s" % ", ".join(not_reached))
+    if lrelease:
+        print("Rebuild wfview to pick up the new .qm files (they are compiled in via translation.qrc).")
+    if stopped:
+        sys.exit(1)
 
 
 def main():
     ap = argparse.ArgumentParser(
         description="Generate, machine-translate (Google Cloud Translation) and compile wfview translations.",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("Examples:")[1])
-    ap.add_argument("lang", help="Qt locale suffix of the .ts file, e.g. de, es_ES, zh_CN, fr_FR")
+    ap.add_argument("lang", nargs="?", help="Qt locale suffix of the .ts file, e.g. de, es_ES, zh_CN, fr_FR")
+    ap.add_argument("-a", "--all", action="store_true",
+                    help="bulk-update every language and region that has a translations/wfview_*.ts file")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("-b", "--bulk", action="store_true", help="translate everything without prompting")
     mode.add_argument("-i", "--interactive", action="store_true", help="review each string (default)")
@@ -695,6 +893,21 @@ def main():
     ap.add_argument("--qt-bin", help="directory containing lupdate/lrelease")
     args = ap.parse_args()
 
+    if args.all:
+        if args.lang:
+            ap.error("give either a language or --all, not both")
+        if args.interactive:
+            ap.error("--all always runs in bulk mode")
+        if args.api_lang:
+            ap.error("--api-lang applies to a single language")
+        args.bulk = True
+        if args.dry_run:
+            args.no_lrelease = True
+        run_all(args)
+        return
+    if not args.lang:
+        ap.error("a language (e.g. de, es_ES) or --all is required")
+
     if not re.fullmatch(r"[a-z]{2,3}(_[A-Za-z]{2,4})?", args.lang):
         sys.exit("error: language should look like de, es_ES or zh_CN")
 
@@ -712,15 +925,7 @@ def main():
         sys.exit("error: %s does not exist and --no-lupdate was given" % ts_path.name)
 
     # Everything that can fail cheaply is checked before any file is touched.
-    lupdate_cmd = None
-    if not args.no_lupdate:
-        # Scan the source folders directly rather than wfview.pro: the result is
-        # identical, but parsing the .pro makes lupdate warn about Qt5-only modules
-        # (gamepad) and trip over Qt's private headers via INCLUDEPATH.
-        lupdate_cmd = [find_tool("lupdate", args.qt_bin), *LUPDATE_DIRS,
-                       "-ts", str(ts_path.relative_to(REPO))]
-        if args.no_obsolete:
-            lupdate_cmd.insert(2, "-no-obsolete")
+    lupdate_cmd = None if args.no_lupdate else lupdate_command(args, [ts_path])
     lrelease = None if args.no_lrelease else find_tool("lrelease", args.qt_bin)
     api = target = None
     if not args.no_translate:
@@ -732,7 +937,7 @@ def main():
 
         wrote = False
         if not args.no_translate:
-            wrote = translate_file(args, ts_path, api, target)
+            wrote = translate_file(args, ts_path, api, target).wrote
 
         if wrote and lupdate_cmd:
             run(lupdate_cmd)  # re-scan and normalise the file to lupdate's own formatting
