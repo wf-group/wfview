@@ -1977,7 +1977,7 @@ ApplicationWindow {
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 252
+                        Layout.preferredHeight: 312
                         title: qsTr("Features")
                         ColumnLayout {
                             anchors.fill: parent
@@ -2000,6 +2000,30 @@ ApplicationWindow {
                                                    + "When VFO B is selected, wfview then sends tuning to the Unselected Freq command "
                                                    + "and shows its replies as the active frequency.\n"
                                                    + "Leave off when the radio's frequency commands follow the active VFO (for example Icom 0x25).")
+                            }
+                            CheckBox {
+                                id: slowPollOnTx
+                                text: qsTr("Slow polling on TX")
+                                checked: (rig.settings["Rig/SlowPollOnTx"] ?? false)
+                                onToggled: rig.settings["Rig/SlowPollOnTx"] = checked
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("Over a network connection, poll the radio this many times slower while it transmits.\n"
+                                                   + "Applies to automatic and manual polling. Heavy CAT traffic during transmit makes "
+                                                   + "some radios (for example the TS-890S) glitch their LAN audio. Experimental.")
+                            }
+                            RowLayout {
+                                spacing: 6
+                                enabled: slowPollOnTx.checked
+                                Label { text: qsTr("Factor") }
+                                SpinBox {
+                                    Layout.preferredWidth: 90
+                                    from: 1
+                                    to: 10
+                                    value: Number(rig.settings["Rig/SlowPollOnTxFactor"] ?? 4)
+                                    onValueModified: rig.settings["Rig/SlowPollOnTxFactor"] = value
+                                }
+                                Label { text: qsTr("x slower") }
                             }
                             Item { Layout.fillHeight: true }
                         }

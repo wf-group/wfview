@@ -23,6 +23,7 @@ private slots:
     void getCacheLimitsRefreshRate();
     void routinePollingSurvivesImmediateFlood();
     void warnsAboutBacklog();
+    void transmitPollIntervalRules();
 
 private:
     int waiting(queuePriority prio, funcs func, bool reads = true);
@@ -219,6 +220,23 @@ void CachingQueueTest::warnsAboutBacklog()
     QTRY_VERIFY_WITH_TIMEOUT(queue->getStats().warnings >= 1, 3000);
     stopQueue();
     QVERIFY(queue->getStats().immediateHighWater >= 80);
+}
+
+void CachingQueueTest::transmitPollIntervalRules()
+{
+    // Slower only while transmitting, over a network, on a rig that asks for it.
+    QCOMPARE(transmitPollInterval(25, true, true, true, 4), qint64(100));
+    QCOMPARE(transmitPollInterval(25, false, true, true, 4), qint64(25));
+    QCOMPARE(transmitPollInterval(25, true, false, true, 4), qint64(25));  // serial
+    QCOMPARE(transmitPollInterval(25, true, true, false, 4), qint64(25));  // rig file off
+    // Manual polling is multiplied the same way.
+    QCOMPARE(transmitPollInterval(60, true, true, true, 4), qint64(240));
+    // The factor is kept within 1..10.
+    QCOMPARE(transmitPollInterval(25, true, true, true, 0), qint64(25));
+    QCOMPARE(transmitPollInterval(25, true, true, true, 50), qint64(250));
+    // A stopped queue stays stopped.
+    QCOMPARE(transmitPollInterval(-1, true, true, true, 4), qint64(-1));
+    QCOMPARE(transmitPollInterval(0, true, true, true, 4), qint64(0));
 }
 
 int runCachingQueueTests(int argc, char **argv)

@@ -526,6 +526,7 @@ private:
 #endif
     funcs meterCommandForType(meter_t meterType) const;
     void updatePrimaryMeterForTransmit(bool transmitting);
+    void applyTransmitPolling(bool transmitting);
     void syncSingleScopeReceiver();
     void configureOptionalMeter(int slot, meter_t meterType);
     void receiveOptionalMeter(meter_t meterType, double level);
@@ -787,6 +788,7 @@ private:
     QString m_closingActionsText;
 
     int cmdInterval_ms = 100;
+    qint64 m_rxPollInterval_ms = 0; // queue interval while receiving; 0 when not connected
     int cmdStartupInterval_ms = 250;
     int wfShareCmdInterval_ms = 25;
 

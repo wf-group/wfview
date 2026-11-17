@@ -1870,6 +1870,21 @@ funcs MainController::meterCommandForType(meter_t meterType) const
     }
 }
 
+void MainController::applyTransmitPolling(bool transmitting)
+{
+    // Only while connected: m_rxPollInterval_ms is 0 once the queue is stopped.
+    if (queue == nullptr || rigCaps == nullptr || m_rxPollInterval_ms <= 0)
+        return;
+    const bool network = prefs && (prefs->enableLAN || prefs->wfShareEnabled);
+    const qint64 wanted = transmitPollInterval(m_rxPollInterval_ms, transmitting, network,
+                                               rigCaps->slowPollOnTx, rigCaps->slowPollOnTxFactor);
+    if (queue->interval() != wanted) {
+        queue->interval(wanted);
+        qInfo(logRig()) << (transmitting ? "Transmitting: polling slowed to" : "Receiving: polling back to")
+                        << wanted << "ms";
+    }
+}
+
 void MainController::updatePrimaryMeterForTransmit(bool transmitting)
 {
     if (!rigCaps || currentReceiver >= receivers.size() || !receivers[currentReceiver])
@@ -4647,6 +4662,7 @@ void MainController::disconnectRig()
     }
 
     queue->interval(-1); // Disable queue
+    m_rxPollInterval_ms = 0;
     setFooterMessageText(QString());
     // radioStatusText is kept so the last connection statistics stay visible
     setRigModelName(QString());
@@ -5114,6 +5130,7 @@ void MainController::receivePortError(errorType err)
     }
 
     queue->interval(-1);
+    m_rxPollInterval_ms = 0;
     setRigModelName(QString());
     connStatus = connectionStatus_t::connDisconnected;
     emit connStatusChanged();
@@ -5416,6 +5433,10 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             // Normal:
             cmdInterval_ms = queue->interval();
         }
+        // The receive interval; applyTransmitPolling() derives the transmit one.
+        m_rxPollInterval_ms = queue->interval();
+        if (m_transmitting)
+            applyTransmitPolling(true);
 
         receivers.reserve(rigCaps->numReceiver);
         for (int i = 0; i < rigCaps->numReceiver; ++i) {
@@ -6357,6 +6378,7 @@ void MainController::receiveValueFromQueue(cacheItem val)
                 m_pttTimeoutTimer.stop();
             emit transmittingChanged();
             updatePrimaryMeterForTransmit(enabled);
+            applyTransmitPolling(enabled);
         }
         break;
     }

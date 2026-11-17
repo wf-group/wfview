@@ -346,6 +346,11 @@ struct rigCapabilities {
 
     bool hasCommand29 = false;
     bool absoluteVFOFreq = false; // Selected/Unselected Freq address VFO A/B rather than the active VFO
+    // Poll this many times slower while transmitting, on network connections
+    // only (rig file SlowPollOnTx / SlowPollOnTxFactor). Heavy CAT traffic
+    // during transmit makes some radios (TS-890S) glitch their LAN audio.
+    bool slowPollOnTx = false;
+    int slowPollOnTxFactor = 4;
 
     QByteArray quickSplitCommand;
     QHash<funcs,funcType> commands;
@@ -383,6 +388,21 @@ struct rigCapabilities {
     QMap<int,double> meters[meterUnknown+1];
     double meterLines[meterUnknown+1];
 };
+
+constexpr int slowPollOnTxFactorMin = 1;
+constexpr int slowPollOnTxFactorMax = 10;
+constexpr int slowPollOnTxFactorDefault = 4;
+
+// The command queue interval to use: normalMs, or slowPollOnTxFactor times
+// that while transmitting over a network connection on a rig whose rig file
+// asks for it.
+inline qint64 transmitPollInterval(qint64 normalMs, bool transmitting, bool network,
+                                   bool slowPollOnTx, int factor)
+{
+    if (normalMs <= 0 || !transmitting || !network || !slowPollOnTx)
+        return normalMs;
+    return normalMs * qBound(slowPollOnTxFactorMin, factor, slowPollOnTxFactorMax);
+}
 
 inline uchar initialDataModeForRig(const rigCapabilities* caps)
 {
