@@ -10,6 +10,8 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
+#include <QStandardPaths>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
@@ -979,8 +981,20 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
             {{"seconds",
               schemaInt("How long to run (default 120).", 1, McpAudioDiag::maxSeconds)},
              {"stop", schemaBool("Stop now instead of starting.")},
-             {"clear", schemaBool("Discard what was recorded before (default true).")}},
+             {"clear", schemaBool("Discard what was recorded before (default true).")},
+             {"record", schemaBool("Also record the 16-bit PCM audio sent to and received from the radio, with the "
+                                   "time of each datagram, for saving with save_audio_recording (default false; "
+                                   "keeps the last 16 MB per direction, about 8 minutes at 16 kHz mono).")}},
             [this](const QJsonObject &a) { return toolSetAudioDiagnostics(a); });
+
+    addTool("save_audio_recording",
+            "Save radio audio recording",
+            "Stops the PCM recording started with set_audio_diagnostics record=true and writes it to a new folder "
+            "in the system temp directory: radio_tx.wav and radio_rx.wav (16-bit PCM exactly as sent to and "
+            "received from the radio) and, for each, a CSV with every datagram's time and position in the WAV. "
+            "Returns the file paths.",
+            {},
+            [this](const QJsonObject &a) { return toolSaveAudioRecording(a); });
 
     addTool("get_audio_diagnostics",
             "Audio timing diagnostics results",
@@ -1750,8 +1764,20 @@ McpToolResult McpTools::toolSetAudioDiagnostics(const QJsonObject &args)
         McpAudioDiag::stop();
     else
         McpAudioDiag::start(argInt(args, "seconds", defaultAudioDiagSeconds, 1, McpAudioDiag::maxSeconds),
-                            args.value("clear").toBool(true));
+                            args.value("clear").toBool(true), args.value("record").toBool(false));
     r.data = McpAudioDiag::status();
+    return r;
+}
+
+McpToolResult McpTools::toolSaveAudioRecording(const QJsonObject &)
+{
+    McpToolResult r;
+    const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                            .filePath(QStringLiteral("wfview-audio-") +
+                                      QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    r.data = McpAudioDiag::saveRecording(dir);
+    if (r.data.contains("error"))
+        r.error = r.data.value("error").toString();
     return r;
 }
 

@@ -131,6 +131,7 @@ private:
     McpToolResult toolTraffic(const QJsonObject &args);
     McpToolResult toolSetAudioDiagnostics(const QJsonObject &args);
     McpToolResult toolAudioDiagnostics(const QJsonObject &args);
+    McpToolResult toolSaveAudioRecording(const QJsonObject &args);
     McpToolResult toolSpectrum(const QJsonObject &args);
     McpToolResult toolSettingOptions(const QJsonObject &args);
     McpToolResult toolSetSetting(const QJsonObject &args);

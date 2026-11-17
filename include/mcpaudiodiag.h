@@ -20,6 +20,7 @@
 // string literals.
 
 #include <QJsonObject>
+#include <QString>
 #include <QTime>
 #include <QtGlobal>
 
@@ -78,12 +79,41 @@ inline int pcm16Channels(quint8 codec)
     return codec == 0x04 ? 1 : (codec == 0x10 ? 2 : 0);
 }
 
+// PCM recording at the radio end, for offline analysis of what was actually
+// sent to and received from the radio. Only while diagnostics run and only if
+// they were started with record=true. Each stream keeps its most recent
+// recordBytesPerStream bytes in a buffer allocated on the first recording and
+// kept for the life of the process; the hook copies into it without locks.
+enum RecordStream : int
+{
+    RecordRadioTx = 0, // 16-bit PCM datagrams as sent to the radio
+    RecordRadioRx,     // 16-bit PCM datagrams as received from the radio
+    RecordStreamCount
+};
+
+extern std::atomic_bool s_recording;
+
+inline bool recording()
+{
+    return s_recording.load(std::memory_order_acquire);
+}
+
+// Hook: one datagram of 16-bit PCM (bytes must be whole frames).
+void recordPcm16(RecordStream stream, const char *data, int bytes, int channels, int sampleRate);
+
+constexpr qint64 recordBytesPerStream = 16 * 1024 * 1024;
+
 // Control and report, MCP thread.
-void start(int seconds, bool clear);
+// record also records radio PCM (see above), discarding any earlier recording.
+void start(int seconds, bool clear, bool record = false);
 void stop();
 QJsonObject status();
 // reset clears everything recorded so far after reading it.
 QJsonObject report(int maxAnomalies, bool reset);
+// Stops recording and writes radio_tx.wav / radio_rx.wav with
+// radio_tx_packets.csv / radio_rx_packets.csv (time of each datagram and its
+// position in the WAV file) into dir.
+QJsonObject saveRecording(const QString &dir);
 
 constexpr int maxSeconds = 3600;
 } // namespace McpAudioDiag

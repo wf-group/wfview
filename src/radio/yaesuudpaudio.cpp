@@ -270,6 +270,9 @@ void yaesuUdpAudio::incomingUdp(void* buf, size_t bufLen)
                     MCP_AUDIO_DIAG({
                         McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
                         McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(r->data.seqNum));
+                        if (const int ch = McpAudioDiag::pcm16Channels(rxSetup.codec))
+                            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                                      int(tempAudio.data.size()), ch, int(rxSetup.sampleRate));
                     });
                     emit haveAudioData(tempAudio);
                 }
@@ -451,5 +454,8 @@ void yaesuUdpAudio::sendTxPacket(const QByteArray &partial)
     // Each packet is sent twice; counted (and recorded) once.
     MCP_AUDIO_DIAG({
         McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(txSetup.sampleRate));
     });
 }

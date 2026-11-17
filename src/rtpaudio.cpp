@@ -171,6 +171,8 @@ void rtpAudio::dataReceived()
             if (const int ch = McpAudioDiag::pcm16Channels(outSetup.codec)) {
                 McpAudioDiag::continuityInt16(McpAudioDiag::RadioRxPacket, tempAudio.data.constData(),
                                               int(tempAudio.data.size()), ch);
+                McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                          int(tempAudio.data.size()), ch, int(outSetup.sampleRate));
             }
         });
         emit haveAudioData(tempAudio);
@@ -246,5 +248,8 @@ void rtpAudio::sendTxPacket(const QByteArray &partial)
     udp->writeDatagram(in, ip, port);
     MCP_AUDIO_DIAG({
         McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(inSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(inSetup.sampleRate));
     });
 }

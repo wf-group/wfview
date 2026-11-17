@@ -152,6 +152,9 @@ void icomUdpAudio::sendTxPacket(const QByteArray &partial)
     sendTrackedPacket(tx);
     MCP_AUDIO_DIAG({
         McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(txSetup.sampleRate));
     });
     sendAudioSeq++;
 }
@@ -247,6 +250,9 @@ void icomUdpAudio::dataReceived()
                 MCP_AUDIO_DIAG({
                     McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
                     McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(in->seq));
+                    if (const int ch = McpAudioDiag::pcm16Channels(rxSetup.codec))
+                        McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                                  int(tempAudio.data.size()), ch, int(rxSetup.sampleRate));
                 });
                 emit haveAudioData(tempAudio);
                 lastReceived = QTime::currentTime();

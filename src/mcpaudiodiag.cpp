@@ -1,7 +1,10 @@
 #include "mcpaudiodiag.h"
 
 #include <QDateTime>
+#include <QDir>
+#include <QFile>
 #include <QJsonArray>
+#include <QTextStream>
 #include <QtEndian>
 
 #include <algorithm>
@@ -13,6 +16,7 @@
 namespace McpAudioDiag
 {
 std::atomic_bool s_active{false};
+std::atomic_bool s_recording{false};
 } // namespace McpAudioDiag
 
 namespace
@@ -368,9 +372,103 @@ void gaugeAgeMs(Stage stage, const QTime &created)
     gauge(stage, ms);
 }
 
-void start(int seconds, bool clear)
+// ---- PCM recording ---------------------------------------------------------
+
+constexpr quint64 recordPacketSlots = 65536;
+
+struct PacketSlot
+{
+    std::atomic<quint64> seq{0}; // index + 1 once written
+    std::atomic<qint64> tNs{0};
+    std::atomic<quint64> offset{0};
+    std::atomic<int> bytes{0};
+};
+
+struct RecordState
+{
+    char *buf = nullptr;         // recordBytesPerStream, set once, never freed
+    PacketSlot *packetSlots = nullptr; // recordPacketSlots, set once, never freed
+    std::atomic<quint64> written{0};
+    std::atomic<quint64> packets{0};
+    std::atomic<int> channels{0};
+    std::atomic<int> rate{0};
+};
+
+RecordState &recordState(int stream)
+{
+    static RecordState r[RecordStreamCount];
+    return r[stream];
+}
+
+void recordPcm16(RecordStream stream, const char *data, int bytes, int channels, int sampleRate)
+{
+    if (!recording() || stream < 0 || stream >= RecordStreamCount)
+        return;
+    const qint64 now = nowNs();
+    if (!live(now))
+        return;
+    RecordState &r = recordState(stream);
+    const quint64 cap = quint64(recordBytesPerStream);
+    if (r.buf == nullptr || data == nullptr || bytes <= 0 || quint64(bytes) > cap)
+        return;
+    r.channels.store(channels, std::memory_order_relaxed);
+    r.rate.store(sampleRate, std::memory_order_relaxed);
+
+    const quint64 off = r.written.fetch_add(quint64(bytes), std::memory_order_relaxed);
+    const quint64 pos = off % cap;
+    const quint64 first = std::min<quint64>(quint64(bytes), cap - pos);
+    std::memcpy(r.buf + pos, data, size_t(first));
+    if (first < quint64(bytes))
+        std::memcpy(r.buf, data + first, size_t(quint64(bytes) - first));
+
+    const quint64 idx = r.packets.fetch_add(1, std::memory_order_relaxed);
+    PacketSlot &p = r.packetSlots[idx % recordPacketSlots];
+    p.seq.store(0, std::memory_order_release);
+    p.tNs.store(now, std::memory_order_relaxed);
+    p.offset.store(off, std::memory_order_relaxed);
+    p.bytes.store(bytes, std::memory_order_relaxed);
+    p.seq.store(idx + 1, std::memory_order_release);
+}
+
+void writeWavHeader(QFile &f, int channels, int rate, quint32 dataBytes)
+{
+    auto u32 = [&f](quint32 v) { v = qToLittleEndian(v); f.write(reinterpret_cast<const char *>(&v), 4); };
+    auto u16 = [&f](quint16 v) { v = qToLittleEndian(v); f.write(reinterpret_cast<const char *>(&v), 2); };
+    f.write("RIFF", 4);
+    u32(36 + dataBytes);
+    f.write("WAVEfmt ", 8);
+    u32(16);
+    u16(1); // PCM
+    u16(quint16(channels));
+    u32(quint32(rate));
+    u32(quint32(rate * channels * 2));
+    u16(quint16(channels * 2));
+    u16(16);
+    f.write("data", 4);
+    u32(dataBytes);
+}
+
+void start(int seconds, bool clear, bool record)
 {
     State &s = state();
+    if (record)
+    {
+        s_recording.store(false, std::memory_order_release);
+        for (int i = 0; i < RecordStreamCount; ++i)
+        {
+            RecordState &r = recordState(i);
+            if (r.buf == nullptr)
+            {
+                r.buf = new char[size_t(recordBytesPerStream)];
+                r.packetSlots = new PacketSlot[recordPacketSlots];
+            }
+            for (quint64 k = 0; k < recordPacketSlots; ++k)
+                r.packetSlots[k].seq.store(0);
+            r.written.store(0);
+            r.packets.store(0);
+        }
+        clear = true; // the recording's times are relative to this start
+    }
     const qint64 now = nowNs();
     const bool wasActive = live(now);
     if (clear || !wasActive)
@@ -389,13 +487,112 @@ void start(int seconds, bool clear)
     s.untilNs.store(now + qint64(qBound(1, seconds, maxSeconds)) * 1000000000ll);
     s.stoppedNs.store(0);
     s_active.store(true);
+    if (record)
+        s_recording.store(true, std::memory_order_release);
 }
 
 void stop()
 {
     State &s = state();
+    s_recording.store(false, std::memory_order_release);
     if (s_active.exchange(false))
         s.stoppedNs.store(nowNs());
+}
+
+QJsonObject saveRecording(const QString &dir)
+{
+    // Stop first, so the buffers are not written while they are copied (a
+    // datagram already being recorded may still land; this is diagnostics).
+    s_recording.store(false, std::memory_order_release);
+
+    State &s = state();
+    const qint64 startNs = s.startNs.load();
+    const qint64 startEpochMs = s.startEpochMs.load();
+    QJsonObject out;
+    QJsonArray streams;
+    if (!QDir().mkpath(dir))
+    {
+        out["error"] = QStringLiteral("Cannot create %1").arg(dir);
+        return out;
+    }
+    out["directory"] = dir;
+
+    const char *names[RecordStreamCount] = {"radio_tx", "radio_rx"};
+    const quint64 cap = quint64(recordBytesPerStream);
+    for (int i = 0; i < RecordStreamCount; ++i)
+    {
+        RecordState &r = recordState(i);
+        QJsonObject o{{"stream", QString::fromLatin1(names[i])}};
+        const quint64 written = r.written.load();
+        const int ch = r.channels.load();
+        const int rate = r.rate.load();
+        if (r.buf == nullptr || written == 0 || ch <= 0 || rate <= 0)
+        {
+            o["note"] = QStringLiteral("nothing recorded (not started with record, or no 16-bit PCM on this path)");
+            streams.append(o);
+            continue;
+        }
+        const quint64 frameBytes = quint64(ch) * 2;
+        quint64 first = written > cap ? written - cap : 0;
+        first += (frameBytes - first % frameBytes) % frameBytes;
+        const quint64 keep = written - first;
+
+        QByteArray pcm(int(keep), Qt::Uninitialized);
+        const quint64 pos = first % cap;
+        const quint64 part = std::min(keep, cap - pos);
+        std::memcpy(pcm.data(), r.buf + pos, size_t(part));
+        if (part < keep)
+            std::memcpy(pcm.data() + part, r.buf, size_t(keep - part));
+
+        const QString wavPath = QDir(dir).filePath(QString::fromLatin1(names[i]) + QStringLiteral(".wav"));
+        QFile wav(wavPath);
+        if (!wav.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        {
+            o["error"] = QStringLiteral("Cannot write %1").arg(wavPath);
+            streams.append(o);
+            continue;
+        }
+        writeWavHeader(wav, ch, rate, quint32(keep));
+        wav.write(pcm);
+        wav.close();
+
+        const QString csvPath = QDir(dir).filePath(QString::fromLatin1(names[i]) + QStringLiteral("_packets.csv"));
+        QFile csv(csvPath);
+        int rows = 0;
+        if (csv.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+        {
+            QTextStream ts(&csv);
+            ts << "packet,t_ms,wall_time,frame_offset,frames\n";
+            const quint64 total = r.packets.load();
+            const quint64 from = total > recordPacketSlots ? total - recordPacketSlots : 0;
+            for (quint64 k = from; k < total; ++k)
+            {
+                const PacketSlot &p = r.packetSlots[k % recordPacketSlots];
+                if (p.seq.load(std::memory_order_acquire) != k + 1)
+                    continue;
+                const quint64 off = p.offset.load();
+                if (off < first)
+                    continue;
+                const qint64 tNs = p.tNs.load();
+                const double tMs = double(tNs - startNs) / 1e6;
+                const QString wall = QDateTime::fromMSecsSinceEpoch(startEpochMs + qint64(tMs))
+                                         .toString(QStringLiteral("HH:mm:ss.zzz"));
+                ts << k << ',' << QString::number(tMs, 'f', 3) << ',' << wall << ','
+                   << (off - first) / frameBytes << ',' << quint64(p.bytes.load()) / frameBytes << '\n';
+                ++rows;
+            }
+        }
+        o["wav"] = wavPath;
+        o["packets"] = csvPath;
+        o["packetRows"] = rows;
+        o["sampleRate"] = rate;
+        o["channels"] = ch;
+        o["seconds"] = double(keep / frameBytes) / double(rate);
+        o["truncatedToBuffer"] = written > cap;
+        streams.append(o);
+    }
+    out["streams"] = streams;
+    return out;
 }
 
 QJsonObject status()
@@ -407,6 +604,7 @@ QJsonObject status()
     const qint64 endNs = on ? now : (s.stoppedNs.load() ? s.stoppedNs.load() : now);
     QJsonObject o;
     o["active"] = on;
+    o["recordingPcm"] = on && recording();
     o["remainingSeconds"] = on ? double(s.untilNs.load() - now) / 1e9 : 0.0;
     if (startNs > 0)
     {

@@ -81,7 +81,8 @@ None of these change the radio or the application. `set_traffic_capture` and
 | `get_spectrum` | The latest scope sweep: frequency range, levels reduced to N points, noise floor and strongest signals. |
 | `set_traffic_capture` | Start (for up to 15 minutes) or stop recording radio and network traffic. |
 | `get_traffic` | Captured traffic as hex, and as text for Kenwood/Yaesu CAT, filterable by kind, direction and content. |
-| `set_audio_diagnostics` | Start (for up to an hour, default 2 minutes) or stop audio timing diagnostics. Off until started. |
+| `set_audio_diagnostics` | Start (for up to an hour, default 2 minutes) or stop audio timing diagnostics. Off until started. With `record`, also records the 16-bit PCM sent to and received from the radio. |
+| `save_audio_recording` | Stops that recording and writes `radio_tx.wav`, `radio_rx.wav` and per-datagram timing CSVs to a new folder in the temp directory. |
 | `get_audio_diagnostics` | What audio timing diagnostics recorded: per-stage rates, interval statistics, values, continuity and sequence results, and timed unusual events. |
 | `get_setting_options` | Settings that can be changed by name, with their current values (including unsaved changes). |
 | `get_radio_server` | The built-in radio server: enabled, running or why not, protocol, address, ports and audio devices, who is logged in from where, logins since it started, and each user's access level and status. wfview only. |
