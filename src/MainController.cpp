@@ -306,6 +306,8 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     });
     m_pttTimeoutTimer.setSingleShot(true);
     connect(&m_pttTimeoutTimer, &QTimer::timeout, this, &MainController::handlePttTimeout);
+    m_unkeyWaiter = new txUnkeyWaiter(this);
+    connect(m_unkeyWaiter, &txUnkeyWaiter::ready, this, &MainController::sendUnkey);
     m_footerErrorTimer.setSingleShot(true);
     connect(&m_footerErrorTimer, &QTimer::timeout, this, [this]() {
         // Only clear the error if nothing newer has replaced it.
@@ -1059,7 +1061,7 @@ void MainController::executeMacroStep(const macroStep& step)
         if (step.command == QLatin1String(macroPttToggle))
             toggleTransmit();
         else
-            setTransmit(step.command == QLatin1String(macroPttOn));
+            setTransmit(step.command == QLatin1String(macroPttOn), false);
         return;
     }
 
@@ -1203,7 +1205,7 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
             *error = tr("use on or off");
             return false;
         }
-        setTransmit(transmit);
+        setTransmit(transmit, false);
         return true;
     }
 
@@ -2182,7 +2184,7 @@ void MainController::toggleTransmit()
     setTransmit(!m_transmitting);
 }
 
-void MainController::setTransmit(bool enabled)
+void MainController::setTransmit(bool enabled, bool waitForTxAudio)
 {
     if (!prefs->enablePTT) {
         qInfo(logSystem()) << "PTT is disabled, not sending transmit command.";
@@ -2204,12 +2206,36 @@ void MainController::setTransmit(bool enabled)
     }
 
     if (rigCaps && rigCaps->commands.contains(funcTransceiverStatus)) {
-        queue->add(priorityImmediate, queueItem(funcTransceiverStatus, QVariant::fromValue<bool>(enabled), false, uchar(0)));
-        if (enabled)
+        if (enabled) {
+            m_unkeyWaiter->cancel(); // keyed again before the last unkey: stay keyed
+            queue->add(priorityImmediate, queueItem(funcTransceiverStatus, QVariant::fromValue<bool>(true), false, uchar(0)));
             armPttTimeout();
-        else
+        } else {
             m_pttTimeoutTimer.stop();
+            // The mic audio wfview still holds (up to a couple of hundred ms
+            // over the network) would be cut off by an immediate unkey.
+            if (waitForTxAudio) {
+                m_unkeyWaiter->start(rigCaps->txAudioBufferMs);
+            } else {
+                m_unkeyWaiter->cancel();
+                sendUnkey();
+            }
+        }
     }
+}
+
+void MainController::sendUnkey()
+{
+    if (rigCaps && queue && rigCaps->commands.contains(funcTransceiverStatus))
+        queue->add(priorityImmediate, queueItem(funcTransceiverStatus, QVariant::fromValue<bool>(false), false, uchar(0)));
+}
+
+void MainController::flushPendingUnkey()
+{
+    if (!m_unkeyWaiter || !m_unkeyWaiter->waiting())
+        return;
+    m_unkeyWaiter->cancel();
+    sendUnkey();
 }
 
 void MainController::armPttTimeout()
@@ -2224,6 +2250,7 @@ void MainController::handlePttTimeout()
 {
     const int seconds = prefs ? prefs->pttTimeoutSeconds : 0;
     qWarning(logSystem()) << "PTT Timeout: transmission exceeded" << seconds << "seconds, sending PTT off.";
+    m_unkeyWaiter->cancel();
 
     if (rigCaps && rigCaps->commands.contains(funcTransceiverStatus))
         queue->add(priorityImmediate, queueItem(funcTransceiverStatus, QVariant::fromValue<bool>(false), false, uchar(0)));
@@ -4585,6 +4612,9 @@ void MainController::connectionHandler()
     } else {
         if (m_disconnectPending && !shuttingDown)
             return;
+
+        // A PTT off still waiting for TX audio goes now, before anything else.
+        flushPendingUnkey();
 
         // Give on-disconnect commands and macro time to complete before closing.
         // m_disconnectPending is set first so macro steps see the disconnect.

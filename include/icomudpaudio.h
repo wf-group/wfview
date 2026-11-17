@@ -28,6 +28,7 @@
 #include "icomudpbase.h"
 
 #include "audiohandler.h"
+#include "txaudiopacer.h"
 
 // Class for all audio communications.
 class icomUdpAudio : public icomUdpBase
@@ -64,6 +65,10 @@ public slots:
 private:
 
 	void sendTxAudio();
+    void sendTxPacket(const QByteArray &partial);
+    // Sends TX audio at a steady rate (see txaudiopacer.h).
+    txAudioPacer *txPacer = nullptr;
+    radioAudioClock rxClock; // the radio's clock, from its RX audio (see txaudiopacer.h)
 	void dataReceived();
 	void watchdog();
 	void startAudio();

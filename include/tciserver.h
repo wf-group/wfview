@@ -19,6 +19,8 @@
 #include <eigen3/Eigen/Eigen>
 #endif
 
+class txUnkeyWaiter;
+
 #define TCI_AUDIO_SAMPLES 2048
 #define TCI_AUDIO_LENGTH 4096
 struct tciCommandStruct
@@ -93,6 +95,8 @@ public:
 signals:
     void closed();
     void sendTCIAudio(QByteArray audio);
+    // The transmitting client ended its transmission; no more audio follows.
+    void txAudioEnded();
     void transmitRequested(bool transmit);
 
 public slots:
@@ -137,7 +141,7 @@ private:
     QTimer *chronoTimer = nullptr;
     // trx:false is held back while wfview's TX pacing buffer plays out, so the
     // end of the client's transmission is not cut off.
-    QTimer *unkeyTimer = nullptr;
+    txUnkeyWaiter *unkeyWaiter = nullptr;
     uchar unkeyReceiver = 0;
     QElapsedTimer chronoClock;
     quint64 chronosSent = 0;

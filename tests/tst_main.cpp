@@ -14,6 +14,7 @@ int runRadioTransportFrameTests(int argc, char **argv);
 int runRigCtlCompatTests(int argc, char **argv);
 int runRigCtlDTests(int argc, char **argv);
 int runRigProtocolTests(int argc, char **argv);
+int runTxAudioPacerTests(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -33,5 +34,6 @@ int main(int argc, char **argv)
     status |= runRigCtlCompatTests(argc, argv);
     status |= runRigCtlDTests(argc, argv);
     status |= runRigProtocolTests(argc, argv);
+    status |= runTxAudioPacerTests(argc, argv);
     return status;
 }

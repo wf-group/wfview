@@ -351,6 +351,10 @@ struct rigCapabilities {
     // during transmit makes some radios (TS-890S) glitch their LAN audio.
     bool slowPollOnTx = false;
     int slowPollOnTxFactor = 4;
+    // How long the radio takes to play the network TX audio it has been sent
+    // (rig file TxAudioBufferMs). PTT off waits this long after wfview sends
+    // the last of it, so the end of a transmission is not cut off.
+    int txAudioBufferMs = 100;
 
     QByteArray quickSplitCommand;
     QHash<funcs,funcType> commands;
@@ -392,6 +396,9 @@ struct rigCapabilities {
 constexpr int slowPollOnTxFactorMin = 1;
 constexpr int slowPollOnTxFactorMax = 10;
 constexpr int slowPollOnTxFactorDefault = 4;
+constexpr int txAudioBufferMsMin = 0;
+constexpr int txAudioBufferMsMax = 1000;
+constexpr int txAudioBufferMsDefault = 100;
 
 // The command queue interval to use: normalMs, or slowPollOnTxFactor times
 // that while transmitting over a network connection on a rig whose rig file

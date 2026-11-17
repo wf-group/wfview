@@ -31,11 +31,15 @@ protected:
 
 private slots:
     void receiveTCIAudio(const QByteArray data);
+    // The client ended its transmission (trx false): send the rest of its audio.
+    void endOfInput();
     void pace();
     void onConverted(audioPacket pkt);
 
 private:
     void logPacingStats(bool force);
+    void finishTail();
+    void reportBusy();
 
     static constexpr quint64 maxCatchUpBlocks = 3;
 
@@ -44,6 +48,10 @@ private:
     QElapsedTimer paceClock;
     quint64 blocksSent = 0;
     bool priming = true;
+    bool fadeInNext = true;  // the next audio follows silence
+    bool inputEnded = false;
+    int channels = 2;
+    int fadeFrames = 0;
     int bytesPerFrame = 8;
     int bytesPerBlock = 0;
     int blockMs = 20;

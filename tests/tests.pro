@@ -45,6 +45,8 @@ SOURCES += \
     $$PWD/tst_rigctlcompat.cpp \
     $$PWD/tst_rigctld.cpp \
     $$PWD/tst_rigprotocols.cpp \
+    $$PWD/tst_txaudiopacer.cpp \
+    $$PWD/../src/audio/txaudiopacer.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \
     $$PWD/../src/audiorouting.cpp \
@@ -69,4 +71,5 @@ HEADERS += \
     $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/rigctld.h \
     $$PWD/../include/cachingqueue.h \
+    $$PWD/../include/txaudiopacer.h \
     $$PWD/../include/usbcontroller.h

@@ -1,5 +1,6 @@
 #include "tciserver.h"
 #include "audiohandlertciinput.h"
+#include "txaudiopacer.h"
 
 #include "logcategories.h"
 #include "mcphooks.h"
@@ -145,12 +146,10 @@ void tciServer::init(quint16 port) {
     chronoTimer->setInterval(5);
     connect(chronoTimer, &QTimer::timeout, this, &tciServer::sendDueChronos);
 
-    unkeyTimer = new QTimer(this);
-    unkeyTimer->setSingleShot(true);
-    unkeyTimer->setTimerType(Qt::PreciseTimer);
-    // Pacing buffer plus a couple of blocks for the converter and the radio link.
-    unkeyTimer->setInterval(audioHandlerTciInput::prebufferMs + 40);
-    connect(unkeyTimer, &QTimer::timeout, this, [this]() {
+    // PTT off waits until wfview has sent the client's audio and the radio
+    // has played it, so the end of a transmission is not cut off.
+    unkeyWaiter = new txUnkeyWaiter(this);
+    connect(unkeyWaiter, &txUnkeyWaiter::ready, this, [this]() {
         emit transmitRequested(false);
         queueIfSupported(funcTransceiverStatus, QVariant::fromValue(false), unkeyReceiver);
     });
@@ -553,15 +552,16 @@ bool tciServer::setCommandValue(const QString &command, const QStringList &args)
         const bool transmitting = boolValue(args[1]);
         if (transmitting) {
             // A new transmission before the last one finished unkeying: stay keyed.
-            if (unkeyTimer)
-                unkeyTimer->stop();
+            if (unkeyWaiter)
+                unkeyWaiter->cancel();
             emit transmitRequested(true);
             queueIfSupported(funcTransceiverStatus, QVariant::fromValue(true), rx);
-        } else if (unkeyTimer) {
-            // wfview still holds up to prebufferMs of the client's audio; let it
-            // reach the radio before releasing TX audio and unkeying.
+        } else if (unkeyWaiter) {
+            // wfview still holds some of the client's audio; let it reach the
+            // radio before releasing TX audio and unkeying.
+            emit txAudioEnded();
             unkeyReceiver = rx;
-            unkeyTimer->start();
+            unkeyWaiter->start(rigCaps ? rigCaps->txAudioBufferMs : txUnkeyWaiter::defaultRadioBufferMs);
         } else {
             emit transmitRequested(false);
             queueIfSupported(funcTransceiverStatus, QVariant::fromValue(false), rx);

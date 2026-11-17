@@ -23,6 +23,7 @@ CWDecodeRequiresDisplay=true
 AbsoluteVFOFreq=true
 SlowPollOnTx=true
 SlowPollOnTxFactor=4
+TxAudioBufferMs=300
 MemGroups=0
 Memories=99
 MemStart=0

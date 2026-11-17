@@ -282,6 +282,7 @@ SOURCES += \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
     src/audio/audioconverter.cpp \
+    src/audio/txaudiopacer.cpp \
     src/audio/audiodevices.cpp \
     src/audio/audiohandlerbase.cpp \
     src/audio/audiohandlerpainput.cpp \
@@ -382,6 +383,7 @@ HEADERS  += \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
     include/audioconverter.h \
+    include/txaudiopacer.h \
     include/audiodevices.h \
     include/audiohandler.h \
     include/audiohandlerbase.h \

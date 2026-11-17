@@ -35,6 +35,11 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
     areYouThereTimer = new QTimer(this);
     connect(areYouThereTimer, &QTimer::timeout, this, std::bind(&icomUdpBase::sendControl, this, false, 0x03, 0));
     areYouThereTimer->start(AREYOUTHERE_PERIOD);
+    if (enableTx) {
+        txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, 1364,
+                                   [this](const QByteArray &payload) { sendTxPacket(payload); }, this);
+        txPacer->setRadioClock(&rxClock);
+    }
 }
 
 icomUdpAudio::~icomUdpAudio()
@@ -115,32 +120,40 @@ void icomUdpAudio::receiveAudioData(audioPacket audio) {
                                               int(audio.data.size()), ch);
         });
 
-        int len = 0;
-
-        while (len < audio.data.length()) {
-            QByteArray partial = audio.data.mid(len, 1364);
-            audio_packet p;
-            memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
-            p.len = (quint32)sizeof(p) + partial.length();
-            p.sentid = myId;
-            p.rcvdid = remoteId;
-            if (partial.length() == 0xa0) {
-                p.ident = 0x9781;
-            }
-            else {
-                p.ident = 0x0080; // TX audio is always this?
-            }
-            p.datalen = (quint16)qToBigEndian((quint16)partial.length());
-            p.sendseq = (quint16)qToBigEndian((quint16)sendAudioSeq); // THIS IS BIG ENDIAN!
-            QByteArray tx = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
-            tx.append(partial);
-            len = len + partial.length();
-            //qInfo(logUdp()) << "Sending audio packet length: " << tx.length();
-            sendTrackedPacket(tx);
-            MCP_AUDIO_DIAG(McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size()));
-            sendAudioSeq++;
+        if (txPacer != nullptr) {
+            txPacer->push(audio.data);
+        } else {
+            for (int len = 0; len < audio.data.length(); len += 1364)
+                sendTxPacket(audio.data.mid(len, 1364));
         }
     }
+}
+
+void icomUdpAudio::sendTxPacket(const QByteArray &partial)
+{
+    if (udp == nullptr)
+        return;
+    audio_packet p;
+    memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
+    p.len = (quint32)sizeof(p) + partial.length();
+    p.sentid = myId;
+    p.rcvdid = remoteId;
+    if (partial.length() == 0xa0) {
+        p.ident = 0x9781;
+    }
+    else {
+        p.ident = 0x0080; // TX audio is always this?
+    }
+    p.datalen = (quint16)qToBigEndian((quint16)partial.length());
+    p.sendseq = (quint16)qToBigEndian((quint16)sendAudioSeq); // THIS IS BIG ENDIAN!
+    QByteArray tx = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
+    tx.append(partial);
+    //qInfo(logUdp()) << "Sending audio packet length: " << tx.length();
+    sendTrackedPacket(tx);
+    MCP_AUDIO_DIAG({
+        McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+    });
+    sendAudioSeq++;
 }
 
 void icomUdpAudio::changeLatency(quint16 value)
@@ -196,6 +209,11 @@ void icomUdpAudio::dataReceived()
 
                 if (rxAudioThread == nullptr)
                     startAudio();
+
+                // Every audio packet counts towards the radio's clock, even
+                // one dropped below as late.
+                if (const int bpf = txAudioPacer::bytesPerFrame(rxSetup.codec))
+                    rxClock.packet((int(r.size()) - 0x18) / bpf, rxSetup.sampleRate);
 
                 // Drop audio that is arriving later than the configured latency allows,
                 // so that a delay spike does not leave us playing behind real time.

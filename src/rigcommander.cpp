@@ -347,6 +347,9 @@ void rigCommander::determineRigCaps()
     rigCaps.slowPollOnTxFactor = qBound(slowPollOnTxFactorMin,
                                         settings->value("SlowPollOnTxFactor",slowPollOnTxFactorDefault).toInt(),
                                         slowPollOnTxFactorMax);
+    rigCaps.txAudioBufferMs = qBound(txAudioBufferMsMin,
+                                     settings->value("TxAudioBufferMs",txAudioBufferMsDefault).toInt(),
+                                     txAudioBufferMsMax);
 
     rigCaps.memGroups = settings->value("MemGroups",0).toUInt();
     rigCaps.memories = settings->value("Memories",0).toUInt();

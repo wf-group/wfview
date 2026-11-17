@@ -1,5 +1,6 @@
 #include "audiohandlertciinput.h"
 #include "tciserver.h"
+#include "txaudiopacer.h"
 #include "mcphooks.h"
 
 bool audioHandlerTciInput::openDevice() noexcept
@@ -13,6 +14,8 @@ bool audioHandlerTciInput::openDevice() noexcept
     connect(converter, SIGNAL(converted(audioPacket)), this, SLOT(onConverted(audioPacket)));
     if (setupData.tci != Q_NULLPTR) {
         connect((tciServer*)setupData.tci, SIGNAL(sendTCIAudio(QByteArray)), this, SLOT(receiveTCIAudio(QByteArray)));
+        // Same sender and thread as the audio, so it arrives after the last of it.
+        connect((tciServer*)setupData.tci, SIGNAL(txAudioEnded()), this, SLOT(endOfInput()));
         //connect(this,SIGNAL(setupTxPacket(int)), (tciServer*)setup.tci, SLOT(setupTxPacket(int)));
         //emit setupTxPacket((nativeFormat.bytesForDuration(setup.blockSize * 1000)*2)/sizeof(float));
     } else {
@@ -21,20 +24,27 @@ bool audioHandlerTciInput::openDevice() noexcept
 
     blockMs = setupData.blockSize > 0 ? int(setupData.blockSize) : 20;
     bytesPerFrame = qMax(1, nativeFormat.bytesPerFrame());
+    channels = qMax(1, nativeFormat.channelCount());
+    fadeFrames = nativeFormat.sampleRate() * txAudioFade::fadeMs / 1000;
     bytesPerBlock = nativeFormat.bytesForDuration(qint64(blockMs) * 1000);
     prebufferBytes = nativeFormat.bytesForDuration(qint64(prebufferMs) * 1000);
     maxBufferBytes = nativeFormat.bytesForDuration(qint64(qMax(maxBufferMs, prebufferMs + 2 * blockMs)) * 1000);
     pending.clear();
     pending.reserve(maxBufferBytes + bytesPerBlock);
     priming = true;
+    fadeInNext = true;
+    inputEnded = false;
     blocksSent = 0;
     statsLog.start();
 
     // This runs in the handler's own thread, so the timer and the queued
     // receiveTCIAudio() calls never run at the same time.
+    // A 1 ms tick sends each block within about 1 ms of its deadline; a 5 ms
+    // tick sent about 40% of blocks 15 or 25 ms apart. The handler only exists
+    // while TCI transmits, so the extra wakeups cost little.
     paceTimer = new QTimer(this);
     paceTimer->setTimerType(Qt::PreciseTimer);
-    paceTimer->setInterval(5);
+    paceTimer->setInterval(1);
     connect(paceTimer, &QTimer::timeout, this, &audioHandlerTciInput::pace);
     paceTimer->start();
 
@@ -56,7 +66,18 @@ void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet)
     if (packet.isEmpty() || bytesPerBlock <= 0)
         return;
 
+    const int start = int(pending.size());
     pending.append(packet);
+
+    // Audio that follows silence starts wherever its waveform happens to be,
+    // most of all at the start of a transmission, when wfview starts taking
+    // the client's audio part way through: fade it in.
+    if (fadeInNext) {
+        const int frames = qMin(fadeFrames, int(packet.size()) / bytesPerFrame);
+        txAudioFade::floatFrames(reinterpret_cast<float *>(pending.data() + start), frames, channels, true);
+        fadeInNext = false;
+    }
+    inputEnded = false;
 
     // Keep the delay bounded: if the client got far ahead, drop the oldest audio.
     if (pending.size() > maxBufferBytes) {
@@ -70,6 +91,57 @@ void audioHandlerTciInput::receiveTCIAudio(const QByteArray packet)
                                              double(drop / bytesPerFrame)));
         logPacingStats(false);
     }
+    reportBusy();
+}
+
+void audioHandlerTciInput::endOfInput()
+{
+    if (bytesPerBlock <= 0 || inputEnded)
+        return;
+    inputEnded = true;
+    if (pending.isEmpty()) {
+        fadeInNext = true;
+        return;
+    }
+    // Send everything the client sent, ending in a fade rather than a cut,
+    // even if the transmission was too short to fill the prebuffer.
+    finishTail();
+    if (priming) {
+        priming = false;
+        isUnderrun.store(false, std::memory_order_relaxed);
+        paceClock.start();
+        blocksSent = 0;
+    }
+    reportBusy();
+}
+
+void audioHandlerTciInput::finishTail()
+{
+    // Fade out the last of the audio and pad it with silence to whole blocks.
+    const int frames = int(pending.size()) / bytesPerFrame;
+    pending.truncate(frames * bytesPerFrame);
+    const int n = qMin(fadeFrames, frames);
+    txAudioFade::floatFrames(reinterpret_cast<float *>(pending.data()) + qsizetype(frames - n) * channels,
+                             n, channels, false);
+    const int partial = int(pending.size()) % bytesPerBlock;
+    if (partial)
+        pending.append(QByteArray(bytesPerBlock - partial, char(0)));
+    fadeInNext = true;
+}
+
+void audioHandlerTciInput::reportBusy()
+{
+    // When the last audio held here will have been passed on (see txAudioDrain).
+    const qint64 now = txAudioDrain::nowMs();
+    qint64 last = now;
+    if (!pending.isEmpty()) {
+        const qint64 blocks = (pending.size() + bytesPerBlock - 1) / bytesPerBlock;
+        const qint64 first = priming
+            ? now + blockMs // waiting for more audio, or for the end of it
+            : now + qMax<qint64>(0, (qint64(blocksSent) * blockMs * 1000000ll - paceClock.nsecsElapsed()) / 1000000);
+        last = first + (blocks - 1) * blockMs;
+    }
+    txAudioDrain::report(txAudioDrain::TciInput, last);
 }
 
 void audioHandlerTciInput::pace()
@@ -99,17 +171,30 @@ void audioHandlerTciInput::pace()
         logPacingStats(false);
     }
 
+    bool sent = false;
     while (blocksSent < due) {
         if (pending.size() < bytesPerBlock) {
+            if (!pending.isEmpty()) {
+                // Ran out part way through a block: send the rest, faded out,
+                // on time. Audio that comes later is faded in.
+                if (!inputEnded)
+                    MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
+                                                         "underrun, partial block faded out (value: frames left)",
+                                                         double(pending.size() / bytesPerFrame)));
+                finishTail();
+                continue;
+            }
             // Ran dry: collect the prebuffer again before restarting.
-            ++underruns;
-            MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
-                                                 "underrun, buffering again (value: frames left)",
-                                                 double(pending.size() / bytesPerFrame)));
+            if (!inputEnded) {
+                ++underruns;
+                MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciTxPaced,
+                                                     "underrun, buffering again", 0.0));
+                isUnderrun.store(true, std::memory_order_relaxed);
+                logPacingStats(false);
+            }
             priming = true;
-            isUnderrun.store(true, std::memory_order_relaxed);
-            logPacingStats(false);
-            return;
+            fadeInNext = true;
+            break;
         }
 
         audioPacket pkt;
@@ -128,7 +213,10 @@ void audioHandlerTciInput::pace()
         });
         emit sendToConverter(pkt);
         ++blocksSent;
+        sent = true;
     }
+    if (sent)
+        reportBusy();
 }
 
 void audioHandlerTciInput::logPacingStats(bool force)

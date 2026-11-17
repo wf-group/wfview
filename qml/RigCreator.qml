@@ -1977,7 +1977,7 @@ ApplicationWindow {
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 312
+                        Layout.preferredHeight: 372
                         title: qsTr("Features")
                         ColumnLayout {
                             anchors.fill: parent
@@ -2024,6 +2024,33 @@ ApplicationWindow {
                                     onValueModified: rig.settings["Rig/SlowPollOnTxFactor"] = value
                                 }
                                 Label { text: qsTr("x slower") }
+                            }
+                            Label {
+                                text: qsTr("Radio TX audio buffer")
+                                ToolTip.visible: txAudioBufferHover.hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: txAudioBuffer.ToolTip.text
+                                HoverHandler { id: txAudioBufferHover }
+                            }
+                            RowLayout {
+                                spacing: 6
+                                SpinBox {
+                                    id: txAudioBuffer
+                                    Layout.preferredWidth: 100
+                                    from: 0
+                                    to: 1000
+                                    stepSize: 10
+                                    editable: true
+                                    value: Number(rig.settings["Rig/TxAudioBufferMs"] ?? 100)
+                                    onValueModified: rig.settings["Rig/TxAudioBufferMs"] = value
+                                    ToolTip.visible: hovered
+                                    ToolTip.delay: 500
+                                    ToolTip.text: qsTr("How long the radio takes to play the network TX audio it has been sent.\n"
+                                                       + "When a transmission ends, wfview sends the rest of its audio and then waits "
+                                                       + "this long before PTT off, so the end of the audio is not cut off (a click).\n"
+                                                       + "100 ms suits most radios; the TS-890S needs about 300 ms.")
+                                }
+                                Label { text: qsTr("ms") }
                             }
                             Item { Layout.fillHeight: true }
                         }

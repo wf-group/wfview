@@ -35,6 +35,7 @@
 
 #include "SettingsController.h"
 #include "txaudioprocessor.h"
+#include "txaudiopacer.h"
 #include "rxaudioprocessor.h"
 #include "audiohandler.h"
 #include "audiorouting.h"
@@ -355,7 +356,9 @@ public slots:
     void setMonitorEnabled(bool enabled);
     void setMicGain(int value);
     void setRitFrequency(int value);
-    void setTransmit(bool enabled);
+    // Unkeying waits for TX audio still on its way to the radio unless
+    // waitForTxAudio is false (macros, whose next step must not run keyed).
+    void setTransmit(bool enabled, bool waitForTxAudio = true);
     void setTunerEnabled(bool enabled);
     void setRitEnabled(bool enabled);
     void setDualScope(bool enabled);
@@ -765,6 +768,12 @@ private:
     // Software PTT timeout for transmissions started from wfview or rigctld.
     void armPttTimeout();
     QTimer m_pttTimeoutTimer;
+
+    // wfview's PTT off waits for the TX audio still on its way to the radio
+    // (see txUnkeyWaiter); sendUnkey() is what it then sends.
+    void sendUnkey();
+    void flushPendingUnkey();
+    txUnkeyWaiter *m_unkeyWaiter = nullptr;
     QVector<macroStep> m_macroSteps;
     int m_macroStepIndex = 0;
     int m_runningMacroId = -1;
