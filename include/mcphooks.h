@@ -27,6 +27,7 @@
 #define MCP_ATTACH_RIG(rig) McpProbe::attachRig(rig)
 #define MCP_ATTACH_AUDIO(handler, setup, nativeFormat, radioFormat)                                                   \
     McpProbe::attachAudioHandler((handler), (setup), (nativeFormat), (radioFormat))
+#define MCP_DETACH_AUDIO(handler) McpProbe::detachAudioHandler(handler)
 // Command bytes (CI-V or CAT) to and from the radio, whatever the transport.
 #define MCP_RADIO_TX(source, data) McpProbe::radioTraffic((source), true, (data))
 #define MCP_RADIO_RX(source, data) McpProbe::radioTraffic((source), false, (data))
@@ -40,6 +41,7 @@
 #define MCP_LOG_MESSAGE(type, category, msg) ((void)0)
 #define MCP_ATTACH_RIG(rig) ((void)0)
 #define MCP_ATTACH_AUDIO(handler, setup, nativeFormat, radioFormat) ((void)0)
+#define MCP_DETACH_AUDIO(handler) ((void)0)
 #define MCP_RADIO_TX(source, data) ((void)0)
 #define MCP_RADIO_RX(source, data) ((void)0)
 #define MCP_NETWORK_TX(source, data) ((void)0)

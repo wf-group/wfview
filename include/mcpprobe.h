@@ -40,6 +40,9 @@ public:
                                    const audioSetup &setup,
                                    const QAudioFormat &nativeFormat,
                                    const QAudioFormat &radioFormat);
+    // The handler closed its device (or is being destroyed): its slot shows
+    // as inactive from now on.
+    static void detachAudioHandler(const audioHandlerBase *handler);
 
     // Traffic hooks (see mcphooks.h). Capture is off until an MCP client
     // starts it, and stops by itself when its time runs out.

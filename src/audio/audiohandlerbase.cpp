@@ -45,6 +45,7 @@ void audioHandlerBase::dispose()
     QMutexLocker lock(&devMutex);
     qDebug(logAudio()) << "[SHUTDOWN] dispose() calling closeDevice(), role=" << role();
     closeDevice();
+    MCP_DETACH_AUDIO(this);
     qDebug(logAudio()) << "[SHUTDOWN] dispose() closeDevice() done, role=" << role();
 
     if (underTimer) {
@@ -286,6 +287,7 @@ void audioHandlerBase::start() {
 void audioHandlerBase::stop()  {
     QMutexLocker lock(&devMutex);
     closeDevice();
+    MCP_DETACH_AUDIO(this);
 }
 
 void audioHandlerBase::setVolume(quint8 volumeIdx) {
