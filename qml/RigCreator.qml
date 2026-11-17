@@ -224,11 +224,16 @@ ApplicationWindow {
         }
 
         onAccepted: {
-            if (rig.hasCurrentFile() && rig.saveCurrentFile()) {
-                forceClose = true
-                rigCreator.close()
+            if (rig.hasCurrentFile()) {
+                if (rig.saveCurrentFile()) {
+                    forceClose = true
+                    rigCreator.close()
+                }
+                // A failed save has said why; the window stays open so the
+                // file can be saved somewhere else.
             } else {
                 closeAfterSaveDialog = true
+                saveRigDialog.selectedFile = rig.suggestedSaveFile()
                 saveRigDialog.open()
             }
         }
@@ -1537,7 +1542,11 @@ ApplicationWindow {
             spacing: 8
 
             Button { text: qsTr("Load File"); onClicked: loadRigDialog.open() }
-            Button { text: qsTr("Save File"); onClicked: saveRigDialog.open() }
+            Button {
+                text: qsTr("Save File")
+                // Offer the loaded file's name in the user's own rigs folder.
+                onClicked: { saveRigDialog.selectedFile = rig.suggestedSaveFile(); saveRigDialog.open() }
+            }
 
             Item { Layout.fillWidth: true } // spacer (like your horizontalSpacer_2)
 
@@ -2020,6 +2029,7 @@ ApplicationWindow {
                                     Layout.preferredWidth: 90
                                     from: 1
                                     to: 10
+                                    editable: true
                                     value: Number(rig.settings["Rig/SlowPollOnTxFactor"] ?? 4)
                                     onValueModified: rig.settings["Rig/SlowPollOnTxFactor"] = value
                                 }

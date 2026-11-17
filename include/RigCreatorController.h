@@ -83,7 +83,16 @@ public:
 
     Q_INVOKABLE bool saveAs(QString fileUrlOrPath) {
         const QString path = toLocalPath(fileUrlOrPath);
+        m_lastError.clear();
         if (path.isEmpty()) return false;
+
+        // QSettings writes a new file beside the old one and renames it over,
+        // so the folder must be writable, not just the file.
+        const QFileInfo info(path);
+        if (!QFileInfo(info.absolutePath()).isWritable()) {
+            m_lastError = tr("the folder %1 is read-only").arg(QDir::toNativeSeparators(info.absolutePath()));
+            return false;
+        }
 
         QSettings out(path, QSettings::IniFormat);
 #if (QT_VERSION < QT_VERSION_CHECK(6,0,0))
@@ -96,8 +105,14 @@ public:
         const bool ok = out.status() == QSettings::NoError;
         if (ok)
             setDirty(false);
+        else
+            m_lastError = out.status() == QSettings::AccessError ? tr("it could not be written")
+                                                                : tr("it could not be written as a rig file");
         return ok;
     }
+
+    // Why the last saveAs() failed.
+    QString lastError() const { return m_lastError; }
 
     Q_INVOKABLE QVariant get(const QString &key, const QVariant &def = {}) const {
         auto it = m_data.constFind(key);
@@ -188,6 +203,7 @@ private:
 
     QVariantMap m_data;
     bool m_dirty = false;
+    QString m_lastError;
 };
 
 
