@@ -205,6 +205,7 @@ SOURCES += \
     src/radio/kenwoodcommander.cpp \
     src/radio/kenwoodserver.cpp \
     src/radio/yaesucommander.cpp \
+    src/radio/yaesuvalues.cpp \
     src/radio/yaesuserver.cpp \
     src/radio/yaesuudpaudio.cpp \
     src/radio/yaesuudpbase.cpp \
@@ -286,6 +287,7 @@ HEADERS  += \
     include/icomudphandler.h \
     include/kenwoodserver.h \
     include/yaesucommander.h \
+    include/yaesuvalues.h \
     include/yaesuserver.h \
     include/yaesuudpaudio.h \
     include/yaesuudpbase.h \
