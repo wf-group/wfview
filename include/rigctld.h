@@ -180,6 +180,12 @@ protected:
     int sessionId;
     QTcpSocket* socket = nullptr;
     QByteArray commandBuffer;
+    // Input waiting to be run, including input that arrived during \pause.
+    // More than this means a client is not sending newlines or is flooding us.
+    static constexpr int maxCommandBuffer = 64 * 1024;
+    // True while a \pause runs: input is buffered but not run until it ends.
+    bool paused = false;
+    void processCommands();
 
 private:
     cachingQueue* queue;

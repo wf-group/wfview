@@ -3,7 +3,8 @@
 #include "rigctlcompat.h"
 
 #include <QDateTime>
-#include <QThread>
+#include <QTimer>
+#include <climits>
 
 #ifndef WFVIEW_VERSION
 #define WFVIEW_VERSION "unknown"
@@ -413,6 +414,21 @@ void rigCtlClient::socketReadyRead()
 
 
     commandBuffer.append(socket->readAll());
+    if (commandBuffer.size() > maxCommandBuffer) {
+        qWarning(logRigCtlD()) << sessionId << "sent" << commandBuffer.size()
+                               << "bytes of input that cannot be run yet, closing connection";
+        commandBuffer.clear();
+        closeSocket();
+        return;
+    }
+
+    processCommands();
+}
+
+void rigCtlClient::processCommands()
+{
+    if (paused || rigCaps == nullptr)
+        return; // The pause timer runs the buffered input when it ends.
 
     int lastNewline = commandBuffer.lastIndexOf('\n');
     if (lastNewline < 0)
@@ -433,9 +449,12 @@ void rigCtlClient::socketReadyRead()
     bool extended = false;
 
     QStringList response;
+    int pauseMs = 0;
+    int lineIndex = -1;
 
     for (QString &commands : commandList)
     {
+        ++lineIndex;
         restart:
         if (commands.endsWith('\r'))
         {
@@ -640,9 +659,15 @@ void rigCtlClient::socketReadyRead()
                 }
                 else if (commands_list[i].sstr == 0x8c)
                 {
+                    // Hold this client's reply and later commands with a timer.
+                    // Sleeping here would freeze the main thread, and with it
+                    // the GUI, the radio and every other client.
                     const int seconds = command.isEmpty() ? 0 : command[0].toInt();
-                    if (seconds > 0)
-                        QThread::sleep(static_cast<unsigned long>(seconds));
+                    if (seconds > 0) {
+                        pauseMs = qMin(seconds, INT_MAX / 1000) * 1000;
+                        // Put the lines after this one back, to run once the pause ends.
+                        commandBuffer.prepend(commandList.mid(lineIndex + 1).join('\n').toLatin1());
+                    }
                     ret = RIG_OK;
                     setCommand = true;
                     break;
@@ -865,16 +890,32 @@ void rigCtlClient::socketReadyRead()
     }
 
     // We have finished parsing all commands and have a response to send (hopefully)
-    //commandBuffer.clear();
+    QString out;
     for (int i = 0;i<response.size();i++)
     {
         if (!response[i].isEmpty()) {
-            sendData(QString("%0%1").arg(response[i],sep));
+            out += QString("%0%1").arg(response[i],sep);
         }
     }
 
     if (sendStatus && (ret < 0 || setCommand || extended || !found))
-        sendData(QString("RPRT %1\n").arg(QString::number(ret)));
+        out += QString("RPRT %1\n").arg(QString::number(ret));
+
+    if (pauseMs > 0) {
+        // Like hamlib, reply once the pause is over. The timer is cancelled
+        // if this client is deleted first.
+        paused = true;
+        QTimer::singleShot(pauseMs, this, [this, out]() {
+            paused = false;
+            if (!out.isEmpty())
+                sendData(out);
+            processCommands();
+        });
+        return;
+    }
+
+    if (!out.isEmpty())
+        sendData(out);
 }
 
 void rigCtlClient::socketDisconnected()
