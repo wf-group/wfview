@@ -1548,18 +1548,57 @@ Control {
                         text: qsTr("Filter width")
                         Layout.preferredWidth: sideFlick.labelColW
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        visible: filterWidthSlider.visible
+                        visible: filterWidthRow.visible
                     }
-                    Slider {
-                        WheelArea {}
-                        id: filterWidthSlider
-                        objectName: "filterWidth"
+                    RowLayout {
+                        id: filterWidthRow
+                        // Decided here rather than from the slider's visible, which is false while
+                        // this row is hidden and so could never show the row again.
                         visible: drawerGrid.features.filterWidth === true
-                        value: controller ? controller.filterWidth : 0
-                        onMoved: controller.filterWidth = value
-                        //Layout.preferredWidth: 120
+                                 && filterWidthSlider.widthMax > filterWidthSlider.widthMin
                         Layout.fillWidth: true
-                        // onValueChanged: backend.filterWidth = value
+                        spacing: 6
+
+                        Slider {
+                            WheelArea {}
+                            id: filterWidthSlider
+                            objectName: "filterWidth"
+                            // With a width table the slider steps through its entries, so it
+                            // only offers widths the radio accepts; otherwise it covers the range in Hz.
+                            readonly property var widths: controller ? controller.filterWidths : []
+                            readonly property bool stepped: widths.length > 0
+                            readonly property int widthMin: controller ? controller.filterWidthMin : 0
+                            readonly property int widthMax: controller ? controller.filterWidthMax : 0
+                            from: stepped ? 0 : widthMin
+                            to: stepped ? widths.length - 1 : widthMax
+                            stepSize: stepped ? 1 : 50
+                            snapMode: Slider.SnapAlways
+                            value: stepped ? indexForWidth(controller ? controller.filterWidth : 0)
+                                           : (controller ? controller.filterWidth : 0)
+                            onMoved: controller.filterWidth = widthAt(value)
+                            Layout.fillWidth: true
+
+                            // The entry nearest to a width in Hz.
+                            function indexForWidth(hz) {
+                                let best = 0
+                                for (let i = 1; i < widths.length; ++i) {
+                                    if (Math.abs(widths[i] - hz) < Math.abs(widths[best] - hz))
+                                        best = i
+                                }
+                                return best
+                            }
+                            function widthAt(v) {
+                                return stepped ? widths[Math.round(v)] : Math.round(v)
+                            }
+                        }
+
+                        Label {
+                            // The width the radio reports.
+                            text: qsTr("%1 Hz").arg(controller ? controller.filterWidth : 0)
+                            Layout.minimumWidth: filterWidthMetrics.advanceWidth
+                            horizontalAlignment: Text.AlignRight
+                            TextMetrics { id: filterWidthMetrics; text: qsTr("%1 Hz").arg(8888) }
+                        }
                     }
 
                     // === NB checkbox + slider ===
