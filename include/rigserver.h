@@ -20,6 +20,8 @@ enum serverUserType : quint8 {
     serverUserDisabled = 3
 };
 
+class CwSerialKeyer;
+
 struct SERVERUSER {
 	QString username;
 	QString password;
@@ -35,6 +37,11 @@ struct RIGCONFIG {
 	bool hasWiFi = false;
 	bool hasEthernet=false;
     pttType_t pttType=pttCIV;
+    QString cwKeyPort; // serial port keyed for CW on DTR or RTS; empty for none
+    int cwKeyLine = 0; // CwSerialKeyer::KeyLine
+    CwSerialKeyer* cwKeyer = nullptr;
+    QThread* cwKeyerThread = nullptr;
+    bool cwKeyReady = false;
 	audioSetup rxAudioSetup;
 	audioSetup txAudioSetup;    
 	QString modelName;
@@ -126,6 +133,8 @@ public slots:
     virtual void receiveAudioData(const audioPacket &data);
 
     void receiveRigCaps(rigCapabilities* caps);
+    // Whether this station has a serial CW key line that clients may key.
+    virtual void setCwKeyAvailable(bool available);
 
 public:
     // Replaces the server's copy of the user list. Call on the server's
@@ -144,6 +153,8 @@ signals:
 	void haveNetworkStatus(networkStatus);
     void requestRxAudioForGuid(QByteArray guid, quint8 codec, quint32 sampleRate);
     void releaseRxAudioForGuid(QByteArray guid);
+    // CW to key on the serial key line of the radio with this GUID. op is a yaesuCwKeyOp.
+    void cwKeyRequest(QByteArray guid, int op, QString text, int wpm, double dashRatio);
 
 	void setupTxAudio(audioSetup);
 	void setupRxAudio(audioSetup);
@@ -153,6 +164,7 @@ protected:
     // The server thread's copy of config->users, so logins never read the
     // list while the settings dialog changes it.
     QList<SERVERUSER> users;
+    bool cwKeyAvailable = false;
     // The user with this name, unless there is none or it is disabled.
     const SERVERUSER* findLoginUser(const QString& username) const;
     // Disconnects clients whose user may no longer log in.

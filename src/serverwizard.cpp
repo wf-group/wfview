@@ -439,6 +439,8 @@ int run(const QString& settingsFile)
     const int existingPttType = existing->value("PTTType", int(pttCIV)).toInt();
     const bool existingForceRts = existing->value("ForceRTSasPTT", existingPttType == int(pttRTS)).toBool();
     const QString existingRigName = existing->value("RigName", "IC-7300").toString();
+    const QString existingCwKeyPort = existing->value("CwKeyPort", QString()).toString();
+    const int existingCwKeyLine = existing->value("CwKeyLine", 0).toInt();
     const QVariant existingCivVariant = existing->value("RigCIVuInt");
     const int existingWaterfallFormat = existing->value("WaterfallFormat", 0).toInt();
     const QString existingRxName = existing->value("AudioInput", "default").toString();
@@ -566,6 +568,35 @@ int run(const QString& settingsFile)
             break;
         }
         std::cout << "Please enter 'rts' or 'civ'.\n";
+    }
+
+    // --- CW key port ---
+    QString cwKeyPort = replaceAll ? QString() : existingCwKeyPort;
+    int cwKeyLine = replaceAll ? 0 : existingCwKeyLine;
+    std::cout << "\nCW key port -- a second serial port that keys CW on DTR or RTS, for radios\n";
+    std::cout << "set to take a CW key on that line (ex. Yaesu PC KEYING). It is not the CAT port.\n";
+    {
+        const QString current = cwKeyPort.isEmpty() ? QStringLiteral("none") : cwKeyPort;
+        const QString s = prompt(QString("Enter a port, or 'none' [%1]: ").arg(current));
+        if (s.compare("none", Qt::CaseInsensitive) == 0)
+            cwKeyPort.clear();
+        else if (!s.isEmpty())
+            cwKeyPort = s;
+    }
+    while (!cwKeyPort.isEmpty()) {
+        const QString current = cwKeyLine == 1 ? QStringLiteral("rts") : QStringLiteral("dtr");
+        const QString s = prompt(QString("Key line, 'dtr' or 'rts' [%1]: ").arg(current));
+        if (s.isEmpty())
+            break;
+        if (s.compare("dtr", Qt::CaseInsensitive) == 0) {
+            cwKeyLine = 0;
+            break;
+        }
+        if (s.compare("rts", Qt::CaseInsensitive) == 0) {
+            cwKeyLine = 1;
+            break;
+        }
+        std::cout << "Please enter 'dtr' or 'rts'.\n";
     }
 
     // --- Audio backend + devices (loopable) ---
@@ -804,6 +835,9 @@ int run(const QString& settingsFile)
     std::cout << "  PTTType          = " << static_cast<int>(pttType)
               << "  (" << (forceRTSasPTT ? "RTS" : "CI-V") << ")\n";
     std::cout << "  ForceRTSasPTT    = " << (forceRTSasPTT ? "true" : "false") << "\n";
+    std::cout << "  CwKeyPort        = " << (cwKeyPort.isEmpty() ? std::string("<NONE>") : cwKeyPort.toStdString())
+              << "\n";
+    std::cout << "  CwKeyLine        = " << cwKeyLine << "  (" << (cwKeyLine == 1 ? "RTS" : "DTR") << ")\n";
     std::cout << "  AudioInput       = " << rxName.toStdString() << "\n";
     std::cout << "  AudioOutput      = " << txName.toStdString() << "\n";
     std::cout << "  RigName          = " << rigName.toStdString() << "\n";
@@ -868,6 +902,8 @@ int run(const QString& settingsFile)
         s->setValue(prefix + "PTTType", static_cast<int>(pttType));
         s->setValue(prefix + "ForceRTSasPTT", forceRTSasPTT);
         s->setValue(prefix + "SerialPortRadio", serialPort);
+        s->setValue(prefix + "CwKeyPort", cwKeyPort);
+        s->setValue(prefix + "CwKeyLine", cwKeyLine);
         s->setValue(prefix + "RigName", rigName);
         s->setValue(prefix + "SerialPortBaud", baud);
         s->setValue(prefix + "AudioInput", rxName);

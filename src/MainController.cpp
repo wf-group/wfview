@@ -281,6 +281,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
         prefs->cwMacroList = m_cwSender->getMacroText();
         m_settings->markDirty();
     });
+    setupCwKeyer();
     setManufacturer(prefs->manufacturer);
     qDebug(logGui()) << "Theme text color:" << m_theme.text().name();
 
@@ -2102,6 +2103,112 @@ void MainController::colChanged(prefColItems items)
 
 }
 
+bool MainController::canSendCw() const
+{
+    return rigCaps && rigCaps->hasTransmit
+           && (m_cwKeyReady || m_cwRemoteKeyReady || rigCaps->commands.contains(funcSendCW));
+}
+
+void MainController::setupCwKeyer()
+{
+    m_cwKeyerThread = new QThread(this);
+    m_cwKeyerThread->setObjectName("cwKeyer()");
+    m_cwKeyer = new CwSerialKeyer();
+    m_cwKeyer->moveToThread(m_cwKeyerThread);
+    connect(m_cwKeyerThread, &QThread::finished, m_cwKeyer, &QObject::deleteLater);
+
+    // A key line on this computer is used first, then one at the station.
+    connect(m_cwSender.get(), &CWSenderController::keyText, this, [this](const QString& text) {
+        if (m_cwKeyReady) {
+            QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, text]() { keyer->send(text); });
+        } else if (m_cwRemoteKeyReady && rig) {
+            const int wpm = m_cwSender->wpm();
+            const int ratio = qRound(m_cwSender->dashRatio() * 10);
+            QMetaObject::invokeMethod(rig, [r = rig, text, wpm, ratio]() {
+                r->sendRemoteCwKey(CwKeySend, text, wpm, ratio);
+            });
+        }
+    });
+    connect(m_cwSender.get(), &CWSenderController::keyStop, this, [this]() {
+        if (m_cwKeyReady)
+            QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::stop);
+        else if (m_cwRemoteKeyReady && rig)
+            QMetaObject::invokeMethod(rig, [r = rig]() { r->sendRemoteCwKey(CwKeyStop, QString(), 0, 0); });
+    });
+    connect(m_cwSender.get(), &CWSenderController::wpmChanged, this, [this]() {
+        if (!m_cwKeyer)
+            return;
+        const int wpm = m_cwSender->wpm();
+        QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, wpm]() { keyer->setSpeed(wpm); });
+    });
+    connect(m_cwSender.get(), &CWSenderController::dashRatioChanged, this, [this]() {
+        if (!m_cwKeyer)
+            return;
+        const double ratio = m_cwSender->dashRatio();
+        QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, ratio]() { keyer->setRatio(ratio); });
+    });
+
+    connect(m_cwKeyer, &CwSerialKeyer::readyChanged, this, [this](bool ready) {
+        m_cwKeyReady = ready;
+        if (server)
+            QMetaObject::invokeMethod(server, [s = server, ready]() { s->setCwKeyAvailable(ready); });
+        updateCwKeying();
+    });
+    connect(m_cwKeyer, &CwSerialKeyer::portError, this, [this](const QString& message) {
+        m_footerErrorText = tr("ERROR: %1").arg(message);
+        setFooterMessageText(m_footerErrorText);
+        m_footerErrorTimer.start(20000);
+    });
+    connect(m_settings.get(), &SettingsController::cwKeyChanged, this, &MainController::applyCwKeySettings);
+
+    m_cwKeyerThread->start();
+    applyCwKeySettings();
+}
+
+void MainController::updateCwKeying()
+{
+    m_cwSender->setSerialKeying(m_cwKeyReady || m_cwRemoteKeyReady);
+
+    // The CW button follows canSendCW. The rest of the map is built with the rig.
+    QVariantMap controls = uiSpecs.value("mainControls").toMap();
+    if (controls.isEmpty())
+        return;
+    controls["canSendCW"] = canSendCw();
+    uiSpecs["mainControls"] = controls;
+    emit uiSpecsChanged();
+}
+
+void MainController::setRemoteCwKey(bool available)
+{
+    if (m_cwRemoteKeyReady == available)
+        return;
+    m_cwRemoteKeyReady = available;
+    updateCwKeying();
+}
+
+void MainController::applyCwKeySettings()
+{
+    if (!m_cwKeyer || !prefs)
+        return;
+
+    const QString port = prefs->cwKeyPort;
+    const int line = prefs->cwKeyLine;
+    QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, port, line]() { keyer->configure(port, line); });
+}
+
+void MainController::stopCwKeyer()
+{
+    if (!m_cwKeyerThread)
+        return;
+
+    // Closing the port keys up and releases both control lines.
+    QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::close, Qt::BlockingQueuedConnection);
+    m_cwKeyerThread->quit();
+    m_cwKeyerThread->wait();
+    m_cwKeyerThread = nullptr;
+    m_cwKeyer = nullptr;
+}
+
 void MainController::buildUiSpecs()
 {
     // Must only be called if we already have a valid rigCaps
@@ -2148,7 +2255,7 @@ void MainController::buildUiSpecs()
         {"canEqualMainSub", rigCaps->commands.contains(funcVFOEqualMS)},
         {"canCompressor", rigCaps->hasTransmit && rigCaps->commands.contains(funcCompressor)},
         {"canVox", rigCaps->hasTransmit && rigCaps->commands.contains(funcVox)},
-        {"canSendCW", rigCaps->hasTransmit && rigCaps->commands.contains(funcSendCW)},
+        {"canSendCW", canSendCw()},
         {"canMemories", rigCaps->commands.contains(funcMemoryContents)},
         {"canRepeater", rigCaps->commands.contains(funcSplitStatus)
                         || rigCaps->commands.contains(funcToneSquelchType)
@@ -3476,6 +3583,7 @@ void MainController::shutdown()
     if (shuttingDown) return;
     shuttingDown = true;
 
+    stopCwKeyer();
     stopUsbAudioBridge();
 
 #if defined(USB_CONTROLLER)
@@ -3761,6 +3869,29 @@ void MainController::setupRadioServer()
     connect(rig, &rigCommander::haveScopeDataForServer, server, &rigServer::receiveScopeData);
     connect(server, &rigServer::haveDataFromServer, rig, &rigCommander::dataFromServer);
 
+    // CW keyed for a network client on this computer's key line.
+    connect(server, &rigServer::cwKeyRequest, this,
+            [this, generation](QByteArray guid, int op, QString text, int wpm, double ratio) {
+        Q_UNUSED(guid) // wfview serves one radio
+        if (generation != m_serverGeneration || !m_cwKeyer || !m_cwKeyReady)
+            return;
+        QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, op, text, wpm, ratio]() {
+            if (op == CwKeyStop) {
+                keyer->stop();
+                return;
+            }
+            if (wpm > 0)
+                keyer->setSpeed(wpm);
+            if (ratio > 0.0)
+                keyer->setRatio(ratio);
+            keyer->send(text);
+        });
+    });
+    {
+        const bool keyReady = m_cwKeyReady;
+        QMetaObject::invokeMethod(server, [s = server, keyReady]() { s->setCwKeyAvailable(keyReady); });
+    }
+
     connect(server, &rigServer::listening, this, [this, generation](bool ok, QString error) {
         if (generation != m_serverGeneration)
             return;
@@ -3839,6 +3970,9 @@ void MainController::stopRadioServer()
     // Anything the old server still has queued for us is ignored.
     ++m_serverGeneration;
     stopServerHostAudio();
+    // CW being keyed for a client would otherwise carry on with nobody to stop it.
+    if (m_cwKeyer)
+        QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::stop);
 
     serverThread->quit();
     serverThread->wait();
@@ -4863,6 +4997,7 @@ void MainController::startRigConnection()
             }
         });
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
+        connect(rig, &rigCommander::haveRemoteCwKey, this, &MainController::setRemoteCwKey);
 
         /*
         connect(this, SIGNAL(setPTTType(pttType_t)), rig, SLOT(setPTTType(pttType_t)));

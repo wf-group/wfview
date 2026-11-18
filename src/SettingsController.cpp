@@ -808,6 +808,16 @@ void SettingsController::ensureReceiverSettings(int index)
         m_receiverSettings.append(defaultReceiverSettings(m_receiverSettings.size()));
 }
 
+// Name for a port as stored in settings and listed in the serial port menu.
+static QString serialPortSettingName(const QSerialPortInfo& info)
+{
+#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
+    return QStringLiteral("/dev/%1").arg(info.portName());
+#else
+    return info.portName();
+#endif
+}
+
 void SettingsController::buildUiSpecs()
 {
     // First create comboBox models
@@ -880,6 +890,27 @@ void SettingsController::buildUiSpecs()
         {"defaultIndex", -1},
         {"model", values},
         {"visible",!values.empty()}
+    };
+
+    // Ports that can key CW on a control line. The stored value is the port name, empty for none.
+    values.clear();
+    values.append(QVariantMap{
+        {"text",  tr("None")},
+        {"value", QString()}
+    });
+    for (auto &a: QSerialPortInfo::availablePorts()) {
+        values.append(QVariantMap{
+            {"text",  QString("%0 (%1)").arg(a.portName(),a.serialNumber())},
+            {"value", serialPortSettingName(a)}
+        });
+    }
+
+    uiSpecs["CwKeyPorts"] = QVariantMap{
+        {"textRole","text"},
+        {"valueRole","value"},
+        {"defaultIndex", 0},
+        {"model", values},
+        {"visible", true}
     };
 
     values.clear();
@@ -1669,6 +1700,8 @@ void SettingsController::load()
     prefs.cwSendImmediate=settings->value("SendImmediate", defPrefs.cwSendImmediate).toBool();
     prefs.cwSidetoneEnabled=settings->value("SidetoneEnabled", defPrefs.cwSidetoneEnabled).toBool();
     prefs.cwSidetoneLevel=settings->value("SidetoneLevel", defPrefs.cwSidetoneLevel).toInt();
+    prefs.cwKeyPort=settings->value("KeyPort", defPrefs.cwKeyPort).toString();
+    prefs.cwKeyLine=settings->value("KeyLine", defPrefs.cwKeyLine).toInt();
 
     int numMemories = settings->beginReadArray("macros");
     if(numMemories==10)
@@ -2289,6 +2322,8 @@ void SettingsController::save()
     settings->setValue("SendImmediate", prefs.cwSendImmediate);
     settings->setValue("SidetoneEnabled", prefs.cwSidetoneEnabled);
     settings->setValue("SidetoneLevel", prefs.cwSidetoneLevel);
+    settings->setValue("KeyPort", prefs.cwKeyPort);
+    settings->setValue("KeyLine", prefs.cwKeyLine);
 
     if(prefs.cwMacroList.length() == 10)
     {
@@ -2631,6 +2666,8 @@ void SettingsController::setDefPrefs()
     defPrefs.cwSendImmediate=false;
     defPrefs.cwSidetoneEnabled=true;
     defPrefs.cwSidetoneLevel=100;
+    defPrefs.cwKeyPort=QString();
+    defPrefs.cwKeyLine=0;
     defPrefs.cwMacroList = QStringList({ "", "", "", "", "", "", "", "", "", "" });
 
     udpDefPrefs.ipAddress = QString("");
@@ -3199,16 +3236,6 @@ void SettingsController::rescanSerialPorts()
 {
     qInfo(logSerial()) << "Rescanning serial ports";
     buildUiSpecs();
-}
-
-// Name for a port as stored in settings and listed in the serial port menu.
-static QString serialPortSettingName(const QSerialPortInfo& info)
-{
-#if defined(Q_OS_LINUX) || defined(Q_OS_MAC)
-    return QStringLiteral("/dev/%1").arg(info.portName());
-#else
-    return info.portName();
-#endif
 }
 
 bool SettingsController::serialPortExists(const QString& name) const
@@ -3969,6 +3996,13 @@ void SettingsController::buildBindings()
         resolveAudioDevice(prefs.rxSetup, QStringLiteral("Client"));
         return true;
     }, [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_audioOutput)); });
+
+    // -------------------------
+    // Keyer group
+    // -------------------------
+    WF_STR("Keyer.KeyPort", prefs.cwKeyPort, [this](){ emit cwKeyChanged(); });
+
+    WF_I32("Keyer.KeyLine", prefs.cwKeyLine, [this](){ emit cwKeyChanged(); });
 
     // -------------------------
     // Server group

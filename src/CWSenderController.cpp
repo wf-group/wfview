@@ -8,6 +8,8 @@ constexpr int defaultPitchMin = 300;
 constexpr int defaultPitchMax = 900;
 // How long to wait for the radio to confirm each CW decoder step.
 constexpr int cwDecodeStepTimeoutMs = 1500;
+// Longest message accepted when keying a serial line, which has no radio-side limit.
+constexpr int serialKeyingMaxChars = 250;
 }
 
 CWSenderController::CWSenderController(QObject* parent)
@@ -48,11 +50,17 @@ CWSenderController::CWSenderController(QObject* parent)
     m_queue = cachingQueue::getInstance();
     if (m_queue) {
         connect(this, &CWSenderController::sendCW, m_queue, [=](const QString &cwMessage) {
-            m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(cwMessage)));
+            if (m_serialKeying)
+                emit keyText(cwMessage);
+            else
+                m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(cwMessage)));
         });
 
         connect(this, &CWSenderController::stopCW, m_queue, [=]() {
-            m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(QString())));
+            if (m_serialKeying)
+                emit keyStop();
+            else
+                m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(QString())));
         });
 
         connect(this, &CWSenderController::setBreakInModeSignal, m_queue, [=](const quint8 &bmode) {
@@ -83,11 +91,7 @@ CWSenderController::CWSenderController(QObject* parent)
 void CWSenderController::receiveRigCaps(rigCapabilities* caps)
 {
     m_rigCaps = caps;
-    const bool supported = m_rigCaps && m_rigCaps->commands.contains(funcSendCW);
-    if (m_canSendCW != supported) {
-        m_canSendCW = supported;
-        emit canSendCWChanged();
-    }
+    updateSendCapability();
 
     // The pitch range comes from the rig file, in Hz.
     int pitchMin = defaultPitchMin;
@@ -104,17 +108,6 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
         m_pitchMax = pitchMax;
         emit pitchRangeChanged();
     }
-
-    const int chars = supported ? m_rigCaps->commands.find(funcSendCW).value().bytes : 0;
-    if (m_maxChars != chars) {
-        m_maxChars = chars;
-        emit maxCharsChanged();
-    }
-
-    if (!supported)
-        setStatusMessage("CW sending is not supported by the current radio.");
-    else if (m_statusMessage == "CW sending is not supported by the current radio.")
-        setStatusMessage(QString());
 
     // CW decoder. The decoder needs a CW Decode Enable command; CW Decode Display is
     // only stepped through when the rig file says the decoder depends on it.
@@ -142,6 +135,42 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
 
     if (m_visible)
         queryCwDecodeState();
+}
+
+void CWSenderController::setSerialKeying(bool available)
+{
+    if (m_serialKeying == available)
+        return;
+
+    m_serialKeying = available;
+    updateSendCapability();
+}
+
+// A serial key line, when there is one, is used in preference to the radio's
+// CW command, and makes CW available on radios that have no such command.
+void CWSenderController::updateSendCapability()
+{
+    const bool hasCommand = m_rigCaps && m_rigCaps->commands.contains(funcSendCW);
+    const bool supported = hasCommand || (m_serialKeying && m_rigCaps && m_rigCaps->hasTransmit);
+    if (m_canSendCW != supported) {
+        m_canSendCW = supported;
+        emit canSendCWChanged();
+    }
+
+    int chars = 0;
+    if (supported && m_serialKeying)
+        chars = serialKeyingMaxChars;
+    else if (supported)
+        chars = m_rigCaps->commands.find(funcSendCW).value().bytes;
+    if (m_maxChars != chars) {
+        m_maxChars = chars;
+        emit maxCharsChanged();
+    }
+
+    if (!supported)
+        setStatusMessage("CW sending is not supported by the current radio.");
+    else if (m_statusMessage == "CW sending is not supported by the current radio.")
+        setStatusMessage(QString());
 }
 
 CWSenderController::~CWSenderController()

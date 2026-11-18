@@ -379,6 +379,8 @@ void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 ri
     connect(control, &yaesuUdpControl::initCat, cat, &yaesuUdpCat::init);
     connect(cat, SIGNAL(haveCatDataFromRig(QByteArray)), this, SLOT(receiveCatDataFromRig(QByteArray)));
     connect(this, SIGNAL(sendDataToRig(QByteArray)),cat,SLOT(sendCatDataToRig(QByteArray)));
+    connect(this, &yaesuCommander::sendCwKeyToStation, cat, &yaesuUdpCat::sendCwKey);
+    connect(cat, &yaesuUdpCat::haveCwKeyState, this, &rigCommander::haveRemoteCwKey);
 
     audio = new yaesuUdpAudio(localIP,remoteIP,prefs.audioLANPort,rxSetup,txSetup,false);
     audioThread = new QThread(this);
@@ -787,6 +789,12 @@ void yaesuCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
 void yaesuCommander::dataFromServer(QByteArray data)
 {
     receiveRawExternalCommand(data, 0);
+}
+
+void yaesuCommander::sendRemoteCwKey(int op, QString text, int wpm, int dashRatio)
+{
+    if (cat != nullptr)
+        emit sendCwKeyToStation(op, text, wpm, dashRatio);
 }
 
 void yaesuCommander::dataForRig(QByteArray d)

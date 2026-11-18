@@ -26,6 +26,7 @@
 #include "cachingqueue.h"
 
 #include "rigserver.h"
+#include "cwserialkeyer.h"
 #include "icomserver.h"
 #include "kenwoodserver.h"
 #include "yaesuserver.h"
@@ -205,6 +206,9 @@ private:
 
     void makeRig();
     void removeRig();
+    void setupCwKeyers();
+    // Tells the server whether any radio has a ready CW key line.
+    void updateServerCwKey();
 
     void setServerToPrefs();
     void startWfShareStation();

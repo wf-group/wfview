@@ -440,6 +440,8 @@ struct preferences {
     bool cwSidetoneEnabled=true;
     int cwSidetoneLevel=50;
     QStringList cwMacroList;
+    QString cwKeyPort; // serial port keyed on DTR or RTS; empty for none
+    int cwKeyLine=0;   // CwSerialKeyer::KeyLine
 
     // Temporary settings
     rigInput inputSource[4];

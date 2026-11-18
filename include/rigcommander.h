@@ -60,6 +60,9 @@ public slots:
     void waterfallTime(double tm) { wfTime = tm; };
 
     virtual void dataFromServer(QByteArray data);
+    // Asks the station to key CW on its serial key line. op is a yaesuCwKeyOp;
+    // dashRatio is in tenths. Only network connections that support it do anything.
+    virtual void sendRemoteCwKey(int op, QString text, int wpm, int dashRatio);
     virtual void process();
     virtual void serialCommSetup(rigTypedef rigList, quint16 rigCivAddr, QString rigSerialPort, quint32 rigBaudRate, QString vsp, bool vspUseQueue, quint16 tcp, quint8 wf);
     virtual void networkCommSetup(rigTypedef rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcp);
@@ -143,6 +146,8 @@ signals:
     void externalPttChanged(bool state);
     void sidetone(QString text);
     void stopsidetone();
+    // Whether the station this client is connected to can key CW on a serial line.
+    void haveRemoteCwKey(bool available);
 
 
 protected:

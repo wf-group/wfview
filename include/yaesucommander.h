@@ -51,6 +51,7 @@ public slots:
     void receiveBaudRate(quint32 baudrate) override;
     void receiveTxAudioData(const audioPacket &packet) override;
     void dataFromServer(QByteArray data) override;
+    void sendRemoteCwKey(int op, QString text, int wpm, int dashRatio) override;
 
     void receiveCatDataFromRig(QByteArray in);
     void receiveScopeDataFromRig(QByteArray in);
@@ -78,6 +79,7 @@ signals:
     void initScope();
     void setScopePoll(quint64 poll);
     void sendDataToRig(QByteArray d);
+    void sendCwKeyToStation(int op, QString text, int wpm, int dashRatio);
 
 private:
     void commonSetup();

@@ -19,6 +19,7 @@
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
 #include "CWSenderController.h"
+#include "cwserialkeyer.h"
 
 #include "prefs.h"
 #include "rigctld.h"
@@ -207,7 +208,7 @@ public:
 
     Q_INVOKABLE void showCWSender()
     {
-        if (!rigCaps || !rigCaps->hasTransmit || !rigCaps->commands.contains(funcSendCW))
+        if (!canSendCw())
             return;
         m_cwSender->setVisible(true);
     }
@@ -217,8 +218,10 @@ public:
 
     void setConnStatus(connectionStatus_t c) {
         if (c != connStatus) {
-            if (c == connDisconnected)
+            if (c == connDisconnected) {
                 resetTxAudioOwnership();
+                setRemoteCwKey(false);
+            }
             connStatus =c;
             emit connStatusChanged();
             updateAudioRouteState();
@@ -505,6 +508,13 @@ private:
     friend class McpHostWfview;
 #endif
     void buildUiSpecs();
+    // CW can be sent with the radio's CW command or by keying a serial line.
+    bool canSendCw() const;
+    void setupCwKeyer();
+    void applyCwKeySettings();
+    void stopCwKeyer();
+    void updateCwKeying();
+    void setRemoteCwKey(bool available);
     void setRadioStatusText(const QString& text);
     void setFooterMessageText(const QString& text);
     void setRigModelName(const QString& modelName);
@@ -804,6 +814,10 @@ private:
     std::unique_ptr<SettingsController> m_settings;
     std::unique_ptr<SelectRadioController> m_selRad;
     std::unique_ptr<CWSenderController> m_cwSender;
+    CwSerialKeyer* m_cwKeyer = nullptr;
+    QThread* m_cwKeyerThread = nullptr;
+    bool m_cwKeyReady = false;       // a key line on this computer
+    bool m_cwRemoteKeyReady = false; // a key line at the station we are a client of
 
     ThemeBridge m_theme;
 

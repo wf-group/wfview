@@ -161,6 +161,14 @@ void rigCommander::setCIVAddr(quint16 civAddr)
     qWarning(logRig()) << "setCIVAddr() not implemented by rig type";
 }
 
+void rigCommander::sendRemoteCwKey(int op, QString text, int wpm, int dashRatio)
+{
+    Q_UNUSED(op)
+    Q_UNUSED(text)
+    Q_UNUSED(wpm)
+    Q_UNUSED(dashRatio)
+}
+
 void rigCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 {
     Q_UNUSED(func)
