@@ -6,6 +6,7 @@
 #include "printhex.h"
 #include "mcphooks.h"
 #include "commhandler.h"
+#include "yaesuvalues.h"
 
 namespace
 {
@@ -1207,7 +1208,15 @@ void yaesuCommander::parseData(QByteArray data)
         case funcSMeterSqlStatus:
         case funcSplitStatus:
         case funcTransceiverStatus:
+        case funcLockFunction:
             value.setValue<bool>(d.mid(0,1).toUShort());
+            break;
+        case funcBreakInDelay:
+            value.setValue<ushort>(ushort(yaesuDelayCodeToMs(d.mid(0, type.bytes).toInt())));
+            break;
+        case funcVOXDelay:
+            // Tenths of a second, rounded.
+            value.setValue<uchar>(uchar((yaesuDelayCodeToMs(d.mid(0, type.bytes).toInt()) + 50) / 100));
             break;
         case funcAfGain:
             value.setValue<uchar>(d.toUShort());
@@ -1281,6 +1290,7 @@ void yaesuCommander::parseData(QByteArray data)
         case funcFilterShape:
         case funcRoofingFilter:
         case funcScopeSpeed:
+        case funcScanning:
             value.setValue<uchar>(d.mid(0,type.bytes).toUShort());
             break;
         case funcVFOAInformation:
@@ -1768,7 +1778,19 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 qInfo() << "Setting scope type to:" << value.toInt() << "for connection type:" << connType;
             }
 
-            if (!strcmp(value.typeName(),"centerSpanData"))
+            if (func == funcCWAutoTune)
+            {
+                // An action: the rig file string is the whole command.
+            }
+            else if (func == funcBreakInDelay || func == funcVOXDelay)
+            {
+                // wfview carries break-in delay in ms and VOX delay in tenths of a second,
+                // as on the TS-890S and Icom rigs. The radio takes a 00-33 code.
+                const int ms = func == funcVOXDelay ? value.toInt() * 100 : value.toInt();
+                payload.append(
+                    QString::number(yaesuDelayMsToCode(ms)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (!strcmp(value.typeName(), "centerSpanData"))
             {
                 centerSpanData d = value.value<centerSpanData>();
                 if (cmd.padr)

@@ -16,6 +16,7 @@ int runRigCtlCompatTests(int argc, char **argv);
 int runRigCtlDTests(int argc, char **argv);
 int runRigProtocolTests(int argc, char **argv);
 int runTxAudioPacerTests(int argc, char **argv);
+int runYaesuValuesTests(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -37,5 +38,6 @@ int main(int argc, char **argv)
     status |= runRigCtlDTests(argc, argv);
     status |= runRigProtocolTests(argc, argv);
     status |= runTxAudioPacerTests(argc, argv);
+    status |= runYaesuValuesTests(argc, argv);
     return status;
 }
