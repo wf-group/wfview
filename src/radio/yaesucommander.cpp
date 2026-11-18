@@ -1248,8 +1248,13 @@ void yaesuCommander::parseData(QByteArray data)
             value.setValue<short>(d.toShort());
             break;
         case funcCompressorLevel:
-            // We only want the second value.
-            value.setValue<uchar>(d.mid(type.bytes,type.bytes).toUShort());
+            // Some rigs answer with two values and we want the second; the FT-710 answers with one.
+            if (d.size() >= type.bytes * 2)
+                value.setValue<uchar>(d.mid(type.bytes,type.bytes).toUShort());
+            else
+                value.setValue<uchar>(d.left(type.bytes).toUShort());
+            if (value.value<uchar>() > 0)
+                lastCompressorLevel = value.value<uchar>();
             break;
         case funcScopeSpan:
             for (auto &s: rigCaps.scopeCenterSpans)
@@ -1616,6 +1621,14 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             func = funcDataRearModGain;
     }
 
+
+    // On the FT-710, turning the speech processor on sets its level to 50 and
+    // turning it off sets it to 0, so send the user's last level after turning it on.
+    if (func == funcCompressorLevel && value.isValid() && value.value<uchar>() > 0)
+        lastCompressorLevel = value.value<uchar>();
+    if (func == funcCompressor && value.isValid() && value.toBool() && lastCompressorLevel > 0)
+        queue->add(priorityImmediate,
+                   queueItem(funcCompressorLevel, QVariant::fromValue<uchar>(lastCompressorLevel), false, receiver));
 
     //qInfo() << "requested command:" << funcString[func];
 
