@@ -7,6 +7,11 @@
 #include "mcphooks.h"
 #include "commhandler.h"
 
+namespace
+{
+constexpr int rmMeterDigits = 3;
+}
+
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
 
 // This file parses data from the radio and also forms commands to the radio.
@@ -1258,23 +1263,24 @@ void yaesuCommander::parseData(QByteArray data)
         case funcSMeter:
             value.setValue(getMeterCal(meterS,d.toUShort()));
             break;
+        // The RM meters answer with three digits followed by padding (RMnvvv000).
         case funcPowerMeter:
-            value.setValue(getMeterCal(meterPower,d.toUShort()));
+            value.setValue(getMeterCal(meterPower,d.left(rmMeterDigits).toUShort()));
             break;
         case funcSWRMeter:
-            value.setValue(getMeterCal(meterSWR,d.toUShort()));
+            value.setValue(getMeterCal(meterSWR,d.left(rmMeterDigits).toUShort()));
             break;
         case funcALCMeter:
-            value.setValue(getMeterCal(meterALC,d.toUShort()));
+            value.setValue(getMeterCal(meterALC,d.left(rmMeterDigits).toUShort()));
             break;
         case funcCompMeter:
-            value.setValue(getMeterCal(meterComp,d.toUShort()));
+            value.setValue(getMeterCal(meterComp,d.left(rmMeterDigits).toUShort()));
             break;
         case funcVdMeter:
-            value.setValue(getMeterCal(meterVoltage,d.toUShort()));
+            value.setValue(getMeterCal(meterVoltage,d.left(rmMeterDigits).toUShort()));
             break;
         case funcIdMeter:
-            value.setValue(getMeterCal(meterCurrent,d.toUShort()));
+            value.setValue(getMeterCal(meterCurrent,d.left(rmMeterDigits).toUShort()));
             break;
         case funcMemoryContents:
         // Contains the contents of the rig memory
