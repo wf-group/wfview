@@ -97,6 +97,10 @@ public:
     Q_PROPERTY(QString modGainLabel READ modGainLabel NOTIFY modSourcesChanged)
     Q_PROPERTY(int modGainMin READ modGainMin NOTIFY modSourcesChanged)
     Q_PROPERTY(int modGainMax READ modGainMax NOTIFY modSourcesChanged)
+    // False in modes with no audio modulation (CW, RTTY), where the source level does nothing.
+    Q_PROPERTY(bool modGainActive READ modGainActive NOTIFY modSourcesChanged)
+    // True when the current source carries audio from wfview (USB or LAN) in an audio mode.
+    Q_PROPERTY(bool txAudioActive READ txAudioActive NOTIFY modSourcesChanged)
     Q_PROPERTY(int modSourceRevision READ modSourceRevision NOTIFY modSourcesChanged)
     Q_PROPERTY(int ritFrequency READ ritFrequency WRITE setRitFrequency NOTIFY ritFrequencyChanged)
     Q_PROPERTY(bool transmitting READ transmitting WRITE setTransmit NOTIFY transmittingChanged)
@@ -238,6 +242,8 @@ public:
     int micGain() const { return m_micGain; }
     QString modGainLabel() const { return m_modGainLabel; }
     int modGainMin() const { return m_modGainMin; }
+    bool modGainActive() const { return m_modGainActive; }
+    bool txAudioActive() const { return m_txAudioActive; }
     int modGainMax() const { return m_modGainMax; }
     int modSourceRevision() const { return m_modSourceRevision; }
     int ritFrequency() const { return m_ritFrequency; }
@@ -708,6 +714,9 @@ private:
     QString m_modGainLabel = "Mic";
     int m_modGainMin = 0;
     int m_modGainMax = 255;
+    bool m_modGainActive = true;
+    bool m_txAudioActive = true;
+    rigMode_t m_currentModeKind = modeUnknown;
     int m_modSourceRevision = 0;
     rigInput m_currentModSrc[4];
     int m_ritFrequency = 0;

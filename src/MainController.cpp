@@ -5242,6 +5242,30 @@ void MainController::updateCurrentModSource(bool requestLevel)
         changed = true;
     }
 
+    // CW and RTTY (FSK) transmit no audio, so the source level and TX audio do nothing.
+    // An unknown source is treated as carrying wfview's audio, so nothing is hidden wrongly.
+    const bool audioMode = m_currentModeKind != modeCW && m_currentModeKind != modeCW_R
+                           && m_currentModeKind != modeRTTY && m_currentModeKind != modeRTTY_R;
+    bool computerAudio = false;
+    switch (input.type) {
+    case inputUSB:
+    case inputLAN:
+    case inputMICUSB:
+    case inputACCUSB:
+    case inputMICUSBACC:
+    case inputUnknown:
+        computerAudio = true;
+        break;
+    default:
+        break;
+    }
+    const bool txAudio = audioMode && computerAudio;
+    if (m_modGainActive != audioMode || m_txAudioActive != txAudio) {
+        m_modGainActive = audioMode;
+        m_txAudioActive = txAudio;
+        changed = true;
+    }
+
     if (requestLevel && levelCommand.cmd != funcNone)
         queue->add(priorityMedium, levelCommand.cmd, true, currentReceiver);
 
@@ -5896,6 +5920,10 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->receiveMode(m,vfo);
         if (val.receiver == currentReceiver && vfo == 0) {
             m_cwSender->handleCurrentModeUpdate(m.mk);
+            if (m.mk != modeUnknown && m.mk != m_currentModeKind) {
+                m_currentModeKind = m.mk;
+                updateCurrentModSource(false);
+            }
             // Notify the ANR engine so it can swap in the saved noise profile
             // for this mode (or save the current one before switching away).
             if (rxProc && !m.name.isEmpty())
