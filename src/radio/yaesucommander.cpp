@@ -53,6 +53,12 @@ uchar swapYaesuToneMode(uchar mode)
 
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
 
+namespace
+{
+// APF level codes (CO03) run 00-50, -250..+250 Hz.
+constexpr int yaesuApfMax = 50;
+}
+
 // This file parses data from the radio and also forms commands to the radio.
 
 yaesuCommander::yaesuCommander(rigCommander* parent) : rigCommander(parent)
@@ -1211,6 +1217,25 @@ void yaesuCommander::parseData(QByteArray data)
         case funcLockFunction:
             value.setValue<bool>(d.mid(0,1).toUShort());
             break;
+        case funcManualNotch:
+        case funcAPFType:
+            // On/off is the last digit (BP00 00n, CO02 000n).
+            value.setValue<bool>(d.right(1).toUShort());
+            break;
+        case funcNotchFilter:
+            value.setValue<ushort>(d.toUShort());
+            break;
+        case funcAPFLevel:
+            value.setValue<ushort>(ushort((qBound(0, d.toInt(), yaesuApfMax) * 255 + yaesuApfMax / 2) / yaesuApfMax));
+            break;
+        case funcIFShift:
+        {
+            // 0, then a sign and four digits. Negative shifts travel in a ushort.
+            int hz = 0;
+            if (yaesuParseIfShift(d.mid(1), &hz))
+                value.setValue<ushort>(ushort(short(hz)));
+            break;
+        }
         case funcBreakInDelay:
             value.setValue<ushort>(ushort(yaesuDelayCodeToMs(d.mid(0, type.bytes).toInt())));
             break;
@@ -1789,6 +1814,24 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 const int ms = func == funcVOXDelay ? value.toInt() * 100 : value.toInt();
                 payload.append(
                     QString::number(yaesuDelayMsToCode(ms)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (func == funcIFShift)
+            {
+                // A negative shift arrives in a ushort. The radio takes 0, a sign and four digits.
+                payload.append("0");
+                payload.append(yaesuFormatIfShift(short(value.toInt())));
+            }
+            else if (func == funcAPFLevel)
+            {
+                // wfview carries APF level as 0-255, as on Icom rigs; the radio takes 00-50.
+                const int level = qBound(0, (value.toInt() * yaesuApfMax + 127) / 255, yaesuApfMax);
+                payload.append(QString::number(level).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (func == funcNotchFilter)
+            {
+                // Decimal; the uchar case below would send it in hex.
+                const int freq = qBound(cmd.minVal, value.toInt(), cmd.maxVal);
+                payload.append(QString::number(freq).rightJustified(cmd.bytes, QChar('0')).toLatin1());
             }
             else if (!strcmp(value.typeName(), "centerSpanData"))
             {
