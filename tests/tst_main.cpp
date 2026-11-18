@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 
 int runControllerControllerTests(int argc, char **argv);
+int runCwMorseTests(int argc, char **argv);
 int runAudioRoutingTests(int argc, char **argv);
 int runCachingQueueTests(int argc, char **argv);
 int runClusterTests(int argc, char **argv);
@@ -27,6 +28,7 @@ int main(int argc, char **argv)
     status |= runCachingQueueTests(argc, argv);
     status |= runControllerControllerTests(argc, argv);
     status |= runClusterTests(argc, argv);
+    status |= runCwMorseTests(argc, argv);
     status |= runIaxClientSessionTests(argc, argv);
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
     status |= runIcomUdpBaseTests(argc, argv);

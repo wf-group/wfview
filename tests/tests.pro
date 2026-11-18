@@ -36,6 +36,7 @@ SOURCES += \
     $$PWD/tst_cachingqueue.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
+    $$PWD/tst_cwmorse.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_icomudpbase.cpp \
     $$PWD/tst_iaxclientsession.cpp \
@@ -59,6 +60,7 @@ SOURCES += \
     $$PWD/../src/radiotransportframe.cpp \
     $$PWD/../src/rigctlcompat.cpp \
     $$PWD/../src/cachingqueue.cpp \
+    $$PWD/../src/cwmorse.cpp \
     $$PWD/../src/rigctld.cpp \
     $$PWD/../src/radio/yaesuvalues.cpp
 
@@ -76,6 +78,7 @@ HEADERS += \
     $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/rigctld.h \
     $$PWD/../include/cachingqueue.h \
+    $$PWD/../include/cwmorse.h \
     $$PWD/../include/txaudiopacer.h \
     $$PWD/../include/usbcontroller.h \
     $$PWD/../include/yaesuvalues.h
