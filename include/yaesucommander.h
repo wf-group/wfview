@@ -109,10 +109,16 @@ private:
     void sendCwMemory(const QByteArray &text);
     void playNextCwMemory();
     void stopCwMemory();
+    void restoreCwMemory();
+    QByteArray memoryKeyerCommand() const;
     void sendToRig(const QByteArray &data);
     QByteArray cwMemoryPending;
     QTimer *cwMemoryTimer = nullptr;
     bool cwMemoryPlaying = false;
+    // What the memory held before text was sent through it, written back when sending ends.
+    bool cwMemoryInUse = false;
+    bool cwMemorySaving = false;
+    QByteArray cwMemorySaved;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
 

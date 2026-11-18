@@ -1467,6 +1467,13 @@ void yaesuCommander::parseData(QByteArray data)
         {
             // KMn<text>; is keyer memory n. An empty memory answers KM; with no number.
             // The text ends at the keyer end mark '}', which the radio may store with it.
+            if (cwMemorySaving)
+            {
+                // The read sent before the first memory write: keep the text as stored.
+                cwMemorySaving = false;
+                if (!d.isEmpty() && d.at(0) == char('0' + rigCaps.cwMemorySlot))
+                    cwMemorySaved = d.mid(1);
+            }
             if (d.isEmpty() || d.at(0) < '1' || d.at(0) > '9')
                 break;
             QString text = QString::fromLatin1(d.mid(1));
@@ -2376,7 +2383,6 @@ namespace
 // The FT-710 keeps up to 50 characters in a keyer memory, but with all 50 used
 // its end mark is written past the memory, so at most 49 are sent at once.
 constexpr int cwMemoryMaxChars = 49;
-constexpr char cwMemorySlot = '1';
 // The radio's keyer weight is not read, so its default dash ratio is assumed.
 constexpr double cwDefaultDashRatio = 3.0;
 // Extra time before the next memory is sent, so playback has certainly ended.
@@ -2386,9 +2392,24 @@ constexpr int cwDefaultWpm = 20;
 
 // The radio plays one keyer memory at a time and reports nothing when it ends, so
 // text that arrives while a memory is playing waits until that playback should be over.
-// Each KM write goes to the radio's EEPROM, and KY01 sets its CW MEMORY 1 item to TEXT.
+// Each KM write goes to the radio's EEPROM, and KY0n sets that memory's CW MEMORY menu item to TEXT.
+// The memory is set by CwMemorySlot in the rig file.
+QByteArray yaesuCommander::memoryKeyerCommand() const
+{
+    return rigCaps.commands.contains(funcMemoryKeyer) ? rigCaps.commands.value(funcMemoryKeyer).data
+                                                      : QByteArrayLiteral("KM");
+}
+
 void yaesuCommander::sendCwMemory(const QByteArray &text)
 {
+    if (!cwMemoryInUse)
+    {
+        // Read the memory first, so it can be put back when sending ends.
+        cwMemoryInUse = true;
+        cwMemorySaving = true;
+        cwMemorySaved.clear();
+        sendToRig(memoryKeyerCommand() + char('0' + rigCaps.cwMemorySlot) + ';');
+    }
     cwMemoryPending.append(text);
     if (!cwMemoryPlaying)
         playNextCwMemory();
@@ -2399,6 +2420,7 @@ void yaesuCommander::playNextCwMemory()
     if (cwMemoryPending.isEmpty())
     {
         cwMemoryPlaying = false;
+        restoreCwMemory();
         return;
     }
 
@@ -2414,12 +2436,12 @@ void yaesuCommander::playNextCwMemory()
     const QByteArray chunk = cwMemoryPending.left(length);
     cwMemoryPending.remove(0, chunk.size());
 
-    const QByteArray store = rigCaps.commands.contains(funcMemoryKeyer) ? rigCaps.commands.value(funcMemoryKeyer).data
-                                                                        : QByteArrayLiteral("KM");
+    const QByteArray store = memoryKeyerCommand();
     const QByteArray play = rigCaps.commands.value(funcSendCW).data;
     emit sidetone(QString::fromLatin1(chunk));
-    sendToRig(store + cwMemorySlot + chunk + ";");
-    sendToRig(play + "01;");
+    const char slot = char('0' + rigCaps.cwMemorySlot);
+    sendToRig(store + slot + chunk + ";");
+    sendToRig(play + '0' + slot + ';');
     qDebug(logRig()) << "CW sent through keyer memory:" << chunk;
 
     int wpm = queue->getCache(funcKeySpeed, 0).value.toInt();
@@ -2449,6 +2471,20 @@ void yaesuCommander::stopCwMemory()
         cwMemoryTimer->stop();
     emit stopsidetone();
     sendToRig(rigCaps.commands.value(funcSendCW).data + "00;");
+    restoreCwMemory();
+}
+
+// Writes back what the memory held before sending. A memory that was empty
+// keeps the last text, as KM cannot write an empty memory.
+void yaesuCommander::restoreCwMemory()
+{
+    if (!cwMemoryInUse)
+        return;
+    cwMemoryInUse = false;
+    cwMemorySaving = false;
+    if (!cwMemorySaved.isEmpty())
+        sendToRig(memoryKeyerCommand() + char('0' + rigCaps.cwMemorySlot) + cwMemorySaved + ';');
+    cwMemorySaved.clear();
 }
 
 void yaesuCommander::sendToRig(const QByteArray &data)

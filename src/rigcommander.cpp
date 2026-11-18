@@ -355,6 +355,7 @@ void rigCommander::determineRigCaps()
 
     rigCaps.hasSpectrum = settings->value("HasSpectrum",false).toBool();
     rigCaps.scopeStatusBlock = settings->value("ScopeStatusBlock", false).toBool();
+    rigCaps.cwMemorySlot = static_cast<quint8>(qBound(1, settings->value("CwMemorySlot", 1).toInt(), 5));
     rigCaps.hasLan = settings->value("HasLAN",false).toBool();
     rigCaps.hasEthernet = settings->value("HasEthernet",false).toBool();
     rigCaps.hasWiFi = settings->value("HasWiFi",false).toBool();

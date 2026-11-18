@@ -311,6 +311,8 @@ struct rigCapabilities {
     bool hasSpectrum=true;
     // The scope frame carries the radio status block (FT-710); its values are decoded and their polls skipped.
     bool scopeStatusBlock = false;
+    // The keyer memory (1-5) that CW text is sent through, on radios that only key CW from a memory.
+    quint8 cwMemorySlot = 1;
     quint8 spectSeqMax;
     quint16 spectAmpMax;
     quint16 spectLenMax;
