@@ -747,21 +747,25 @@ bool yaesuServer::authenticate(const yaesuC2R_LoginFrame* login, QString* matche
 bool yaesuServer::loginLockedOut(const QHostAddress& address) const
 {
     const auto it = loginFailures.constFind(address);
-    return it != loginFailures.constEnd() && it->count >= maxLoginFailures &&
-           it->lastFailure.secsTo(QDateTime::currentDateTime()) < loginLockoutSecs;
+    if (it == loginFailures.constEnd() && loginFailures.size() < maxTrackedLoginAddresses) {
+        return false;
+    }
+
+    // With the table full, untracked addresses are judged together so none of them goes unchecked.
+    const LoginFailures& failures = it != loginFailures.constEnd() ? *it : overflowLoginFailures;
+    return failures.count >= maxLoginFailures &&
+           failures.lastFailure.secsTo(QDateTime::currentDateTime()) < loginLockoutSecs;
 }
 
 void yaesuServer::recordLoginFailure(const QHostAddress& address)
 {
-    if (!loginFailures.contains(address) && loginFailures.size() >= maxTrackedLoginAddresses) {
-        return;
-    }
-
-    LoginFailures& failures = loginFailures[address];
+    const bool tracked = loginFailures.contains(address) || loginFailures.size() < maxTrackedLoginAddresses;
+    LoginFailures& failures = tracked ? loginFailures[address] : overflowLoginFailures;
     failures.count++;
     failures.lastFailure = QDateTime::currentDateTime();
     if (failures.count == maxLoginFailures) {
-        qWarning(logRigServer()) << "Yaesu server ignoring logins from" << address.toString()
+        qWarning(logRigServer()) << "Yaesu server ignoring logins from"
+                                 << (tracked ? address.toString() : QStringLiteral("new addresses"))
                                  << "for" << loginLockoutSecs << "seconds after repeated failures";
     }
 }
@@ -816,6 +820,8 @@ void yaesuServer::watchdog()
         else
             ++it;
     }
+    if (overflowLoginFailures.count > 0 && overflowLoginFailures.lastFailure.secsTo(now) >= loginLockoutSecs)
+        overflowLoginFailures = LoginFailures();
 }
 
 yaesuServer::CLIENT* yaesuServer::clientForSession(quint32 session, const QHostAddress& address)

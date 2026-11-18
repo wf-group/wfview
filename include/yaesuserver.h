@@ -119,6 +119,8 @@ private:
     QUdpSocket* scopeSocket = nullptr;
     QMap<quint32, CLIENT*> clients;
     QHash<QHostAddress, LoginFailures> loginFailures;
+    // Shared by every address that does not fit in loginFailures.
+    LoginFailures overflowLoginFailures;
     QTimer* wdTimer = nullptr;
     quint16 txCatPacketId = 0;
 };
