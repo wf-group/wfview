@@ -1,5 +1,5 @@
 [General]
-Version=2.11
+Version=2.12
 
 [Rig]
 Manufacturer=2
@@ -417,10 +417,10 @@ Commands\39\GetCommand=true
 Commands\39\SetCommand=true
 Commands\39\Admin=false
 Commands\40\Type=Monitor Status
-Commands\40\String=ML000
+Commands\40\String=ML0
 Commands\40\Min=0
 Commands\40\Max=1
-Commands\40\Bytes=1
+Commands\40\Bytes=3
 Commands\40\PadRight=false
 Commands\40\Command29=false
 Commands\40\GetCommand=true
