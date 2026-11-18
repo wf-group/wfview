@@ -116,9 +116,26 @@ jobs:
           echo "C:\QtIFW43\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Set up MSVC (x86)
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
+        # Runs vcvarsall.bat directly and exports its environment, as
+        # ilammy/msvc-dev-cmd did; that action still targets Node.js 20.
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw "Visual Studio with the C++ tools was not found" }
+          $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvarsall.bat"
+          $before = @{}
+          foreach ($line in (cmd /c set)) {
+            if ($line -match '^([^=]+)=(.*)$') { $before[$matches[1]] = $matches[2] }
+          }
+          $envLines = cmd /c "`"$vcvars`" x86 >nul && set"
+          if ($LASTEXITCODE -ne 0) { throw "vcvarsall.bat x86 failed" }
+          # Only the variables vcvarsall adds or changes, as the action did.
+          foreach ($line in $envLines) {
+            if ($line -match '^([^=]+)=(.*)$' -and $before[$matches[1]] -ne $matches[2]) {
+              "$($matches[1])=$($matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
 
       - name: Install jom
         shell: powershell
@@ -310,9 +327,26 @@ jobs:
           tools: tools_ifw
 
       - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
+        # Runs vcvarsall.bat directly and exports its environment, as
+        # ilammy/msvc-dev-cmd did; that action still targets Node.js 20.
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw "Visual Studio with the C++ tools was not found" }
+          $vcvars = Join-Path $vs "VC\Auxiliary\Build\vcvarsall.bat"
+          $before = @{}
+          foreach ($line in (cmd /c set)) {
+            if ($line -match '^([^=]+)=(.*)$') { $before[$matches[1]] = $matches[2] }
+          }
+          $envLines = cmd /c "`"$vcvars`" x64 >nul && set"
+          if ($LASTEXITCODE -ne 0) { throw "vcvarsall.bat x64 failed" }
+          # Only the variables vcvarsall adds or changes, as the action did.
+          foreach ($line in $envLines) {
+            if ($line -match '^([^=]+)=(.*)$' -and $before[$matches[1]] -ne $matches[2]) {
+              "$($matches[1])=$($matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
 
       - name: Install jom
         shell: powershell
