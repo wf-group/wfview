@@ -65,6 +65,11 @@ class ReceiverController : public QObject
     Q_PROPERTY(int pbtOuter READ getPbtOuter WRITE setPbtOuter NOTIFY pbtOuterChanged)
     Q_PROPERTY(int ifShift READ getIfShift WRITE setIfShift NOTIFY ifShiftChanged)
     Q_PROPERTY(int filterWidth READ getFilterWidth WRITE setFilterWidth NOTIFY filterWidthChanged)
+    // Widths in Hz the radio accepts in the current mode, from the rig file. Empty when the
+    // rig file has no width table; the range is then filterWidthMin..filterWidthMax.
+    Q_PROPERTY(QVariantList filterWidths READ getFilterWidths NOTIFY filterWidthsChanged)
+    Q_PROPERTY(int filterWidthMin READ getFilterWidthMin NOTIFY filterWidthsChanged)
+    Q_PROPERTY(int filterWidthMax READ getFilterWidthMax NOTIFY filterWidthsChanged)
     Q_PROPERTY(colorPrefsType colors READ getColors WRITE setColors NOTIFY colorsChanged)
 
     Q_PROPERTY(QVariantMap uiSpecs READ getUiSpecs NOTIFY uiSpecsChanged)
@@ -179,6 +184,18 @@ public:
     int getPbtOuter() { return pbtOuter;}
     int getIfShift() { return ifShift;}
     int getFilterWidth() { return filterWidth;}
+    QVariantList getFilterWidths() const
+    {
+        return filterWidths;
+    }
+    int getFilterWidthMin() const
+    {
+        return filterWidthMin;
+    }
+    int getFilterWidthMax() const
+    {
+        return filterWidthMax;
+    }
     QString getDrawerTitle() { return drawerTitle;}
     colorPrefsType getColors()     const { return colors; }
 
@@ -354,6 +371,7 @@ signals:
     void filterShapeChanged();
     void roofingChanged();
     void filterWidthChanged();
+    void filterWidthsChanged();
 
     void refChanged();
     void rfGainChanged();
@@ -412,6 +430,7 @@ private:
     void updatePassbandModeParameters(const modeInfo &m);
     double kenwoodShiftMHz() const;
     void updateModeSensitiveUiSpecs();
+    void updateFilterWidths();
     void applyModeSpecificPeriodicCommands(const modeInfo &mode);
     bool periodicCommandAllowedByMode(funcs func, uchar receiver, const modeInfo &mode) const;
     int pbtDefaultValue(const funcType &func) const;
@@ -467,6 +486,9 @@ private:
     int ifShift = 0;
     bool haveIfShift = false;
     int filterWidth = 0;
+    QVariantList filterWidths;
+    int filterWidthMin = 0;
+    int filterWidthMax = 0;
 
     // Spectrum
     double lowerFreq = 0.0;

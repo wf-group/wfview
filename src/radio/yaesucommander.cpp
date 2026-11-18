@@ -1198,7 +1198,7 @@ void yaesuCommander::parseData(QByteArray data)
             auto m = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,receiver).value.value<modeInfo>();
             for (const auto& w: rigCaps.widths)
             {
-                if ((w.bands >> m.reg) & 0x01)
+                if (w.modes.contains(m.mk))
                 {
                     if (v == w.num)
                     {
@@ -2026,7 +2026,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                     auto m = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,receiver).value.value<modeInfo>();
                     for (const auto& w: rigCaps.widths)
                     {
-                        if ((w.bands >> m.reg) & 0x01 )
+                        if (w.modes.contains(m.mk))
                         {
                             if (w.hz >= width) {
                                 payload.append(QString::number(w.num).rightJustified(cmd.bytes, QChar('0')).toLatin1());
