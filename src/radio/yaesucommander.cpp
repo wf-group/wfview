@@ -12,6 +12,20 @@ namespace
 constexpr int rmMeterDigits = 3;
 // CF000 sets and reports the RX and TX clarifier together: CF000<rx><tx>000;
 const QByteArray clarifierStatusCommand = QByteArrayLiteral("CF000");
+// KP sets the CW pitch in 10 Hz steps from 300 Hz.
+constexpr int cwPitchBaseHz = 300;
+constexpr int cwPitchStepHz = 10;
+
+ushort cwPitchHzFromSteps(int steps)
+{
+    return ushort(cwPitchBaseHz + steps * cwPitchStepHz);
+}
+
+int cwPitchStepsFromHz(int hz)
+{
+    return (hz - cwPitchBaseHz + cwPitchStepHz / 2) / cwPitchStepHz;
+}
+
 // The FT-710 rejects RF power above 25 W in AM and AM-N.
 constexpr ushort maxAmPower = 25;
 
@@ -750,6 +764,9 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         value.setValue(QVariant::fromValue<short>(val));
         break;
     }
+    case funcCwPitch:
+        value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok)));
+        break;
     case funcAGCTimeConstant:
     case funcMemorySelect:
     case funcRfGain:
@@ -769,7 +786,6 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
     case funcFilterShape:
     case funcRoofingFilter:
     case funcScopeSpeed:
-    case funcCwPitch:
     case funcAfGain:
     case funcBreakIn:
         value.setValue<uchar>(d.mid(0, type.bytes).toUShort(&ok));
@@ -1244,7 +1260,6 @@ void yaesuCommander::parseData(QByteArray data)
         case funcFilterShape:
         case funcRoofingFilter:
         case funcScopeSpeed:
-        case funcCwPitch:
             value.setValue<uchar>(d.mid(0,type.bytes).toUShort());
             break;
         case funcVFOAInformation:
@@ -1271,6 +1286,9 @@ void yaesuCommander::parseData(QByteArray data)
             break;
         case funcRepeaterTone:
             value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0,1).toUShort())));
+            break;
+        case funcCwPitch:
+            value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0,type.bytes).toInt()));
             break;
         case funcRitStatus:
             // Trailing zeros have been removed, so a missing second digit means TX clarifier off.
@@ -1839,7 +1857,12 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             }
             else if(!strcmp(value.typeName(),"ushort") )
             {
-                if (func == funcFilterWidth)
+                if (func == funcCwPitch)
+                {
+                    const int hz = qBound(int(cmd.minVal), int(value.value<ushort>()), int(cmd.maxVal));
+                    payload.append(QString::number(cwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+                }
+                else if (func == funcFilterWidth)
                 {
                     // We need to work out which mode first:
                     ushort width=value.value<ushort>();
