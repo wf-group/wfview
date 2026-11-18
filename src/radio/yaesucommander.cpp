@@ -422,6 +422,12 @@ void yaesuCommander::haveScopeData(QByteArray in)
             statusClock.start();
         }
         const qint64 now = statusClock.elapsed();
+        // The VFO frequencies and the main mode, decoded from this frame above, are current as well.
+        for (const funcs f : {funcFreq, funcSelectedFreq, funcUnselectedFreq, funcSelectedMode, funcMode})
+        {
+            if (rigCaps.commands.contains(f))
+                statusFreshMs.insert(f, now);
+        }
         for (auto it = confirmed.constBegin(); it != confirmed.constEnd(); ++it)
         {
             if (rigCaps.commands.contains(it.key()))
