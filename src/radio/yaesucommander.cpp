@@ -1240,6 +1240,10 @@ void yaesuCommander::parseData(QByteArray data)
                 value.setValue<ushort>(ushort(short(hz)));
             break;
         }
+        case funcAutoInformation:
+            aiModeEnabled = d.mid(0, 1).toUShort() != 0;
+            value.setValue<uchar>(aiModeEnabled ? 1 : 0);
+            break;
         case funcScopeRef:
         {
             // Sign and nn.n dB, carried in tenths of a dB.
@@ -1837,6 +1841,12 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 // A negative shift arrives in a ushort. The radio takes 0, a sign and four digits.
                 payload.append("0");
                 payload.append(yaesuFormatIfShift(short(value.toInt())));
+            }
+            else if (func == funcAutoInformation)
+            {
+                // wfview asks for 2, the Kenwood value; Yaesu only has off and on.
+                aiModeEnabled = value.toInt() != 0;
+                payload.append(aiModeEnabled ? "1" : "0");
             }
             else if (func == funcScopeRef)
             {
