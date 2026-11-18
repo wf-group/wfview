@@ -10,6 +10,18 @@
 namespace
 {
 constexpr int rmMeterDigits = 3;
+
+// wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
+// TS-890). Yaesu's CT uses 1 = CTCSS encode and decode (tone squelch) and
+// 2 = CTCSS encode only (tone). Other values are the same both ways.
+uchar swapYaesuToneMode(uchar mode)
+{
+    if (mode == 1)
+        return 2;
+    if (mode == 2)
+        return 1;
+    return mode;
+}
 }
 
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
@@ -701,11 +713,13 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         }
         break;
     }
+    case funcRepeaterTone:
+        value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0, 1).toUShort(&ok))));
+        break;
     case funcRitStatus:
     case funcMonitor:
     case funcCompressor:
     case funcVox:
-    case funcRepeaterTone:
     case funcRepeaterTSQL:
     case funcScopeOnOff:
     case funcScopeHold:
@@ -1141,7 +1155,6 @@ void yaesuCommander::parseData(QByteArray data)
         case funcCompressor:
         case funcVox:
         case funcAutoNotch:
-        case funcRepeaterTone:
         case funcRepeaterTSQL:
         case funcScopeOnOff:
         case funcScopeHold:
@@ -1247,6 +1260,9 @@ void yaesuCommander::parseData(QByteArray data)
         case funcXitFreq:
         case funcRitFreq:
             value.setValue<short>(d.toShort());
+            break;
+        case funcRepeaterTone:
+            value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0,1).toUShort())));
             break;
         case funcNBLevel:
         case funcNRLevel:
@@ -1628,6 +1644,11 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             func = funcDataRearModGain;
     }
 
+
+    if (func == funcRepeaterTone && value.isValid()) {
+        const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
+        value.setValue<uchar>(swapYaesuToneMode(mode));
+    }
 
     // On the FT-710, turning the speech processor on sets its level to 50 and
     // turning it off sets it to 0, so send the user's last level after turning it on.
