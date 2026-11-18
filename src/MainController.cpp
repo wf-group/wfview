@@ -4685,6 +4685,14 @@ void MainController::disconnectRig()
     }
     rig = nullptr;
     rigThread = nullptr;
+    // rigCaps lives inside the rig, which the thread deleted on exit. The
+    // rig's own setRigCaps(nullptr) reaches us only as a queued signal, so
+    // drop the pointer now; code below (updateAudioRouteState) reads it.
+    rigCaps = nullptr;
+    if (m_cwSender) {
+        m_cwSender->receiveRigCaps(nullptr);
+        m_cwSender->receiveEnabled(false);
+    }
     if (m_memoriesModel) {
         m_memoriesModel->deleteLater();
         m_memoriesModel = nullptr;
@@ -5138,6 +5146,14 @@ void MainController::receivePortError(errorType err)
     }
     rig = nullptr;
     rigThread = nullptr;
+    // rigCaps lives inside the rig, which the thread deleted on exit. The
+    // rig's own setRigCaps(nullptr) reaches us only as a queued signal, so
+    // drop the pointer now; code below (updateAudioRouteState) reads it.
+    rigCaps = nullptr;
+    if (m_cwSender) {
+        m_cwSender->receiveRigCaps(nullptr);
+        m_cwSender->receiveEnabled(false);
+    }
 
     for (auto *r : std::as_const(receivers)) {
         if (!r)
