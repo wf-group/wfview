@@ -2419,7 +2419,7 @@ ApplicationWindow {
                                     from: MainController.modGainMin
                                     to: MainController.modGainMax
                                     value: MainController.micGain
-                                    enabled: spec.available ?? false
+                                    enabled: (spec.available ?? false) && MainController.modGainActive
                                     orientation: Qt.Vertical
                                     Layout.preferredHeight: win.mainControlSliderHeight
                                     onMoved: MainController.micGain = Math.round(value)
@@ -2435,10 +2435,14 @@ ApplicationWindow {
                                     enabled: visible
                                     value: visible ? MainController.txAudioLevel : 0
                                     label: qsTr("TX audio")
-                                    active: micGainSlider.enabled
+                                    active: micGainSlider.enabled && MainController.txAudioActive
                                 }
                             }
-                            Label { text: MainController.modGainLabel; horizontalAlignment: Text.AlignHCenter }
+                            Label {
+                                text: MainController.modGainLabel
+                                horizontalAlignment: Text.AlignHCenter
+                                enabled: MainController.modGainActive
+                            }
                         }
                     }
                 }
