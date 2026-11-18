@@ -6,7 +6,11 @@
 #include "printhex.h"
 #include "mcphooks.h"
 #include "commhandler.h"
+
+#include <QDebug>
+#include <algorithm>
 #include "yaesuvalues.h"
+#include "cwmorse.h"
 
 namespace
 {
@@ -1912,17 +1916,13 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                             textData[c] = 0x3F; // "?"
                         }
                     }
+                    // Yaesu has no free-text CW command: the text is stored in keyer
+                    // memory 1 with KM and played with KY (the rig file's Send CW command).
                     if (textData.isEmpty())
-                    {
-                        emit stopsidetone();
-                        payload.append(QString("0").leftJustified(cmd.bytes, QChar(' ')).toLatin1());
-                    } else {
-                        emit sidetone(QString(textData));
-                        payload.append(" ");
-                        payload.append(textData.leftJustified(cmd.bytes, QChar(' ').toLatin1()));
-                        qDebug(logRig()) << "CW output::" << textData ;
-                    }
-                    qDebug(logRig()) << "Sending CW: payload:" << payload.toStdString().c_str();
+                        stopCwMemory();
+                    else
+                        sendCwMemory(textData.toUpper());
+                    return;
                 }
             }
             else if(!strcmp(value.typeName(),"freqt"))
@@ -2321,6 +2321,97 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         lastCommand.maxValue = cmd.maxVal;
         lastCommand.bytes = cmd.bytes;
     }
+}
+
+namespace
+{
+// The FT-710 keeps up to 50 characters in a keyer memory, but with all 50 used
+// its end mark is written past the memory, so at most 49 are sent at once.
+constexpr int cwMemoryMaxChars = 49;
+constexpr char cwMemorySlot = '1';
+// The radio's keyer weight is not read, so its default dash ratio is assumed.
+constexpr double cwDefaultDashRatio = 3.0;
+// Extra time before the next memory is sent, so playback has certainly ended.
+constexpr int cwMemoryMarginMs = 300;
+constexpr int cwDefaultWpm = 20;
+}
+
+// The radio plays one keyer memory at a time and reports nothing when it ends, so
+// text that arrives while a memory is playing waits until that playback should be over.
+// Each KM write goes to the radio's EEPROM, and KY01 sets its CW MEMORY 1 item to TEXT.
+void yaesuCommander::sendCwMemory(const QByteArray &text)
+{
+    cwMemoryPending.append(text);
+    if (!cwMemoryPlaying)
+        playNextCwMemory();
+}
+
+void yaesuCommander::playNextCwMemory()
+{
+    if (cwMemoryPending.isEmpty())
+    {
+        cwMemoryPlaying = false;
+        return;
+    }
+
+    // When text is split, end the memory at a space so the pause between
+    // memories falls between words.
+    int length = std::min<int>(cwMemoryPending.size(), cwMemoryMaxChars);
+    if (length < cwMemoryPending.size())
+    {
+        const int space = cwMemoryPending.lastIndexOf(' ', length - 1);
+        if (space > 0)
+            length = space + 1;
+    }
+    const QByteArray chunk = cwMemoryPending.left(length);
+    cwMemoryPending.remove(0, chunk.size());
+
+    const QByteArray store = rigCaps.commands.contains(funcMemoryKeyer) ? rigCaps.commands.value(funcMemoryKeyer).data
+                                                                        : QByteArrayLiteral("KM");
+    const QByteArray play = rigCaps.commands.value(funcSendCW).data;
+    emit sidetone(QString::fromLatin1(chunk));
+    sendToRig(store + cwMemorySlot + chunk + ";");
+    sendToRig(play + "01;");
+    qDebug(logRig()) << "CW sent through keyer memory:" << chunk;
+
+    int wpm = queue->getCache(funcKeySpeed, 0).value.toInt();
+    if (wpm < 4)
+        wpm = cwDefaultWpm;
+    std::deque<CwElement> elements;
+    for (const char ch : chunk)
+        appendCwElements(QChar::fromLatin1(ch), cwDefaultDashRatio, elements);
+    double dits = 0;
+    for (const CwElement &e : elements)
+        dits += e.dits;
+    if (cwMemoryTimer == nullptr)
+    {
+        cwMemoryTimer = new QTimer(this);
+        cwMemoryTimer->setSingleShot(true);
+        connect(cwMemoryTimer, &QTimer::timeout, this, &yaesuCommander::playNextCwMemory);
+    }
+    cwMemoryPlaying = true;
+    cwMemoryTimer->start(int(dits * cwDitSecondsAtOneWpm * 1000 / wpm) + cwMemoryMarginMs);
+}
+
+void yaesuCommander::stopCwMemory()
+{
+    cwMemoryPending.clear();
+    cwMemoryPlaying = false;
+    if (cwMemoryTimer != nullptr)
+        cwMemoryTimer->stop();
+    emit stopsidetone();
+    sendToRig(rigCaps.commands.value(funcSendCW).data + "00;");
+}
+
+void yaesuCommander::sendToRig(const QByteArray &data)
+{
+    qDebug(logRigTraffic()).noquote() << "Send to rig: " << data.toStdString().c_str();
+    emit sendDataToRig(data);
+    if (!commandClock.isValid())
+        commandClock.start();
+    recentCommands.append(sentCommand {commandClock.elapsed(), data});
+    while (recentCommands.size() > maxRecentCommands)
+        recentCommands.removeFirst();
 }
 
 void yaesuCommander::serialPortError(QSerialPort::SerialPortError err)

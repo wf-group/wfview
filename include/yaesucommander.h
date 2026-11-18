@@ -101,6 +101,15 @@ private:
     };
     QList<sentCommand> recentCommands;
     QElapsedTimer commandClock;
+
+    // CW sent through the radio's keyer memory: text waiting for the current playback to end.
+    void sendCwMemory(const QByteArray &text);
+    void playNextCwMemory();
+    void stopCwMemory();
+    void sendToRig(const QByteArray &data);
+    QByteArray cwMemoryPending;
+    QTimer *cwMemoryTimer = nullptr;
+    bool cwMemoryPlaying = false;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
 

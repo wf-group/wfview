@@ -1,5 +1,5 @@
 [General]
-Version=2.18
+Version=2.19
 
 [Rig]
 Manufacturer=2
@@ -947,7 +947,17 @@ Commands\92\Command29=false
 Commands\92\GetCommand=false
 Commands\92\SetCommand=true
 Commands\92\Admin=false
-Commands\size=92
+Commands\93\Type=Send CW
+Commands\93\String=KY
+Commands\93\Min=0
+Commands\93\Max=0
+Commands\93\Bytes=49
+Commands\93\PadRight=false
+Commands\93\Command29=false
+Commands\93\GetCommand=false
+Commands\93\SetCommand=true
+Commands\93\Admin=false
+Commands\size=93
 Periodic\1\Priority=Medium Low
 Periodic\1\Command=Attenuator Status
 Periodic\1\VFO=0
