@@ -17,6 +17,8 @@ namespace
 // A ?; reply is reported with the commands sent this long before it.
 constexpr qint64 rejectedCommandWindowMs = 500;
 constexpr int maxRecentCommands = 16;
+// Scope frame byte holding the scope display mode: 0 = Center, 1 = Cursor, 2 = Fixed.
+constexpr int scopeWindowModeByte = 52;
 }
 
 namespace
@@ -198,6 +200,53 @@ void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     commonSetup();
 }
 
+// In Cursor and Fixed scope modes the display does not centre on the VFO: it
+// starts at a frequency the radio keeps per band, read with FD001 / FD002. It is
+// read again when the mode or span changes, when the VFO leaves the window (the
+// Cursor window then moves), and every second for band changes. Until it is known,
+// the centred axis is kept.
+void yaesuCommander::updateScopeWindow(const QByteArray &data,
+                                       double vfoMHz,
+                                       const centerSpanData &cs,
+                                       scopeData &scope)
+{
+    if (!rigCaps.commands.contains(funcScopeFixedEdgeFreq) || data.size() <= scopeWindowModeByte)
+        return;
+
+    const quint8 windowMode = quint8(data.at(scopeWindowModeByte));
+    if (windowMode != scopeWindowMode)
+        qInfo(logRig()) << "Scope window mode" << windowMode << "(0 = Center, 1 = Cursor, 2 = Fixed)";
+    if (windowMode != 1 && windowMode != 2)
+    {
+        scopeWindowMode = windowMode;
+        scopeWindowKnown = false;
+        return;
+    }
+
+    const double spanMHz = cs.freq / 1000000.0;
+    if (windowMode != scopeWindowMode || cs.reg != scopeWindowSpan)
+        scopeWindowKnown = false;
+    scopeWindowMode = windowMode;
+    scopeWindowSpan = cs.reg;
+
+    const bool vfoOutside
+        = scopeWindowKnown && (vfoMHz < scopeWindowStartMHz || vfoMHz > scopeWindowStartMHz + spanMHz);
+    if (!scopeWindowKnown || vfoOutside || !scopeWindowAsked.isValid() || scopeWindowAsked.elapsed() > 1000)
+    {
+        if (!scopeWindowAsked.isValid() || scopeWindowAsked.elapsed() > 200)
+        {
+            sendToRig(rigCaps.commands.value(funcScopeFixedEdgeFreq).data + char('0' + windowMode) + ';');
+            scopeWindowAsked.start();
+        }
+    }
+
+    if (scopeWindowKnown)
+    {
+        scope.startFreq = scopeWindowStartMHz;
+        scope.endFreq = scopeWindowStartMHz + spanMHz;
+    }
+}
+
 void yaesuCommander::haveScopeData(QByteArray in)
 {
     /*  in contains a valid yaesu data packet.
@@ -345,6 +394,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
     scope.receiver=0;
     scope.startFreq=fa.MHzDouble-((cs.freq/2)/1000000.0);
     scope.endFreq=fa.MHzDouble+((cs.freq/2)/1000000.0);
+    updateScopeWindow(data, fa.MHzDouble, cs, scope);
     scope.mode = mode;
     scope.oor = false;
     scope.fixedEdge = 1;
@@ -1225,6 +1275,19 @@ void yaesuCommander::parseData(QByteArray data)
 #endif
         case funcPBTInner:
         case funcPBTOuter:
+            break;
+        case funcScopeFixedEdgeFreq:
+            // FD00n + the display start in Hz, for the Cursor (1) or Fixed (2) scope mode.
+            if (d.size() >= 10 && d.at(0) == char('0' + scopeWindowMode))
+            {
+                bool ok = false;
+                const qint64 hz = d.mid(1, 9).toLongLong(&ok);
+                if (ok)
+                {
+                    scopeWindowStartMHz = hz / 1000000.0;
+                    scopeWindowKnown = true;
+                }
+            }
             break;
         case funcFilterWidth: {
             // We need to work out which mode first:

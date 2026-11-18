@@ -1,5 +1,5 @@
 [General]
-Version=2.22
+Version=2.23
 
 [Rig]
 Manufacturer=2
@@ -959,7 +959,17 @@ Commands\93\Command29=false
 Commands\93\GetCommand=false
 Commands\93\SetCommand=true
 Commands\93\Admin=false
-Commands\size=93
+Commands\94\Type=Scope Fixed Edge Freq
+Commands\94\String=FD00
+Commands\94\Min=1
+Commands\94\Max=2
+Commands\94\Bytes=10
+Commands\94\PadRight=false
+Commands\94\Command29=false
+Commands\94\GetCommand=false
+Commands\94\SetCommand=false
+Commands\94\Admin=false
+Commands\size=94
 Periodic\1\Priority=Medium Low
 Periodic\1\Command=Attenuator Status
 Periodic\1\VFO=0

@@ -110,6 +110,7 @@ private:
     void playNextCwMemory();
     void stopCwMemory();
     void restoreCwMemory();
+    void updateScopeWindow(const QByteArray &data, double vfoMHz, const centerSpanData &cs, scopeData &scope);
     QByteArray memoryKeyerCommand() const;
     void sendToRig(const QByteArray &data);
     QByteArray cwMemoryPending;
@@ -119,6 +120,12 @@ private:
     bool cwMemoryInUse = false;
     bool cwMemorySaving = false;
     QByteArray cwMemorySaved;
+    // The scope's display start in Cursor and Fixed modes, read with FD001 / FD002.
+    quint8 scopeWindowMode = 0; // 0 = Center, 1 = Cursor, 2 = Fixed, from the status block
+    quint8 scopeWindowSpan = 0xff;
+    bool scopeWindowKnown = false;
+    double scopeWindowStartMHz = 0.0;
+    QElapsedTimer scopeWindowAsked;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
 
