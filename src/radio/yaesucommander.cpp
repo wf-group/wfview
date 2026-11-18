@@ -1140,6 +1140,7 @@ void yaesuCommander::parseData(QByteArray data)
         case funcMonitor:
         case funcCompressor:
         case funcVox:
+        case funcAutoNotch:
         case funcRepeaterTone:
         case funcRepeaterTSQL:
         case funcScopeOnOff:
@@ -1246,6 +1247,12 @@ void yaesuCommander::parseData(QByteArray data)
         case funcXitFreq:
         case funcRitFreq:
             value.setValue<short>(d.toShort());
+            break;
+        case funcNBLevel:
+        case funcNRLevel:
+        case funcVoxGain:
+        case funcAntiVoxGain:
+            value.setValue<ushort>(d.left(type.bytes).toUShort());
             break;
         case funcCompressorLevel:
             // Some rigs answer with two values and we want the second; the FT-710 answers with one.
