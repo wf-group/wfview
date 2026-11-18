@@ -1,5 +1,5 @@
 [General]
-Version=2.11
+Version=3.0
 
 [Rig]
 Manufacturer=1
@@ -21,6 +21,9 @@ HasFDComms=true
 HasCommand29=false
 CWDecodeRequiresDisplay=true
 AbsoluteVFOFreq=true
+SlowPollOnTx=true
+SlowPollOnTxFactor=10
+TxAudioBufferMs=300
 MemGroups=0
 Memories=99
 MemStart=0

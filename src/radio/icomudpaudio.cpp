@@ -1,5 +1,6 @@
 #include "icomudpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 static inline quint32 makeExtendedSeq(quint32 prefix, quint16 seq16) {
     return (prefix << 16) | quint32(seq16);
@@ -34,6 +35,11 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
     areYouThereTimer = new QTimer(this);
     connect(areYouThereTimer, &QTimer::timeout, this, std::bind(&icomUdpBase::sendControl, this, false, 0x03, 0));
     areYouThereTimer->start(AREYOUTHERE_PERIOD);
+    if (enableTx) {
+        txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, 1364,
+                                   [this](const QByteArray &payload) { sendTxPacket(payload); }, this);
+        txPacer->setRadioClock(&rxClock);
+    }
 }
 
 icomUdpAudio::~icomUdpAudio()
@@ -107,31 +113,50 @@ void icomUdpAudio::receiveAudioData(audioPacket audio) {
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         emit haveTxLevels(peak, rms, txSetup.latency, 0, false, false);
 
-        int len = 0;
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
 
-        while (len < audio.data.length()) {
-            QByteArray partial = audio.data.mid(len, 1364);
-            audio_packet p;
-            memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
-            p.len = (quint32)sizeof(p) + partial.length();
-            p.sentid = myId;
-            p.rcvdid = remoteId;
-            if (partial.length() == 0xa0) {
-                p.ident = 0x9781;
-            }
-            else {
-                p.ident = 0x0080; // TX audio is always this?
-            }
-            p.datalen = (quint16)qToBigEndian((quint16)partial.length());
-            p.sendseq = (quint16)qToBigEndian((quint16)sendAudioSeq); // THIS IS BIG ENDIAN!
-            QByteArray tx = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
-            tx.append(partial);
-            len = len + partial.length();
-            //qInfo(logUdp()) << "Sending audio packet length: " << tx.length();
-            sendTrackedPacket(tx);
-            sendAudioSeq++;
+        if (txPacer != nullptr) {
+            txPacer->push(audio.data);
+        } else {
+            for (int len = 0; len < audio.data.length(); len += 1364)
+                sendTxPacket(audio.data.mid(len, 1364));
         }
     }
+}
+
+void icomUdpAudio::sendTxPacket(const QByteArray &partial)
+{
+    if (udp == nullptr)
+        return;
+    audio_packet p;
+    memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
+    p.len = (quint32)sizeof(p) + partial.length();
+    p.sentid = myId;
+    p.rcvdid = remoteId;
+    if (partial.length() == 0xa0) {
+        p.ident = 0x9781;
+    }
+    else {
+        p.ident = 0x0080; // TX audio is always this?
+    }
+    p.datalen = (quint16)qToBigEndian((quint16)partial.length());
+    p.sendseq = (quint16)qToBigEndian((quint16)sendAudioSeq); // THIS IS BIG ENDIAN!
+    QByteArray tx = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
+    tx.append(partial);
+    //qInfo(logUdp()) << "Sending audio packet length: " << tx.length();
+    sendTrackedPacket(tx);
+    MCP_AUDIO_DIAG({
+        McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(txSetup.sampleRate));
+    });
+    sendAudioSeq++;
 }
 
 void icomUdpAudio::changeLatency(quint16 value)
@@ -188,6 +213,11 @@ void icomUdpAudio::dataReceived()
                 if (rxAudioThread == nullptr)
                     startAudio();
 
+                // Every audio packet counts towards the radio's clock, even
+                // one dropped below as late.
+                if (const int bpf = txAudioPacer::bytesPerFrame(rxSetup.codec))
+                    rxClock.packet((int(r.size()) - 0x18) / bpf, rxSetup.sampleRate);
+
                 // Drop audio that is arriving later than the configured latency allows,
                 // so that a delay spike does not leave us playing behind real time.
                 // pingLatenessMs is measured above the recent best-case delay, so it
@@ -197,6 +227,8 @@ void icomUdpAudio::dataReceived()
 
                 if (excessMs > dropThresholdMs) {
                     ++droppedLatencyPackets;
+                    MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::RadioRxPacket,
+                                                         "RX packet dropped as too late (value: ms over)", excessMs));
                     if (!lastLatencyDropLog.isValid() || lastLatencyDropLog.elapsed() > 2000) {
                         qInfo(logUdp()) << "Dropping delayed RX audio packet to reduce latency"
                                         << "excessDelay" << excessMs
@@ -215,6 +247,13 @@ void icomUdpAudio::dataReceived()
                 tempAudio.time = QTime::currentTime();
                 tempAudio.sent = 0;
                 tempAudio.data = r.mid(0x18);
+                MCP_AUDIO_DIAG({
+                    McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+                    McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(in->seq));
+                    if (const int ch = McpAudioDiag::pcm16Channels(rxSetup.codec))
+                        McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                                  int(tempAudio.data.size()), ch, int(rxSetup.sampleRate));
+                });
                 emit haveAudioData(tempAudio);
                 lastReceived = QTime::currentTime();
             }

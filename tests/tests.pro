@@ -33,9 +33,11 @@ INCLUDEPATH += $$PWD/../src/audio/anr
 SOURCES += \
     $$PWD/tst_main.cpp \
     $$PWD/tst_audiorouting.cpp \
+    $$PWD/tst_cachingqueue.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
+    $$PWD/tst_icomudpbase.cpp \
     $$PWD/tst_iaxclientsession.cpp \
     $$PWD/tst_modsource.cpp \
     $$PWD/tst_periodicmode.cpp \
@@ -44,11 +46,14 @@ SOURCES += \
     $$PWD/tst_rigctlcompat.cpp \
     $$PWD/tst_rigctld.cpp \
     $$PWD/tst_rigprotocols.cpp \
+    $$PWD/tst_txaudiopacer.cpp \
+    $$PWD/../src/audio/txaudiopacer.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \
     $$PWD/../src/audiorouting.cpp \
     $$PWD/../src/iaxclientsession.cpp \
     $$PWD/../src/radio/icomscopeframeassembler.cpp \
+    $$PWD/../src/radio/icomudpbase.cpp \
     $$PWD/../src/logcategories.cpp \
     $$PWD/../src/radiotransportframe.cpp \
     $$PWD/../src/rigctlcompat.cpp \
@@ -61,6 +66,7 @@ HEADERS += \
     $$PWD/../include/audiorouting.h \
     $$PWD/../include/iaxclientsession.h \
     $$PWD/../include/icomscopeframeassembler.h \
+    $$PWD/../include/icomudpbase.h \
     $$PWD/../include/logcategories.h \
     $$PWD/../include/pingdelaytracker.h \
     $$PWD/../include/radiotransport.h \
@@ -68,4 +74,5 @@ HEADERS += \
     $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/rigctld.h \
     $$PWD/../include/cachingqueue.h \
+    $$PWD/../include/txaudiopacer.h \
     $$PWD/../include/usbcontroller.h

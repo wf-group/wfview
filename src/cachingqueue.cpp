@@ -8,6 +8,9 @@
 #include "logcategories.h"
 #include "cachingqueue.h"
 
+#include <algorithm>
+#include <QHash>
+
 #define CACHE_LOCK_TIME 100
 
 cachingQueue* cachingQueue::instance{};
@@ -50,6 +53,7 @@ void cachingQueue::run()
 
     QDeadlineTimer deadline(queueInterval);
     QMutexLocker locker(&mutex);
+    healthClock.start();
 
     quint16 counter=priorityImmediate;
 
@@ -62,24 +66,25 @@ void cachingQueue::run()
 
             // priorityNone=0, priorityImmediate=1, priorityHighest=2, priorityHigh=3, priorityMediumHigh=5, priorityMedium=7, priorityMediumLow=11, priorityLow=19, priorityLowest=23
 
-            // If no immediate commands then process the rest of the queue
-            if (!queue.contains(prio)) {
-                if (counter % priorityHighest == 0)
-                    prio = priorityHighest;
-                else if (counter % priorityHigh == 0)
-                    prio = priorityHigh;
-                else if (counter % priorityMediumHigh == 0)
-                    prio = priorityMediumHigh;
-                else if (counter % priorityMedium == 0)
-                    prio = priorityMedium;
-                else if (counter % priorityMediumLow == 0)
-                    prio = priorityMediumLow;
-                else if (counter % priorityLow == 0)
-                    prio = priorityLow;
-                else if (counter % priorityLowest == 0) {
-                    prio = priorityLowest;
-                    counter = priorityImmediate;
+            // Immediate commands go first, but not for ever: after
+            // maxImmediateStreak of them in a row, the routine slot for this
+            // tick is used if it has anything waiting. Without this, anything
+            // that adds immediate commands faster than one per tick stops all
+            // routine polling, and radios that watch for CAT traffic (the
+            // Kenwood LAN link, for one) then drop the connection.
+            const bool haveImmediate = queue.contains(priorityImmediate);
+            bool useRotation = !haveImmediate;
+            if (haveImmediate && immediateStreak >= maxImmediateStreak) {
+                const queuePriority slot = rotationSlot(counter);
+                if (slot != priorityImmediate && queue.contains(slot)) {
+                    useRotation = true;
+                    ++fairnessTurnCount;
                 }
+            }
+            if (useRotation) {
+                prio = rotationSlot(counter);
+                if (prio == priorityLowest)
+                    counter = priorityImmediate;
             }
             counter++;
 
@@ -97,6 +102,14 @@ void cachingQueue::run()
                 queue.erase(it);
 
                 haveItem = true;
+                ++sentCount;
+                if (prio == priorityImmediate) {
+                    ++immediateSentCount;
+                    ++immediateStreak;
+                } else {
+                    immediateStreak = 0;
+                    lastRoutineMs = healthClock.elapsed();
+                }
 
                 // Immediate commands update the cache on insert to make sure there is no delay
                 if (prio != priorityImmediate) {
@@ -109,9 +122,16 @@ void cachingQueue::run()
                 }
             }
 
-            if (haveItem) {
+            if (!haveImmediate)
+                immediateStreak = 0;
+
+            const QString warning = checkHealth(healthClock.elapsed());
+
+            if (haveItem || !warning.isEmpty()) {
                 locker.unlock();
-                if (!aborted) {
+                if (!warning.isEmpty())
+                    qWarning(logRig()) << qPrintable(warning);
+                if (haveItem && !aborted) {
                     if (!item.rawData.isEmpty())
                         emit haveRawCommand(item.rawData, item.receiver);
                     else
@@ -162,7 +182,8 @@ void cachingQueue::run()
             }
             locker.relock();
 
-            if (queueInterval != -1 && deadline.isForever())
+            // Start the timer, or bring the next tick forward if the interval was shortened.
+            if (queueInterval != -1 && (deadline.isForever() || deadline.remainingTime() > queueInterval))
                 deadline.setRemainingTime(queueInterval); // reset the deadline to the poll frequency
         }
     }
@@ -171,19 +192,108 @@ void cachingQueue::run()
 void cachingQueue::interval(qint64 val)
 {
     this->queueInterval = val;
-    if (mutex.tryLock()) {
-        mutex.unlock();
-        waiting.wakeAll();
-    }
+    // Wake the thread so a shorter interval applies now (see run()).
+    waiting.wakeAll();
     emit intervalUpdated(val);
     qInfo() << "Changing queue interval to" << val << "ms";
 }
 
+queuePriority cachingQueue::rotationSlot(quint16 counter) const
+{
+    // The routine (non-immediate) priority served on this tick, or
+    // priorityImmediate if this tick has no routine slot.
+    if (counter % priorityHighest == 0)
+        return priorityHighest;
+    if (counter % priorityHigh == 0)
+        return priorityHigh;
+    if (counter % priorityMediumHigh == 0)
+        return priorityMediumHigh;
+    if (counter % priorityMedium == 0)
+        return priorityMedium;
+    if (counter % priorityMediumLow == 0)
+        return priorityMediumLow;
+    if (counter % priorityLow == 0)
+        return priorityLow;
+    if (counter % priorityLowest == 0)
+        return priorityLowest;
+    return priorityImmediate;
+}
+
+QString cachingQueue::checkHealth(qint64 now)
+{
+    // Mutex MUST be locked by the calling function.
+    // A watchdog only: it logs (rate limited) and counts, it never drops commands.
+    const int immediate = int(queue.count(priorityImmediate));
+    if (immediate > immediateHighWater)
+        immediateHighWater = immediate;
+
+    const bool routineWaiting = queue.size() > immediate;
+    if (!routineWaiting || queueInterval <= 0)
+        lastRoutineMs = now;
+
+    if (now - lastWarnMs < warnRepeatMs)
+        return QString();
+
+    // The lowest priority only gets a slot every 23 ticks, so allow for slow intervals.
+    const qint64 stallLimitMs = qMax(routineStallWarnMs, 30 * queueInterval);
+    const qint64 stalledMs = now - lastRoutineMs;
+    if (immediate <= immediateWarnDepth && stalledMs <= stallLimitMs)
+        return QString();
+
+    // Name the commands filling the immediate list, to show where they come from.
+    QHash<int, int> counts;
+    for (auto it = queue.constFind(priorityImmediate); it != queue.cend() && it.key() == priorityImmediate; ++it)
+        ++counts[int(it.value().command)];
+    QList<QPair<int, int>> top;
+    for (auto it = counts.cbegin(); it != counts.cend(); ++it)
+        top.append(qMakePair(it.value(), it.key()));
+    std::sort(top.begin(), top.end(), [](const QPair<int,int> &a, const QPair<int,int> &b) { return a.first > b.first; });
+    QStringList names;
+    for (int i = 0; i < top.size() && i < 3; ++i)
+        names << QStringLiteral("%1 x%2").arg(top[i].second < funcLastFunc ? funcString[top[i].second] : QStringLiteral("?")).arg(top[i].first);
+
+    lastWarnMs = now;
+    ++warningCount;
+    return QStringLiteral("Command queue backlog: %1 immediate commands waiting (%2), %3 in total; "
+                          "last routine command sent %4 ms ago")
+        .arg(immediate).arg(names.isEmpty() ? QStringLiteral("none") : names.join(QStringLiteral(", ")))
+        .arg(queue.size()).arg(routineWaiting ? stalledMs : 0);
+}
+
+bool cachingQueue::readRemapped(funcs cmd) const
+{
+    // Reads that the radio code turns into another command before checking the
+    // rig file, so the queue cannot judge them by their own entry.
+    switch (cmd) {
+    case funcSelectVFO:
+    case funcFreq:            // Yaesu: the sub receiver reads funcFreqSub
+    case funcDATAOffMod:      // Yaesu: mode-specific mod source
+    case funcUSBModLevel:     // Yaesu: mode-specific USB mod gain
+    case funcACCAModLevel:    // Yaesu: mode-specific rear mod gain
+        return true;
+    default:
+        return false;
+    }
+}
+
 funcs cachingQueue::checkCommandAvailable(funcs cmd,bool set)
 {
-    Q_UNUSED(set)
-    if (rigCaps != nullptr && cmd != funcNone && cmd != funcSelectVFO && !rigCaps->commands.contains(cmd)) {
+    if (rigCaps == nullptr || cmd == funcNone || cmd == funcSelectVFO)
+        return cmd;
+
+    auto it = rigCaps->commands.constFind(cmd);
+    if (it == rigCaps->commands.constEnd()) {
         // We don't have the requested command!
+        return funcNone;
+    }
+
+    // A read the radio cannot do would only be thrown away by the radio code
+    // after using up a queue slot, so do not queue it at all.
+    if (!set && !it->getCmd && !readRemapped(cmd)) {
+        ++unreadableRejectedCount;
+        if (cmd < funcLastFunc && !unreadableLogged[cmd].exchange(true))
+            qInfo(logRig()) << "Not queuing reads of" << funcString[cmd]
+                            << "as the rig file has no read command for it (logged once)";
         return funcNone;
     }
     return cmd;
@@ -228,10 +338,18 @@ void cachingQueue::add(queuePriority prio ,queueItem item, bool unique)
                         int count=queue.remove(prio,item);
                         if (count>0)
                             qDebug() << "cachingQueue::add() deleted" << count << "entries from queue for" << funcString[item.command] << "on receiver" << item.receiver;
+                    } else if (!isRawCommand && !item.recurring && !item.param.isValid() &&
+                               readWaiting(prio, item.command, item.receiver)) {
+                        // The same read is already waiting; a second one would
+                        // only return the same value. Merging them keeps the
+                        // waiting reads bounded however often they are asked for.
+                        ++coalescedCount;
+                        return;
                     }
 
                     // Don't immediately request funcTransceiverId, wait for the queue to run
-                    if (!isRawCommand && item.recurring && item.command != funcTransceiverId) {
+                    if (!isRawCommand && item.recurring && item.command != funcTransceiverId &&
+                        !readWaiting(priorityImmediate, item.command, item.receiver)) {
                         // also insert an immediate command to get the current value "now" (removes the need to get rigstate)
                         queueItem it=item;
                         it.recurring=false;
@@ -335,6 +453,46 @@ queuePriority cachingQueue::del(funcs func, uchar receiver, bool includePending)
     return prio;
 }
 
+queuePriority cachingQueue::delReads(funcs func, uchar receiver)
+{
+    // Like del(), but also removes waiting one-off reads (sets are kept).
+    queuePriority prio = priorityNone;
+    if (func != funcNone)
+    {
+        QMutexLocker locker(&mutex);
+        int count = 0;
+        auto it = queue.begin();
+        while (it != queue.end()) {
+            const queueItem &q = it.value();
+            if (q.command == func && q.receiver == receiver && q.rawData.isEmpty() &&
+                (q.recurring || !q.param.isValid())) {
+                if (prio == priorityNone)
+                    prio = it.key();
+                it = queue.erase(it);
+                ++count;
+            } else {
+                ++it;
+            }
+        }
+
+        if (count > 0)
+            qDebug() << "cachingQueue()::delReads" << count << "entries from queue for" << funcString[func] << "on receiver" << receiver;
+    }
+    return prio;
+}
+
+bool cachingQueue::readWaiting(queuePriority prio, funcs func, uchar receiver) const
+{
+    // Mutex MUST be locked by the calling function.
+    for (auto it = queue.constFind(prio); it != queue.cend() && it.key() == prio; ++it) {
+        const queueItem &q = it.value();
+        if (q.command == func && q.receiver == receiver && !q.recurring &&
+            !q.param.isValid() && q.rawData.isEmpty())
+            return true;
+    }
+    return false;
+}
+
 
 queuePriority cachingQueue::getQueued(funcs func, uchar receiver)
 {
@@ -384,6 +542,46 @@ void cachingQueue::clear()
 {
     QMutexLocker locker(&mutex);
     queue.clear();
+}
+
+void cachingQueue::setRigCaps(rigCapabilities* caps)
+{
+    if (rigCaps != caps) {
+        rigCaps = caps;
+        // A new rig file may read what the old one could not.
+        for (auto &logged : unreadableLogged)
+            logged.store(false);
+        emit rigCapsUpdated(rigCaps);
+    }
+}
+
+queueStats cachingQueue::getStats()
+{
+    QMutexLocker locker(&mutex);
+    queueStats st;
+    st.sent = sentCount;
+    st.immediateSent = immediateSentCount;
+    st.coalesced = coalescedCount;
+    st.refreshesSkipped = refreshesSkippedCount;
+    st.unreadableRejected = unreadableRejectedCount.load();
+    st.fairnessTurns = fairnessTurnCount;
+    st.warnings = warningCount;
+    st.immediateWaiting = int(queue.count(priorityImmediate));
+    st.immediateHighWater = qMax(immediateHighWater, st.immediateWaiting);
+    st.totalWaiting = int(queue.size());
+    if (st.totalWaiting > st.immediateWaiting && healthClock.isValid())
+        st.msSinceRoutine = healthClock.elapsed() - lastRoutineMs;
+    return st;
+}
+
+void cachingQueue::resetStats()
+{
+    QMutexLocker locker(&mutex);
+    sentCount = immediateSentCount = coalescedCount = refreshesSkippedCount = 0;
+    fairnessTurnCount = warningCount = 0;
+    unreadableRejectedCount.store(0);
+    immediateHighWater = 0;
+    lastWarnMs = -warnRepeatMs;
 }
 void cachingQueue::message(QString msg)
 {
@@ -512,6 +710,7 @@ void cachingQueue::clearCache()
 cacheItem cachingQueue::getCache(funcs func, uchar receiver)
 {
     cacheItem ret;
+    bool refresh = false;
     if (func != funcNone) {
         QMutexLocker locker(&mutex);
         auto it = cache.find(func);
@@ -523,12 +722,32 @@ cacheItem cachingQueue::getCache(funcs func, uchar receiver)
             }
             ++it;
         }
+
+        // If the cache is more than 5-20 seconds old, re-request it as it may be stale (maybe make this a config option?)
+        // Using priorityhighest WILL slow down the S-Meter when a command intensive client is connected to rigctl
+        // SWR is always re-read, but only where the rig file has a read command
+        // for SWR on its own. Some radios have none: the TS-890S reads its meters
+        // together with "RM;" and, once a meter is enabled ("RM21;"), sends it by
+        // itself while transmitting, so its rig file marks SWR GetCommand=false.
+        if (func != funcPowerControl && func != funcSelectVFO) {
+            const QDateTime now = QDateTime::currentDateTime();
+            const bool swrReadable = func == funcSWRMeter && rigCaps != nullptr &&
+                                     rigCaps->commands.value(funcSWRMeter).getCmd;
+            if ((!ret.value.isValid() && ret.retries < 5) || swrReadable ||
+                ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= now) {
+                // Reading the cache must not turn into radio traffic at the
+                // rate the cache is read: ask again only if no request for
+                // this value went out in the last minRefreshMs (a recurring
+                // poll counts too).
+                if (ret.req.isValid() && ret.req.msecsTo(now) < minRefreshMs)
+                    ++refreshesSkippedCount;
+                else
+                    refresh = true;
+            }
+        }
     }
-    // If the cache is more than 5-20 seconds old, re-request it as it may be stale (maybe make this a config option?)
-    // Using priorityhighest WILL slow down the S-Meter when a command intensive client is connected to rigctl
-    if (func != funcPowerControl && func != funcSelectVFO && ((!ret.value.isValid() && ret.retries < 5)|| ret.command == funcSWRMeter || ret.reply.addSecs(QRandomGenerator::global()->bounded(5,20)) <= QDateTime::currentDateTime())) {
+    if (refresh)
         add(priorityImmediate,func,false,receiver);
-    }
     return ret;
 }
 

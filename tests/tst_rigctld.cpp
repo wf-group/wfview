@@ -19,6 +19,8 @@ private slots:
     void preservesMorseSpacing_data();
     void preservesMorseSpacing();
     void queuesStopMorse();
+    void pauseDoesNotBlockEventLoop();
+    void closesClientThatNeverSendsNewline();
 
 private:
     QByteArray sendRigctlLine(const QByteArray& line);
@@ -152,6 +154,53 @@ void RigCtlDTest::queuesStopMorse()
     const QByteArray response = sendRigctlLine("\\stop_morse");
     QVERIFY2(response.contains("RPRT 0"), response.constData());
     QCOMPARE(queuedMorseText(), QString());
+}
+
+// \pause must hold only this client: the event loop keeps running, the reply
+// waits for the pause, and the commands after it still run.
+void RigCtlDTest::pauseDoesNotBlockEventLoop()
+{
+    QTcpSocket socket;
+    socket.connectToHost(QHostAddress::LocalHost, server.serverPort());
+    QVERIFY(socket.waitForConnected(1000));
+    socket.write("\\pause 1\n\\send_morse 73\n");
+    QVERIFY(socket.waitForBytesWritten(1000));
+
+    QByteArray response;
+    QElapsedTimer timer;
+    timer.start();
+    qint64 longestStallMs = 0;
+    while (response.count("RPRT") < 2 && timer.elapsed() < 3000) {
+        QElapsedTimer stall;
+        stall.start();
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+        longestStallMs = qMax(longestStallMs, stall.elapsed());
+        if (socket.bytesAvailable() || socket.waitForReadyRead(20))
+            response += socket.readAll();
+        if (timer.elapsed() < 800)
+            QVERIFY2(!response.contains("RPRT"), response.constData());
+    }
+
+    QVERIFY2(longestStallMs < 500, qPrintable(QString::number(longestStallMs)));
+    QCOMPARE(response.count("RPRT 0"), 2);
+    QVERIFY(timer.elapsed() >= 900);
+    QCOMPARE(queuedMorseText(), QStringLiteral("73"));
+    socket.disconnectFromHost();
+}
+
+void RigCtlDTest::closesClientThatNeverSendsNewline()
+{
+    QTcpSocket socket;
+    socket.connectToHost(QHostAddress::LocalHost, server.serverPort());
+    QVERIFY(socket.waitForConnected(1000));
+    socket.write(QByteArray(128 * 1024, 'A'));
+
+    QElapsedTimer timer;
+    timer.start();
+    while (socket.state() == QAbstractSocket::ConnectedState && timer.elapsed() < 3000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+    }
+    QCOMPARE(socket.state(), QAbstractSocket::UnconnectedState);
 }
 
 int runRigCtlDTests(int argc, char **argv)

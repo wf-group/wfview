@@ -1,4 +1,5 @@
 #include "mcpprobe.h"
+#include "mcpaudiodiag.h"
 
 #include "audiohandlerbase.h"
 #include "cachingqueue.h"
@@ -67,10 +68,13 @@ struct AudioSlot
     std::atomic<quint64> underrunUpdates{0};
     std::atomic<quint64> overrunUpdates{0};
     std::atomic<qint64> lastUpdateMs{-1};
+    // The handler whose level updates this slot takes; read on audio threads.
+    std::atomic<const audioHandlerBase *> levelOwner{nullptr};
 
     // Guarded by Probe::audioMutex.
     const audioHandlerBase *handler = nullptr;
-    bool active = false;
+    bool alive = false;   // the handler object still exists (its address may be reused once it is gone)
+    bool active = false;  // ... and has its device open
     qint64 attachedMs = 0;
     qint64 detachedMs = -1;
     QJsonObject description;
@@ -324,7 +328,10 @@ void McpProbe::setEnabled(bool on)
 {
     s_enabled.store(on, std::memory_order_relaxed);
     if (!on)
+    {
         stopCapture();
+        McpAudioDiag::stop();
+    }
 }
 
 qint64 McpProbe::uptimeMs()
@@ -392,11 +399,25 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
 
     Probe &p = probe();
     int index = -1;
+    bool reattach = false;
     {
         QMutexLocker locker(&p.audioMutex);
-        // Prefer a free slot, then the slot whose handler went away first.
-        qint64 oldestDetach = std::numeric_limits<qint64>::max();
+        // A handler opened again (after stop()) keeps its slot, so it is never
+        // listed twice and its level connections are not made twice.
         for (int i = 0; i < maxAudioSlots; ++i)
+        {
+            if (p.audio[i].handler == handler && p.audio[i].alive)
+            {
+                index = i;
+                reattach = true;
+                break;
+            }
+        }
+        // Otherwise prefer a free slot, then the slot whose handler went away
+        // first, preferring handlers that no longer exist over closed ones.
+        qint64 oldestDetach = std::numeric_limits<qint64>::max();
+        bool oldestAlive = true;
+        for (int i = 0; i < maxAudioSlots && !reattach; ++i)
         {
             const AudioSlot &slot = p.audio[i];
             if (!slot.handler && !slot.active)
@@ -404,9 +425,13 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
                 index = i;
                 break;
             }
-            if (!slot.active && slot.detachedMs < oldestDetach)
+            if (slot.active)
+                continue;
+            if ((oldestAlive && !slot.alive) ||
+                (oldestAlive == slot.alive && slot.detachedMs < oldestDetach))
             {
                 oldestDetach = slot.detachedMs;
+                oldestAlive = slot.alive;
                 index = i;
             }
         }
@@ -428,7 +453,9 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
         slot.overrunUpdates = 0;
         slot.lastUpdateMs = -1;
         slot.handler = handler;
+        slot.alive = true;
         slot.active = true;
+        slot.levelOwner.store(handler, std::memory_order_relaxed);
         slot.attachedMs = nowMs();
         slot.detachedMs = -1;
 
@@ -456,6 +483,9 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
         slot.description = d;
     }
 
+    if (reattach)
+        return;
+
     AudioSlot *slot = &p.audio[index];
     // Runs on the audio thread for every block: atomics only, no locks or
     // allocations.
@@ -463,8 +493,9 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
         handler,
         &audioHandlerBase::haveLevels,
         handler,
-        [slot](quint16 peak, quint16 rms, quint16 configured, quint16 measured, bool underrun, bool overrun) {
-            if (!enabled())
+        [slot, handler](quint16 peak, quint16 rms, quint16 configured, quint16 measured, bool underrun, bool overrun) {
+            // The slot may since have been given to another handler.
+            if (!enabled() || slot->levelOwner.load(std::memory_order_relaxed) != handler)
                 return;
             slot->peak.store(peak, std::memory_order_relaxed);
             slot->rms.store(rms, std::memory_order_relaxed);
@@ -481,13 +512,32 @@ void McpProbe::attachAudioHandler(audioHandlerBase *handler,
         },
         Qt::DirectConnection);
 
-    QObject::connect(handler, &QObject::destroyed, [slot, handler]() {
+    // Normally the handler detaches when it closes its device; this covers a
+    // handler deleted without closing, and frees the slot's claim on the address.
+    QObject::connect(handler, &QObject::destroyed, [handler]() {
+        detachAudioHandler(handler);
         QMutexLocker locker(&probe().audioMutex);
-        if (slot->handler != handler)
-            return;
-        slot->active = false;
-        slot->detachedMs = nowMs();
+        for (AudioSlot &slot : probe().audio)
+        {
+            if (slot.handler == handler)
+                slot.alive = false;
+        }
     });
+}
+
+void McpProbe::detachAudioHandler(const audioHandlerBase *handler)
+{
+    if (!handler)
+        return;
+    QMutexLocker locker(&probe().audioMutex);
+    for (AudioSlot &slot : probe().audio)
+    {
+        if (slot.handler == handler && slot.alive && slot.active)
+        {
+            slot.active = false;
+            slot.detachedMs = nowMs();
+        }
+    }
 }
 
 QJsonObject McpProbe::logLines(int maxLines, QtMsgType minType, const QString &category, const QString &contains)

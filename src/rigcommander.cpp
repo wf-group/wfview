@@ -343,6 +343,13 @@ void rigCommander::determineRigCaps()
     rigCaps.hasFDcomms = settings->value("HasFDComms",false).toBool();
     rigCaps.hasCommand29 = settings->value("HasCommand29",false).toBool();
     rigCaps.absoluteVFOFreq = settings->value("AbsoluteVFOFreq",false).toBool();
+    rigCaps.slowPollOnTx = settings->value("SlowPollOnTx",false).toBool();
+    rigCaps.slowPollOnTxFactor = qBound(slowPollOnTxFactorMin,
+                                        settings->value("SlowPollOnTxFactor",slowPollOnTxFactorDefault).toInt(),
+                                        slowPollOnTxFactorMax);
+    rigCaps.txAudioBufferMs = qBound(txAudioBufferMsMin,
+                                     settings->value("TxAudioBufferMs",txAudioBufferMsDefault).toInt(),
+                                     txAudioBufferMsMax);
 
     rigCaps.memGroups = settings->value("MemGroups",0).toUInt();
     rigCaps.memories = settings->value("Memories",0).toUInt();

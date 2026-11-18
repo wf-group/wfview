@@ -1,5 +1,6 @@
 #include "yaesuudpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 namespace {
 quint16 yaesuFrameBytes(quint8 codec, quint32 sampleRate, quint8 channels)
@@ -261,9 +262,18 @@ void yaesuUdpAudio::incomingUdp(void* buf, size_t bufLen)
                     tempAudio.time = QTime::currentTime();
                     tempAudio.sent = 0;
                     tempAudio.data = QByteArray::fromRawData((char *)r->data.pcmData,r->data.pcmDataLen);
+                    if (const int bpf = txAudioPacer::bytesPerFrame(rxSetup.codec))
+                        rxClock.packet(int(tempAudio.data.size()) / bpf, rxSetup.sampleRate);
                     tempAudio.sampleRate = rxSetup.sampleRate;
                     tempAudio.channels = rxAudioChannels;
                     tempAudio.codec = rxSetup.codec;
+                    MCP_AUDIO_DIAG({
+                        McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+                        McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(r->data.seqNum));
+                        if (const int ch = McpAudioDiag::pcm16Channels(rxSetup.codec))
+                            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                                      int(tempAudio.data.size()), ch, int(rxSetup.sampleRate));
+                    });
                     emit haveAudioData(tempAudio);
                 }
             }
@@ -385,38 +395,67 @@ void yaesuUdpAudio::receiveAudioData(audioPacket audio) {
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         getTxLevels(peak, rms, txSetup.latency, 0, false, false);
 
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
+
         if (yaesuPacketizedCodec(txSetup.codec) && audio.data.size() > int(sizeof(yaesuAudioData::pcmData))) {
             qWarning(logUdp()) << "Yaesu TX encoded audio packet too large" << audio.data.size() << "bytes codec" << txSetup.codec;
             return;
         }
 
-        int len = 0;
-        while (len < audio.data.length()) {
-            QByteArray partial = yaesuPacketizedCodec(txSetup.codec)
-                                     ? audio.data
-                                     : audio.data.mid(len, this->txAudioSize);
-            yaesuC2R_AudioData d2;
-            memset(&d2,0,sizeof(d2));
-            d2.hdr.device=UsbAudio;
-            d2.hdr.msgtype=C2R_Data;
-            d2.session = session;
-            d2.data.channels = this->txAudioChannels;
-            d2.data.format=this->txAudioCodec;
-            d2.data.seqNum = txPacketId++;
-            d2.data.playbackLatency=this->rxSetup.latency*10;
-            d2.data.recordLatency=this->txSetup.latency*10;
-            d2.data.playbackVol=100;
-            d2.data.recordVol=100;
-            d2.data.sampleRate=this->txSetup.sampleRate;
-            d2.data.resendMode = 0x01;
-            d2.data.pcmDataLen = partial.size();
-            d2.hdr.len=sizeof(d2) - sizeof(d2.hdr) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen;
-            memcpy(d2.data.pcmData,partial.constData(),partial.size());
-            len = len + partial.length();
-            outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
-            outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
-            if (yaesuPacketizedCodec(txSetup.codec))
-                break;
+        if (yaesuPacketizedCodec(txSetup.codec)) {
+            // Encoded audio: one packet per frame, as it arrives.
+            sendTxPacket(audio.data);
+            return;
+        }
+
+        // Created here, on first use, so it lives in the thread that sends.
+        if (txPacer == nullptr && txAudioSize > 0) {
+            txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, txAudioSize,
+                                       [this](const QByteArray &payload) { sendTxPacket(payload); }, this);
+            txPacer->setRadioClock(&rxClock);
+        }
+
+        if (txPacer != nullptr && txPacer->enabled()) {
+            txPacer->push(audio.data);
+        } else {
+            const int size = txAudioSize > 0 ? txAudioSize : 640;
+            for (int len = 0; len < audio.data.length(); len += size)
+                sendTxPacket(audio.data.mid(len, size));
         }
     }
+}
+
+void yaesuUdpAudio::sendTxPacket(const QByteArray &partial)
+{
+    yaesuC2R_AudioData d2;
+    memset(&d2,0,sizeof(d2));
+    d2.hdr.device=UsbAudio;
+    d2.hdr.msgtype=C2R_Data;
+    d2.session = session;
+    d2.data.channels = this->txAudioChannels;
+    d2.data.format=this->txAudioCodec;
+    d2.data.seqNum = txPacketId++;
+    d2.data.playbackLatency=this->rxSetup.latency*10;
+    d2.data.recordLatency=this->txSetup.latency*10;
+    d2.data.playbackVol=100;
+    d2.data.recordVol=100;
+    d2.data.sampleRate=this->txSetup.sampleRate;
+    d2.data.resendMode = 0x01;
+    d2.data.pcmDataLen = partial.size();
+    d2.hdr.len=sizeof(d2) - sizeof(d2.hdr) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen;
+    memcpy(d2.data.pcmData,partial.constData(),partial.size());
+    outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
+    outgoing((quint8*)&d2,sizeof(d2) - sizeof(d2.data.pcmData) + d2.data.pcmDataLen);
+    // Each packet is sent twice; counted (and recorded) once.
+    MCP_AUDIO_DIAG({
+        McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(txSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(txSetup.sampleRate));
+    });
 }

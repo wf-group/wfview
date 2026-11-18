@@ -282,6 +282,7 @@ SOURCES += \
     src/audio/adpcm/adpcm-dns.c \
     src/audio/adpcm/adpcm-lib.c \
     src/audio/audioconverter.cpp \
+    src/audio/txaudiopacer.cpp \
     src/audio/audiodevices.cpp \
     src/audio/audiohandlerbase.cpp \
     src/audio/audiohandlerpainput.cpp \
@@ -382,6 +383,7 @@ HEADERS  += \
     src/audio/resampler/arch.h \
     src/audio/resampler/resample_sse.h \
     include/audioconverter.h \
+    include/txaudiopacer.h \
     include/audiodevices.h \
     include/audiohandler.h \
     include/audiohandlerbase.h \
@@ -463,12 +465,14 @@ HEADERS  += \
 contains(CONFIG, mcp) {
     DEFINES += WFVIEW_MCP
     SOURCES += \
+        src/mcpaudiodiag.cpp \
         src/mcphost.cpp \
         src/mcphostwfview.cpp \
         src/mcpprobe.cpp \
         src/mcpserver.cpp \
         src/mcptools.cpp
     HEADERS += \
+        include/mcpaudiodiag.h \
         include/mcphost.h \
         include/mcphostwfview.h \
         include/mcpprobe.h \

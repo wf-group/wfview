@@ -1,5 +1,6 @@
 #include "audiohandlertcioutput.h"
 #include "tciserver.h"
+#include "mcphooks.h"
 
 bool audioHandlerTciOutput::openDevice() noexcept
 {
@@ -31,9 +32,25 @@ void audioHandlerTciOutput::incomingAudio(audioPacket packet)
 
 void audioHandlerTciOutput::onConverted(audioPacket pkt)
 {
+    // TCI is a network stream and the client keeps its own buffer, so a
+    // packet that is a little late is still useful. This path also goes
+    // through the rig and main threads, which adds queueing delay that the
+    // local sound card path does not have. Dropping at the sound card
+    // latency (about 50 ms) discarded every packet for seconds at a time,
+    // so only drop audio that is far too old to be useful.
     const int nowToPktMs = pkt.time.msecsTo(QTime::currentTime());
-    if (nowToPktMs > setupData.latency) {
-        return; // late frame, drop
+    const int maxAgeMs = qMax(1000, int(setupData.latency) * 10);
+    if (nowToPktMs > maxAgeMs) {
+        ++lateDrops;
+        MCP_AUDIO_DIAG(McpAudioDiag::anomaly(McpAudioDiag::TciRxToClient,
+                                             "RX audio too late for TCI, dropped (value: ms old)", nowToPktMs));
+        if (!lateDropLog.isValid() || lateDropLog.elapsed() > 5000) {
+            qDebug(logAudio()) << "TCI RX audio: dropped" << lateDrops
+                               << "late packet(s), last age" << nowToPktMs << "ms, limit" << maxAgeMs << "ms";
+            lateDrops = 0;
+            lateDropLog.restart();
+        }
+        return;
     }
 
     arrayBuffer.append(pkt.data);

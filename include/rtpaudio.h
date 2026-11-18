@@ -16,6 +16,7 @@
 #include <QDebug>
 
 #include "audiohandler.h"
+#include "txaudiopacer.h"
 #include "packettypes.h"
 
 
@@ -51,6 +52,12 @@ private slots:
     void receiveAudioData(audioPacket audio);
 
 private:
+    void sendTxPacket(const QByteArray &payload);
+
+    // Sends TX audio at a steady rate (see txaudiopacer.h), on the radio's
+    // clock as measured from its RX audio.
+    txAudioPacer *txPacer = nullptr;
+    radioAudioClock rxClock;
 
     QUdpSocket* udp = nullptr;
 

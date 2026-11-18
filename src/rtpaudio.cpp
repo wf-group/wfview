@@ -1,5 +1,6 @@
 #include "rtpaudio.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 // Audio stream
 rtpAudio::rtpAudio(QString ip, quint16 port, audioSetup outSetup, audioSetup inSetup,
@@ -137,6 +138,13 @@ void rtpAudio::init()
 
         emit setupInAudio(inSetup);
     }
+
+    if (enableIn)
+    {
+        txPacer = new txAudioPacer(inSetup.codec, inSetup.sampleRate, 640,
+                                   [this](const QByteArray &payload) { sendTxPacket(payload); }, this);
+        txPacer->setRadioClock(&rxClock);
+    }
 }
 
 void rtpAudio::dataReceived()
@@ -155,6 +163,18 @@ void rtpAudio::dataReceived()
         tempAudio.time = QTime::currentTime().addMSecs(0);
         tempAudio.sent = 0;
         tempAudio.data = d.mid(12);
+        if (const int bpf = txAudioPacer::bytesPerFrame(outSetup.codec))
+            rxClock.packet(int(tempAudio.data.size()) / bpf, outSetup.sampleRate);
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::event(McpAudioDiag::RadioRxPacket, tempAudio.data.size());
+            McpAudioDiag::sequence16(McpAudioDiag::RadioRxPacket, quint16(tempAudio.seq));
+            if (const int ch = McpAudioDiag::pcm16Channels(outSetup.codec)) {
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioRxPacket, tempAudio.data.constData(),
+                                              int(tempAudio.data.size()), ch);
+                McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioRx, tempAudio.data.constData(),
+                                          int(tempAudio.data.size()), ch, int(outSetup.sampleRate));
+            }
+        });
         emit haveAudioData(tempAudio);
         packetCount++;
         size = size + tempAudio.data.size();
@@ -191,26 +211,45 @@ void rtpAudio::receiveAudioData(audioPacket audio)
         const auto rms = quint16(qBound(0, qRound(audio.amplitudeRMS * 255.0f), 255));
         emit haveInLevels(peak, rms, inSetup.latency, 0, false, false);
 
-        int len = 0;
+        MCP_AUDIO_DIAG({
+            McpAudioDiag::gaugeAgeMs(McpAudioDiag::RadioTxAgeMs, audio.time);
+            if (const int ch = McpAudioDiag::pcm16Channels(inSetup.codec))
+                McpAudioDiag::continuityInt16(McpAudioDiag::RadioTxPacket, audio.data.constData(),
+                                              int(audio.data.size()), ch);
+        });
 
-        while (len < audio.data.length()) {
-            QByteArray partial = audio.data.mid(len, 640);
-            rtp_header p;
-            memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
-            p.version = 2;
-            p.padding = 0;
-            p.extension = 0;
-            p.csrc = 0;
-            p.marker = 0;
-            p.payloadType=96;
-            p.seq = qToBigEndian(seq++);
-            p.timestamp = 0;
-            p.ssrc = quint32(0x00) << 24 | quint32(0x30) << 16 | quint32(0x39) << 8 | (quint32(0x38) & 0xff);
-            QByteArray in = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
-            in.append(partial);
-            len = len + partial.length();
-            //qInfo(logUdp()) << "Audio In: " << in.length() << "to" << ip.toString() << "port" << port << "ver" << p.version << "type" << p.payloadType << "seq" << p.seq << "ssrc" << QString::number(p.ssrc,16);
-            udp->writeDatagram(in, ip, port);
+        if (txPacer != nullptr) {
+            txPacer->push(audio.data);
+        } else {
+            for (int len = 0; len < audio.data.length(); len += 640)
+                sendTxPacket(audio.data.mid(len, 640));
         }
     }
+}
+
+void rtpAudio::sendTxPacket(const QByteArray &partial)
+{
+    if (udp == nullptr)
+        return;
+    rtp_header p;
+    memset(p.packet, 0x0, sizeof(p)); // We can't be sure it is initialized with 0x00!
+    p.version = 2;
+    p.padding = 0;
+    p.extension = 0;
+    p.csrc = 0;
+    p.marker = 0;
+    p.payloadType=96;
+    p.seq = qToBigEndian(seq++);
+    p.timestamp = 0;
+    p.ssrc = quint32(0x00) << 24 | quint32(0x30) << 16 | quint32(0x39) << 8 | (quint32(0x38) & 0xff);
+    QByteArray in = QByteArray::fromRawData((const char*)p.packet, sizeof(p));
+    in.append(partial);
+    //qInfo(logUdp()) << "Audio In: " << in.length() << "to" << ip.toString() << "port" << port << "ver" << p.version << "type" << p.payloadType << "seq" << p.seq << "ssrc" << QString::number(p.ssrc,16);
+    udp->writeDatagram(in, ip, port);
+    MCP_AUDIO_DIAG({
+        McpAudioDiag::event(McpAudioDiag::RadioTxPacket, partial.size());
+        if (const int ch = McpAudioDiag::pcm16Channels(inSetup.codec))
+            McpAudioDiag::recordPcm16(McpAudioDiag::RecordRadioTx, partial.constData(),
+                                      int(partial.size()), ch, int(inSetup.sampleRate));
+    });
 }

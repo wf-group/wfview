@@ -13,6 +13,7 @@
 #include <QWaitCondition>
 #include <QDateTime>
 #include <QRandomGenerator>
+#include <QElapsedTimer>
 #include <atomic>
 
 #include "wfviewtypes.h"
@@ -81,6 +82,21 @@ struct cacheItem {
     */
 };
 
+// Health counters for the command queue (shown by MCP get_queue).
+struct queueStats {
+    quint64 sent = 0;                // commands handed to the radio code
+    quint64 immediateSent = 0;       // ... of which immediate priority
+    quint64 coalesced = 0;           // reads not added: the same read was already waiting
+    quint64 refreshesSkipped = 0;    // getCache() refreshes skipped: one was requested very recently
+    quint64 unreadableRejected = 0;  // reads refused: the rig file has no read command for them
+    quint64 fairnessTurns = 0;       // routine polls sent while immediate commands were waiting
+    quint64 warnings = 0;            // backlog or stall warnings logged
+    int immediateWaiting = 0;
+    int immediateHighWater = 0;
+    int totalWaiting = 0;
+    qint64 msSinceRoutine = -1;      // since a routine (non-immediate) command was sent; -1 if none waiting
+};
+
 class cachingQueue : public QThread
 {
     Q_OBJECT
@@ -116,6 +132,36 @@ private:
     queuePriority isRecurring(funcs func, uchar receiver=0);
     bool compare(QVariant a, QVariant b);
 
+    // Queue robustness (see run(), add() and getCache()).
+    // After this many immediate commands in a row, routine polling gets a
+    // turn, so a stream of immediate commands cannot stop it altogether.
+    static constexpr int maxImmediateStreak = 4;
+    // getCache() asks the radio again at most this often per function/receiver.
+    static constexpr qint64 minRefreshMs = 200;
+    // Watchdog thresholds.
+    static constexpr int immediateWarnDepth = 50;
+    static constexpr qint64 routineStallWarnMs = 3000;
+    static constexpr qint64 warnRepeatMs = 10000;
+
+    bool readRemapped(funcs cmd) const;
+    queuePriority rotationSlot(quint16 counter) const;
+    QString checkHealth(qint64 now); // mutex must be held; returns a warning or ""
+    bool readWaiting(queuePriority prio, funcs func, uchar receiver) const; // mutex must be held
+
+    int immediateStreak = 0;
+    QElapsedTimer healthClock;       // started by run(); the clock for the two below
+    qint64 lastRoutineMs = 0;        // a routine command went out (or none was waiting)
+    qint64 lastWarnMs = -warnRepeatMs;
+    int immediateHighWater = 0;      // mutex
+    quint64 sentCount = 0;           // mutex
+    quint64 immediateSentCount = 0;  // mutex
+    quint64 coalescedCount = 0;      // mutex
+    quint64 refreshesSkippedCount = 0; // mutex
+    quint64 fairnessTurnCount = 0;   // mutex
+    quint64 warningCount = 0;        // mutex
+    std::atomic<quint64> unreadableRejectedCount{0};
+    std::atomic_bool unreadableLogged[funcLastFunc] = {};
+
     // Various other values
     std::atomic_bool aborted{false};
     qint64 queueInterval=-1; // Don't start the timer!
@@ -148,6 +194,9 @@ public:
     void addUnique(queuePriority prio, queueItem item);
 
     queuePriority del(funcs func, uchar receiver=0, bool includePending=false);
+    // Removes the recurring entry and every waiting read (but not sets) of func.
+    // For radio code that finds the radio cannot read func.
+    queuePriority delReads(funcs func, uchar receiver=0);
     void clear();
     void clearCache();
 
@@ -166,7 +215,9 @@ public:
     QMultiMap <queuePriority,queueItem>* getQueueItems();
     void lockMutex() {mutex.lock();}
     void unlockMutex() {mutex.unlock();}
-    void setRigCaps(rigCapabilities* caps) { if (rigCaps != caps) { rigCaps = caps; emit rigCapsUpdated(rigCaps);} }
+    void setRigCaps(rigCapabilities* caps);
+    queueStats getStats();
+    void resetStats();
     rigCapabilities* getRigCaps() { return rigCaps; }
     vfoCommandType getVfoCommand(vfo_t vfo, uchar rx, bool set=false);
     rigStateType getState() { QMutexLocker locker(&mutex); return rigState ;}

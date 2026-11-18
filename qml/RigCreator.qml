@@ -224,11 +224,16 @@ ApplicationWindow {
         }
 
         onAccepted: {
-            if (rig.hasCurrentFile() && rig.saveCurrentFile()) {
-                forceClose = true
-                rigCreator.close()
+            if (rig.hasCurrentFile()) {
+                if (rig.saveCurrentFile()) {
+                    forceClose = true
+                    rigCreator.close()
+                }
+                // A failed save has said why; the window stays open so the
+                // file can be saved somewhere else.
             } else {
                 closeAfterSaveDialog = true
+                saveRigDialog.selectedFile = rig.suggestedSaveFile()
                 saveRigDialog.open()
             }
         }
@@ -1537,7 +1542,11 @@ ApplicationWindow {
             spacing: 8
 
             Button { text: qsTr("Load File"); onClicked: loadRigDialog.open() }
-            Button { text: qsTr("Save File"); onClicked: saveRigDialog.open() }
+            Button {
+                text: qsTr("Save File")
+                // Offer the loaded file's name in the user's own rigs folder.
+                onClicked: { saveRigDialog.selectedFile = rig.suggestedSaveFile(); saveRigDialog.open() }
+            }
 
             Item { Layout.fillWidth: true } // spacer (like your horizontalSpacer_2)
 
@@ -1977,7 +1986,7 @@ ApplicationWindow {
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 252
+                        Layout.preferredHeight: 372
                         title: qsTr("Features")
                         ColumnLayout {
                             anchors.fill: parent
@@ -2000,6 +2009,58 @@ ApplicationWindow {
                                                    + "When VFO B is selected, wfview then sends tuning to the Unselected Freq command "
                                                    + "and shows its replies as the active frequency.\n"
                                                    + "Leave off when the radio's frequency commands follow the active VFO (for example Icom 0x25).")
+                            }
+                            CheckBox {
+                                id: slowPollOnTx
+                                text: qsTr("Slow polling on TX")
+                                checked: (rig.settings["Rig/SlowPollOnTx"] ?? false)
+                                onToggled: rig.settings["Rig/SlowPollOnTx"] = checked
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("Over a network connection, poll the radio this many times slower while it transmits.\n"
+                                                   + "Applies to automatic and manual polling. Heavy CAT traffic during transmit makes "
+                                                   + "some radios (for example the TS-890S) glitch their LAN audio. Experimental.")
+                            }
+                            RowLayout {
+                                spacing: 6
+                                enabled: slowPollOnTx.checked
+                                Label { text: qsTr("Factor") }
+                                SpinBox {
+                                    Layout.preferredWidth: 90
+                                    from: 1
+                                    to: 10
+                                    editable: true
+                                    value: Number(rig.settings["Rig/SlowPollOnTxFactor"] ?? 4)
+                                    onValueModified: rig.settings["Rig/SlowPollOnTxFactor"] = value
+                                }
+                                Label { text: qsTr("x slower") }
+                            }
+                            Label {
+                                text: qsTr("Radio TX audio buffer")
+                                ToolTip.visible: txAudioBufferHover.hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: txAudioBuffer.ToolTip.text
+                                HoverHandler { id: txAudioBufferHover }
+                            }
+                            RowLayout {
+                                spacing: 6
+                                SpinBox {
+                                    id: txAudioBuffer
+                                    Layout.preferredWidth: 100
+                                    from: 0
+                                    to: 1000
+                                    stepSize: 10
+                                    editable: true
+                                    value: Number(rig.settings["Rig/TxAudioBufferMs"] ?? 100)
+                                    onValueModified: rig.settings["Rig/TxAudioBufferMs"] = value
+                                    ToolTip.visible: hovered
+                                    ToolTip.delay: 500
+                                    ToolTip.text: qsTr("How long the radio takes to play the network TX audio it has been sent.\n"
+                                                       + "When a transmission ends, wfview sends the rest of its audio and then waits "
+                                                       + "this long before PTT off, so the end of the audio is not cut off (a click).\n"
+                                                       + "100 ms suits most radios; the TS-890S needs about 300 ms.")
+                                }
+                                Label { text: qsTr("ms") }
                             }
                             Item { Layout.fillHeight: true }
                         }

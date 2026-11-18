@@ -2,6 +2,16 @@
 #include "logcategories.h"
 #include "mcphooks.h"
 
+// For log messages: the sequence numbers held in a send buffer. firstKey() on
+// an empty QMap is undefined and crashes on Qt 6.
+template <typename Map>
+static QString seqRange(const Map& buf)
+{
+    if (buf.isEmpty())
+        return QStringLiteral("nothing");
+    return QString("0x%1 to 0x%2").arg(buf.firstKey(), 0, 16).arg(buf.lastKey(), 0, 16);
+}
+
 void icomUdpBase::init(quint16 lport)
 {
     //timeStarted.start();
@@ -81,8 +91,7 @@ void icomUdpBase::dataReceived(QByteArray r)
             else {
                 qDebug(logUdp()) << this->metaObject()->className() << ": Remote requested packet"
                     << QString("0x%1").arg(in->seq, 0, 16) <<
-                    "not found, have " << QString("0x%1").arg(txSeqBuf.firstKey(), 0, 16) <<
-                    "to" << QString("0x%1").arg(txSeqBuf.lastKey(), 0, 16);
+                    "not found, have" << seqRange(txSeqBuf);
             }
             txBufferMutex.unlock();
         }
@@ -166,16 +175,16 @@ void icomUdpBase::dataReceived(QByteArray r)
     // This is a variable length retransmit request!
     if (in->type == 0x01 && in->len != 0x10)
     {
-
-        for (quint16 i = 0x10; i < r.length(); i = i + 2)
+        QMutexLocker txLock(&txBufferMutex);
+        // A trailing odd byte is not a sequence number; don't read past the end.
+        for (int i = CONTROL_SIZE; i + 1 < r.length(); i += 2)
         {
             quint16 seq = (quint8)r[i] | (quint8)r[i + 1] << 8;
             auto match = txSeqBuf.find(seq);
             if (match == txSeqBuf.end()) {
                 qDebug(logUdp()) << this->metaObject()->className() << ": Remote requested packet"
                     << QString("0x%1").arg(seq, 0, 16) <<
-                    "not found, have " << QString("0x%1").arg(txSeqBuf.firstKey(), 0, 16) <<
-                    "to" << QString("0x%1").arg(txSeqBuf.lastKey(), 0, 16);
+                    "not found, have" << seqRange(txSeqBuf);
                 // Just send idle packet.
                 sendControl(false, 0, seq);
             }
@@ -227,16 +236,19 @@ void icomUdpBase::dataReceived(QByteArray r)
                     missingMutex.lock();
                     //int missCounter = 0;
                     // Sanity check!
-                    for (quint16 f = rxSeqBuf.lastKey() + 1; f <= in->seq; f++)
+                    // An int counter: a quint16 can never exceed in->seq == 0xFFFF,
+                    // so the loop would never end.
+                    for (int f = rxSeqBuf.lastKey() + 1; f <= in->seq; f++)
                     {
+                        const quint16 seq = quint16(f);
                         if (rxSeqBuf.size() > BUFSIZE)
                         {
                             rxSeqBuf.erase(rxSeqBuf.begin());
                         }
-                        rxSeqBuf.insert(f, QTime::currentTime());
-                        if (f != in->seq && !rxMissing.contains(f))
+                        rxSeqBuf.insert(seq, QTime::currentTime());
+                        if (seq != in->seq && !rxMissing.contains(seq))
                         {
-                            rxMissing.insert(f, 0);
+                            rxMissing.insert(seq, 0);
                         }
                     }
                     missingMutex.unlock();

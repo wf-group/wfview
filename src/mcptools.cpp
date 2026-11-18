@@ -2,6 +2,7 @@
 
 #include "audioconverter.h"
 #include "cachingqueue.h"
+#include "mcpaudiodiag.h"
 #include "mcphost.h"
 #include "mcpprobe.h"
 #include "rigidentities.h"
@@ -9,6 +10,8 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
+#include <QStandardPaths>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
@@ -40,6 +43,8 @@ constexpr int overviewHostTimeoutMs = 1000;
 constexpr int defaultCaptureSeconds = 60;
 constexpr int maxCaptureSeconds = 900;
 constexpr int defaultTrafficLimit = 200;
+constexpr int defaultAudioDiagSeconds = 120;
+constexpr int defaultAudioDiagAnomalies = 100;
 constexpr int defaultSpectrumPoints = 128;
 constexpr int defaultSpectrumPeaks = 10;
 constexpr int maxSpectrumPeaks = 50;
@@ -664,7 +669,10 @@ QJsonObject Mcp::rigCapsToJson(const rigCapabilities &caps, const QStringList &s
                                 {"hasAdvancedRptrToneCmds", caps.hasAdvancedRptrToneCmds},
                                 {"hasQuickSplitCommand", caps.hasQuickSplitCommand},
                                 {"hasCommand29", caps.hasCommand29},
-                                {"absoluteVFOFreq", caps.absoluteVFOFreq}};
+                                {"absoluteVFOFreq", caps.absoluteVFOFreq},
+                                {"slowPollOnTx", caps.slowPollOnTx},
+                                {"slowPollOnTxFactor", caps.slowPollOnTxFactor},
+                                {"txAudioBufferMs", caps.txAudioBufferMs}};
     o["counts"] = QJsonObject{{"modes", int(caps.modes.size())},
                               {"commands", int(caps.commands.size())},
                               {"inputs", int(caps.inputs.size())},
@@ -917,7 +925,9 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
     addTool("get_queue",
             "Command queue",
             "Returns the commands waiting to be sent to the radio, with priority, receiver, whether each is a get or "
-            "a set, its value, and whether it repeats.",
+            "a set, its value, and whether it repeats, plus queue health counters: commands sent, the immediate "
+            "backlog and its high-water mark, time since a routine (polling) command went out, and how many "
+            "duplicate reads, too-frequent cache refreshes and unreadable reads were kept out of the queue.",
             {{"func", schemaString("Only functions whose name contains this text.")},
              {"limit", schemaInt("Maximum number of entries (default 300).", 1, maxRowLimit)}},
             [this](const QJsonObject &a) { return toolQueue(a); });
@@ -958,6 +968,42 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
              {"limit", schemaInt("Maximum entries, newest kept (default 200).", 1, maxRowLimit)},
              {"contains", schemaString("Only entries whose hex or text contains this, for example \"FA;\" or \"fe fe\".")}},
             [this](const QJsonObject &a) { return toolTraffic(a); });
+
+    addTool("set_audio_diagnostics",
+            "Audio timing diagnostics",
+            "Starts or stops audio timing diagnostics, which are off until started and stop by themselves after the "
+            "given time. While on, each point on the audio paths records how often it runs and the spread of "
+            "intervals between runs, buffer levels and block ages, discontinuities between consecutive blocks, "
+            "and lost or repeated radio packets; unusual events are listed with their time. Covers TCI TX (chrono, "
+            "client audio, pacer, conversion), microphone TX, TX packets to the radio (Kenwood, Icom and Yaesu "
+            "LAN), RX packets from the radio, and RX audio to TCI clients. Costs little, but leave it off when not "
+            "needed. Read the result with get_audio_diagnostics.",
+            {{"seconds",
+              schemaInt("How long to run (default 120).", 1, McpAudioDiag::maxSeconds)},
+             {"stop", schemaBool("Stop now instead of starting.")},
+             {"clear", schemaBool("Discard what was recorded before (default true).")},
+             {"record", schemaBool("Also record the 16-bit PCM audio sent to and received from the radio, with the "
+                                   "time of each datagram, for saving with save_audio_recording (default false; "
+                                   "keeps the last 16 MB per direction, about 8 minutes at 16 kHz mono).")}},
+            [this](const QJsonObject &a) { return toolSetAudioDiagnostics(a); });
+
+    addTool("save_audio_recording",
+            "Save radio audio recording",
+            "Stops the PCM recording started with set_audio_diagnostics record=true and writes it to a new folder "
+            "in the system temp directory: radio_tx.wav and radio_rx.wav (16-bit PCM exactly as sent to and "
+            "received from the radio) and, for each, a CSV with every datagram's time and position in the WAV. "
+            "Returns the file paths.",
+            {},
+            [this](const QJsonObject &a) { return toolSaveAudioRecording(a); });
+
+    addTool("get_audio_diagnostics",
+            "Audio timing diagnostics results",
+            "Returns what audio timing diagnostics recorded, per stage: count and rate, interval statistics with a "
+            "histogram, the stage's value (bytes, frames, buffer level or age), continuity and sequence results, "
+            "and the most recent unusual events with their times. Start them with set_audio_diagnostics first.",
+            {{"anomalies", schemaInt("Most recent unusual events to list (default 100).", 0, 1000)},
+             {"reset", schemaBool("Clear the results after reading them, keeping diagnostics running (default false).")}},
+            [this](const QJsonObject &a) { return toolAudioDiagnostics(a); });
 
     addTool("get_spectrum",
             "Spectrum",
@@ -1623,6 +1669,20 @@ McpToolResult McpTools::toolQueue(const QJsonObject &args)
     r.data["returnedEntries"] = rows.size();
     r.data["truncated"] = truncated;
     r.data["entries"] = rows;
+
+    const queueStats st = m_info.queue->getStats();
+    r.data["health"] = QJsonObject{
+        {"intervalMs", double(m_info.queue->interval())},
+        {"sent", double(st.sent)},
+        {"immediateSent", double(st.immediateSent)},
+        {"immediateWaiting", st.immediateWaiting},
+        {"immediateHighWater", st.immediateHighWater},
+        {"msSinceRoutineCommand", double(st.msSinceRoutine)},
+        {"routineTurnsWhileImmediateWaiting", double(st.fairnessTurns)},
+        {"duplicateReadsMerged", double(st.coalesced)},
+        {"cacheRefreshesSkipped", double(st.refreshesSkipped)},
+        {"unreadableReadsRefused", double(st.unreadableRejected)},
+        {"backlogWarnings", double(st.warnings)}};
     return r;
 }
 
@@ -1694,6 +1754,38 @@ McpToolResult McpTools::toolTraffic(const QJsonObject &args)
                                args.value("direction").toString(),
                                argInt(args, "limit", defaultTrafficLimit, 1, maxRowLimit),
                                args.value("contains").toString());
+    return r;
+}
+
+McpToolResult McpTools::toolSetAudioDiagnostics(const QJsonObject &args)
+{
+    McpToolResult r;
+    if (args.value("stop").toBool())
+        McpAudioDiag::stop();
+    else
+        McpAudioDiag::start(argInt(args, "seconds", defaultAudioDiagSeconds, 1, McpAudioDiag::maxSeconds),
+                            args.value("clear").toBool(true), args.value("record").toBool(false));
+    r.data = McpAudioDiag::status();
+    return r;
+}
+
+McpToolResult McpTools::toolSaveAudioRecording(const QJsonObject &)
+{
+    McpToolResult r;
+    const QString dir = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+                            .filePath(QStringLiteral("wfview-audio-") +
+                                      QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss")));
+    r.data = McpAudioDiag::saveRecording(dir);
+    if (r.data.contains("error"))
+        r.error = r.data.value("error").toString();
+    return r;
+}
+
+McpToolResult McpTools::toolAudioDiagnostics(const QJsonObject &args)
+{
+    McpToolResult r;
+    r.data = McpAudioDiag::report(argInt(args, "anomalies", defaultAudioDiagAnomalies, 0, 1000),
+                                  args.value("reset").toBool());
     return r;
 }
 

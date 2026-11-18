@@ -27,6 +27,7 @@
 #include "yaesuudpbase.h"
 
 #include "audiohandler.h"
+#include "txaudiopacer.h"
 #include "icomudpbase.h"
 #include "icomudpcivdata.h"
 #include "icomudpaudio.h"
@@ -64,6 +65,10 @@ signals:
     void haveNetworkAudioLevels(networkAudioLevels);
 
 private:
+    void sendTxPacket(const QByteArray &partial);
+    // Sends PCM TX audio at a steady rate (see txaudiopacer.h).
+    txAudioPacer *txPacer = nullptr;
+    radioAudioClock rxClock; // the radio's clock, from its RX audio (see txaudiopacer.h)
 
 
     void sendConnect();

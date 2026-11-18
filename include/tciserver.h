@@ -2,6 +2,8 @@
 #define TCISERVER_H
 
 #include <QObject>
+#include <QElapsedTimer>
+#include <QTimer>
 #include <QtWebSockets/QtWebSockets>
 #include <QtWebSockets/QWebSocketServer>
 
@@ -16,6 +18,8 @@
 #include "opus/opus.h"
 #include <eigen3/Eigen/Eigen>
 #endif
+
+class txUnkeyWaiter;
 
 #define TCI_AUDIO_SAMPLES 2048
 #define TCI_AUDIO_LENGTH 4096
@@ -91,6 +95,8 @@ public:
 signals:
     void closed();
     void sendTCIAudio(QByteArray audio);
+    // The transmitting client ended its transmission; no more audio follows.
+    void txAudioEnded();
     void transmitRequested(bool transmit);
 
 public slots:
@@ -106,6 +112,7 @@ private slots:
     void socketDisconnected();
     void receiveCache(cacheItem item);
     void setupTxPacket(int packetLen);
+    void sendDueChronos();
 
 private:
     int getValueRange(funcs func,char min=0, char max=0, uchar rx=0);
@@ -124,8 +131,21 @@ private:
     freqt cacheFreq(funcs func, uchar receiver = 0) const;
     modeInfo cacheMode(funcs func, uchar receiver = 0) const;
     void queueIfSupported(funcs func, const QVariant &value, uchar receiver = 0, bool unique = false);
+    bool wantsChrono(const connStatus &status) const { return status.connected && status.rxaudio; }
+    void updateChronoTimer();
 
     QWebSocketServer *server;
+    // TX chrono frames are sent from a steady clock, one per TCI_AUDIO_SAMPLES
+    // frames of time at 48 kHz, so that RX audio jitter or a stall elsewhere
+    // in wfview does not turn into bursts of transmit audio from the client.
+    QTimer *chronoTimer = nullptr;
+    // trx:false is held back while wfview's TX pacing buffer plays out, so the
+    // end of the client's transmission is not cut off.
+    txUnkeyWaiter *unkeyWaiter = nullptr;
+    uchar unkeyReceiver = 0;
+    QElapsedTimer chronoClock;
+    quint64 chronosSent = 0;
+    quint64 chronoResyncs = 0;
     QMap<QWebSocket *, connStatus> clients;
     cachingQueue *queue;
     QByteArray rxAudioData;
@@ -145,6 +165,11 @@ private:
     QString tciMode(modeInfo m) const;
     modeInfo rigMode(const QString &mode, funcs modeFunc, uchar receiver) const;
     int dBmConversion = 73;
+    // Latest TX meter readings, kept from receiveCache() so tx_sensors can be
+    // built without queue->getCache(), which queues a fresh read each time.
+    double txMeterAlc = 0.0;
+    double txMeterPower = 0.0;
+    double txMeterSwr = 1.0;
 };
 
 #endif // TCISERVER_H
