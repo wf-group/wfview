@@ -1207,11 +1207,15 @@ void yaesuCommander::parseData(QByteArray data)
         case funcScopeOnOff:
         case funcScopeHold:
         case funcOverflowStatus:
-        case funcSMeterSqlStatus:
         case funcSplitStatus:
         case funcTransceiverStatus:
         case funcLockFunction:
             value.setValue<bool>(d.mid(0,1).toUShort());
+            break;
+        case funcSMeterSqlStatus:
+            // RI0 answer: squelch open is the last of seven flags.
+            if (d.size() >= 7)
+                value.setValue<bool>(d.at(6) == '1');
             break;
         case funcManualNotch:
         case funcAPFType:
@@ -1312,6 +1316,7 @@ void yaesuCommander::parseData(QByteArray data)
         case funcRoofingFilter:
         case funcScopeSpeed:
         case funcScanning:
+        case funcVoiceTX:
             value.setValue<uchar>(d.mid(0,type.bytes).toUShort());
             break;
         case funcVFOAInformation:
@@ -1765,6 +1770,11 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
     funcType cmd = getCommand(func,payload,val,receiver);
 
+    // Memory to VFO is an action that arrives with no value, which would otherwise be sent as a read.
+    // Its rig file entry is readable, as on Icom rigs, so that the queue passes it on.
+    if (func == funcMemoryToVFO && !value.isValid())
+        value.setValue<uchar>(0);
+
     if (cmd.cmd != funcNone) {
         if (value.isValid())
         {
@@ -1795,7 +1805,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 qInfo() << "Setting scope type to:" << value.toInt() << "for connection type:" << connType;
             }
 
-            if (func == funcCWAutoTune)
+            if (func == funcCWAutoTune || func == funcMemoryToVFO)
             {
                 // An action: the rig file string is the whole command.
             }
