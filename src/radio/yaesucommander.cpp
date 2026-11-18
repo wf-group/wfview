@@ -1417,6 +1417,19 @@ void yaesuCommander::parseData(QByteArray data)
         case funcIdMeter:
             value.setValue(getMeterCal(meterCurrent, d.left(rmMeterDigits).toUShort()));
             break;
+        case funcMemoryKeyer:
+        {
+            // KMn<text>; is keyer memory n. An empty memory answers KM; with no number.
+            // The text ends at the keyer end mark '}', which the radio may store with it.
+            if (d.isEmpty() || d.at(0) < '1' || d.at(0) > '9')
+                break;
+            QString text = QString::fromLatin1(d.mid(1));
+            const int end = text.indexOf(QLatin1Char('}'));
+            if (end >= 0)
+                text.truncate(end);
+            value.setValue(QVariantMap {{"slot", d.at(0) - '0'}, {"text", text.trimmed()}});
+            break;
+        }
         case funcMemoryContents:
         // Contains the contents of the rig memory
         {

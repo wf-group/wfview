@@ -134,6 +134,9 @@ public slots:
     void receive(QString text);
     void receiveEnabled(bool en);
     void receiveRigCaps(rigCapabilities* caps);
+    // A keyer memory read from the radio. It fills the macro with the same number
+    // only when that macro is empty, so the user's own macros are kept.
+    void receiveRadioMemory(int slot, const QString &text);
     void handleCwDecodeEnable(bool on);
     void handleCwDecodeDisplay(bool on);
     void handleCwDecodeThreshold(quint8 val);

@@ -461,6 +461,17 @@ void CWSenderController::textChanged(const QString& text)
     }
 }
 
+void CWSenderController::receiveRadioMemory(int slot, const QString &text)
+{
+    if (slot < 1 || slot > 10 || text.isEmpty() || !m_macroText[slot].isEmpty())
+        return;
+
+    qInfo(logCW()) << "Using radio keyer memory" << slot << "for empty macro" << slot << ":" << text;
+    m_macroText[slot] = text.toUpper().left(60);
+    emit macroButtonTextChanged(slot, getMacroButtonText(slot));
+    emit keyerSettingsChanged();
+}
+
 void CWSenderController::appendReceiveText(const QString& text)
 {
     emit receiveTextAppended(text);

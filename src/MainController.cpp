@@ -5376,6 +5376,15 @@ void MainController::getInitialRigState()
         queue->add(priorityImmediate,queueItem(funcSWRMeter,QVariant::fromValue(uchar(1)),false,0));
     }
 
+    // Read the radio's CW keyer memories once, as a starting point for empty CW Sender macros.
+    // Sending a memory number with no text reads that memory; it never changes it.
+    if (rigCaps->commands.contains(funcMemoryKeyer))
+    {
+        const funcType keyer = rigCaps->commands.value(funcMemoryKeyer);
+        for (int slot = keyer.minVal; slot <= keyer.maxVal; ++slot)
+            queue->add(priorityLow, queueItem(funcMemoryKeyer, QVariant::fromValue<uchar>(uchar(slot)), false, 0));
+    }
+
     configureOptionalMeter(2, prefs->meter2Type);
     configureOptionalMeter(3, prefs->meter3Type);
     refreshMeterRequests();
@@ -6015,8 +6024,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcSplitMemory:
         emit memorySplitReceived(val.value.value<memorySplitType>());
         break;
-    case funcMemoryClear:
     case funcMemoryKeyer:
+    {
+        const QVariantMap memory = val.value.toMap();
+        if (m_cwSender)
+            m_cwSender->receiveRadioMemory(memory.value("slot").toInt(), memory.value("text").toString());
+        break;
+    }
+    case funcMemoryClear:
     case funcMemoryToVFO:
     case funcMemoryWrite:
         break;
