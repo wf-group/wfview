@@ -285,6 +285,19 @@ struct widthsType {
     ushort hz;
 };
 
+// Whether a width applies to the mode with this register. bands is a mask with
+// one bit per mode register. Yaesu registers are stored as their ASCII hex digit
+// ('2' for USB, 'A' for DATA-FM), so that digit's value gives the bit.
+inline bool widthAppliesToMode(const widthsType& w, quint8 reg)
+{
+    int bit = reg;
+    if (reg >= '0' && reg <= '9')
+        bit = reg - '0';
+    else if (reg >= 'A' && reg <= 'F')
+        bit = reg - 'A' + 10;
+    return bit < 16 && ((w.bands >> bit) & 0x01);
+}
+
 //model_kind determineRadioModel(quint8 rigID);
 
 struct bsrRequest {

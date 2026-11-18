@@ -6342,7 +6342,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     }
     case funcFilterWidth:
-        receivers[val.receiver]->setPassbandWidth(val.value.value<ushort>());
+        // The width the radio reports; shown by the filter width slider and the passband.
+        receivers[val.receiver]->setFilterWidth(val.value.value<ushort>(), false);
         break;
 
     case funcAFMute:
