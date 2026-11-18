@@ -7,6 +7,16 @@
 #define LOCK_PERIOD 10 // time to attempt to lock Mutex in ms
 #define AUDIO_SEND_PERIOD 20 //
 
+// For log messages: the sequence numbers held in a send buffer. firstKey() on
+// an empty QMap is undefined and crashes on Qt 6.
+template <typename Map>
+static QString seqRange(const Map& buf)
+{
+    if (buf.isEmpty())
+        return QStringLiteral("nothing");
+    return QString("0x%1 to 0x%2").arg(buf.firstKey(), 0, 16).arg(buf.lastKey(), 0, 16);
+}
+
 icomServer::icomServer(SERVERCONFIG* config, rigServer* parent) :
     rigServer(config,parent)
 {
@@ -856,9 +866,8 @@ void icomServer::commonReceived(QList<CLIENT*>* l, CLIENT* current, QByteArray r
             else {
                 // Just send an idle!
                 qInfo(logRigServer()) << current->ipAddress.toString() << "(" << current->type <<
-                    "): Requested (single) packet " << QString("0x%1").arg(in->seq, 0, 16) << 
-                    "not found, have " << QString("0x%1").arg(current->txSeqBuf.firstKey(), 0, 16) <<
-                    "to" << QString("0x%1").arg(current->txSeqBuf.lastKey(), 0, 16);
+                    "): Requested (single) packet " << QString("0x%1").arg(in->seq, 0, 16) <<
+                    "not found, have" << seqRange(current->txSeqBuf);
                 sendControl(current, 0x00, in->seq);
             }
         }
@@ -875,18 +884,18 @@ void icomServer::commonReceived(QList<CLIENT*>* l, CLIENT* current, QByteArray r
 
     if (in->type == 0x01 && in->len != 0x10)
     {
-        for (quint16 i = 0x10; i < r.length(); i = i + 2)
+        // A trailing odd byte is not a sequence number; don't read past the end.
+        for (int i = CONTROL_SIZE; i + 1 < r.length(); i += 2)
         {
             quint16 seq = (quint8)r[i] | (quint8)r[i + 1] << 8;
             auto match = current->txSeqBuf.find(seq);
             if (match == current->txSeqBuf.end()) {
                 qInfo(logRigServer()) << current->ipAddress.toString() << "(" << current->type <<
-                    "): Requested (multiple) packet " << QString("0x%1").arg(seq,0,16) << 
-                    "not found, have " << QString("0x%1").arg(current->txSeqBuf.firstKey(), 0, 16) <<
-                    "to" << QString("0x%1").arg(current->txSeqBuf.lastKey(), 0, 16);
+                    "): Requested (multiple) packet " << QString("0x%1").arg(seq,0,16) <<
+                    "not found, have" << seqRange(current->txSeqBuf);
 
-                // Just send idle packet.
-                sendControl(current, 0, in->seq);
+                // Just send an idle in place of the requested packet.
+                sendControl(current, 0, seq);
             }
             else if (match->seqNum != 0x00)
             {
@@ -964,18 +973,20 @@ void icomServer::commonReceived(QList<CLIENT*>* l, CLIENT* current, QByteArray r
                         if (current->missMutex.try_lock_for(std::chrono::milliseconds(LOCK_PERIOD)))
                         {
 
-                            for (quint16 f = current->rxSeqBuf.lastKey() + 1; f <= in->seq; f++)
+                            // An int counter: a quint16 can never exceed in->seq == 0xFFFF,
+                            // so the loop would never end.
+                            for (int f = current->rxSeqBuf.lastKey() + 1; f <= in->seq; f++)
                             {
-
+                                const quint16 seq = quint16(f);
                                 if (current->rxSeqBuf.size() > BUFSIZE)
                                 {
                                     current->rxSeqBuf.remove(current->rxSeqBuf.firstKey());
                                 }
-                                current->rxSeqBuf.insert(f, QTime::currentTime());
+                                current->rxSeqBuf.insert(seq, QTime::currentTime());
 
-                                if (f != in->seq && !current->rxMissing.contains(f))
+                                if (seq != in->seq && !current->rxMissing.contains(seq))
                                 {
-                                    current->rxMissing.insert(f, 0);
+                                    current->rxMissing.insert(seq, 0);
                                 }
                             }
                             current->missMutex.unlock();
