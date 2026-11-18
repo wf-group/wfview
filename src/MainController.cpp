@@ -5268,8 +5268,15 @@ void MainController::updateCurrentModSource(bool requestLevel)
         changed = true;
     }
 
-    if (requestLevel && levelCommand.cmd != funcNone)
-        queue->add(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    // Radios such as the FT-710 reject the level read in CW and RTTY, so it is only polled
+    // once the mode is known to carry audio, and the poll is removed in other modes.
+    if (levelCommand.cmd != funcNone)
+    {
+        if (!audioMode)
+            queue->del(levelCommand.cmd, currentReceiver);
+        else if (requestLevel && m_currentModeKind != modeUnknown)
+            queue->addUnique(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    }
 
     if (changed)
         emit modSourcesChanged();
@@ -5925,7 +5932,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
             if (m.mk != modeUnknown && m.mk != m_currentModeKind)
             {
                 m_currentModeKind = m.mk;
-                updateCurrentModSource(false);
+                // The level can differ per mode (the FT-710 keeps one mic gain per mode).
+                updateCurrentModSource(true);
             }
             // Notify the ANR engine so it can swap in the saved noise profile
             // for this mode (or save the current one before switching away).
