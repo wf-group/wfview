@@ -1,16 +1,12 @@
 #include "cwsidetonegenerator.h"
 
-#include <QHash>
 #include <QMutexLocker>
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 namespace
 {
-// PARIS timing: one dit lasts 1.2 seconds at 1 WPM.
-constexpr double ditSecondsAtOneWpm = 1.2;
 // Rise and fall time of each element, to avoid key clicks.
 constexpr double rampSeconds = 0.005;
 constexpr double twoPi = 6.283185307179586;
@@ -18,26 +14,6 @@ constexpr double twoPi = 6.283185307179586;
 // a full-scale tone distorts once it is mixed with RX audio. RX audio is not
 // scaled.
 constexpr double maxLevel = 0.7079457843841379;
-
-// Characters match the Icom table; unknown characters are sent as '?'.
-const QHash<QChar, const char*>& cwTable()
-{
-    static const QHash<QChar, const char*> table = {
-        {'0', "-----"}, {'1', ".----"}, {'2', "..---"}, {'3', "...--"}, {'4', "....-"},
-        {'5', "....."}, {'6', "-...."}, {'7', "--..."}, {'8', "---.."}, {'9', "----."},
-        {'A', ".-"},    {'B', "-..."},  {'C', "-.-."},  {'D', "-.."},   {'E', "."},
-        {'F', "..-."},  {'G', "--."},   {'H', "...."},  {'I', ".."},    {'J', ".---"},
-        {'K', "-.-"},   {'L', ".-.."},  {'M', "--"},    {'N', "-."},    {'O', "---"},
-        {'P', ".--."},  {'Q', "--.-"},  {'R', ".-."},   {'S', "..."},   {'T', "-"},
-        {'U', "..-"},   {'V', "...-"},  {'W', ".--"},   {'X', "-..-"},  {'Y', "-.--"},
-        {'Z', "--.."},
-        {'/', "-..-."}, {'?', "..--.."}, {'.', ".-.-.-"}, {'-', "-....-"}, {',', "--..--"},
-        {':', "---..."}, {'\'', ".----."}, {'(', "-.--.-"}, {')', "-.--.-"}, {'=', "-...-"},
-        {'+', ".-.-."}, {'"', ".-..-."},
-        {' ', " "},
-    };
-    return table;
-}
 }
 
 void CwSidetoneGenerator::send(const QString& text)
@@ -137,39 +113,14 @@ bool CwSidetoneGenerator::startNextElement()
             m_remaining = 0.0;
             return false;
         }
-        queueCharacter(m_pending.front());
+        appendCwElements(m_pending.front(), m_ratio, m_elements);
         m_pending.remove(0, 1);
     }
 
-    const Element element = m_elements.front();
+    const CwElement element = m_elements.front();
     m_elements.pop_front();
     m_keyDown = element.keyDown;
     // Adding keeps the sub-sample overshoot of the previous element.
-    m_remaining += element.dits * ditSecondsAtOneWpm / m_wpm;
+    m_remaining += element.dits * cwDitSecondsAtOneWpm / m_wpm;
     return true;
-}
-
-// Caller holds m_mutex.
-void CwSidetoneGenerator::queueCharacter(QChar ch)
-{
-    const auto& table = cwTable();
-    auto it = table.constFind(ch);
-    if (it == table.constEnd())
-        it = table.constFind('?');
-
-    const char* morse = it.value();
-    const size_t length = std::strlen(morse);
-    for (size_t i = 0; i < length; ++i) {
-        const char symbol = morse[i];
-        if (symbol == '-')
-            m_elements.push_back({true, m_ratio});
-        else if (symbol == '.')
-            m_elements.push_back({true, 1.0});
-        else
-            m_elements.push_back({false, 1.0}); // word space
-
-        // One dit between elements, three after the character.
-        const bool last = (i == length - 1);
-        m_elements.push_back({false, last ? 3.0 : 1.0});
-    }
 }
