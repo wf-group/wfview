@@ -1,6 +1,11 @@
 #include "yaesuudpcontrol.h"
 #include "logcategories.h"
 
+namespace {
+// How long to wait for the login reply before telling the user.
+const int loginTimeoutMs = 5000;
+}
+
 yaesuUdpControl::yaesuUdpControl(udpPreferences prefs, QHostAddress local, QHostAddress remote) :
     prefs(prefs)
 {
@@ -43,6 +48,10 @@ void yaesuUdpControl::incomingUdp(void* buf, size_t bufLen)
             if (bufLen == sizeof(yaesuR2C_LoginReplyFrame))
             {
                 yaesuR2C_LoginReplyFrame* r = (yaesuR2C_LoginReplyFrame*)buf;
+                if (loginTimer != nullptr)
+                {
+                    loginTimer->stop();
+                }
                 qInfo(logUdp()) << "Got login reply, session:" << r->session << "vala" << r->vala << "valb" << r->valb << "valc" << r->valc;
                 this->session = r->session;
                 emit haveSession(r->session);
@@ -233,9 +242,29 @@ void yaesuUdpControl::sendConnect()
     l.hdr.device=ScuLan;
     l.hdr.msgtype=C2R_Login;
     l.hdr.len=sizeof(l)-sizeof(l.hdr);
-    memcpy(l.username,prefs.username.toLocal8Bit(),qMin((int)prefs.password.size(),(int)sizeof(l.username)));
-    memcpy(l.pw,prefs.password.toLocal8Bit(),qMin((int)prefs.password.size(),(int)sizeof(l.pw)));
+    // Each field keeps its terminating NUL from the memset above.
+    const QByteArray username = prefs.username.toLocal8Bit();
+    const QByteArray password = prefs.password.toLocal8Bit();
+    memcpy(l.username,username.constData(),qMin((int)username.size(),(int)sizeof(l.username)-1));
+    memcpy(l.pw,password.constData(),qMin((int)password.size(),(int)sizeof(l.pw)-1));
     outgoing((quint8*)&l,sizeof(yaesuC2R_LoginFrame));
+
+    // A rejected login gets no reply at all, so without this the user would see nothing.
+    if (loginTimer == nullptr)
+    {
+        loginTimer = new QTimer(this);
+        loginTimer->setSingleShot(true);
+        connect(loginTimer, SIGNAL(timeout()), this, SLOT(loginTimedOut()));
+    }
+    loginTimer->start(loginTimeoutMs);
+}
+
+void yaesuUdpControl::loginTimedOut()
+{
+    qInfo(logUdp()).noquote() << QString("No reply to Yaesu login from %0:%1")
+                                     .arg(remoteAddr.toString()).arg(remotePort);
+    emit haveNetworkError(errorType(true, remoteAddr.toString(),
+                                    "No reply to login.\nCheck the address, the port, the username and the password."));
 }
 
 void yaesuUdpControl::sendDisconnect()
