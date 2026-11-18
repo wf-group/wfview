@@ -11,6 +11,7 @@
 #include "yaesuudpcat.h"
 #include "yaesuudpaudio.h"
 #include "yaesuudpscope.h"
+#include "yaesustatusblock.h"
 
 #define audioLevelBufferSize (4)
 
@@ -114,6 +115,13 @@ private:
     bool cwMemoryPlaying = false;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
+
+    // Values from the scope frame's status block (rigCaps.scopeStatusBlock). A poll for one of them is
+    // skipped while the block has confirmed it recently, so polling resumes by itself if the frames stop.
+    YaesuStatusConfirm statusConfirm;
+    QHash<funcs, qint64> statusFreshMs;
+    QElapsedTimer statusClock;
+    bool statusFresh(funcs func) const;
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

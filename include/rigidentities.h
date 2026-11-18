@@ -309,6 +309,8 @@ struct rigCapabilities {
     QVector<rigInput> inputs;
 
     bool hasSpectrum=true;
+    // The scope frame carries the radio status block (FT-710); its values are decoded and their polls skipped.
+    bool scopeStatusBlock = false;
     quint8 spectSeqMax;
     quint16 spectAmpMax;
     quint16 spectLenMax;

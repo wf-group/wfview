@@ -354,6 +354,7 @@ void rigCommander::determineRigCaps()
     rigCaps.spectDbPerDN = settings->value("SpectrumDbPerDN",0.5).toDouble();
 
     rigCaps.hasSpectrum = settings->value("HasSpectrum",false).toBool();
+    rigCaps.scopeStatusBlock = settings->value("ScopeStatusBlock", false).toBool();
     rigCaps.hasLan = settings->value("HasLAN",false).toBool();
     rigCaps.hasEthernet = settings->value("HasEthernet",false).toBool();
     rigCaps.hasWiFi = settings->value("HasWiFi",false).toBool();
