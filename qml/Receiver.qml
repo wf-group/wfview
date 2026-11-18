@@ -602,6 +602,8 @@ Control {
                                         // would stop following the radio's split state.
                                         checkable: false
                                         checked: controller ? controller.splitEnabled : false
+                                        // Some styles don't draw checked on a button that isn't checkable.
+                                        highlighted: MainController.splitEnabled
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSplitButton) !== 0
                                         onClicked: if (controller) controller.setSplitEnabled(!controller.splitEnabled)
                                     }

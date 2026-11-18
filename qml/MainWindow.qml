@@ -2592,6 +2592,8 @@ ApplicationWindow {
                                 // Not checkable so the binding survives a click and follows the radio.
                                 checkable: false
                                 checked: MainController.splitEnabled
+                                // Some styles don't draw checked on a button that isn't checkable.
+                                highlighted: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
                                 visible: (mainControlSpecs.canSplit ?? false) && scopeAndOtherControlsFlow.hasReceiverScopeControls
                                 onClicked: MainController.splitEnabled = !MainController.splitEnabled
