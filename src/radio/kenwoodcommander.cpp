@@ -784,6 +784,9 @@ void kenwoodCommander::parseData(QByteArray data)
         if (d.isEmpty())
             continue;
         //qInfo(logRig()) << "from rig:" << d;
+        // Each reply is matched on its own, so an unknown one isn't decoded as the one before it.
+        func = funcNone;
+        type = funcType();
         uchar receiver = 0; // Used for Dual/RX
         cmdFull = d; // save the complete cmd for debug later.
 
