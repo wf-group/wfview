@@ -352,6 +352,8 @@ Control {
                     ceiling: controller ? controller.plotCeiling : 160
                     colors: controller ? controller.colors : null
                     center: controller ? controller.frequencyA : null
+                    // With split on, the other VFO is the transmit frequency.
+                    txFrequency: (controller && MainController.splitEnabled) ? controller.frequencyB : 0
                     bands: controller && controller.activeBands
                     underlayMode: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayMode"]) : 2
                     peakDecay: MainController.settings ? Number(MainController.settings.options["Interface.PeakDecay"]) : 50

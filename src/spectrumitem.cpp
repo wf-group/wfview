@@ -5,6 +5,12 @@
 #include "spectrumitem.h"
 #include "ReceiverController.h"
 
+namespace
+{
+// Transmit marker colour, matching the red TX indication used on radios' own displays.
+const QColor txLineColor(255, 64, 64);
+}
+
 SpectrumItem::SpectrumItem()
 {
     setFlag(ItemHasContents, true);
@@ -83,6 +89,15 @@ void SpectrumItem::setCenter(quint64 x)
     if (qFuzzyCompare(center, v)) return;
     center = v;
     emit centerChanged();
+    update();
+}
+
+void SpectrumItem::setTxFrequency(quint64 x)
+{
+    const double v = double(x / 1000000.0);
+    if (qFuzzyCompare(txFrequency + 1.0, v + 1.0)) return;
+    txFrequency = v;
+    emit txFrequencyChanged();
     update();
 }
 
@@ -1287,6 +1302,19 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             root->frequencyLine->setFlag(QSGNode::OwnsMaterial);
         }
 
+        // -- transmit frequency line (split) ---
+        root->txLine = new QSGGeometryNode;
+        {
+            auto *geom = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), 0);
+            geom->setDrawingMode(QSGGeometry::DrawLines);
+            root->txLine->setGeometry(geom);
+            root->txLine->setFlag(QSGNode::OwnsGeometry);
+
+            auto *mat = new QSGFlatColorMaterial;
+            root->txLine->setMaterial(mat);
+            root->txLine->setFlag(QSGNode::OwnsMaterial);
+        }
+
         root->axisNode     = new QSGSimpleTextureNode;
         root->gridLabels   = new QSGSimpleTextureNode;
 
@@ -1316,6 +1344,7 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         root->appendChildNode(root->passband);
         root->appendChildNode(root->pbt);
         root->appendChildNode(root->frequencyLine);
+        root->appendChildNode(root->txLine);
         root->appendChildNode(root->bandShapes);
         root->appendChildNode(root->axisNode);
         root->appendChildNode(root->gridLabels);
@@ -1536,9 +1565,33 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             mat->setColor(colors.tuningLine);
             root->frequencyLine->markDirty(QSGNode::DirtyMaterial);
         }
+
+        // Only drawn while the transmit frequency is on screen; at the edge it would mislead.
+        {
+            auto *geom = root->txLine->geometry();
+            const bool show = txFrequency > 0.0 && !qFuzzyCompare(txFrequency, center)
+                              && txFrequency >= startFreq && txFrequency <= endFreq;
+            if (show) {
+                const float x = freqToX(txFrequency);
+                if (geom->vertexCount() != 2)
+                    geom->allocate(2);
+                auto *v = geom->vertexDataAsPoint2D();
+                v[0].set(x, 0.0f);
+                v[1].set(x, plotH);
+
+                auto *mat = static_cast<QSGFlatColorMaterial *>(root->txLine->material());
+                mat->setColor(txLineColor);
+                root->txLine->markDirty(QSGNode::DirtyMaterial);
+            } else {
+                geom->allocate(0);
+            }
+            root->txLine->markDirty(QSGNode::DirtyGeometry);
+        }
     } else {
         root->frequencyLine->geometry()->allocate(0);
         root->frequencyLine->markDirty(QSGNode::DirtyGeometry);
+        root->txLine->geometry()->allocate(0);
+        root->txLine->markDirty(QSGNode::DirtyGeometry);
         root->passband->geometry()->allocate(0);
         root->passband->markDirty(QSGNode::DirtyGeometry);
         root->pbt->geometry()->allocate(0);
