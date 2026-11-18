@@ -15,3 +15,10 @@ int yaesuDelayMsToCode(int ms);
 QByteArray yaesuFormatIfShift(int hz);
 // Parses the sign and four digits; false if they are malformed.
 bool yaesuParseIfShift(const QByteArray& text, int* hz);
+
+// Scope reference level (SS04): sign, two digits, '.', then '0' or '5',
+// -30.0..+30.0 dB. wfview carries the level in tenths of a dB.
+// Formatting rounds to the nearest 0.5 dB and clamps to the range.
+QByteArray yaesuFormatScopeRef(int tenthsDb);
+// Parses the sign, digits and point; false if they are malformed.
+bool yaesuParseScopeRef(const QByteArray& text, int* tenthsDb);

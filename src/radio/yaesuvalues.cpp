@@ -15,6 +15,8 @@ constexpr int delayLongStepMs = 100;
 constexpr int ifShiftMaxHz = 1200;
 constexpr int ifShiftStepHz = 20;
 constexpr int signedDigits = 4;
+constexpr int scopeRefMaxTenths = 300;
+constexpr int scopeRefStepTenths = 5;
 
 // Rounds half away from zero to a multiple of step.
 int roundToStep(int value, int step)
@@ -72,4 +74,28 @@ QByteArray yaesuFormatIfShift(int hz)
 bool yaesuParseIfShift(const QByteArray& text, int* hz)
 {
     return parseSigned(text, signedDigits, hz);
+}
+
+QByteArray yaesuFormatScopeRef(int tenthsDb)
+{
+    const int level = std::clamp(roundToStep(tenthsDb, scopeRefStepTenths), -scopeRefMaxTenths, scopeRefMaxTenths);
+    const int magnitude = std::abs(level);
+    return (level < 0 ? QByteArray("-") : QByteArray("+"))
+           + QString::number(magnitude / 10).rightJustified(2, QChar('0')).toLatin1()
+           + "." + QByteArray::number(magnitude % 10);
+}
+
+bool yaesuParseScopeRef(const QByteArray& text, int* tenthsDb)
+{
+    if (text.size() < 5 || text.at(3) != '.')
+        return false;
+    int whole = 0;
+    if (!parseSigned(text.left(3), 2, &whole))
+        return false;
+    bool ok = false;
+    const int tenths = text.mid(4, 1).toInt(&ok);
+    if (!ok)
+        return false;
+    *tenthsDb = whole * 10 + (text.at(0) == '-' ? -tenths : tenths);
+    return true;
 }

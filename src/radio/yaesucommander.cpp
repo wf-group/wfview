@@ -1236,6 +1236,14 @@ void yaesuCommander::parseData(QByteArray data)
                 value.setValue<ushort>(ushort(short(hz)));
             break;
         }
+        case funcScopeRef:
+        {
+            // Sign and nn.n dB, carried in tenths of a dB.
+            int level = 0;
+            if (yaesuParseScopeRef(d, &level))
+                value.setValue(level);
+            break;
+        }
         case funcBreakInDelay:
             value.setValue<ushort>(ushort(yaesuDelayCodeToMs(d.mid(0,type.bytes).toInt())));
             break;
@@ -1304,7 +1312,6 @@ void yaesuCommander::parseData(QByteArray data)
         case funcSquelch:
         case funcMonitorGain:
         case funcKeySpeed:
-        case funcScopeRef:
         case funcScopeEdge:
         case funcAttenuator:
         case funcPreamp:
@@ -1821,6 +1828,11 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 // A negative shift arrives in a ushort. The radio takes 0, a sign and four digits.
                 payload.append("0");
                 payload.append(yaesuFormatIfShift(short(value.toInt())));
+            }
+            else if (func == funcScopeRef)
+            {
+                // Tenths of a dB, sent as a sign and nn.n.
+                payload.append(yaesuFormatScopeRef(value.toInt()));
             }
             else if (func == funcAPFLevel)
             {

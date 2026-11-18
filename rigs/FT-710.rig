@@ -1,5 +1,5 @@
 [General]
-Version=2.15
+Version=2.16
 
 [Rig]
 Manufacturer=2
@@ -916,7 +916,17 @@ Commands\89\Command29=false
 Commands\89\GetCommand=true
 Commands\89\SetCommand=true
 Commands\89\Admin=false
-Commands\size=89
+Commands\90\Type=Scope Ref
+Commands\90\String=SS04
+Commands\90\Min=-300
+Commands\90\Max=300
+Commands\90\Bytes=5
+Commands\90\PadRight=false
+Commands\90\Command29=false
+Commands\90\GetCommand=true
+Commands\90\SetCommand=true
+Commands\90\Admin=false
+Commands\size=90
 Periodic\1\Priority=Medium Low
 Periodic\1\Command=Attenuator Status
 Periodic\1\VFO=0
