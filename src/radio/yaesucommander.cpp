@@ -390,6 +390,10 @@ void yaesuCommander::haveScopeData(QByteArray in)
 
     scopeData scope;
     scope.data = QByteArray((char*)d->wf1,sizeof(d->wf1));
+    // The first point is not spectrum (on the FT-710 it reads about twice the noise
+    // floor in every frame), so it is drawn with its neighbour's value.
+    if (scope.data.size() > 1)
+        scope.data[0] = scope.data.at(1);
     scope.valid=true;
     scope.receiver=0;
     scope.startFreq=fa.MHzDouble-((cs.freq/2)/1000000.0);
