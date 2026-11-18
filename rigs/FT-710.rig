@@ -1,5 +1,5 @@
 [General]
-Version=2.16
+Version=2.17
 
 [Rig]
 Manufacturer=2
@@ -926,7 +926,17 @@ Commands\90\Command29=false
 Commands\90\GetCommand=true
 Commands\90\SetCommand=true
 Commands\90\Admin=false
-Commands\size=90
+Commands\91\Type=Auto Information
+Commands\91\String=AI
+Commands\91\Min=0
+Commands\91\Max=1
+Commands\91\Bytes=1
+Commands\91\PadRight=false
+Commands\91\Command29=false
+Commands\91\GetCommand=true
+Commands\91\SetCommand=true
+Commands\91\Admin=false
+Commands\size=91
 Periodic\1\Priority=Medium Low
 Periodic\1\Command=Attenuator Status
 Periodic\1\VFO=0
