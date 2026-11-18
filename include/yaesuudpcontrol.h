@@ -46,6 +46,7 @@ public slots:
 
 private slots:
     void sendHeartbeat();
+    void loginTimedOut();
 protected:
 
 signals:
@@ -60,6 +61,8 @@ private:
     networkStatus status;
 
     udpPreferences prefs;
+
+    QTimer* loginTimer = nullptr;
 
     enum yaesuState {yaesuStart=0,yaesuConnect,yaesuCatSent,yaesuAudioSent,yaesuScopeSent,yaesuReady};
     yaesuState state = yaesuStart;

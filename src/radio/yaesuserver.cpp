@@ -61,6 +61,14 @@ bool packetizedCodec(quint8 codec)
 {
     return codec == 64 || codec == 65 || codec == 128;
 }
+
+// Failed logins from one address before further logins from it are ignored.
+const int maxLoginFailures = 5;
+// How long that address stays locked out after its last failed login.
+const int loginLockoutSecs = 60;
+// Bounds the memory a flood of logins can take.
+const int maxClients = 16;
+const int maxTrackedLoginAddresses = 1024;
 }
 
 yaesuServer::yaesuServer(SERVERCONFIG* config, rigServer* parent) :
@@ -296,31 +304,55 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
     switch (header->msgtype) {
     case C2R_Login:
     {
-        QString username;
-        if (decoded.size() < int(sizeof(yaesuC2R_LoginFrame)) ||
-            !authenticate(reinterpret_cast<const yaesuC2R_LoginFrame*>(decoded.constData()), &username)) {
-            qInfo(logRigServer()) << "Yaesu server rejected login from" << datagram.address.toString();
+        if (decoded.size() < int(sizeof(yaesuC2R_LoginFrame)) || loginLockedOut(datagram.address)) {
             return;
         }
 
-        CLIENT* client = new CLIENT();
-        client->connected = true;
-        client->authenticated = true;
-        client->user = username;
-        client->ipAddress = datagram.address;
-        client->port = datagram.port;
-        client->timeConnected = QDateTime::currentDateTime();
-        client->lastHeard = client->timeConnected;
-        memset(client->guid, 0, GUIDLEN);
-        if (!config->rigs.isEmpty()) {
-            memcpy(client->guid, config->rigs.first()->guid, GUIDLEN);
+        QString username;
+        if (!authenticate(reinterpret_cast<const yaesuC2R_LoginFrame*>(decoded.constData()), &username)) {
+            // No reply, so a failed login tells the sender nothing.
+            qInfo(logRigServer()) << "Yaesu server rejected login from" << datagram.address.toString();
+            recordLoginFailure(datagram.address);
+            return;
+        }
+        loginFailures.remove(datagram.address);
+
+        // A client that missed our reply logs in again: give it the session it already has.
+        quint32 session = 0;
+        for (auto it = clients.cbegin(); it != clients.cend(); ++it) {
+            const CLIENT* existing = it.value();
+            if (existing != nullptr && existing->ipAddress == datagram.address &&
+                existing->port == datagram.port && existing->user == username) {
+                session = it.key();
+                break;
+            }
         }
 
-        quint32 session = nextSession++;
-        if (session == 0) {
-            session = nextSession++;
+        if (session == 0 && clients.size() >= maxClients) {
+            qWarning(logRigServer()) << "Yaesu server is full, ignoring login from" << datagram.address.toString();
+            return;
         }
-        clients.insert(session, client);
+
+        if (session != 0) {
+            clients.value(session)->lastHeard = QDateTime::currentDateTime();
+        } else {
+            session = newSession();
+            CLIENT* client = new CLIENT();
+            client->connected = true;
+            client->authenticated = true;
+            client->user = username;
+            client->ipAddress = datagram.address;
+            client->port = datagram.port;
+            client->timeConnected = QDateTime::currentDateTime();
+            client->lastHeard = client->timeConnected;
+            memset(client->guid, 0, GUIDLEN);
+            if (!config->rigs.isEmpty()) {
+                memcpy(client->guid, config->rigs.first()->guid, GUIDLEN);
+            }
+            clients.insert(session, client);
+            qInfo(logRigServer()) << "Yaesu server login accepted from" << datagram.address.toString();
+            emit userLoggedIn(username, datagram.address.toString());
+        }
 
         yaesuR2C_LoginReplyFrame reply;
         memset(&reply, 0, sizeof(reply));
@@ -332,16 +364,16 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
         reply.valb = 1;
         reply.valc = 1;
         sendControlFrame(datagram.address, datagram.port, &reply, sizeof(reply));
-        qInfo(logRigServer()) << "Yaesu server login accepted from" << datagram.address.toString() << "session" << session;
-        emit userLoggedIn(client->user, client->ipAddress.toString());
         break;
     }
     case C2R_Logout:
     {
         if (decoded.size() >= int(sizeof(yaesuC2R_LogoutFrame))) {
             const auto* logout = reinterpret_cast<const yaesuC2R_LogoutFrame*>(decoded.constData());
-            removeClient(logout->session, "logged out");
-            sendResult(controlSocket, datagram.address, datagram.port, ScuLan, R2C_LogoutReply, 1);
+            if (clientForSession(logout->session, datagram.address) != nullptr) {
+                removeClient(logout->session, "logged out");
+                sendResult(controlSocket, datagram.address, datagram.port, ScuLan, R2C_LogoutReply, 1);
+            }
         }
         break;
     }
@@ -349,7 +381,7 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
     {
         if (decoded.size() >= int(sizeof(yaesuC2R_DeviceOpenFrame))) {
             const auto* open = reinterpret_cast<const yaesuC2R_DeviceOpenFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(open->session);
+            CLIENT* client = clientForSession(open->session, datagram.address);
             if (client != nullptr) {
                 if (header->device == UsbCat) {
                     client->catPort = open->netPort;
@@ -367,7 +399,7 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
     {
         if (decoded.size() >= int(sizeof(yaesuSessionFrame))) {
             const auto* close = reinterpret_cast<const yaesuSessionFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(close->session);
+            CLIENT* client = clientForSession(close->session, datagram.address);
             if (client != nullptr) {
                 if (header->device == UsbCat) {
                     client->catPort = 0;
@@ -386,7 +418,7 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
         const int minDataSize = int(sizeof(yaesuFrameHeader) + sizeof(quint32));
         if (decoded.size() >= minDataSize) {
             const quint32 session = *reinterpret_cast<const quint32*>(decoded.constData() + sizeof(yaesuFrameHeader));
-            CLIENT* client = clientForSession(session);
+            CLIENT* client = clientForSession(session, datagram.address);
             const int shortTextOffset = int(sizeof(yaesuFrameHeader) + sizeof(quint32) + sizeof(quint32));
             const QByteArray commandText = decoded.size() > shortTextOffset
                                                ? decoded.mid(shortTextOffset)
@@ -416,7 +448,7 @@ void yaesuServer::processControl(const PendingDatagram& datagram)
     case C2R_HealthCheck:
         if (decoded.size() >= int(sizeof(yaesuC2R_HeartbeatFrame))) {
             const auto* beat = reinterpret_cast<const yaesuC2R_HeartbeatFrame*>(decoded.constData());
-            if (CLIENT* client = clientForSession(beat->session))
+            if (CLIENT* client = clientForSession(beat->session, datagram.address))
                 client->lastHeard = QDateTime::currentDateTime();
         }
         sendHealth(controlSocket, datagram.address, datagram.port, ScuLan);
@@ -440,7 +472,7 @@ void yaesuServer::processCat(const PendingDatagram& datagram)
     {
         if (decoded.size() >= int(sizeof(yaesuResultFrame))) {
             auto* connect = reinterpret_cast<const yaesuResultFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(connect->result);
+            CLIENT* client = clientForSession(connect->result, datagram.address);
             if (client != nullptr) {
                 client->catPort = datagram.port;
                 sendResult(catSocket, datagram.address, datagram.port, UsbCat, R2C_ConnectReply, 1);
@@ -465,7 +497,7 @@ void yaesuServer::processCat(const PendingDatagram& datagram)
                                        sizeof(quint16) + sizeof(quint16));
         if (decoded.size() >= minCatDataSize) {
             const auto* frame = reinterpret_cast<const yaesuC2R_CatDataFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(frame->session);
+            CLIENT* client = clientForSession(frame->session, datagram.address);
             if (client == nullptr) {
                 client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::catPort);
             }
@@ -515,12 +547,12 @@ void yaesuServer::processAudio(const PendingDatagram& datagram)
     case C2R_Connect:
         if (decoded.size() >= int(sizeof(yaesuResultFrame))) {
             const auto* connect = reinterpret_cast<const yaesuResultFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(connect->result);
+            CLIENT* client = clientForSession(connect->result, datagram.address);
             if (client != nullptr) {
                 client->audioPort = datagram.port;
+                sendResult(audioSocket, datagram.address, datagram.port, UsbAudio, R2C_ConnectReply, 1);
             }
         }
-        sendResult(audioSocket, datagram.address, datagram.port, UsbAudio, R2C_ConnectReply, 1);
         break;
     case C2R_HealthCheck:
         sendHealth(audioSocket, datagram.address, datagram.port, UsbAudio);
@@ -535,7 +567,7 @@ void yaesuServer::processAudio(const PendingDatagram& datagram)
     case C2R_Data:
         if (decoded.size() >= int(sizeof(yaesuFrameHeader) + sizeof(quint32))) {
             const quint32 session = *reinterpret_cast<const quint32*>(decoded.constData() + sizeof(yaesuFrameHeader));
-            CLIENT* client = clientForSession(session);
+            CLIENT* client = clientForSession(session, datagram.address);
             if (client == nullptr) {
                 client = clientForEndpoint(datagram.address, datagram.port, &CLIENT::audioPort);
             }
@@ -547,8 +579,11 @@ void yaesuServer::processAudio(const PendingDatagram& datagram)
                     const auto* frame = reinterpret_cast<const yaesuC2R_AudioData*>(decoded.constData());
                     updateClientAudioFormat(client, frame->data);
                     requestAudioForClient(client);
-                    if (frame->data.pcmDataLen > 0) {
-                        const quint16 payloadLen = qMin<quint16>(frame->data.pcmDataLen, sizeof(frame->data.pcmData));
+                    // Never read past the datagram, whatever length it claims.
+                    const qsizetype received = qMin<qsizetype>(decoded.size() - minAudioDataSize,
+                                                               sizeof(frame->data.pcmData));
+                    const quint16 payloadLen = quint16(qMin<qsizetype>(frame->data.pcmDataLen, received));
+                    if (payloadLen > 0) {
                         if (client->txBufferLen == 0) {
                             qDebug(logAudio()) << "Yaesu server received TX audio"
                                                << "codec" << client->audioCodec
@@ -590,12 +625,12 @@ void yaesuServer::processScope(const PendingDatagram& datagram)
     case C2R_Connect:
         if (decoded.size() >= int(sizeof(yaesuResultFrame))) {
             const auto* connect = reinterpret_cast<const yaesuResultFrame*>(decoded.constData());
-            CLIENT* client = clientForSession(connect->result);
+            CLIENT* client = clientForSession(connect->result, datagram.address);
             if (client != nullptr) {
                 client->scopePort = datagram.port;
+                sendResult(scopeSocket, datagram.address, datagram.port, Scope, R2C_ConnectReply, 1);
             }
         }
-        sendResult(scopeSocket, datagram.address, datagram.port, Scope, R2C_ConnectReply, 1);
         break;
     case C2R_HealthCheck:
         sendHealth(scopeSocket, datagram.address, datagram.port, Scope);
@@ -706,7 +741,43 @@ bool yaesuServer::authenticate(const yaesuC2R_LoginFrame* login, QString* matche
             return true;
         }
     }
-    return users.isEmpty();
+    return false;
+}
+
+bool yaesuServer::loginLockedOut(const QHostAddress& address) const
+{
+    const auto it = loginFailures.constFind(address);
+    if (it == loginFailures.constEnd() && loginFailures.size() < maxTrackedLoginAddresses) {
+        return false;
+    }
+
+    // With the table full, untracked addresses are judged together so none of them goes unchecked.
+    const LoginFailures& failures = it != loginFailures.constEnd() ? *it : overflowLoginFailures;
+    return failures.count >= maxLoginFailures &&
+           failures.lastFailure.secsTo(QDateTime::currentDateTime()) < loginLockoutSecs;
+}
+
+void yaesuServer::recordLoginFailure(const QHostAddress& address)
+{
+    const bool tracked = loginFailures.contains(address) || loginFailures.size() < maxTrackedLoginAddresses;
+    LoginFailures& failures = tracked ? loginFailures[address] : overflowLoginFailures;
+    failures.count++;
+    failures.lastFailure = QDateTime::currentDateTime();
+    if (failures.count == maxLoginFailures) {
+        qWarning(logRigServer()) << "Yaesu server ignoring logins from"
+                                 << (tracked ? address.toString() : QStringLiteral("new addresses"))
+                                 << "for" << loginLockoutSecs << "seconds after repeated failures";
+    }
+}
+
+quint32 yaesuServer::newSession() const
+{
+    // Unpredictable, so a session cannot be guessed from an earlier one.
+    quint32 session = 0;
+    while (session == 0 || clients.contains(session)) {
+        session = QRandomGenerator::system()->generate();
+    }
+    return session;
 }
 
 void yaesuServer::removeClient(quint32 session, const char* reason)
@@ -724,10 +795,6 @@ void yaesuServer::removeClient(quint32 session, const char* reason)
 
 void yaesuServer::dropUnauthorizedClients()
 {
-    // An open server (no users at all) has nobody to drop.
-    if (users.isEmpty())
-        return;
-
     const QList<quint32> sessions = clients.keys();
     for (quint32 session : sessions) {
         CLIENT* client = clients.value(session);
@@ -746,11 +813,24 @@ void yaesuServer::watchdog()
         if (client != nullptr && client->lastHeard.secsTo(now) > 30)
             removeClient(session, "timed out");
     }
+
+    for (auto it = loginFailures.begin(); it != loginFailures.end();) {
+        if (it->lastFailure.secsTo(now) >= loginLockoutSecs)
+            it = loginFailures.erase(it);
+        else
+            ++it;
+    }
+    if (overflowLoginFailures.count > 0 && overflowLoginFailures.lastFailure.secsTo(now) >= loginLockoutSecs)
+        overflowLoginFailures = LoginFailures();
 }
 
-yaesuServer::CLIENT* yaesuServer::clientForSession(quint32 session)
+yaesuServer::CLIENT* yaesuServer::clientForSession(quint32 session, const QHostAddress& address)
 {
-    return clients.value(session, nullptr);
+    CLIENT* client = clients.value(session, nullptr);
+    if (client == nullptr || client->ipAddress != address) {
+        return nullptr;
+    }
+    return client;
 }
 
 yaesuServer::CLIENT* yaesuServer::clientForEndpoint(const QHostAddress& address, quint16 port, quint16 CLIENT::*memberPort)
