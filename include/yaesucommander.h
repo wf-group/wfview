@@ -92,6 +92,7 @@ private:
     bool isTransmitting = false;
     QByteArray lastSentCommand;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
+    bool clarifierTx = false;      // TX clarifier as last reported by CF000
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;
