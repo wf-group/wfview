@@ -11,6 +11,8 @@ private slots:
     void delayMsPicksNearestCode();
     void ifShiftFormat();
     void ifShiftParse();
+    void scopeRefFormat();
+    void scopeRefParse();
 };
 
 void YaesuValuesTest::delayCodesMatchTable()
@@ -61,6 +63,31 @@ void YaesuValuesTest::ifShiftParse()
     QVERIFY(!yaesuParseIfShift("0100", &hz));
     QVERIFY(!yaesuParseIfShift("+01", &hz));
     QVERIFY(!yaesuParseIfShift("+01x0", &hz));
+}
+
+void YaesuValuesTest::scopeRefFormat()
+{
+    QCOMPARE(yaesuFormatScopeRef(0), QByteArray("+00.0"));
+    QCOMPARE(yaesuFormatScopeRef(55), QByteArray("+05.5"));
+    QCOMPARE(yaesuFormatScopeRef(-300), QByteArray("-30.0"));
+    QCOMPARE(yaesuFormatScopeRef(-5), QByteArray("-00.5"));
+    // Rounded to 0.5 dB and clamped.
+    QCOMPARE(yaesuFormatScopeRef(57), QByteArray("+05.5"));
+    QCOMPARE(yaesuFormatScopeRef(58), QByteArray("+06.0"));
+    QCOMPARE(yaesuFormatScopeRef(400), QByteArray("+30.0"));
+}
+
+void YaesuValuesTest::scopeRefParse()
+{
+    int level = 1;
+    QVERIFY(yaesuParseScopeRef("+05.5", &level));
+    QCOMPARE(level, 55);
+    QVERIFY(yaesuParseScopeRef("-00.5", &level));
+    QCOMPARE(level, -5);
+    QVERIFY(yaesuParseScopeRef("-30.0", &level));
+    QCOMPARE(level, -300);
+    QVERIFY(!yaesuParseScopeRef("+055", &level));
+    QVERIFY(!yaesuParseScopeRef("05.50", &level));
 }
 
 int runYaesuValuesTests(int argc, char **argv)
