@@ -741,6 +741,9 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
         break;
     case funcMonitor:
+        // ML0 answers with three digits, 000 for off and 001 for on.
+        value.setValue(d.toUShort(&ok) != 0);
+        break;
     case funcCompressor:
     case funcVox:
     case funcRepeaterTSQL:
@@ -1176,6 +1179,9 @@ void yaesuCommander::parseData(QByteArray data)
             // We don't use this but it saves getting a log message.
             break;
         case funcMonitor:
+            // ML0 answers with three digits, 000 for off and 001 for on.
+            value.setValue<bool>(d.toUShort() != 0);
+            break;
         case funcCompressor:
         case funcVox:
         case funcAutoNotch:
