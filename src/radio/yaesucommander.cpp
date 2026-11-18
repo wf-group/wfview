@@ -10,6 +10,10 @@
 namespace
 {
 constexpr int rmMeterDigits = 3;
+// CF000 sets and reports the RX and TX clarifier together: CF000<rx><tx>000;
+const QByteArray clarifierStatusCommand = QByteArrayLiteral("CF000");
+// The FT-710 rejects RF power above 25 W in AM and AM-N.
+constexpr ushort maxAmPower = 25;
 
 // wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
 // TS-890). Yaesu's CT uses 1 = CTCSS encode and decode (tone squelch) and
@@ -717,6 +721,11 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0, 1).toUShort(&ok))));
         break;
     case funcRitStatus:
+        // The client's TX clarifier is kept when the command is sent on.
+        if (type.data == clarifierStatusCommand)
+            clarifierTx = d.size() > 1 && d.at(1) == '1';
+        value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
+        break;
     case funcMonitor:
     case funcCompressor:
     case funcVox:
@@ -1150,7 +1159,6 @@ void yaesuCommander::parseData(QByteArray data)
         case funcMeterType:
             // We don't use this but it saves getting a log message.
             break;
-        case funcRitStatus:
         case funcMonitor:
         case funcCompressor:
         case funcVox:
@@ -1263,6 +1271,12 @@ void yaesuCommander::parseData(QByteArray data)
             break;
         case funcRepeaterTone:
             value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0, 1).toUShort())));
+            break;
+        case funcRitStatus:
+            // Trailing zeros have been removed, so a missing second digit means TX clarifier off.
+            if (type.data == clarifierStatusCommand)
+                clarifierTx = d.size() > 1 && d.at(1) == '1';
+            value.setValue<bool>(d.mid(0, 1).toUShort());
             break;
         case funcNBLevel:
         case funcNRLevel:
@@ -1645,6 +1659,15 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
     }
 
 
+    if (func == funcRFPower && value.isValid()) {
+        const modeInfo mi = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,
+                                            receiver).value.value<modeInfo>();
+        if ((mi.mk == modeAM || mi.mk == modeAMN) && value.value<ushort>() > maxAmPower) {
+            qInfo(logRig()) << "RF power" << value.value<ushort>() << "is above the AM limit, sending" << maxAmPower;
+            value = QVariant::fromValue<ushort>(maxAmPower);
+        }
+    }
+
     if (func == funcRepeaterTone && value.isValid()) {
         const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
         value.setValue<uchar>(swapYaesuToneMode(mode));
@@ -1746,7 +1769,15 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             else if(!strcmp(value.typeName(),"bool") || !strcmp(value.typeName(),"uchar") || !strcmp(value.typeName(),"int"))
             {
                 // This is a simple number
-                if(func==funcTunerStatus) {
+                if (func == funcRitStatus && cmd.data == clarifierStatusCommand)
+                {
+                    // Keep the TX clarifier as the radio last reported it.
+                    payload.append(value.toBool() ? '1' : '0');
+                    payload.append(clarifierTx ? '1' : '0');
+                    payload.append("000");
+                }
+                else if (func == funcTunerStatus)
+                {
                     // AC P1 P2 P3; P1 is always 0 per FT-710 CAT spec.
                     switch(value.value<uchar>()) {
                     case 0:
