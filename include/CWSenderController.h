@@ -96,6 +96,9 @@ public:
     // The sidetone is mixed into RX audio, so it needs a local RX audio path.
     void setSidetoneAvailable(bool available);
     std::shared_ptr<CwSidetoneGenerator> sidetoneGenerator() const { return m_tone; }
+    // True while a serial CW key line is ready. Messages are then keyed on it
+    // instead of being sent to the radio as a command.
+    void setSerialKeying(bool available);
     void setSequenceNumber(int val);
     void setMacroEditMode(bool val);
     void setReceiveVisible(bool val);
@@ -184,11 +187,16 @@ signals:
     void setPitchSignal(quint16 pitch);
     void setBreakInModeSignal(quint8 b);
     void getCWSettings();
+
+    // Serial key line signals
+    void keyText(QString cwMessage);
+    void keyStop();
     
 private:
     void setStatusMessage(const QString& msg);
     void updateTextColor(const QString& text);
     QString processMacroText(const QString& macroText);
+    void updateSendCapability();
 
     // CW decoder sequencing
     struct CwDecodeStep {
@@ -221,6 +229,7 @@ private:
     bool m_macroEditMode;
     bool m_receiveVisible;
     bool m_canSendCW;
+    bool m_serialKeying = false;
 
     // CW decoder state
     bool m_cwDecodeAvailable = false;

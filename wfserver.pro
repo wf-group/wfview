@@ -220,6 +220,8 @@ SOURCES += \
     src/servermain.cpp \
     src/serverwizard.cpp \
     src/commhandler.cpp \
+    src/cwmorse.cpp \
+    src/cwserialkeyer.cpp \
     src/radiotransportframe.cpp \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
@@ -255,6 +257,8 @@ HEADERS  += \
     include/audiohandlertcioutput.h \
     include/cachingqueue.h \
     include/commhandler.h \
+    include/cwmorse.h \
+    include/cwserialkeyer.h \
     include/directradiotransport.h \
     include/ft4222handler.h \
     include/kenwoodcommander.h \
