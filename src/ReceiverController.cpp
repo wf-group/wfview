@@ -1845,6 +1845,17 @@ void ReceiverController::buildUiSpecs()
         };
     }
 
+    // Rigs whose IF shift has no range in the rig file keep the slider's default range.
+    if (rigCaps->commands.contains(funcIFShift))
+    {
+        funcType func = rigCaps->commands.find(funcIFShift).value();
+        if (func.maxVal > func.minVal)
+            uiSpecs["ifShiftSlider"] = QVariantMap{
+                {"from",func.minVal},
+                {"to",func.maxVal}
+            };
+    }
+
     // Simple on/off controls in the side panel; QML hides any the rig doesn't support.
     const auto has = [this](funcs f) { return rigCaps->commands.contains(f); };
     uiSpecs["features"] = QVariantMap{

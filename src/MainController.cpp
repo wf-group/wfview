@@ -6046,7 +6046,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setPbtInner(val.value.value<ushort>(),false);
         break;
     case funcIFShift:
-        receivers[val.receiver]->setIfShift(val.value.value<ushort>(),false);
+        // Signed on radios with a negative range, which arrive in a ushort.
+        receivers[val.receiver]->setIfShift(short(val.value.value<ushort>()),false);
         break;
         /*
     connect(this->rig, &rigCommander::haveDashRatio,

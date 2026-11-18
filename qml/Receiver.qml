@@ -1520,7 +1520,10 @@ Control {
                         Slider {
                             WheelArea {}
                             id: ifShiftSlider
+                            readonly property var spec: controller ? controller.uiSpecs["ifShiftSlider"] : null
                             objectName: "ifShift"
+                            from: spec ? spec.from : 0
+                            to: spec ? spec.to : 1
                             value: controller ? controller.ifShift : 0
                             onMoved: controller.ifShift = value
                             Layout.fillWidth: true
