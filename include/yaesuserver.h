@@ -65,6 +65,10 @@ private:
 		QDateTime	timeConnected;
 		QDateTime lastHeard;
         bool isStreaming = false;
+        // Set once the client sends a C2R_CwKey, so the server only ever sends
+        // the R2C_CwKeyState extension to a peer that asked for it (not OEM
+        // SCU-LAN10 software, which never sends C2R_CwKey).
+        bool cwKeyAware = false;
         quint16 txBufferLen;
         quint16 audioSeq = 1;
         quint8 guid[GUIDLEN];

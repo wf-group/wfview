@@ -947,7 +947,9 @@ void yaesuServer::setCwKeyAvailable(bool available)
     publishCwKeyState();
     for (const CLIENT *client : std::as_const(clients))
     {
-        if (client->catPort != 0)
+        // Only notify clients that have used the extension. An availability
+        // update is never pushed to OEM SCU-LAN10 software, which never asked.
+        if (client->catPort != 0 && client->cwKeyAware)
             sendCwKeyState(client, client->ipAddress, client->catPort);
     }
 }
@@ -970,6 +972,8 @@ void yaesuServer::processCwKey(const QByteArray &decoded, const PendingDatagram 
     if (client == nullptr)
         return;
     client->catPort = datagram.port;
+    // This client speaks the CW-key extension, so it may be sent R2C_CwKeyState.
+    client->cwKeyAware = true;
     MCP_CW_EVENT(QStringLiteral("lan server"), QStringLiteral("key request received"),
                  (QJsonObject{{"op", frame->op == CwKeyQuery  ? QStringLiteral("query")
                                      : frame->op == CwKeySend ? QStringLiteral("send")
