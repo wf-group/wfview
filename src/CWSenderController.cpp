@@ -1,5 +1,8 @@
 #include "CWSenderController.h"
 #include "logcategories.h"
+#include "cwmorse.h"
+
+#include <deque>
 
 namespace
 {
@@ -46,6 +49,14 @@ CWSenderController::CWSenderController(QObject* parent)
     m_cwDecodeTimer.setSingleShot(true);
     m_cwDecodeTimer.setInterval(cwDecodeStepTimeoutMs);
     connect(&m_cwDecodeTimer, &QTimer::timeout, this, &CWSenderController::cwDecodeStepTimeout);
+
+    // When the estimated send time is up, clear the "Sending CW" label (only if
+    // it's still showing that, so it never clobbers another message).
+    m_sendStatusTimer.setSingleShot(true);
+    connect(&m_sendStatusTimer, &QTimer::timeout, this, [this]() {
+        if (m_statusMessage == QStringLiteral("Sending CW"))
+            setStatusMessage(QString());
+    });
 
     m_queue = cachingQueue::getInstance();
     if (m_queue) {
@@ -419,13 +430,32 @@ void CWSenderController::sendText(const QString& text)
     setStatusMessage("Sending CW");
     emit sendCW(text);
     handleSidetoneText(text);
+
+    // Extend the label's lifetime by this message's estimated duration (plus a
+    // margin), so sending more text before the previous finished keeps it up.
+    const int remaining = m_sendStatusTimer.isActive() ? m_sendStatusTimer.remainingTime() : 0;
+    m_sendStatusTimer.start(remaining + estimateCwMs(text) + 500);
 }
 
 void CWSenderController::stopSending()
 {
+    m_sendStatusTimer.stop();
     emit stopCW();
     handleStopSidetone();
     setStatusMessage("Stopping CW transmission.");
+}
+
+// Rough time the radio needs to key `text` at the current speed and ratio, used
+// only to time out the "Sending CW" label; the actual keying is done elsewhere.
+int CWSenderController::estimateCwMs(const QString &text) const
+{
+    std::deque<CwElement> elements;
+    for (const QChar ch : text)
+        appendCwElements(ch, m_dashRatio, elements);
+    double dits = 0.0;
+    for (const CwElement &e : elements)
+        dits += e.dits;
+    return int(dits * cwDitSecondsAtOneWpm * 1000.0 / std::max(1, m_wpm));
 }
 
 void CWSenderController::runMacro(int macroNumber)

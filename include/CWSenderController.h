@@ -249,6 +249,11 @@ private:
     int m_cwDecodeStepIndex = 0;
     int m_cwDecodeRetries = 0;
     QTimer m_cwDecodeTimer;
+    // Clears the "Sending CW" status label once the message has had time to
+    // finish. The keying paths (serial, keyer memory, LAN) don't report
+    // completion back here, so this is estimated from the text, speed and ratio.
+    QTimer m_sendStatusTimer;
+    int estimateCwMs(const QString &text) const;
     
     // Macro storage
     QString m_macroText[11]; // 1-10 indexed
