@@ -37,8 +37,9 @@ int cwPitchStepsFromHz(int hz)
 constexpr ushort maxAmPower = 25;
 
 // wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
-// TS-890). Yaesu's CT uses 1 = CTCSS encode and decode (tone squelch) and
-// 2 = CTCSS encode only (tone). Other values are the same both ways.
+// TS-890). The FT-710's CT uses 1 = CTCSS encode and decode (tone squelch) and
+// 2 = CTCSS encode only (tone); rigs like it set ToneSquelchIsOne in the rig
+// file. Other values are the same both ways.
 uchar swapYaesuToneMode(uchar mode)
 {
     if (mode == 1)
@@ -739,8 +740,11 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         break;
     }
     case funcRepeaterTone:
-        value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0, 1).toUShort(&ok))));
+    {
+        const uchar mode = uchar(d.mid(0, 1).toUShort(&ok));
+        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
         break;
+    }
     case funcRitStatus:
         // The client's TX clarifier is kept when the command is sent on.
         if (type.data == clarifierStatusCommand)
@@ -1302,7 +1306,10 @@ void yaesuCommander::parseData(QByteArray data)
             value.setValue<short>(d.toShort());
             break;
         case funcRepeaterTone:
-            value.setValue<uchar>(swapYaesuToneMode(uchar(d.mid(0, 1).toUShort())));
+        {
+            const uchar mode = uchar(d.mid(0, 1).toUShort());
+            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
+        }
             break;
         case funcCwPitch:
             value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt()));
@@ -1714,7 +1721,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         }
     }
 
-    if (func == funcRepeaterTone && value.isValid()) {
+    if (func == funcRepeaterTone && value.isValid() && rigCaps.toneSquelchIsOne) {
         const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
         value.setValue<uchar>(swapYaesuToneMode(mode));
     }

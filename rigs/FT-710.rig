@@ -17,6 +17,7 @@ HasLAN=false
 HasEthernet=false
 HasWiFi=false
 HasTransmit=true
+ToneSquelchIsOne=true
 HasFDComms=true
 HasCommand29=false
 AbsoluteVFOFreq=false
