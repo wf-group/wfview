@@ -837,6 +837,19 @@ Use %1 for sequence number.</source>
     </message>
 </context>
 <context>
+    <name>CwSerialKeyer</name>
+    <message>
+        <location filename="../src/cwserialkeyer.cpp" line="44"/>
+        <source>Could not open CW key port %1. %2</source>
+        <translation type="unfinished">無法開啟 CW 鍵控連接埠 %1。%2</translation>
+    </message>
+    <message>
+        <location filename="../src/cwserialkeyer.cpp" line="198"/>
+        <source>CW key port %1 failed: %2</source>
+        <translation type="unfinished">CW 鍵控連接埠 %1 出錯：%2</translation>
+    </message>
+</context>
+<context>
     <name>Debug</name>
     <message>
         <location filename="../qml/Debug.qml" line="15"/>
@@ -1117,6 +1130,24 @@ Use %1 for sequence number.</source>
     </message>
 </context>
 <context>
+    <name>IniStore</name>
+    <message>
+        <location filename="../include/RigCreatorController.h" line="93"/>
+        <source>the folder %1 is read-only</source>
+        <translation type="unfinished">資料夾 %1 為唯讀</translation>
+    </message>
+    <message>
+        <location filename="../include/RigCreatorController.h" line="109"/>
+        <source>it could not be written</source>
+        <translation type="unfinished">無法寫入</translation>
+    </message>
+    <message>
+        <location filename="../include/RigCreatorController.h" line="110"/>
+        <source>it could not be written as a rig file</source>
+        <translation type="unfinished">無法寫入為 rig 檔案</translation>
+    </message>
+</context>
+<context>
     <name>LoggingWindow</name>
     <message>
         <location filename="../qml/LoggingWindow.qml" line="17"/>
@@ -1359,334 +1390,334 @@ For Icom radios, enter the command bytes in hex, for example 0x14 0x0A 0x01 0x28
 <context>
     <name>MainController</name>
     <message>
-        <location filename="../src/MainController.cpp" line="791"/>
+        <location filename="../src/MainController.cpp" line="795"/>
         <source>S+Power</source>
         <translation type="unfinished">S+Power</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="813"/>
+        <location filename="../src/MainController.cpp" line="817"/>
         <source>Debug Window</source>
         <translation type="unfinished">偵錯視窗</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="818"/>
+        <location filename="../src/MainController.cpp" line="822"/>
         <source>Raise Main Window</source>
         <translation type="unfinished">升起主窗</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="819"/>
+        <location filename="../src/MainController.cpp" line="823"/>
         <source>Open Settings</source>
         <translation type="unfinished">開啟設定</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="820"/>
+        <location filename="../src/MainController.cpp" line="824"/>
         <source>Toggle Fullscreen</source>
         <translation type="unfinished">切換全螢幕</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="821"/>
+        <location filename="../src/MainController.cpp" line="825"/>
         <source>Quit wfview</source>
         <translation type="unfinished">退出wfview</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="822"/>
+        <location filename="../src/MainController.cpp" line="826"/>
         <source>Close Window</source>
         <translation type="unfinished">關閉視窗</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="823"/>
+        <location filename="../src/MainController.cpp" line="827"/>
         <source>Open Memories</source>
         <translation type="unfinished">開放記憶</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="824"/>
+        <location filename="../src/MainController.cpp" line="828"/>
         <source>Open CW Sender</source>
         <translation type="unfinished">開放式CW發送器</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="825"/>
+        <location filename="../src/MainController.cpp" line="829"/>
         <source>Pop Out Receiver</source>
         <translation type="unfinished">彈出式接收器</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="826"/>
+        <location filename="../src/MainController.cpp" line="830"/>
         <source>Pop In Receiver</source>
         <translation type="unfinished">彈出式接收器</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="827"/>
+        <location filename="../src/MainController.cpp" line="831"/>
         <source>Enter Frequency</source>
         <translation type="unfinished">輸入頻率</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="890"/>
+        <location filename="../src/MainController.cpp" line="894"/>
         <source>CAT command, e.g. FA00007215000;</source>
         <translation type="unfinished">CAT指令，例如FA00007215000 ；</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="891"/>
+        <location filename="../src/MainController.cpp" line="895"/>
         <source>CI-V command bytes, e.g. 0x14 0x0A 0x01 0x28</source>
         <translation type="unfinished">CI-V指令字節，例如 0x14 0x0A 0x01 0x28</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="908"/>
-        <location filename="../src/MainController.cpp" line="1666"/>
+        <location filename="../src/MainController.cpp" line="912"/>
+        <location filename="../src/MainController.cpp" line="1670"/>
         <source>None</source>
         <translation type="unfinished">沒有任何</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="908"/>
-        <location filename="../src/MainController.cpp" line="909"/>
+        <location filename="../src/MainController.cpp" line="912"/>
+        <location filename="../src/MainController.cpp" line="913"/>
         <source>General</source>
         <translation type="unfinished">一般的</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="909"/>
+        <location filename="../src/MainController.cpp" line="913"/>
         <source>Raw radio command</source>
         <translation type="unfinished">原始無線電指令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="912"/>
+        <location filename="../src/MainController.cpp" line="916"/>
         <source>Transmit (PTT on)</source>
         <translation type="unfinished">發射（ PTT開啟）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="912"/>
-        <location filename="../src/MainController.cpp" line="913"/>
-        <location filename="../src/MainController.cpp" line="914"/>
+        <location filename="../src/MainController.cpp" line="916"/>
+        <location filename="../src/MainController.cpp" line="917"/>
+        <location filename="../src/MainController.cpp" line="918"/>
         <source>Transmit</source>
         <translation type="unfinished">傳送</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="913"/>
+        <location filename="../src/MainController.cpp" line="917"/>
         <source>Receive (PTT off)</source>
         <translation type="unfinished">接收（ PTT關閉）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="914"/>
+        <location filename="../src/MainController.cpp" line="918"/>
         <source>Toggle PTT</source>
         <translation type="unfinished">切換PTT</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="917"/>
+        <location filename="../src/MainController.cpp" line="921"/>
         <source>Restore mode</source>
         <translation type="unfinished">恢復模式</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="917"/>
-        <location filename="../src/MainController.cpp" line="919"/>
+        <location filename="../src/MainController.cpp" line="921"/>
+        <location filename="../src/MainController.cpp" line="923"/>
         <source>Restore</source>
         <translation type="unfinished">恢復</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="919"/>
+        <location filename="../src/MainController.cpp" line="923"/>
         <source>Restore TX power</source>
         <translation type="unfinished">恢復TX功率</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="926"/>
+        <location filename="../src/MainController.cpp" line="930"/>
         <source>wfview</source>
         <translation>wfview</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="947"/>
+        <location filename="../src/MainController.cpp" line="951"/>
         <source>Frequency in MHz, e.g. 7.215</source>
         <translation type="unfinished">頻率單位為MHz ，例如 7.215</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="949"/>
+        <location filename="../src/MainController.cpp" line="953"/>
         <source>Mode, e.g. LSB</source>
         <translation type="unfinished">模式，例如LSB</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="949"/>
+        <location filename="../src/MainController.cpp" line="953"/>
         <source>Mode: %1</source>
         <translation type="unfinished">模式： %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="951"/>
+        <location filename="../src/MainController.cpp" line="955"/>
         <source>Antenna number, e.g. 2</source>
         <translation type="unfinished">天線數量，例如 2</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="953"/>
+        <location filename="../src/MainController.cpp" line="957"/>
         <source>on, off, or tune</source>
         <translation type="unfinished">開、關或調</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="955"/>
+        <location filename="../src/MainController.cpp" line="959"/>
         <source>on (transmit) or off (receive)</source>
         <translation type="unfinished">開啟（發送）或關閉（接收）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="957"/>
+        <location filename="../src/MainController.cpp" line="961"/>
         <source>Percent, e.g. 25%</source>
         <translation type="unfinished">百分比，例如 25%</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="959"/>
+        <location filename="../src/MainController.cpp" line="963"/>
         <source>on or off</source>
         <translation type="unfinished">開或關</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="961"/>
+        <location filename="../src/MainController.cpp" line="965"/>
         <source>Value %1 to %2, or a percent such as 50%</source>
         <translation type="unfinished">數值為%1至%2 ，或百分比，例如 50%</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="963"/>
+        <location filename="../src/MainController.cpp" line="967"/>
         <source>Value, or blank to send the command alone</source>
         <translation type="unfinished">取值，或留空以單獨發送命令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="964"/>
+        <location filename="../src/MainController.cpp" line="968"/>
         <source>Radio</source>
         <translation type="unfinished">收音機</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1091"/>
+        <location filename="../src/MainController.cpp" line="1095"/>
         <source>unknown command</source>
         <translation type="unfinished">未知命令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1103"/>
-        <location filename="../src/MainController.cpp" line="1303"/>
+        <location filename="../src/MainController.cpp" line="1107"/>
+        <location filename="../src/MainController.cpp" line="1307"/>
         <source>no radio connected</source>
         <translation type="unfinished">未連接收音機</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1107"/>
+        <location filename="../src/MainController.cpp" line="1111"/>
         <source>the rig file has no such command</source>
         <translation type="unfinished">該裝備文件中沒有這樣的指令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1117"/>
+        <location filename="../src/MainController.cpp" line="1121"/>
         <source>frequency must be in MHz, e.g. 7.215</source>
         <translation type="unfinished">頻率單位必須為MHz ，例如 7.215</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1121"/>
+        <location filename="../src/MainController.cpp" line="1125"/>
         <source>frequency is locked</source>
         <translation type="unfinished">頻率已鎖定</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1152"/>
+        <location filename="../src/MainController.cpp" line="1156"/>
         <source>the radio has no mode named &quot;%1&quot;</source>
         <translation type="unfinished">收音機沒有名為「 %1 」的模式</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1178"/>
+        <location filename="../src/MainController.cpp" line="1182"/>
         <source>unknown antenna &quot;%1&quot;</source>
         <translation type="unfinished">未知天線“ %1 ”</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1193"/>
+        <location filename="../src/MainController.cpp" line="1197"/>
         <source>use on, off, or tune</source>
         <translation type="unfinished">使用方式：開、關或調</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1202"/>
-        <location filename="../src/MainController.cpp" line="1230"/>
+        <location filename="../src/MainController.cpp" line="1206"/>
+        <location filename="../src/MainController.cpp" line="1234"/>
         <source>use on or off</source>
         <translation type="unfinished">開啟或關閉</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1244"/>
+        <location filename="../src/MainController.cpp" line="1248"/>
         <source>value must be a number</source>
         <translation type="unfinished">數值必須為數字</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1249"/>
+        <location filename="../src/MainController.cpp" line="1253"/>
         <source>percent must be from 0 to 100</source>
         <translation type="unfinished">百分比必須介於 0 到 100 之間</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1287"/>
+        <location filename="../src/MainController.cpp" line="1291"/>
         <source>this command uses %1 values, which macros cannot set; use a raw command</source>
         <translation type="unfinished">此命令使用%1值，而巨集無法設定此類值；請使用原始命令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1292"/>
+        <location filename="../src/MainController.cpp" line="1296"/>
         <source>value is out of range</source>
         <translation type="unfinished">值超出範圍</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1315"/>
+        <location filename="../src/MainController.cpp" line="1319"/>
         <source>raw Icom commands must be pairs of hex digits</source>
         <translation type="unfinished">原始Icom指令必須是十六進制數字對</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1333"/>
+        <location filename="../src/MainController.cpp" line="1337"/>
         <source>empty command</source>
         <translation type="unfinished">空命令</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1779"/>
+        <location filename="../src/MainController.cpp" line="1783"/>
         <source>Setting transmit mod input sources</source>
         <translation type="unfinished">設定傳輸調變輸入源</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="1795"/>
+        <location filename="../src/MainController.cpp" line="1799"/>
         <source>Running macro &quot;%1&quot;</source>
         <translation type="unfinished">運行巨集“ %1 ”</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2666"/>
+        <location filename="../src/MainController.cpp" line="2867"/>
         <source>Invalid repeater offset</source>
         <translation type="unfinished">無效的中繼器偏移</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2681"/>
+        <location filename="../src/MainController.cpp" line="2882"/>
         <source>Cannot set split before a receive frequency is available</source>
         <translation type="unfinished">在接收頻率可用之前，無法設定分頻</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2687"/>
+        <location filename="../src/MainController.cpp" line="2888"/>
         <source>Invalid split offset</source>
         <translation type="unfinished">無效的拆分偏移量</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="2715"/>
+        <location filename="../src/MainController.cpp" line="2916"/>
         <source>Invalid split transmit frequency</source>
         <translation type="unfinished">無效的分頻發射頻率</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3860"/>
+        <location filename="../src/MainController.cpp" line="4154"/>
         <source>Disabled</source>
         <translation type="unfinished">已停用</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3863"/>
+        <location filename="../src/MainController.cpp" line="4157"/>
         <source>Running</source>
         <translation type="unfinished">跑步</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3865"/>
+        <location filename="../src/MainController.cpp" line="4159"/>
         <source>Not running: %1</source>
         <translation type="unfinished">未運行： %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3866"/>
+        <location filename="../src/MainController.cpp" line="4160"/>
         <source>Starting</source>
         <translation type="unfinished">開始</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3869"/>
+        <location filename="../src/MainController.cpp" line="4163"/>
         <source>Not running: the server is only available when the radio is connected by a serial (USB) port</source>
         <translation type="unfinished">未運作：伺服器僅在收音機透過序列（ USB ）連接埠連接時可用</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3871"/>
+        <location filename="../src/MainController.cpp" line="4165"/>
         <source>Not running: waiting for the radio to be connected</source>
         <translation type="unfinished">未運作：正在等待無線電連接</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="3872"/>
+        <location filename="../src/MainController.cpp" line="4166"/>
         <source>Not running: waiting for the radio to be identified</source>
         <translation type="unfinished">未運作：等待識別無線電設備</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4136"/>
+        <location filename="../src/MainController.cpp" line="4442"/>
         <source>
 No TCP cluster server is selected.
 </source>
@@ -1695,174 +1726,175 @@ No TCP cluster server is selected.
 </translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4299"/>
+        <location filename="../src/MainController.cpp" line="4605"/>
         <source>Connecting...</source>
         <translation type="unfinished">正在連接...</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4300"/>
+        <location filename="../src/MainController.cpp" line="4606"/>
         <source>Connected, no traffic</source>
         <translation type="unfinished">已連接，無流量</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4301"/>
+        <location filename="../src/MainController.cpp" line="4607"/>
         <source>Connected, traffic received</source>
         <translation type="unfinished">已連接，已接收流量</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4302"/>
+        <location filename="../src/MainController.cpp" line="4608"/>
         <source>NC, Error</source>
         <translation type="unfinished">NC ，錯誤</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4303"/>
+        <location filename="../src/MainController.cpp" line="4609"/>
         <source>Not connected</source>
         <translation type="unfinished">未連接</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4635"/>
+        <location filename="../src/MainController.cpp" line="4953"/>
         <source>The port was set to auto, but no serial ports are available on this computer. The radio may be off, unplugged, or its USB driver may not be installed.</source>
         <translation type="unfinished">連接埠設定為自動，但此電腦上沒有可用的串列埠。可能是無線電模組已關閉、未連接電源，或其USB驅動程式未安裝。</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/MainController.cpp" line="4640"/>
+        <location filename="../src/MainController.cpp" line="4958"/>
         <source>The port was set to auto, but %n serial ports were found and none could be identified as the radio. Select the radio&apos;s port by name.</source>
         <translation type="unfinished">
             <numerusform>連接埠設定為自動，但找到了%n個串列埠，沒有一個能辨識為無線電收發器。請按名稱選擇無線電收發器的連接埠。</numerusform>
         </translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4645"/>
+        <location filename="../src/MainController.cpp" line="4963"/>
         <source>That port isn&apos;t present on this computer. The radio may be off, unplugged, or connected to a different port.</source>
         <translation type="unfinished">這台電腦上沒有那個連接埠。收音機可能已關閉、已拔出或連接到其他連接埠。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4651"/>
+        <location filename="../src/MainController.cpp" line="4969"/>
         <source>This user does not have permission to use the port. Add your user to the group that owns the port (usually dialout or uucp), then log out and back in.</source>
         <translation type="unfinished">該用戶沒有使用該連接埠的權限。請將您的使用者新增至擁有該連接埠的群組（通常是 dialout 或 uucp），然後登出並重新登入。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4655"/>
+        <location filename="../src/MainController.cpp" line="4973"/>
         <source>This user does not have permission to use the port.</source>
         <translation type="unfinished">該用戶沒有使用該連接埠的權限。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4864"/>
+        <location filename="../src/MainController.cpp" line="5185"/>
         <source>audio output device (speaker/headphones)</source>
         <translation type="unfinished">音訊輸出設備（揚聲器/耳機）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4867"/>
+        <location filename="../src/MainController.cpp" line="5188"/>
         <source>audio input device (microphone)</source>
         <translation type="unfinished">音訊輸入設備（麥克風）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4870"/>
+        <location filename="../src/MainController.cpp" line="5191"/>
         <source>radio USB audio input device (receive audio from the radio)</source>
         <translation type="unfinished">收音機USB音訊輸入設備（接收來自收音機的音訊）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4873"/>
+        <location filename="../src/MainController.cpp" line="5194"/>
         <source>radio USB audio output device (transmit audio to the radio)</source>
         <translation type="unfinished">收音機USB音訊輸出裝置（將音訊傳輸到收音機）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4876"/>
+        <location filename="../src/MainController.cpp" line="5197"/>
         <source>audio input device</source>
         <translation type="unfinished">音訊輸入設備</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4876"/>
+        <location filename="../src/MainController.cpp" line="5197"/>
         <source>audio output device</source>
         <translation type="unfinished">音訊輸出設備</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4883"/>
+        <location filename="../src/MainController.cpp" line="5204"/>
         <source>The selected %1 was blank. No device has been chosen.</source>
         <translation type="unfinished">選定的%1為空。未選擇任何設備。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4886"/>
+        <location filename="../src/MainController.cpp" line="5207"/>
         <source>The selected %1 could not be found.</source>
         <translation type="unfinished">找不到選定的%1 。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4889"/>
+        <location filename="../src/MainController.cpp" line="5210"/>
         <source>The selected %1 could not be used.</source>
         <translation type="unfinished">所選的%1無法使用。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4904"/>
+        <location filename="../src/MainController.cpp" line="5225"/>
         <source>Specified Device: &quot;%1&quot;</source>
         <translation type="unfinished">指定設備：“ %1 ”</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4906"/>
+        <location filename="../src/MainController.cpp" line="5227"/>
         <source>Reason: %1</source>
         <translation type="unfinished">原因： %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4908"/>
+        <location filename="../src/MainController.cpp" line="5229"/>
         <source>The device may have been unplugged, renamed, or is in use by a different audio system.</source>
         <translation type="unfinished">該設備可能已被拔掉電源、重新命名，或正在被其他音訊系統使用。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4910"/>
+        <location filename="../src/MainController.cpp" line="5231"/>
         <source>The device may be in use by another program, or may not support the required audio format.</source>
         <translation type="unfinished">該設備可能正被其他程式使用，或者可能不支援所需的音訊格式。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4938"/>
+        <location filename="../src/MainController.cpp" line="5259"/>
         <source>wfview cannot use the serial port for running the radio server.</source>
         <translation type="unfinished">wfview無法使用串列埠運作無線電伺服器。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4939"/>
+        <location filename="../src/MainController.cpp" line="5260"/>
         <source>wfview cannot use the serial port for connecting to the radio.</source>
         <translation type="unfinished">wfview無法使用串列埠連接到無線電設備。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4942"/>
+        <location filename="../src/MainController.cpp" line="5263"/>
         <source>Serial port: &quot;%1&quot;</source>
         <translation type="unfinished">串口：“ %1 ”</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4945"/>
+        <location filename="../src/MainController.cpp" line="5266"/>
         <source>To use a different port, disconnect from the radio, go to Settings → Radio Access, and select a new serial device. Then connect again.</source>
         <translation type="unfinished">要使用其他端口，請斷開與無線電的連接，轉到“設定”→“無線電訪問”，然後選擇新的序列設備。之後重新連線。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4949"/>
+        <location filename="../src/MainController.cpp" line="5270"/>
         <source>For an unattended server, this warning can be turned off in Settings → Radio Server; wfview will then keep retrying the port.</source>
         <translation type="unfinished">對於無人值守伺服器，可以在「設定」→「無線電伺服器」中關閉此警告；然後wfview將繼續重試連接埠。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4991"/>
+        <location filename="../src/MainController.cpp" line="2193"/>
+        <location filename="../src/MainController.cpp" line="5312"/>
         <source>ERROR: %1</source>
         <translation>ERROR: %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="4992"/>
+        <location filename="../src/MainController.cpp" line="5313"/>
         <source>ERROR: %1: %2</source>
         <translation>ERROR: %1: %2</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="5094"/>
+        <location filename="../src/MainController.cpp" line="5424"/>
         <source>Mic</source>
         <translation type="unfinished">麥克風</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7420"/>
+        <location filename="../src/MainController.cpp" line="7811"/>
         <source>%1 (no rig files)</source>
         <translation type="unfinished">%1 （無裝備文件）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7421"/>
+        <location filename="../src/MainController.cpp" line="7812"/>
         <source>%1 (folder not found)</source>
         <translation type="unfinished">%1 （未找到資料夾）</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7437"/>
+        <location filename="../src/MainController.cpp" line="7828"/>
         <source>No rig definition files were found, so wfview cannot identify or control a radio. Reinstalling wfview should restore them.
 
 Locations searched:
@@ -1873,17 +1905,17 @@ Locations searched:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7498"/>
+        <location filename="../src/MainController.cpp" line="7889"/>
         <source>Radio clock sync is not available for this connection.</source>
         <translation type="unfinished">此連線不支援無線電時鐘同步。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7524"/>
+        <location filename="../src/MainController.cpp" line="7915"/>
         <source>Setting radio clock at the next minute boundary.</source>
         <translation type="unfinished">將收音機時鐘設定為下一分鐘。</translation>
     </message>
     <message>
-        <location filename="../src/MainController.cpp" line="7534"/>
+        <location filename="../src/MainController.cpp" line="7925"/>
         <source>Setting radio clock now.</source>
         <translation type="unfinished">正在設定收音機時鐘。</translation>
     </message>
@@ -2134,157 +2166,157 @@ Locations searched:
         <translation type="unfinished">TX音訊</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2469"/>
+        <location filename="../qml/MainWindow.qml" line="2473"/>
         <source>Receive</source>
         <translation type="unfinished">收到</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2469"/>
+        <location filename="../qml/MainWindow.qml" line="2473"/>
         <source>Transmit</source>
         <translation type="unfinished">傳送</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2479"/>
+        <location filename="../qml/MainWindow.qml" line="2483"/>
         <source>Enable ATU</source>
         <translation type="unfinished">啟用ATU</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2487"/>
+        <location filename="../qml/MainWindow.qml" line="2491"/>
         <source>Tune</source>
         <translation type="unfinished">調</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2494"/>
+        <location filename="../qml/MainWindow.qml" line="2498"/>
         <source>CW</source>
         <translation>CW</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2502"/>
+        <location filename="../qml/MainWindow.qml" line="2506"/>
         <source>Rpt/Split</source>
         <translation type="unfinished">轉發/拆分</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2509"/>
+        <location filename="../qml/MainWindow.qml" line="2513"/>
         <source>Memories</source>
         <translation type="unfinished">回憶</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2526"/>
+        <location filename="../qml/MainWindow.qml" line="2530"/>
         <source>Run macro %1</source>
         <translation type="unfinished">運行宏%1</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2565"/>
+        <location filename="../qml/MainWindow.qml" line="2569"/>
         <source>Scope Settings</source>
         <translation type="unfinished">範圍設定</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2575"/>
+        <location filename="../qml/MainWindow.qml" line="2579"/>
         <source>Dual Scope</source>
         <translation type="unfinished">雙瞄準鏡</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2583"/>
+        <location filename="../qml/MainWindow.qml" line="2587"/>
         <source>Dual Watch</source>
         <translation type="unfinished">雙手錶</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2591"/>
+        <location filename="../qml/MainWindow.qml" line="2595"/>
         <source>Split</source>
         <translation type="unfinished">分裂</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2601"/>
+        <location filename="../qml/MainWindow.qml" line="2607"/>
         <source>Main/Sub</source>
         <translation type="unfinished">主/副</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2607"/>
+        <location filename="../qml/MainWindow.qml" line="2613"/>
         <source>Main&lt;&gt;Sub</source>
         <translation type="unfinished">主&lt;&gt;子程序</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2613"/>
+        <location filename="../qml/MainWindow.qml" line="2619"/>
         <source>Main=Sub</source>
         <translation type="unfinished">主=子程序</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2632"/>
+        <location filename="../qml/MainWindow.qml" line="2638"/>
         <source>CMP</source>
         <translation>CMP</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2639"/>
+        <location filename="../qml/MainWindow.qml" line="2645"/>
         <source>VOX</source>
         <translation>VOX</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2671"/>
+        <location filename="../qml/MainWindow.qml" line="2677"/>
         <source>About</source>
         <translation type="unfinished">關於</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2678"/>
+        <location filename="../qml/MainWindow.qml" line="2684"/>
         <source>Settings</source>
         <translation type="unfinished">設定</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2682"/>
+        <location filename="../qml/MainWindow.qml" line="2688"/>
         <source>TX Audio Proc</source>
         <translation type="unfinished">TX音訊處理器</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2687"/>
+        <location filename="../qml/MainWindow.qml" line="2693"/>
         <source>RX Audio Proc</source>
         <translation type="unfinished">RX音訊處理器</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2693"/>
+        <location filename="../qml/MainWindow.qml" line="2699"/>
         <source>Radio Status</source>
         <translation type="unfinished">無線電狀態</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2697"/>
+        <location filename="../qml/MainWindow.qml" line="2703"/>
         <source>Log</source>
         <translation type="unfinished">紀錄</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2705"/>
+        <location filename="../qml/MainWindow.qml" line="2711"/>
         <source>Rig Creator</source>
         <translation type="unfinished">裝備創建器</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2740"/>
+        <location filename="../qml/MainWindow.qml" line="2746"/>
         <source>Connect to Radio</source>
         <translation type="unfinished">連接到收音機</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2742"/>
+        <location filename="../qml/MainWindow.qml" line="2748"/>
         <source>Cancel Connection</source>
         <translation type="unfinished">取消連線</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2744"/>
+        <location filename="../qml/MainWindow.qml" line="2750"/>
         <source>Disconnect from Radio</source>
         <translation type="unfinished">斷開收音機連接</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2744"/>
+        <location filename="../qml/MainWindow.qml" line="2750"/>
         <source>Unknown status!</source>
         <translation type="unfinished">狀態未知！</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2750"/>
+        <location filename="../qml/MainWindow.qml" line="2756"/>
         <source>Exit Program</source>
         <translation type="unfinished">退出計劃</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2784"/>
+        <location filename="../qml/MainWindow.qml" line="2790"/>
         <source>NONE</source>
         <translation>NONE</translation>
     </message>
     <message>
-        <location filename="../qml/MainWindow.qml" line="2798"/>
+        <location filename="../qml/MainWindow.qml" line="2804"/>
         <source>About wfview</source>
         <translation type="unfinished">關於wfview</translation>
     </message>
@@ -2688,335 +2720,351 @@ Locations searched:
     </message>
     <message>
         <location filename="../qml/Receiver.qml" line="303"/>
-        <location filename="../qml/Receiver.qml" line="2335"/>
+        <location filename="../qml/Receiver.qml" line="2388"/>
         <source>☰</source>
         <translation>☰</translation>
     </message>
     <message>
         <location filename="../qml/Receiver.qml" line="303"/>
-        <location filename="../qml/Receiver.qml" line="954"/>
+        <location filename="../qml/Receiver.qml" line="958"/>
         <source>Bands</source>
         <translation type="unfinished">樂團</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="486"/>
+        <location filename="../qml/Receiver.qml" line="488"/>
         <source>Memory mode active. Switch to VFO mode for tuning</source>
         <translation type="unfinished">記憶體模式已啟動。切換到VFO模式進行調諧</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="529"/>
+        <location filename="../qml/Receiver.qml" line="531"/>
         <source>VFO:</source>
         <translation>VFO:</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="535"/>
+        <location filename="../qml/Receiver.qml" line="537"/>
         <source>A</source>
         <translation type="unfinished">一個</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="543"/>
+        <location filename="../qml/Receiver.qml" line="545"/>
         <source>B</source>
         <translation type="unfinished">B</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="562"/>
+        <location filename="../qml/Receiver.qml" line="564"/>
         <source>A↔B</source>
         <translation type="unfinished">A↔B</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="570"/>
+        <location filename="../qml/Receiver.qml" line="572"/>
         <source>A=B</source>
         <translation type="unfinished">A=B</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="580"/>
+        <location filename="../qml/Receiver.qml" line="582"/>
         <source>V/M</source>
         <translation type="unfinished">V/M</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="591"/>
+        <location filename="../qml/Receiver.qml" line="593"/>
         <source>SAT</source>
         <translation>SAT</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="600"/>
+        <location filename="../qml/Receiver.qml" line="602"/>
         <source>SPLIT</source>
         <translation>SPLIT</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="684"/>
+        <location filename="../qml/Receiver.qml" line="688"/>
         <source>Scope display mode</source>
         <translation type="unfinished">示波器顯示模式</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="700"/>
+        <location filename="../qml/Receiver.qml" line="704"/>
         <source>Center-mode span</source>
         <translation type="unfinished">中心模式跨度</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="716"/>
+        <location filename="../qml/Receiver.qml" line="720"/>
         <source>Fixed edge range</source>
         <translation type="unfinished">固定邊緣範圍</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="725"/>
+        <location filename="../qml/Receiver.qml" line="729"/>
         <source>Custom Edge</source>
         <translation type="unfinished">客製化邊緣</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="732"/>
+        <location filename="../qml/Receiver.qml" line="736"/>
         <source>To Fixed</source>
         <translation type="unfinished">固定</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="741"/>
+        <location filename="../qml/Receiver.qml" line="745"/>
         <source>Hold</source>
         <translation type="unfinished">抓住</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="764"/>
+        <location filename="../qml/Receiver.qml" line="768"/>
         <source>Operating mode</source>
         <translation type="unfinished">操作模式</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="780"/>
+        <location filename="../qml/Receiver.qml" line="784"/>
         <source>Data mode</source>
         <translation type="unfinished">數據模式</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="796"/>
+        <location filename="../qml/Receiver.qml" line="800"/>
         <source>IF filter selection</source>
         <translation type="unfinished">IF過濾器選擇</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="813"/>
+        <location filename="../qml/Receiver.qml" line="817"/>
         <source>Filter shape</source>
         <translation type="unfinished">濾波器形狀</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="829"/>
+        <location filename="../qml/Receiver.qml" line="833"/>
         <source>Roofing filter</source>
         <translation type="unfinished">屋頂過濾器</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="841"/>
+        <location filename="../qml/Receiver.qml" line="845"/>
         <source>Clear Peaks</source>
         <translation type="unfinished">清澈的山峰</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="945"/>
-        <location filename="../qml/Receiver.qml" line="1209"/>
+        <location filename="../qml/Receiver.qml" line="949"/>
+        <location filename="../qml/Receiver.qml" line="1213"/>
         <source>Unlock drawer</source>
         <translation type="unfinished">打開抽屜</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="945"/>
-        <location filename="../qml/Receiver.qml" line="1209"/>
+        <location filename="../qml/Receiver.qml" line="949"/>
+        <location filename="../qml/Receiver.qml" line="1213"/>
         <source>Lock drawer</source>
         <translation type="unfinished">鎖抽屜</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="987"/>
+        <location filename="../qml/Receiver.qml" line="991"/>
         <source>BSR 1</source>
         <translation>BSR 1</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="988"/>
+        <location filename="../qml/Receiver.qml" line="992"/>
         <source>BSR 2</source>
         <translation>BSR 2</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="989"/>
+        <location filename="../qml/Receiver.qml" line="993"/>
         <source>BSR 3</source>
         <translation>BSR 3</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="999"/>
+        <location filename="../qml/Receiver.qml" line="1003"/>
         <source>Store</source>
         <translation type="unfinished">店鋪</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1262"/>
+        <location filename="../qml/Receiver.qml" line="1266"/>
         <source>Full screen</source>
         <translation type="unfinished">全螢幕</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1278"/>
+        <location filename="../qml/Receiver.qml" line="1282"/>
         <source>Use a borderless full-screen detached receiver</source>
         <translation type="unfinished">使用無邊框全螢幕分離式接收器</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1283"/>
+        <location filename="../qml/Receiver.qml" line="1287"/>
         <source>Ref</source>
         <translation type="unfinished">參考</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1313"/>
+        <location filename="../qml/Receiver.qml" line="1317"/>
         <source>Length</source>
         <translation type="unfinished">長度</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1346"/>
+        <location filename="../qml/Receiver.qml" line="1350"/>
         <source>Ceiling</source>
         <translation type="unfinished">天花板</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1377"/>
+        <location filename="../qml/Receiver.qml" line="1381"/>
         <source>Floor</source>
         <translation type="unfinished">地面</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1408"/>
+        <location filename="../qml/Receiver.qml" line="1412"/>
         <source>Speed</source>
         <translation type="unfinished">速度</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1427"/>
+        <location filename="../qml/Receiver.qml" line="1431"/>
         <source>Theme</source>
         <translation type="unfinished">主題</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1451"/>
+        <location filename="../qml/Receiver.qml" line="1455"/>
         <source>PBT Inner</source>
         <translation type="unfinished">PBT內層</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1480"/>
+        <location filename="../qml/Receiver.qml" line="1484"/>
         <source>PBT Outer</source>
         <translation type="unfinished">PBT外層</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1509"/>
+        <location filename="../qml/Receiver.qml" line="1513"/>
         <source>IF Shift</source>
         <translation type="unfinished">IF Shift</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1531"/>
+        <location filename="../qml/Receiver.qml" line="1538"/>
         <source>R</source>
         <translation type="unfinished">拉</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1540"/>
+        <location filename="../qml/Receiver.qml" line="1547"/>
         <source>Filter width</source>
         <translation type="unfinished">濾波器寬度</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1566"/>
+        <location filename="../qml/Receiver.qml" line="1595"/>
+        <source>IF filter width. Steps through the widths the radio offers in this mode.</source>
+        <translation type="unfinished">中頻濾波器頻寬。在電台於此模式下提供的頻寬之間逐級切換。</translation>
+    </message>
+    <message>
+        <location filename="../qml/Receiver.qml" line="1596"/>
+        <source>IF filter width, in Hz.</source>
+        <translation type="unfinished">中頻濾波器頻寬，單位 Hz。</translation>
+    </message>
+    <message>
+        <location filename="../qml/Receiver.qml" line="1603"/>
+        <location filename="../qml/Receiver.qml" line="1606"/>
+        <source>%1 Hz</source>
+        <translation>%1 Hz</translation>
+    </message>
+    <message>
+        <location filename="../qml/Receiver.qml" line="1619"/>
         <source>NB</source>
         <translation>NB</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1614"/>
+        <location filename="../qml/Receiver.qml" line="1667"/>
         <source>NR</source>
         <translation>NR</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1668"/>
+        <location filename="../qml/Receiver.qml" line="1721"/>
         <source>IP+</source>
         <translation>IP+</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1681"/>
+        <location filename="../qml/Receiver.qml" line="1734"/>
         <source>MN</source>
         <translation>MN</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1694"/>
+        <location filename="../qml/Receiver.qml" line="1747"/>
         <source>DS</source>
         <translation>DS</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1706"/>
+        <location filename="../qml/Receiver.qml" line="1759"/>
         <source>RF Gain</source>
         <translation type="unfinished">RF增益</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1733"/>
+        <location filename="../qml/Receiver.qml" line="1786"/>
         <source>AF Gain</source>
         <translation type="unfinished">自動AF</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1760"/>
+        <location filename="../qml/Receiver.qml" line="1813"/>
         <source>Squelch</source>
         <translation type="unfinished">抑制</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1788"/>
+        <location filename="../qml/Receiver.qml" line="1841"/>
         <source>Attenuator</source>
         <translation type="unfinished">衰減器</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="1986"/>
+        <location filename="../qml/Receiver.qml" line="2039"/>
         <source>Preamp</source>
         <translation type="unfinished">前級擴大機</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2181"/>
+        <location filename="../qml/Receiver.qml" line="2234"/>
         <source>AGC</source>
         <translation>AGC</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2251"/>
+        <location filename="../qml/Receiver.qml" line="2304"/>
         <source>RX</source>
         <translation>RX</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2272"/>
+        <location filename="../qml/Receiver.qml" line="2325"/>
         <source>Scope enabled</source>
         <translation type="unfinished">已啟用範圍</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2335"/>
+        <location filename="../qml/Receiver.qml" line="2388"/>
         <source>RX Settings</source>
         <translation type="unfinished">RX設定</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2379"/>
+        <location filename="../qml/Receiver.qml" line="2432"/>
         <source>Edge to replace:</source>
         <translation type="unfinished">替換邊緣：</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2400"/>
+        <location filename="../qml/Receiver.qml" line="2453"/>
         <source>Custom Fixed Edge</source>
         <translation type="unfinished">客製化固定邊緣</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2420"/>
+        <location filename="../qml/Receiver.qml" line="2473"/>
         <source>Enter both edges in MHz</source>
         <translation type="unfinished">輸入兩個邊緣，單位為MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2422"/>
+        <location filename="../qml/Receiver.qml" line="2475"/>
         <source>End must be above start</source>
         <translation type="unfinished">結束必須高於開始</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2424"/>
+        <location filename="../qml/Receiver.qml" line="2477"/>
         <source>Start is below %1 MHz</source>
         <translation type="unfinished">起始頻率低於%1 MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2426"/>
+        <location filename="../qml/Receiver.qml" line="2479"/>
         <source>End is above %1 MHz</source>
         <translation type="unfinished">結束頻率高於%1 MHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2430"/>
+        <location filename="../qml/Receiver.qml" line="2483"/>
         <source>Span must be at least %1 kHz</source>
         <translation type="unfinished">跨度必須至少%1 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2432"/>
+        <location filename="../qml/Receiver.qml" line="2485"/>
         <source>Span must be at most %1 kHz</source>
         <translation type="unfinished">跨距必須不超過%1 kHz</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2475"/>
+        <location filename="../qml/Receiver.qml" line="2528"/>
         <source>Start frequency (MHz):</source>
         <translation type="unfinished">起始頻率（ MHz ）：</translation>
     </message>
     <message>
-        <location filename="../qml/Receiver.qml" line="2488"/>
+        <location filename="../qml/Receiver.qml" line="2541"/>
         <source>End frequency (MHz):</source>
         <translation type="unfinished">終止頻率（ MHz ）：</translation>
     </message>
@@ -3233,477 +3281,477 @@ Locations searched:
         <translation type="unfinished">取消</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="673"/>
+        <location filename="../qml/RigCreator.qml" line="678"/>
         <source>Copy</source>
         <translation type="unfinished">複製</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="678"/>
+        <location filename="../qml/RigCreator.qml" line="683"/>
         <source>Paste</source>
         <translation type="unfinished">貼上</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="685"/>
+        <location filename="../qml/RigCreator.qml" line="690"/>
         <source>Add row</source>
         <translation type="unfinished">新增行</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="690"/>
+        <location filename="../qml/RigCreator.qml" line="695"/>
         <source>Delete row</source>
         <translation type="unfinished">刪除行</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1156"/>
+        <location filename="../qml/RigCreator.qml" line="1161"/>
         <source>Search commands</source>
         <translation type="unfinished">搜尋命令</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1299"/>
+        <location filename="../qml/RigCreator.qml" line="1304"/>
         <source>All modes</source>
         <translation type="unfinished">所有模式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1332"/>
+        <location filename="../qml/RigCreator.qml" line="1337"/>
         <source>Empty means all modes</source>
         <translation type="unfinished">空表示所有模式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1374"/>
+        <location filename="../qml/RigCreator.qml" line="1379"/>
         <source>Clear</source>
         <translation type="unfinished">清除</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1384"/>
+        <location filename="../qml/RigCreator.qml" line="1389"/>
         <source>Done</source>
         <translation type="unfinished">完畢</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1539"/>
+        <location filename="../qml/RigCreator.qml" line="1544"/>
         <source>Load File</source>
         <translation type="unfinished">載入文件</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1540"/>
+        <location filename="../qml/RigCreator.qml" line="1546"/>
         <source>Save File</source>
         <translation type="unfinished">儲存檔案</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1544"/>
+        <location filename="../qml/RigCreator.qml" line="1553"/>
         <source>Default Rigs</source>
         <translation type="unfinished">預設裝備</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1546"/>
+        <location filename="../qml/RigCreator.qml" line="1555"/>
         <source>Manufacturer</source>
         <translation type="unfinished">製造商</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1552"/>
+        <location filename="../qml/RigCreator.qml" line="1561"/>
         <source>Icom</source>
         <translation>Icom</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1553"/>
+        <location filename="../qml/RigCreator.qml" line="1562"/>
         <source>Kenwood</source>
         <translation>Kenwood</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1554"/>
+        <location filename="../qml/RigCreator.qml" line="1563"/>
         <source>Yaesu</source>
         <translation>Yaesu</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1586"/>
+        <location filename="../qml/RigCreator.qml" line="1595"/>
         <source>Model</source>
         <translation type="unfinished">模型</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1594"/>
+        <location filename="../qml/RigCreator.qml" line="1603"/>
         <source>C-IV Address</source>
         <translation type="unfinished">C-IV地址</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1603"/>
+        <location filename="../qml/RigCreator.qml" line="1612"/>
         <source>RigCtlD Model</source>
         <translation type="unfinished">RigCtlD 模型</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1649"/>
+        <location filename="../qml/RigCreator.qml" line="1658"/>
         <source>Inputs</source>
         <translation type="unfinished">輸入</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1653"/>
-        <location filename="../qml/RigCreator.qml" line="1671"/>
-        <location filename="../qml/RigCreator.qml" line="1689"/>
-        <location filename="../qml/RigCreator.qml" line="1706"/>
-        <location filename="../qml/RigCreator.qml" line="1756"/>
-        <location filename="../qml/RigCreator.qml" line="1783"/>
-        <location filename="../qml/RigCreator.qml" line="1826"/>
-        <location filename="../qml/RigCreator.qml" line="1840"/>
-        <location filename="../qml/RigCreator.qml" line="1854"/>
-        <location filename="../qml/RigCreator.qml" line="1868"/>
-        <location filename="../qml/RigCreator.qml" line="1882"/>
-        <location filename="../qml/RigCreator.qml" line="1896"/>
-        <location filename="../qml/RigCreator.qml" line="1960"/>
+        <location filename="../qml/RigCreator.qml" line="1662"/>
+        <location filename="../qml/RigCreator.qml" line="1680"/>
+        <location filename="../qml/RigCreator.qml" line="1698"/>
+        <location filename="../qml/RigCreator.qml" line="1715"/>
+        <location filename="../qml/RigCreator.qml" line="1765"/>
+        <location filename="../qml/RigCreator.qml" line="1792"/>
+        <location filename="../qml/RigCreator.qml" line="1835"/>
+        <location filename="../qml/RigCreator.qml" line="1849"/>
+        <location filename="../qml/RigCreator.qml" line="1863"/>
+        <location filename="../qml/RigCreator.qml" line="1877"/>
+        <location filename="../qml/RigCreator.qml" line="1891"/>
+        <location filename="../qml/RigCreator.qml" line="1905"/>
+        <location filename="../qml/RigCreator.qml" line="1969"/>
         <source>Num</source>
         <translation type="unfinished">數位</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1654"/>
-        <location filename="../qml/RigCreator.qml" line="1707"/>
-        <location filename="../qml/RigCreator.qml" line="1913"/>
-        <location filename="../qml/RigCreator.qml" line="1927"/>
+        <location filename="../qml/RigCreator.qml" line="1663"/>
+        <location filename="../qml/RigCreator.qml" line="1716"/>
+        <location filename="../qml/RigCreator.qml" line="1922"/>
+        <location filename="../qml/RigCreator.qml" line="1936"/>
         <source>Reg</source>
         <translation type="unfinished">雷格</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1655"/>
-        <location filename="../qml/RigCreator.qml" line="1672"/>
-        <location filename="../qml/RigCreator.qml" line="1710"/>
-        <location filename="../qml/RigCreator.qml" line="1762"/>
-        <location filename="../qml/RigCreator.qml" line="1784"/>
-        <location filename="../qml/RigCreator.qml" line="1826"/>
-        <location filename="../qml/RigCreator.qml" line="1840"/>
-        <location filename="../qml/RigCreator.qml" line="1854"/>
-        <location filename="../qml/RigCreator.qml" line="1868"/>
-        <location filename="../qml/RigCreator.qml" line="1882"/>
-        <location filename="../qml/RigCreator.qml" line="1896"/>
-        <location filename="../qml/RigCreator.qml" line="1960"/>
+        <location filename="../qml/RigCreator.qml" line="1664"/>
+        <location filename="../qml/RigCreator.qml" line="1681"/>
+        <location filename="../qml/RigCreator.qml" line="1719"/>
+        <location filename="../qml/RigCreator.qml" line="1771"/>
+        <location filename="../qml/RigCreator.qml" line="1793"/>
+        <location filename="../qml/RigCreator.qml" line="1835"/>
+        <location filename="../qml/RigCreator.qml" line="1849"/>
+        <location filename="../qml/RigCreator.qml" line="1863"/>
+        <location filename="../qml/RigCreator.qml" line="1877"/>
+        <location filename="../qml/RigCreator.qml" line="1891"/>
+        <location filename="../qml/RigCreator.qml" line="1905"/>
+        <location filename="../qml/RigCreator.qml" line="1969"/>
         <source>Name</source>
         <translation type="unfinished">姓名</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1667"/>
+        <location filename="../qml/RigCreator.qml" line="1676"/>
         <source>Scope Modes</source>
         <translation type="unfinished">範圍模式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1684"/>
+        <location filename="../qml/RigCreator.qml" line="1693"/>
         <source>Widths</source>
         <translation type="unfinished">寬度</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1688"/>
-        <location filename="../qml/RigCreator.qml" line="1751"/>
+        <location filename="../qml/RigCreator.qml" line="1697"/>
+        <location filename="../qml/RigCreator.qml" line="1760"/>
         <source>Bands</source>
         <translation type="unfinished">樂團</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1690"/>
-        <location filename="../qml/RigCreator.qml" line="1785"/>
+        <location filename="../qml/RigCreator.qml" line="1699"/>
+        <location filename="../qml/RigCreator.qml" line="1794"/>
         <source>Hz</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1702"/>
-        <location filename="../qml/RigCreator.qml" line="1811"/>
-        <location filename="../qml/RigCreator.qml" line="1854"/>
+        <location filename="../qml/RigCreator.qml" line="1711"/>
+        <location filename="../qml/RigCreator.qml" line="1820"/>
+        <location filename="../qml/RigCreator.qml" line="1863"/>
         <source>Modes</source>
         <translation type="unfinished">模式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1708"/>
-        <location filename="../qml/RigCreator.qml" line="1730"/>
+        <location filename="../qml/RigCreator.qml" line="1717"/>
+        <location filename="../qml/RigCreator.qml" line="1739"/>
         <source>Min</source>
         <translation type="unfinished">敏感</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1709"/>
-        <location filename="../qml/RigCreator.qml" line="1731"/>
+        <location filename="../qml/RigCreator.qml" line="1718"/>
+        <location filename="../qml/RigCreator.qml" line="1740"/>
         <source>Max</source>
         <translation type="unfinished">最大限度</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1724"/>
+        <location filename="../qml/RigCreator.qml" line="1733"/>
         <source>Commands</source>
         <translation type="unfinished">命令</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1728"/>
+        <location filename="../qml/RigCreator.qml" line="1737"/>
         <source>Type</source>
         <translation type="unfinished">類型</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1729"/>
-        <location filename="../qml/RigCreator.qml" line="1809"/>
+        <location filename="../qml/RigCreator.qml" line="1738"/>
+        <location filename="../qml/RigCreator.qml" line="1818"/>
         <source>Command</source>
         <translation type="unfinished">命令</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1732"/>
-        <location filename="../qml/RigCreator.qml" line="1763"/>
+        <location filename="../qml/RigCreator.qml" line="1741"/>
+        <location filename="../qml/RigCreator.qml" line="1772"/>
         <source>Bytes</source>
         <translation type="unfinished">位元組</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1733"/>
+        <location filename="../qml/RigCreator.qml" line="1742"/>
         <source>PadR</source>
         <translation type="unfinished">PadR</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1734"/>
+        <location filename="../qml/RigCreator.qml" line="1743"/>
         <source>Cmd29</source>
         <translation type="unfinished">Cmd29</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1735"/>
+        <location filename="../qml/RigCreator.qml" line="1744"/>
         <source>Get</source>
         <translation type="unfinished">得到</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1736"/>
+        <location filename="../qml/RigCreator.qml" line="1745"/>
         <source>Set</source>
         <translation type="unfinished">放</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1737"/>
+        <location filename="../qml/RigCreator.qml" line="1746"/>
         <source>Admin</source>
         <translation type="unfinished">行政</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1738"/>
+        <location filename="../qml/RigCreator.qml" line="1747"/>
         <source>Get w/o Sub Cmd</source>
         <translation type="unfinished">無需子命令即可獲取</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1755"/>
+        <location filename="../qml/RigCreator.qml" line="1764"/>
         <source>Region</source>
         <translation type="unfinished">地區</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1757"/>
+        <location filename="../qml/RigCreator.qml" line="1766"/>
         <source>BSR</source>
         <translation>BSR</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1758"/>
-        <location filename="../qml/RigCreator.qml" line="2038"/>
+        <location filename="../qml/RigCreator.qml" line="1767"/>
+        <location filename="../qml/RigCreator.qml" line="2129"/>
         <source>Start</source>
         <translation type="unfinished">開始</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1759"/>
+        <location filename="../qml/RigCreator.qml" line="1768"/>
         <source>End</source>
         <translation type="unfinished">結尾</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1760"/>
+        <location filename="../qml/RigCreator.qml" line="1769"/>
         <source>Range</source>
         <translation type="unfinished">範圍</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1761"/>
+        <location filename="../qml/RigCreator.qml" line="1770"/>
         <source>MemGrp</source>
         <translation type="unfinished">記憶組</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1764"/>
+        <location filename="../qml/RigCreator.qml" line="1773"/>
         <source>Power</source>
         <translation type="unfinished">力量</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1765"/>
+        <location filename="../qml/RigCreator.qml" line="1774"/>
         <source>Ant</source>
         <translation type="unfinished">螞蟻</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1766"/>
+        <location filename="../qml/RigCreator.qml" line="1775"/>
         <source>Offset</source>
         <translation type="unfinished">抵銷</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1767"/>
+        <location filename="../qml/RigCreator.qml" line="1776"/>
         <source>Color</source>
         <translation type="unfinished">顏色</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1779"/>
+        <location filename="../qml/RigCreator.qml" line="1788"/>
         <source>Tuning Steps</source>
         <translation type="unfinished">調音步驟</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1797"/>
+        <location filename="../qml/RigCreator.qml" line="1806"/>
         <source>Periodic Commands</source>
         <translation type="unfinished">週期性指令</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1801"/>
+        <location filename="../qml/RigCreator.qml" line="1810"/>
         <source>Priority</source>
         <translation type="unfinished">優先事項</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1802"/>
+        <location filename="../qml/RigCreator.qml" line="1811"/>
         <source>Highest</source>
         <translation type="unfinished">最高</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1803"/>
+        <location filename="../qml/RigCreator.qml" line="1812"/>
         <source>High</source>
         <translation type="unfinished">高的</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1804"/>
+        <location filename="../qml/RigCreator.qml" line="1813"/>
         <source>Medium High</source>
         <translation type="unfinished">中高</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1805"/>
+        <location filename="../qml/RigCreator.qml" line="1814"/>
         <source>Medium</source>
         <translation type="unfinished">中等的</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1806"/>
+        <location filename="../qml/RigCreator.qml" line="1815"/>
         <source>Medium Low</source>
         <translation type="unfinished">中低</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1807"/>
+        <location filename="../qml/RigCreator.qml" line="1816"/>
         <source>Low</source>
         <translation type="unfinished">低的</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1810"/>
+        <location filename="../qml/RigCreator.qml" line="1819"/>
         <source>VFO</source>
         <translation>VFO</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1823"/>
+        <location filename="../qml/RigCreator.qml" line="1832"/>
         <source>Antennas</source>
         <translation type="unfinished">天線</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1837"/>
+        <location filename="../qml/RigCreator.qml" line="1846"/>
         <source>Attenuators</source>
         <translation type="unfinished">衰減器</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1851"/>
+        <location filename="../qml/RigCreator.qml" line="1860"/>
         <source>Filters</source>
         <translation type="unfinished">過濾器</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1865"/>
+        <location filename="../qml/RigCreator.qml" line="1874"/>
         <source>Spans</source>
         <translation type="unfinished">跨距</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1868"/>
+        <location filename="../qml/RigCreator.qml" line="1877"/>
         <source>Freq</source>
         <translation type="unfinished">頻率</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1879"/>
+        <location filename="../qml/RigCreator.qml" line="1888"/>
         <source>Preamps</source>
         <translation type="unfinished">前級擴大機</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1893"/>
+        <location filename="../qml/RigCreator.qml" line="1902"/>
         <source>AGC</source>
         <translation>AGC</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1897"/>
+        <location filename="../qml/RigCreator.qml" line="1906"/>
         <source>SetOnly</source>
         <translation type="unfinished">僅設定</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1898"/>
+        <location filename="../qml/RigCreator.qml" line="1907"/>
         <source>ReadOnly</source>
         <translation type="unfinished">只讀</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1909"/>
+        <location filename="../qml/RigCreator.qml" line="1918"/>
         <source>CTCSS</source>
         <translation>CTCSS</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1913"/>
+        <location filename="../qml/RigCreator.qml" line="1922"/>
         <source>Tone</source>
         <translation type="unfinished">語氣</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1924"/>
+        <location filename="../qml/RigCreator.qml" line="1933"/>
         <source>DTCS</source>
         <translation>DTCS</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1938"/>
+        <location filename="../qml/RigCreator.qml" line="1947"/>
         <source>Meters</source>
         <translation type="unfinished">儀表</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1942"/>
+        <location filename="../qml/RigCreator.qml" line="1951"/>
         <source>Meter</source>
         <translation type="unfinished">儀表</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1943"/>
+        <location filename="../qml/RigCreator.qml" line="1952"/>
         <source>Rig</source>
         <translation type="unfinished">鑽井平台</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1944"/>
+        <location filename="../qml/RigCreator.qml" line="1953"/>
         <source>Act</source>
         <translation type="unfinished">行為</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1945"/>
+        <location filename="../qml/RigCreator.qml" line="1954"/>
         <source>Red</source>
         <translation type="unfinished">紅色的</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1957"/>
+        <location filename="../qml/RigCreator.qml" line="1966"/>
         <source>Roofing</source>
         <translation type="unfinished">屋頂</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1981"/>
+        <location filename="../qml/RigCreator.qml" line="1998"/>
         <source>Features</source>
         <translation type="unfinished">特徵</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1985"/>
+        <location filename="../qml/RigCreator.qml" line="2002"/>
         <source>Has Spectrum</source>
         <translation type="unfinished">擁有光譜</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1986"/>
+        <location filename="../qml/RigCreator.qml" line="2003"/>
         <source>Has LAN</source>
         <translation type="unfinished">有LAN</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1987"/>
+        <location filename="../qml/RigCreator.qml" line="2004"/>
         <source>Has Ethernet</source>
         <translation type="unfinished">具備乙太網路功能</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1988"/>
+        <location filename="../qml/RigCreator.qml" line="2005"/>
         <source>Has WiFi</source>
         <translation type="unfinished">有WiFi</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1989"/>
+        <location filename="../qml/RigCreator.qml" line="2006"/>
         <source>Has Transmit</source>
         <translation type="unfinished">已發送</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1990"/>
+        <location filename="../qml/RigCreator.qml" line="2007"/>
         <source>Has FD Comms</source>
         <translation type="unfinished">有FD通訊</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1991"/>
+        <location filename="../qml/RigCreator.qml" line="2008"/>
         <source>Has Cmd 29</source>
         <translation type="unfinished">有 Cmd 29</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1993"/>
+        <location filename="../qml/RigCreator.qml" line="2010"/>
         <source>Absolute VFO Freq</source>
         <translation type="unfinished">絕對VFO頻率</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="1998"/>
+        <location filename="../qml/RigCreator.qml" line="2015"/>
         <source>Enable when the Selected Freq and Unselected Freq commands always address VFO A and VFO B (for example Kenwood FA/FB), rather than the active and inactive VFO.
 When VFO B is selected, wfview then sends tuning to the Unselected Freq command and shows its replies as the active frequency.
 Leave off when the radio&apos;s frequency commands follow the active VFO (for example Icom 0x25).</source>
@@ -3712,79 +3760,179 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
 當收音機的頻率命令跟隨活動的VFO （例如Icom 0x25）時停止。</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2011"/>
+        <location filename="../qml/RigCreator.qml" line="2022"/>
+        <source>Tone squelch is 1</source>
+        <translation type="unfinished">亞音靜噪 = 1</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2027"/>
+        <source>Enable when the radio&apos;s tone mode uses 1 for tone squelch (encode and decode) and 2 for tone (encode only), for example the Yaesu FT-710.
+wfview uses 1 for tone and 2 for tone squelch, and swaps them for these radios.</source>
+        <translation type="unfinished">當電台的亞音模式用 1 表示亞音靜噪（編碼和解碼）、用 2 表示亞音（僅編碼）時啟用，例如 Yaesu FT-710。
+wfview 用 1 表示亞音、用 2 表示亞音靜噪，並會為這類電台互換這兩個值。</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2033"/>
+        <source>Slow polling on TX</source>
+        <translation type="unfinished">發射時降低輪詢頻率</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2038"/>
+        <source>Over a network connection, poll the radio this many times slower while it transmits.
+Applies to automatic and manual polling. Heavy CAT traffic during transmit makes some radios (for example the TS-890S) glitch their LAN audio. Experimental.</source>
+        <translation type="unfinished">透過網路連線時，在電台發射期間將輪詢放慢這麼多倍。
+適用於自動和手動輪詢。發射期間大量的 CAT 通訊會使某些電台（例如 TS-890S）的 LAN 音訊出現斷續。實驗性功能。</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2045"/>
+        <source>Factor</source>
+        <translation type="unfinished">倍數</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2054"/>
+        <source>x slower</source>
+        <translation type="unfinished">倍（更慢）</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2057"/>
+        <source>Radio TX audio buffer</source>
+        <translation type="unfinished">電台 TX 音訊緩衝</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2076"/>
+        <source>How long the radio takes to play the network TX audio it has been sent.
+When a transmission ends, wfview sends the rest of its audio and then waits this long before PTT off, so the end of the audio is not cut off (a click).
+100 ms suits most radios; the TS-890S needs about 300 ms.</source>
+        <translation type="unfinished">電台播放透過網路傳送給它的 TX 音訊所需的時間。
+發射結束時，wfview 傳送剩餘音訊，然後等待這段時間再關閉 PTT，以免音訊結尾被截斷（喀嗒聲）。
+100 ms 適合大多數電台；TS-890S 需要約 300 ms。</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2081"/>
+        <source>ms</source>
+        <translation type="unfinished">ms</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2090"/>
         <source>Spectrum</source>
         <translation type="unfinished">光譜</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2017"/>
+        <location filename="../qml/RigCreator.qml" line="2096"/>
         <source>Num RX</source>
         <translation type="unfinished">數位RX</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2018"/>
+        <location filename="../qml/RigCreator.qml" line="2097"/>
         <source>VFO/RX</source>
         <translation>VFO/RX</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2019"/>
+        <location filename="../qml/RigCreator.qml" line="2098"/>
         <source>Seq Max</source>
         <translation type="unfinished">序列最大值</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2020"/>
+        <location filename="../qml/RigCreator.qml" line="2099"/>
         <source>Amp Max</source>
         <translation type="unfinished">最大電流</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2021"/>
+        <location filename="../qml/RigCreator.qml" line="2100"/>
         <source>Len Max</source>
         <translation type="unfinished">倫馬克斯</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2022"/>
+        <location filename="../qml/RigCreator.qml" line="2101"/>
         <source>dB per DN</source>
         <translation type="unfinished">每個DN的dB</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2029"/>
+        <location filename="../qml/RigCreator.qml" line="2104"/>
+        <source>Scope status block</source>
+        <translation type="unfinished">頻譜狀態區塊</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2109"/>
+        <source>Enable when each scope frame from the radio also carries its frequencies, mode and other settings, for example the Yaesu FT-710.
+wfview then takes those values from the frames and doesn&apos;t poll for them while frames arrive. Polling resumes by itself when they stop.</source>
+        <translation type="unfinished">當電台傳送的每個頻譜幀還包含其頻率、模式和其他設定時啟用，例如 Yaesu FT-710。
+wfview 隨後從幀中讀取這些值，並在幀持續到達時不再輪詢它們。幀停止後會自動恢復輪詢。</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2120"/>
         <source>Memories</source>
         <translation type="unfinished">回憶</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2035"/>
+        <location filename="../qml/RigCreator.qml" line="2126"/>
         <source>Grp</source>
         <translation type="unfinished">集團</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2036"/>
+        <location filename="../qml/RigCreator.qml" line="2127"/>
         <source>Mem</source>
         <translation type="unfinished">記憶</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2037"/>
+        <location filename="../qml/RigCreator.qml" line="2128"/>
         <source>Sat</source>
         <translation type="unfinished">星期六</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2056"/>
+        <location filename="../qml/RigCreator.qml" line="2131"/>
+        <source>CW Mem</source>
+        <translation type="unfinished">CW 記憶</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2147"/>
+        <source>The keyer memory (1-5) that CW Sender text goes through, on radios that send CW text by playing a keyer memory (Yaesu KM / KY).
+What the memory held is put back when sending ends.</source>
+        <translation type="unfinished">在透過播放電鍵記憶來傳送 CW 文字的電台上（Yaesu KM / KY），CW 發送者文字所經過的電鍵記憶（1-5）。
+傳送結束後，記憶中原有的內容會被恢復。</translation>
+    </message>
+    <message>
+        <location filename="../qml/RigCreator.qml" line="2168"/>
         <source>Main Memory Format</source>
         <translation type="unfinished">主記憶體格式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2062"/>
+        <location filename="../qml/RigCreator.qml" line="2174"/>
         <source>See your QWidget tooltip text (keep it in docs/help).</source>
         <translation type="unfinished">檢視您的 QWidget 工具提示文字（保留在 docs/help 中）。</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2068"/>
+        <location filename="../qml/RigCreator.qml" line="2180"/>
         <source>Satellite Memory Format</source>
         <translation type="unfinished">衛星記憶體格式</translation>
     </message>
     <message>
-        <location filename="../qml/RigCreator.qml" line="2083"/>
+        <location filename="../qml/RigCreator.qml" line="2195"/>
         <source>Close</source>
         <translation type="unfinished">關閉</translation>
+    </message>
+</context>
+<context>
+    <name>RigCreatorController</name>
+    <message>
+        <location filename="../src/RigCreatorController.cpp" line="94"/>
+        <source>Rig file not saved</source>
+        <translation type="unfinished">rig 檔案未儲存</translation>
+    </message>
+    <message>
+        <location filename="../src/RigCreatorController.cpp" line="95"/>
+        <source>Could not save %1: %2.
+
+Save it to your own rigs folder instead:
+%3
+
+wfview uses a rig file there in place of the installed one for the same radio, as long as its Version is the same or newer.</source>
+        <translation type="unfinished">無法儲存 %1：%2。
+
+請改為儲存到您自己的 rigs 資料夾：
+%3
+
+只要版本相同或更新，wfview 就會使用該處的 rig 檔案代替同一電台已安裝的檔案。</translation>
     </message>
 </context>
 <context>
@@ -4068,7 +4216,7 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="687"/>
-        <location filename="../qml/Settings.qml" line="3862"/>
+        <location filename="../qml/Settings.qml" line="3916"/>
         <source>Macros</source>
         <translation type="unfinished">宏</translation>
     </message>
@@ -4104,8 +4252,8 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="814"/>
-        <location filename="../qml/Settings.qml" line="2813"/>
-        <location filename="../qml/Settings.qml" line="3250"/>
+        <location filename="../qml/Settings.qml" line="2867"/>
+        <location filename="../qml/Settings.qml" line="3304"/>
         <source>Add</source>
         <translation type="unfinished">添加</translation>
     </message>
@@ -4116,7 +4264,7 @@ Leave off when the radio&apos;s frequency commands follow the active VFO (for ex
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="821"/>
-        <location filename="../qml/Settings.qml" line="3922"/>
+        <location filename="../qml/Settings.qml" line="3976"/>
         <source>Delete</source>
         <translation type="unfinished">刪除</translation>
     </message>
@@ -4244,25 +4392,25 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="997"/>
-        <location filename="../qml/Settings.qml" line="2769"/>
+        <location filename="../qml/Settings.qml" line="2823"/>
         <source>Audio System</source>
         <translation type="unfinished">音響系統</translation>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1004"/>
-        <location filename="../qml/Settings.qml" line="2773"/>
+        <location filename="../qml/Settings.qml" line="2827"/>
         <source>Qt Audio</source>
         <translation type="unfinished">Qt音訊</translation>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1005"/>
-        <location filename="../qml/Settings.qml" line="2774"/>
+        <location filename="../qml/Settings.qml" line="2828"/>
         <source>PortAudio</source>
         <translation>PortAudio</translation>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1006"/>
-        <location filename="../qml/Settings.qml" line="2775"/>
+        <location filename="../qml/Settings.qml" line="2829"/>
         <source>RT Audio</source>
         <translation type="unfinished">RT音訊</translation>
     </message>
@@ -4289,6 +4437,7 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
     <message>
         <location filename="../qml/Settings.qml" line="1052"/>
         <location filename="../qml/Settings.qml" line="1103"/>
+        <location filename="../qml/Settings.qml" line="2634"/>
         <source>Rescan</source>
         <translation type="unfinished">重新掃描</translation>
     </message>
@@ -4335,11 +4484,13 @@ You will need to Save Settings and re-launch wfview for this to take effect.</so
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1144"/>
+        <location filename="../qml/Settings.qml" line="2646"/>
         <source>RTS</source>
         <translation>RTS</translation>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1145"/>
+        <location filename="../qml/Settings.qml" line="2645"/>
         <source>DTR</source>
         <translation>DTR</translation>
     </message>
@@ -4387,7 +4538,7 @@ for USB radios</source>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1274"/>
-        <location filename="../qml/Settings.qml" line="2665"/>
+        <location filename="../qml/Settings.qml" line="2719"/>
         <source>Control Port</source>
         <translation type="unfinished">控制埠</translation>
     </message>
@@ -4423,16 +4574,16 @@ for USB radios</source>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1372"/>
-        <location filename="../qml/Settings.qml" line="2840"/>
-        <location filename="../qml/Settings.qml" line="4017"/>
+        <location filename="../qml/Settings.qml" line="2894"/>
+        <location filename="../qml/Settings.qml" line="4071"/>
         <source>Username</source>
         <translation type="unfinished">使用者名稱</translation>
     </message>
     <message>
         <location filename="../qml/Settings.qml" line="1389"/>
-        <location filename="../qml/Settings.qml" line="2841"/>
-        <location filename="../qml/Settings.qml" line="3301"/>
-        <location filename="../qml/Settings.qml" line="4027"/>
+        <location filename="../qml/Settings.qml" line="2895"/>
+        <location filename="../qml/Settings.qml" line="3355"/>
+        <location filename="../qml/Settings.qml" line="4081"/>
         <source>Password</source>
         <translation type="unfinished">密碼</translation>
     </message>
@@ -4600,7 +4751,7 @@ for USB radios</source>
         <location filename="../qml/Settings.qml" line="1691"/>
         <location filename="../qml/Settings.qml" line="1711"/>
         <location filename="../qml/Settings.qml" line="1838"/>
-        <location filename="../qml/Settings.qml" line="4330"/>
+        <location filename="../qml/Settings.qml" line="4384"/>
         <source>None</source>
         <translation type="unfinished">沒有任何</translation>
     </message>
@@ -4712,7 +4863,7 @@ for USB radios</source>
     <message>
         <location filename="../qml/Settings.qml" line="1697"/>
         <location filename="../qml/Settings.qml" line="1717"/>
-        <location filename="../qml/Settings.qml" line="3763"/>
+        <location filename="../qml/Settings.qml" line="3817"/>
         <source>Current</source>
         <translation type="unfinished">目前的</translation>
     </message>
@@ -5627,333 +5778,365 @@ Not actually a radio setting.</source>
         <translation type="unfinished">秒</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2627"/>
+        <location filename="../qml/Settings.qml" line="2609"/>
+        <source>CW Keying</source>
+        <translation type="unfinished">CW 鍵控</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2615"/>
+        <source>Key Port</source>
+        <translation type="unfinished">鍵控連接埠</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2630"/>
+        <source>Serial port that keys CW on a control line, for radios that accept a CW key on DTR or RTS.
+This is not the radio&apos;s CAT port. The CW Sender then keys this port instead of sending text to the radio.</source>
+        <translation type="unfinished">透過控制線鍵控 CW 的序列埠，適用於接受 DTR 或 RTS 作為 CW 鍵的電台。
+這不是電台的 CAT 連接埠。CW 發送者隨後會鍵控此連接埠，而不是向電台傳送文字。</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2638"/>
+        <source>Look for serial ports again, for example after plugging in the radio.</source>
+        <translation type="unfinished">重新尋找序列埠，例如在接上電台之後。</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2640"/>
+        <source>Key Line</source>
+        <translation type="unfinished">鍵控線</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2655"/>
+        <source>Must match the radio&apos;s own setting. The other line is held off, as radios commonly use it for PTT.</source>
+        <translation type="unfinished">必須與電台本身的設定一致。另一條線保持關閉，因為電台通常將其用於 PTT。</translation>
+    </message>
+    <message>
+        <location filename="../qml/Settings.qml" line="2681"/>
         <source>Enable</source>
         <translation type="unfinished">使能夠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2634"/>
+        <location filename="../qml/Settings.qml" line="2688"/>
         <source>Disable local user controls when in use (restart required)</source>
         <translation type="unfinished">使用時停用本機使用者控制項（需要重新啟動）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2641"/>
+        <location filename="../qml/Settings.qml" line="2695"/>
         <source>Suppress serial port warnings</source>
         <translation type="unfinished">抑制串口警告</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2646"/>
+        <location filename="../qml/Settings.qml" line="2700"/>
         <source>While the server is enabled, do not show a warning when the radio&apos;s serial port cannot be opened. wfview keeps retrying the port, for headless or unattended servers.</source>
         <translation type="unfinished">伺服器啟用後，如果無線電串列埠無法打開，則不顯示警告。對於無頭伺服器或無人值守伺服器， wfview會不斷重試連接埠。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2654"/>
+        <location filename="../qml/Settings.qml" line="2708"/>
         <source>Server Setup</source>
         <translation type="unfinished">伺服器設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2677"/>
+        <location filename="../qml/Settings.qml" line="2731"/>
         <source>CI-V Port</source>
         <translation type="unfinished">CI-V埠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2677"/>
+        <location filename="../qml/Settings.qml" line="2731"/>
         <source>CAT Port</source>
         <translation type="unfinished">CAT端口</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2690"/>
+        <location filename="../qml/Settings.qml" line="2744"/>
         <source>Audio Port</source>
         <translation type="unfinished">音訊連接埠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2702"/>
+        <location filename="../qml/Settings.qml" line="2756"/>
         <source>Scope Port</source>
         <translation type="unfinished">示波器端口</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2721"/>
+        <location filename="../qml/Settings.qml" line="2775"/>
         <source>Listen Interface</source>
         <translation type="unfinished">監聽介面</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2731"/>
+        <location filename="../qml/Settings.qml" line="2785"/>
         <source>Select the interface used by the built-in UDP server.</source>
         <translation type="unfinished">選擇內建UDP伺服器使用的介面。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2736"/>
+        <location filename="../qml/Settings.qml" line="2790"/>
         <source>Automatic prefers a non-loopback IPv4 address, then falls back to IPv6.</source>
         <translation type="unfinished">自動模式優先選擇非環回 IPv4 位址，然後回退到 IPv6。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2744"/>
+        <location filename="../qml/Settings.qml" line="2798"/>
         <source>RX Audio Input</source>
         <translation type="unfinished">RX音訊輸入</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2756"/>
+        <location filename="../qml/Settings.qml" line="2810"/>
         <source>TX Audio Output</source>
         <translation type="unfinished">TX音訊輸出</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2782"/>
+        <location filename="../qml/Settings.qml" line="2836"/>
         <source>Server uses the global audio system setting.</source>
         <translation type="unfinished">伺服器使用全域音訊系統設定。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2790"/>
+        <location filename="../qml/Settings.qml" line="2844"/>
         <source>Users</source>
         <translation type="unfinished">使用者</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2818"/>
-        <location filename="../qml/Settings.qml" line="3258"/>
+        <location filename="../qml/Settings.qml" line="2872"/>
+        <location filename="../qml/Settings.qml" line="3312"/>
         <source>Remove</source>
         <translation type="unfinished">消除</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2842"/>
+        <location filename="../qml/Settings.qml" line="2896"/>
         <source>Access</source>
         <translation type="unfinished">使用權</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2843"/>
-        <location filename="../qml/Settings.qml" line="3320"/>
-        <location filename="../qml/Settings.qml" line="4184"/>
+        <location filename="../qml/Settings.qml" line="2897"/>
+        <location filename="../qml/Settings.qml" line="3374"/>
+        <location filename="../qml/Settings.qml" line="4238"/>
         <source>Status</source>
         <translation type="unfinished">地位</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2896"/>
+        <location filename="../qml/Settings.qml" line="2950"/>
         <source>(saved)</source>
         <translation type="unfinished">（已儲存）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2911"/>
+        <location filename="../qml/Settings.qml" line="2965"/>
         <source>Admin User</source>
         <translation type="unfinished">管理員用戶</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2912"/>
+        <location filename="../qml/Settings.qml" line="2966"/>
         <source>Normal User</source>
         <translation type="unfinished">普通用戶</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2913"/>
+        <location filename="../qml/Settings.qml" line="2967"/>
         <source>Normal with no TX</source>
         <translation type="unfinished">正常，無TX</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2914"/>
+        <location filename="../qml/Settings.qml" line="2968"/>
         <source>Disabled</source>
         <translation type="unfinished">已停用</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2931"/>
+        <location filename="../qml/Settings.qml" line="2985"/>
         <source>Status: %1</source>
         <translation type="unfinished">狀態： %1</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2945"/>
+        <location filename="../qml/Settings.qml" line="2999"/>
         <source>Press &quot;Connect to Radio&quot; before starting the server</source>
         <translation type="unfinished">啟動伺服器前，請按「連接到無線電」</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2946"/>
+        <location filename="../qml/Settings.qml" line="3000"/>
         <source>To make changes to the server settings, first press &quot;Disconnect from Radio&quot;</source>
         <translation type="unfinished">若要變更伺服器設置，請先按下「中斷與無線電的連接」</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2956"/>
+        <location filename="../qml/Settings.qml" line="3010"/>
         <source>Server Status</source>
         <translation type="unfinished">伺服器狀態</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2965"/>
+        <location filename="../qml/Settings.qml" line="3019"/>
         <source>Status:</source>
         <translation type="unfinished">地位：</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2974"/>
+        <location filename="../qml/Settings.qml" line="3028"/>
         <source>Users logged in:</source>
         <translation type="unfinished">已登入用戶：</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="2977"/>
+        <location filename="../qml/Settings.qml" line="3031"/>
         <source>Logins since start:</source>
         <translation type="unfinished">自系統啟動以來的登入次數：</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3000"/>
+        <location filename="../qml/Settings.qml" line="3054"/>
         <source>Enable RigCtld</source>
         <translation type="unfinished">啟用 RigCtld</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3004"/>
+        <location filename="../qml/Settings.qml" line="3058"/>
         <source>wfview can run a rigctld-compatible server, which provides basic information to third-party tools such as loggers and digital mode applications.
 wfview&apos;s rigctld-compatible server can accept multiple connections at the same time.</source>
         <translation type="unfinished">wfview可以運行 rigctld 相容的伺服器，該伺服器向日誌記錄器和數位模式應用程式等第三方工具提供基本資訊。
 wfview的 rigctld 相容伺服器可以同時接受多個連線。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3009"/>
-        <location filename="../qml/Settings.qml" line="3299"/>
-        <location filename="../qml/Settings.qml" line="4005"/>
-        <location filename="../qml/Settings.qml" line="4117"/>
+        <location filename="../qml/Settings.qml" line="3063"/>
+        <location filename="../qml/Settings.qml" line="3353"/>
+        <location filename="../qml/Settings.qml" line="4059"/>
+        <location filename="../qml/Settings.qml" line="4171"/>
         <source>Port</source>
         <translation type="unfinished">港口</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3023"/>
+        <location filename="../qml/Settings.qml" line="3077"/>
         <source>The default rigctld port for most applications is 4532.
 wfview recommends using 4533 so as not to conflict with any other rigctld you may already be using.</source>
         <translation type="unfinished">大多數應用程式的預設rigctld連接埠為 4532。
 wfview建議使用 4533，以免與您可能已經使用的任何其他rigctld衝突。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3029"/>
+        <location filename="../qml/Settings.qml" line="3083"/>
         <source>Report frequencies as integers</source>
         <translation type="unfinished">以整數形式報告頻率</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3033"/>
+        <location filename="../qml/Settings.qml" line="3087"/>
         <source>Alters the response of wfview&apos;s rigctld server to the &apos;f&apos;, &apos;i&apos; and &apos;k&apos; commands, reporting frequencies as integers rather than as numbers with decimals</source>
         <translation type="unfinished">改變wfview的rigctld伺服器對「f」、「i」和「k」指令的回應，將頻率報告為整數而不是帶小數的數字</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3041"/>
+        <location filename="../qml/Settings.qml" line="3095"/>
         <source>Virtual Serial Port</source>
         <translation type="unfinished">虛擬串口</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3048"/>
+        <location filename="../qml/Settings.qml" line="3102"/>
         <source>Define a virtual serial port. On Windows: loopback device for other programs. On Linux/macOS: pseudo-terminal.</source>
         <translation type="unfinished">定義一個虛擬串口。在 Windows 系統中：用作其他程式的回環裝置。在 Linux/macOS 系統中：用作偽終端機。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3062"/>
+        <location filename="../qml/Settings.qml" line="3116"/>
         <source>Use &quot;none&quot; to disable the virtual serial bridge.</source>
         <translation type="unfinished">使用“none”停用虛擬串列橋接。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3066"/>
+        <location filename="../qml/Settings.qml" line="3120"/>
         <source>Use command queue</source>
         <translation type="unfinished">使用命令隊列</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3071"/>
+        <location filename="../qml/Settings.qml" line="3125"/>
         <source>Route virtual serial CAT commands through wfview&apos;s command queue where possible.</source>
         <translation type="unfinished">盡可能透過wfview的指令佇列路由虛擬串列CAT指令。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3078"/>
+        <location filename="../qml/Settings.qml" line="3132"/>
         <source>TCP Server Port</source>
         <translation type="unfinished">TCP伺服器連接埠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3087"/>
+        <location filename="../qml/Settings.qml" line="3141"/>
         <source>Enter port for TCP server, 0 = disabled (restart required if changed)</source>
         <translation type="unfinished">請輸入TCP伺服器端口，0 表示停用（更改後需要重新啟動）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3093"/>
+        <location filename="../qml/Settings.qml" line="3147"/>
         <source>TCI Server Port</source>
         <translation type="unfinished">TCI伺服器連接埠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3102"/>
+        <location filename="../qml/Settings.qml" line="3156"/>
         <source>Enter port for TCI server, 0 = disabled</source>
         <translation type="unfinished">請輸入TCI伺服器連接埠號，0表示已停用</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3108"/>
+        <location filename="../qml/Settings.qml" line="3162"/>
         <source>Waterfall Format</source>
         <translation type="unfinished">瀑布圖</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3112"/>
+        <location filename="../qml/Settings.qml" line="3166"/>
         <source>Default</source>
         <translation type="unfinished">預設</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3113"/>
+        <location filename="../qml/Settings.qml" line="3167"/>
         <source>Single (network)</source>
         <translation type="unfinished">單（網路）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3114"/>
+        <location filename="../qml/Settings.qml" line="3168"/>
         <source>Multi (serial)</source>
         <translation type="unfinished">多路（串行）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3121"/>
+        <location filename="../qml/Settings.qml" line="3175"/>
         <source>Only change this if you are absolutely sure you need it (connecting to N1MM+ or similar)</source>
         <translation type="unfinished">只有在您絕對確定需要更改此設定時才進行更改（連接到N1MM + 或類似設備）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3144"/>
+        <location filename="../qml/Settings.qml" line="3198"/>
         <source>Enable USB Controllers</source>
         <translation type="unfinished">啟用USB控制器</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3152"/>
+        <location filename="../qml/Settings.qml" line="3206"/>
         <source>Reset Buttons</source>
         <translation type="unfinished">重置按鈕</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3160"/>
+        <location filename="../qml/Settings.qml" line="3214"/>
         <source>Only reset buttons/commands if you have issues.</source>
         <translation type="unfinished">只有在出現問題時才重置按鈕/命令。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3187"/>
+        <location filename="../qml/Settings.qml" line="3241"/>
         <source>This page contains configuration for DX Cluster, either UDP style broadcast (from N1MM+/DXlog) or TCP connection to your favourite cluster</source>
         <translation type="unfinished">此頁麵包含DX叢集的設定訊息，支援UDP廣播（來自N1MM +/DXlog）或TCP連接到您喜愛的叢集</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3193"/>
-        <location filename="../qml/Settings.qml" line="3201"/>
+        <location filename="../qml/Settings.qml" line="3247"/>
+        <location filename="../qml/Settings.qml" line="3255"/>
         <source>Enable Cluster Connections (TCP)</source>
         <translation type="unfinished">啟用叢集連線（ TCP ）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3266"/>
+        <location filename="../qml/Settings.qml" line="3320"/>
         <source>Connect</source>
         <translation type="unfinished">連接</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3278"/>
+        <location filename="../qml/Settings.qml" line="3332"/>
         <source>Disconnect</source>
         <translation type="unfinished">斷開</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3298"/>
+        <location filename="../qml/Settings.qml" line="3352"/>
         <source>Server</source>
         <translation type="unfinished">伺服器</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3300"/>
+        <location filename="../qml/Settings.qml" line="3354"/>
         <source>User</source>
         <translation type="unfinished">使用者</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3304"/>
+        <location filename="../qml/Settings.qml" line="3358"/>
         <source>Spot Lifetime (sec)</source>
         <translation type="unfinished">標的持續時間（秒）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3308"/>
+        <location filename="../qml/Settings.qml" line="3362"/>
         <source>How many seconds a spot is displayed</source>
         <translation type="unfinished">廣告位顯示多少秒</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3313"/>
+        <location filename="../qml/Settings.qml" line="3367"/>
         <source>Activate</source>
         <translation type="unfinished">啟用設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3317"/>
+        <location filename="../qml/Settings.qml" line="3371"/>
         <source>Check the one server you wish to connect to
 All other servers listed are not connected to,
 but are recorded here for your convenience</source>
@@ -5962,64 +6145,64 @@ but are recorded here for your convenience</source>
 但為了方便起見，我們已將它們記錄在這裡</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3441"/>
+        <location filename="../qml/Settings.qml" line="3495"/>
         <source>Not connected</source>
         <translation type="unfinished">未連接</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3459"/>
-        <location filename="../qml/Settings.qml" line="3464"/>
+        <location filename="../qml/Settings.qml" line="3513"/>
+        <location filename="../qml/Settings.qml" line="3518"/>
         <source>Receive spots over UDP Broadcast</source>
         <translation type="unfinished">透過UDP廣播接收廣告位</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3469"/>
+        <location filename="../qml/Settings.qml" line="3523"/>
         <source>Receives spots over broadcasted UDP data
 Format is XML using &lt;spot&gt;</source>
         <translation type="unfinished">透過廣播的UDP資料接收廣告位
 格式為XML ，使用&lt;spot&gt;</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3476"/>
+        <location filename="../qml/Settings.qml" line="3530"/>
         <source>UDP Port</source>
         <translation type="unfinished">UDP埠</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3488"/>
+        <location filename="../qml/Settings.qml" line="3542"/>
         <source>UDP Spot Lifetime (sec)</source>
         <translation type="unfinished">UDP Spot 生命週期（秒）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3494"/>
+        <location filename="../qml/Settings.qml" line="3548"/>
         <source>Expire spots received over UDP in this many seconds
 When unchecked, only the UDP packets may indicate a spot expiration</source>
         <translation type="unfinished">在過去的幾秒鐘內，透過UDP接收到的過期廣告位數量。
 如果不進行檢查，只有UDP封包才能指示競價位過期</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3556"/>
+        <location filename="../qml/Settings.qml" line="3610"/>
         <source>Show Skimmer Spots</source>
         <translation type="unfinished">展示掠食者地點</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3561"/>
+        <location filename="../qml/Settings.qml" line="3615"/>
         <source>Ask the cluster server to also send CW Skimmer and Reverse Beacon Network spots
 (sends set/skimmer). Not every cluster server supports this.</source>
         <translation type="unfinished">請叢集伺服器同時發送CW Skimmer 和反向信標網路訊號。
 （發送 set/skimmer）。並非所有叢集伺服器都支援此功能。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3565"/>
+        <location filename="../qml/Settings.qml" line="3619"/>
         <source>Clear Output</source>
         <translation type="unfinished">清晰輸出</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3570"/>
+        <location filename="../qml/Settings.qml" line="3624"/>
         <source>Spots begin to fade at this percent lifetime</source>
         <translation type="unfinished">斑點在壽命的這個百分比開始消退</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3589"/>
+        <location filename="../qml/Settings.qml" line="3643"/>
         <source>Spots begin to linearly fade out at this percent of total spot lifetime
 Zero percent = begin to fade over entire lifetime
 Fifty percent = begin to fade when half way to expiration
@@ -6030,723 +6213,723 @@ Ninety percent = begin to fade when just ten percent life left</source>
 九成的生命力在只剩下百分之十的時候就開始衰退</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3635"/>
+        <location filename="../qml/Settings.qml" line="3689"/>
         <source>Configure keyboard shortcuts. wfview commands affect the application; radio commands send rig function commands.</source>
         <translation type="unfinished">配置鍵盤快速鍵。 wfview 指令影響應用程式； wfview指令發送設備功能指令。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3642"/>
-        <location filename="../qml/Settings.qml" line="3779"/>
+        <location filename="../qml/Settings.qml" line="3696"/>
+        <location filename="../qml/Settings.qml" line="3833"/>
         <source>Add Shortcut</source>
         <translation type="unfinished">新增快捷方式</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3646"/>
+        <location filename="../qml/Settings.qml" line="3700"/>
         <source>Reset Defaults</source>
         <translation type="unfinished">重置預設設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3653"/>
+        <location filename="../qml/Settings.qml" line="3707"/>
         <source>Shortcut Bindings</source>
         <translation type="unfinished">快速鍵綁定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3663"/>
+        <location filename="../qml/Settings.qml" line="3717"/>
         <source>On</source>
         <translation type="unfinished">在</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3664"/>
+        <location filename="../qml/Settings.qml" line="3718"/>
         <source>Shortcut</source>
         <translation type="unfinished">捷徑</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3665"/>
+        <location filename="../qml/Settings.qml" line="3719"/>
         <source>wfview Command</source>
         <translation type="unfinished">wfview指令</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3666"/>
+        <location filename="../qml/Settings.qml" line="3720"/>
         <source>Radio Command</source>
         <translation type="unfinished">無線電指令</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3667"/>
+        <location filename="../qml/Settings.qml" line="3721"/>
         <source>Action</source>
         <translation type="unfinished">行動</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3668"/>
+        <location filename="../qml/Settings.qml" line="3722"/>
         <source>Value</source>
         <translation type="unfinished">價值</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3669"/>
+        <location filename="../qml/Settings.qml" line="3723"/>
         <source>Receiver</source>
         <translation type="unfinished">接收者</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3696"/>
+        <location filename="../qml/Settings.qml" line="3750"/>
         <source>Ctrl+D</source>
         <translation type="unfinished">Ctrl+D</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3700"/>
+        <location filename="../qml/Settings.qml" line="3754"/>
         <source>Qt shortcut text, for example Ctrl+D, Alt+F, or Shift+F10.</source>
         <translation type="unfinished">Qt快速鍵文本，例如 Ctrl+D、Alt+F 或 Shift+ F10 。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3737"/>
+        <location filename="../qml/Settings.qml" line="3791"/>
         <source>Trigger</source>
         <translation type="unfinished">扳機</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3738"/>
+        <location filename="../qml/Settings.qml" line="3792"/>
         <source>Absolute</source>
         <translation type="unfinished">絕對</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3739"/>
+        <location filename="../qml/Settings.qml" line="3793"/>
         <source>Increase</source>
         <translation type="unfinished">增加</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3740"/>
+        <location filename="../qml/Settings.qml" line="3794"/>
         <source>Decrease</source>
         <translation type="unfinished">減少</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3764"/>
+        <location filename="../qml/Settings.qml" line="3818"/>
         <source>Main</source>
         <translation type="unfinished">主要的</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3765"/>
+        <location filename="../qml/Settings.qml" line="3819"/>
         <source>Sub</source>
         <translation type="unfinished">子</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3783"/>
+        <location filename="../qml/Settings.qml" line="3837"/>
         <source>Duplicate Shortcut</source>
         <translation type="unfinished">複製快捷方式</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3787"/>
+        <location filename="../qml/Settings.qml" line="3841"/>
         <source>Delete Shortcut</source>
         <translation type="unfinished">刪除快捷方式</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3799"/>
+        <location filename="../qml/Settings.qml" line="3853"/>
         <source>For radio shortcuts, use Absolute for fixed values and Increase or Decrease for step changes.</source>
         <translation type="unfinished">對於單選按鈕快速鍵，使用「絕對」表示固定值，「增加」或「減少」表示階梯變化。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3832"/>
+        <location filename="../qml/Settings.qml" line="3886"/>
         <source>A macro sends up to %1 commands in order. Each macro is also a wfview command on the Shortcuts page, and can show a button on the main window.</source>
         <translation type="unfinished">一個巨集最多可以依序發送%1命令。每個巨集同時也是「捷徑」頁面上的一個wfview指令，並且可以在主視窗中顯示一個按鈕。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3840"/>
+        <location filename="../qml/Settings.qml" line="3894"/>
         <source>Add Macro</source>
         <translation type="unfinished">新增巨集</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3848"/>
+        <location filename="../qml/Settings.qml" line="3902"/>
         <source>Minimum time between commands (ms)</source>
         <translation type="unfinished">指令之間的最短時間間隔（ ms ）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3857"/>
+        <location filename="../qml/Settings.qml" line="3911"/>
         <source>No step is followed by a shorter wait than this, whatever its own delay.</source>
         <translation type="unfinished">無論後續步驟本身會造成多大的延遲，其後的等待時間都不會比這更短。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3872"/>
+        <location filename="../qml/Settings.qml" line="3926"/>
         <source>#</source>
         <translation>#</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3873"/>
+        <location filename="../qml/Settings.qml" line="3927"/>
         <source>Name</source>
         <translation type="unfinished">姓名</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3874"/>
+        <location filename="../qml/Settings.qml" line="3928"/>
         <source>Steps</source>
         <translation type="unfinished">步驟</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3875"/>
+        <location filename="../qml/Settings.qml" line="3929"/>
         <source>Show Button</source>
         <translation type="unfinished">顯示按鈕</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3883"/>
+        <location filename="../qml/Settings.qml" line="3937"/>
         <source>No macros yet. Use Add Macro to create one.</source>
         <translation type="unfinished">暫無宏。請使用「新增巨集」功能建立一個巨集。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3917"/>
+        <location filename="../qml/Settings.qml" line="3971"/>
         <source>Edit</source>
         <translation type="unfinished">編輯</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3954"/>
+        <location filename="../qml/Settings.qml" line="4008"/>
         <source>This page contains experimental features. Use at your own risk.</source>
         <translation type="unfinished">此頁麵包含實驗性功能，使用風險自負。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3960"/>
+        <location filename="../qml/Settings.qml" line="4014"/>
         <source>Enable Rig Creator Feature (use with care)</source>
         <translation type="unfinished">啟用裝備創建功能（謹慎使用）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3962"/>
+        <location filename="../qml/Settings.qml" line="4016"/>
         <source>Rig creator allows changing of all rig features and adding new rig profiles</source>
         <translation type="unfinished">裝備創建器允許更改所有裝備特性並添加新的裝備配置文件</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3968"/>
+        <location filename="../qml/Settings.qml" line="4022"/>
         <source>wfshare Remote Access</source>
         <translation type="unfinished">wfshare 遠端存取</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3979"/>
+        <location filename="../qml/Settings.qml" line="4033"/>
         <source>Enable wfshare</source>
         <translation type="unfinished">啟用 wfshare</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3987"/>
+        <location filename="../qml/Settings.qml" line="4041"/>
         <source>Direct point-to-point mode</source>
         <translation type="unfinished">直接點對點模式</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3994"/>
+        <location filename="../qml/Settings.qml" line="4048"/>
         <source>Remote host</source>
         <translation type="unfinished">遠端主機</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3999"/>
+        <location filename="../qml/Settings.qml" line="4053"/>
         <source>server hostname or IP</source>
         <translation type="unfinished">伺服器主機名稱或IP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="3999"/>
+        <location filename="../qml/Settings.qml" line="4053"/>
         <source>pbx.wfshare.org</source>
         <translation type="unfinished">pbx.wfshare.org</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4003"/>
+        <location filename="../qml/Settings.qml" line="4057"/>
         <source>Remote wfserver address</source>
         <translation type="unfinished">遠端wfserver位址</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4003"/>
+        <location filename="../qml/Settings.qml" line="4057"/>
         <source>wfshare relay hostname</source>
         <translation type="unfinished">wfshare 中繼主機名</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4015"/>
+        <location filename="../qml/Settings.qml" line="4069"/>
         <source>Default wfshare port is 4569</source>
         <translation type="unfinished">預設的wfshare連接埠是4569</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4025"/>
+        <location filename="../qml/Settings.qml" line="4079"/>
         <source>wfshare account username</source>
         <translation type="unfinished">wfshare 帳戶使用者名稱</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4036"/>
+        <location filename="../qml/Settings.qml" line="4090"/>
         <source>wfshare account password</source>
         <translation type="unfinished">wfshare 帳戶密碼</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4038"/>
+        <location filename="../qml/Settings.qml" line="4092"/>
         <source>Station ID</source>
         <translation type="unfinished">電台ID</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4043"/>
+        <location filename="../qml/Settings.qml" line="4097"/>
         <source>remote station</source>
         <translation type="unfinished">遠端站</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4047"/>
+        <location filename="../qml/Settings.qml" line="4101"/>
         <source>Not used in direct mode</source>
         <translation type="unfinished">未在直接模式下使用</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4047"/>
+        <location filename="../qml/Settings.qml" line="4101"/>
         <source>Remote station or PBX route to call</source>
         <translation type="unfinished">遠端站點或PBX路由呼叫</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4053"/>
+        <location filename="../qml/Settings.qml" line="4107"/>
         <source>Test wfshare Connection</source>
         <translation type="unfinished">測試 wfshare 連接</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4069"/>
+        <location filename="../qml/Settings.qml" line="4123"/>
         <source>Handshake progress is written to the application log.</source>
         <translation type="unfinished">握手過程會寫入應用程式日誌。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4079"/>
+        <location filename="../qml/Settings.qml" line="4133"/>
         <source>MCP Diagnostics Server</source>
         <translation type="unfinished">MCP診斷伺服器</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4089"/>
+        <location filename="../qml/Settings.qml" line="4143"/>
         <source>MCP Disabled in this build</source>
         <translation type="unfinished">此版本中已停用MCP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4097"/>
+        <location filename="../qml/Settings.qml" line="4151"/>
         <source>Enable MCP</source>
         <translation type="unfinished">啟用MCP</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4102"/>
+        <location filename="../qml/Settings.qml" line="4156"/>
         <source>Runs a Model Context Protocol (MCP) server inside wfview, so an AI assistant can read live diagnostics: connection state, rig capabilities, the command queue and cache, audio configuration and levels, meters, spectrum, radio and network traffic, the log, settings and main-thread health. Not saved; use --use-mcp to start with it on.</source>
         <translation type="unfinished">在wfview內部運行模型上下文協定 (MCP) 伺服器，以便AI助理可以讀取即時診斷資訊：連接狀態、設備功能、命令佇列和快取、音訊配置和電平、儀表、頻譜、無線電和網路流量、日誌、設定以及主執行緒運行狀況。此設定未儲存；使用 `--use-mcp` 參數啟動時啟用此功能。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4108"/>
+        <location filename="../qml/Settings.qml" line="4162"/>
         <source>MCP Write Access</source>
         <translation type="unfinished">MCP寫入訪問</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4113"/>
+        <location filename="../qml/Settings.qml" line="4167"/>
         <source>Also lets MCP clients change the radio and wfview: frequency, mode, settings, raw commands and PTT (transmit). Leave off for read-only diagnostics.</source>
         <translation type="unfinished">此外， MCP客戶端還可以更改無線電和wfview設定：頻率、模式、設定、原始命令和PTT （發射）。如果僅進行唯讀診斷，請將其關閉。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4126"/>
+        <location filename="../qml/Settings.qml" line="4180"/>
         <source>Default MCP port is 8765</source>
         <translation type="unfinished">預設MCP連接埠為 8765</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4129"/>
+        <location filename="../qml/Settings.qml" line="4183"/>
         <source>Bind address</source>
         <translation type="unfinished">綁定位址</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4140"/>
+        <location filename="../qml/Settings.qml" line="4194"/>
         <source>Local only (127.0.0.1)</source>
         <translation type="unfinished">僅限本地 (127.0.0.1)</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4145"/>
+        <location filename="../qml/Settings.qml" line="4199"/>
         <source>All (0.0.0.0, needs a token)</source>
         <translation type="unfinished">所有（0.0.0.0，需要令牌）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4153"/>
+        <location filename="../qml/Settings.qml" line="4207"/>
         <source>Specific address</source>
         <translation type="unfinished">具體地址</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4165"/>
+        <location filename="../qml/Settings.qml" line="4219"/>
         <source>IP address of a local interface</source>
         <translation type="unfinished">本機介面的IP位址</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4171"/>
+        <location filename="../qml/Settings.qml" line="4225"/>
         <source>Token</source>
         <translation type="unfinished">令牌</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4178"/>
+        <location filename="../qml/Settings.qml" line="4232"/>
         <source>optional for local only</source>
         <translation type="unfinished">僅限本地使用（可選）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4181"/>
+        <location filename="../qml/Settings.qml" line="4235"/>
         <source>Clients send it as a Bearer token</source>
         <translation type="unfinished">客戶端將其作為 Bearer 代幣發送</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4199"/>
+        <location filename="../qml/Settings.qml" line="4253"/>
         <source>Check the log for detailed information.</source>
         <translation type="unfinished">請查看日誌以取得詳細資訊。</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4209"/>
+        <location filename="../qml/Settings.qml" line="4263"/>
         <source>Debug</source>
         <translation type="unfinished">偵錯</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4236"/>
+        <location filename="../qml/Settings.qml" line="4290"/>
         <source>Transmit</source>
         <translation type="unfinished">傳送</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4241"/>
-        <location filename="../qml/Settings.qml" line="4312"/>
+        <location filename="../qml/Settings.qml" line="4295"/>
+        <location filename="../qml/Settings.qml" line="4366"/>
         <source>Bypass</source>
         <translation type="unfinished">旁路</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4242"/>
+        <location filename="../qml/Settings.qml" line="4296"/>
         <source>EQ before compressor</source>
         <translation type="unfinished">壓縮器前的EQ</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4243"/>
+        <location filename="../qml/Settings.qml" line="4297"/>
         <source>Compressor</source>
         <translation type="unfinished">壓縮機</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4244"/>
-        <location filename="../qml/Settings.qml" line="4314"/>
+        <location filename="../qml/Settings.qml" line="4298"/>
+        <location filename="../qml/Settings.qml" line="4368"/>
         <source>Equalizer</source>
         <translation type="unfinished">均衡器</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4245"/>
+        <location filename="../qml/Settings.qml" line="4299"/>
         <source>Noise gate</source>
         <translation type="unfinished">噪音門</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4246"/>
+        <location filename="../qml/Settings.qml" line="4300"/>
         <source>Sidetone</source>
         <translation type="unfinished">側音</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4247"/>
-        <location filename="../qml/Settings.qml" line="4315"/>
+        <location filename="../qml/Settings.qml" line="4301"/>
+        <location filename="../qml/Settings.qml" line="4369"/>
         <source>Spectrum</source>
         <translation type="unfinished">光譜</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4252"/>
+        <location filename="../qml/Settings.qml" line="4306"/>
         <source>Transmit Levels</source>
         <translation type="unfinished">傳輸電平</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4256"/>
+        <location filename="../qml/Settings.qml" line="4310"/>
         <source>Input gain dB</source>
         <translation type="unfinished">輸入增益dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4257"/>
-        <location filename="../qml/Settings.qml" line="4370"/>
+        <location filename="../qml/Settings.qml" line="4311"/>
+        <location filename="../qml/Settings.qml" line="4424"/>
         <source>Output gain dB</source>
         <translation type="unfinished">輸出增益dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4258"/>
+        <location filename="../qml/Settings.qml" line="4312"/>
         <source>Comp peak dB</source>
         <translation type="unfinished">壓縮峰值dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4259"/>
+        <location filename="../qml/Settings.qml" line="4313"/>
         <source>Comp release s</source>
         <translation type="unfinished">合輯發布</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4260"/>
+        <location filename="../qml/Settings.qml" line="4314"/>
         <source>Fast ratio</source>
         <translation type="unfinished">快速比率</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4261"/>
+        <location filename="../qml/Settings.qml" line="4315"/>
         <source>Slow ratio</source>
         <translation type="unfinished">慢速比率</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4262"/>
+        <location filename="../qml/Settings.qml" line="4316"/>
         <source>Sidetone level</source>
         <translation type="unfinished">側音水平</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4267"/>
+        <location filename="../qml/Settings.qml" line="4321"/>
         <source>Transmit Gate</source>
         <translation type="unfinished">傳輸閘</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4271"/>
+        <location filename="../qml/Settings.qml" line="4325"/>
         <source>Threshold dB</source>
         <translation type="unfinished">閾值（ dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4272"/>
+        <location filename="../qml/Settings.qml" line="4326"/>
         <source>Attack ms</source>
         <translation type="unfinished">攻擊ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4273"/>
+        <location filename="../qml/Settings.qml" line="4327"/>
         <source>Hold ms</source>
         <translation type="unfinished">保持ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4274"/>
+        <location filename="../qml/Settings.qml" line="4328"/>
         <source>Decay ms</source>
         <translation type="unfinished">衰減ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4275"/>
+        <location filename="../qml/Settings.qml" line="4329"/>
         <source>Range dB</source>
         <translation type="unfinished">範圍dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4276"/>
+        <location filename="../qml/Settings.qml" line="4330"/>
         <source>LF cutoff Hz</source>
         <translation type="unfinished">LF截止Hz （赫茲）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4277"/>
+        <location filename="../qml/Settings.qml" line="4331"/>
         <source>HF cutoff Hz</source>
         <translation type="unfinished">HF截止Hz （赫茲）</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4278"/>
-        <location filename="../qml/Settings.qml" line="4371"/>
+        <location filename="../qml/Settings.qml" line="4332"/>
+        <location filename="../qml/Settings.qml" line="4425"/>
         <source>Spectrum FPS</source>
         <translation type="unfinished">Spectrum FPS</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4283"/>
+        <location filename="../qml/Settings.qml" line="4337"/>
         <source>Transmit EQ</source>
         <translation type="unfinished">發射EQ</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4290"/>
+        <location filename="../qml/Settings.qml" line="4344"/>
         <source>Band </source>
         <translation type="unfinished">樂團 </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4307"/>
+        <location filename="../qml/Settings.qml" line="4361"/>
         <source>Receive</source>
         <translation type="unfinished">收到</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4313"/>
+        <location filename="../qml/Settings.qml" line="4367"/>
         <source>Noise reduction</source>
         <translation type="unfinished">降噪</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4316"/>
+        <location filename="../qml/Settings.qml" line="4370"/>
         <source>Speex AGC</source>
         <translation type="unfinished">斯佩克斯AGC</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4317"/>
+        <location filename="../qml/Settings.qml" line="4371"/>
         <source>Speex VAD</source>
         <translation type="unfinished">斯皮克斯VAD</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4322"/>
+        <location filename="../qml/Settings.qml" line="4376"/>
         <source>Receive Noise Reduction</source>
         <translation type="unfinished">接收雜訊抑制</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4327"/>
+        <location filename="../qml/Settings.qml" line="4381"/>
         <source>NR mode</source>
         <translation type="unfinished">NR模式</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4331"/>
+        <location filename="../qml/Settings.qml" line="4385"/>
         <source>Speex</source>
         <translation type="unfinished">斯皮克斯</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4332"/>
+        <location filename="../qml/Settings.qml" line="4386"/>
         <source>ANR</source>
         <translation>ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4336"/>
+        <location filename="../qml/Settings.qml" line="4390"/>
         <source>Channel</source>
         <translation type="unfinished">頻道</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4339"/>
+        <location filename="../qml/Settings.qml" line="4393"/>
         <source>Auto</source>
         <translation type="unfinished">汽車</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4340"/>
+        <location filename="../qml/Settings.qml" line="4394"/>
         <source>Left</source>
         <translation type="unfinished">左邊</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4341"/>
+        <location filename="../qml/Settings.qml" line="4395"/>
         <source>Right</source>
         <translation type="unfinished">正確的</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4342"/>
+        <location filename="../qml/Settings.qml" line="4396"/>
         <source>Mono sum</source>
         <translation type="unfinished">單和</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4346"/>
+        <location filename="../qml/Settings.qml" line="4400"/>
         <source>Collect ANR</source>
         <translation type="unfinished">收集ANR</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4347"/>
+        <location filename="../qml/Settings.qml" line="4401"/>
         <source>Stop Collect</source>
         <translation type="unfinished">停止收取</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4349"/>
+        <location filename="../qml/Settings.qml" line="4403"/>
         <source>Speex suppression</source>
         <translation type="unfinished">速度抑制</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4350"/>
+        <location filename="../qml/Settings.qml" line="4404"/>
         <source>Speex bands</source>
         <translation type="unfinished">Spex 腕帶</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4351"/>
+        <location filename="../qml/Settings.qml" line="4405"/>
         <source>Frame ms</source>
         <translation type="unfinished">幀ms</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4352"/>
+        <location filename="../qml/Settings.qml" line="4406"/>
         <source>AGC level</source>
         <translation type="unfinished">AGC水平</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4353"/>
+        <location filename="../qml/Settings.qml" line="4407"/>
         <source>AGC max dB</source>
         <translation type="unfinished">AGC最大dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4354"/>
+        <location filename="../qml/Settings.qml" line="4408"/>
         <source>VAD start %</source>
         <translation type="unfinished">VAD啟動百分比</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4355"/>
+        <location filename="../qml/Settings.qml" line="4409"/>
         <source>VAD continue %</source>
         <translation type="unfinished">VAD繼續 %</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4356"/>
+        <location filename="../qml/Settings.qml" line="4410"/>
         <source>SNR decay</source>
         <translation type="unfinished">SNR比衰減</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4357"/>
+        <location filename="../qml/Settings.qml" line="4411"/>
         <source>Noise update</source>
         <translation type="unfinished">噪音更新</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4358"/>
+        <location filename="../qml/Settings.qml" line="4412"/>
         <source>Prior base</source>
         <translation type="unfinished">先前基數</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4359"/>
+        <location filename="../qml/Settings.qml" line="4413"/>
         <source>ANR reduction dB</source>
         <translation type="unfinished">ANR降低dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4360"/>
+        <location filename="../qml/Settings.qml" line="4414"/>
         <source>ANR sensitivity</source>
         <translation type="unfinished">ANR靈敏度</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4361"/>
+        <location filename="../qml/Settings.qml" line="4415"/>
         <source>ANR smoothing</source>
         <translation type="unfinished">ANR平滑</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4366"/>
+        <location filename="../qml/Settings.qml" line="4420"/>
         <source>Receive Output and EQ</source>
         <translation type="unfinished">接收輸出和EQ</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4376"/>
+        <location filename="../qml/Settings.qml" line="4430"/>
         <source>EQ band </source>
         <translation type="unfinished">EQ頻段 </translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4377"/>
+        <location filename="../qml/Settings.qml" line="4431"/>
         <source>Gain dB</source>
         <translation type="unfinished">增益dB</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4378"/>
+        <location filename="../qml/Settings.qml" line="4432"/>
         <source>Freq Hz</source>
         <translation type="unfinished">頻率（ Hz</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4379"/>
+        <location filename="../qml/Settings.qml" line="4433"/>
         <source>Q</source>
         <translation type="unfinished">問</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4398"/>
+        <location filename="../qml/Settings.qml" line="4452"/>
         <source>Save Settings</source>
         <translation type="unfinished">儲存設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4405"/>
+        <location filename="../qml/Settings.qml" line="4459"/>
         <source>Revert to Default</source>
         <translation type="unfinished">恢復預設設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4415"/>
+        <location filename="../qml/Settings.qml" line="4469"/>
         <source>Connect to Radio</source>
         <translation type="unfinished">連接到收音機</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4417"/>
+        <location filename="../qml/Settings.qml" line="4471"/>
         <source>Cancel Connection</source>
         <translation type="unfinished">取消連線</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4419"/>
+        <location filename="../qml/Settings.qml" line="4473"/>
         <source>Disconnect from Radio</source>
         <translation type="unfinished">斷開收音機連接</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4419"/>
+        <location filename="../qml/Settings.qml" line="4473"/>
         <source>Unknown status!</source>
         <translation type="unfinished">狀態未知！</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4434"/>
+        <location filename="../qml/Settings.qml" line="4488"/>
         <source>Reset USB controllers</source>
         <translation type="unfinished">重置USB控制器</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4451"/>
+        <location filename="../qml/Settings.qml" line="4505"/>
         <source>Are you sure you wish to reset the USB controllers?</source>
         <translation type="unfinished">您確定要重置USB控制器嗎？</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4462"/>
+        <location filename="../qml/Settings.qml" line="4516"/>
         <source>Manual serial port</source>
         <translation type="unfinished">手動串口</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4480"/>
+        <location filename="../qml/Settings.qml" line="4534"/>
         <source>Enter the full path of the serial port, for example /dev/ttyUSB0:</source>
         <translation type="unfinished">請輸入串列埠的完整路徑，例如 /dev/ttyUSB0：</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4525"/>
+        <location filename="../qml/Settings.qml" line="4579"/>
         <source>Delete macro</source>
         <translation type="unfinished">刪除巨集</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4541"/>
+        <location filename="../qml/Settings.qml" line="4595"/>
         <source>Delete macro %1, &quot;%2&quot;?</source>
         <translation type="unfinished">刪除巨集%1 , &quot; %2 &quot;？</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4551"/>
+        <location filename="../qml/Settings.qml" line="4605"/>
         <source>Revert settings</source>
         <translation type="unfinished">恢復設定</translation>
     </message>
     <message>
-        <location filename="../qml/Settings.qml" line="4568"/>
+        <location filename="../qml/Settings.qml" line="4622"/>
         <source>Are you sure you wish to reset all wfview settings?
 If so, wfview will exit and you will need to start the program again.</source>
         <translation type="unfinished">您確定要重置所有wfview設定嗎？
@@ -6757,9 +6940,10 @@ If so, wfview will exit and you will need to start the program again.</source>
     <name>SettingsController</name>
     <message>
         <location filename="../src/SettingsController.cpp" line="347"/>
-        <location filename="../src/SettingsController.cpp" line="889"/>
-        <location filename="../src/SettingsController.cpp" line="928"/>
-        <location filename="../src/SettingsController.cpp" line="2976"/>
+        <location filename="../src/SettingsController.cpp" line="897"/>
+        <location filename="../src/SettingsController.cpp" line="911"/>
+        <location filename="../src/SettingsController.cpp" line="950"/>
+        <location filename="../src/SettingsController.cpp" line="3004"/>
         <source>None</source>
         <translation type="unfinished">沒有任何</translation>
     </message>
@@ -6779,89 +6963,89 @@ If so, wfview will exit and you will need to start the program again.</source>
         <translation type="unfinished">收音機%1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="867"/>
+        <location filename="../src/SettingsController.cpp" line="877"/>
         <source>Manual ...</source>
         <translation type="unfinished">手動的 ...</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="873"/>
+        <location filename="../src/SettingsController.cpp" line="883"/>
         <source>Auto</source>
         <translation type="unfinished">汽車</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="907"/>
+        <location filename="../src/SettingsController.cpp" line="929"/>
         <source>Select one of a virtual serial port pair</source>
         <translation type="unfinished">選擇一對虛擬串口中的一個</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="940"/>
+        <location filename="../src/SettingsController.cpp" line="962"/>
         <source>pty devices located in: %1</source>
         <translation type="unfinished">pty 設備位於： %1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="1144"/>
-        <location filename="../src/SettingsController.cpp" line="3055"/>
+        <location filename="../src/SettingsController.cpp" line="1166"/>
         <location filename="../src/SettingsController.cpp" line="3083"/>
+        <location filename="../src/SettingsController.cpp" line="3111"/>
         <source>Macro %1</source>
         <translation type="unfinished">宏%1</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2977"/>
+        <location filename="../src/SettingsController.cpp" line="3005"/>
         <source>Debug Window</source>
         <translation type="unfinished">偵錯視窗</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2978"/>
+        <location filename="../src/SettingsController.cpp" line="3006"/>
         <source>Raise Main Window</source>
         <translation type="unfinished">升起主窗</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2979"/>
+        <location filename="../src/SettingsController.cpp" line="3007"/>
         <source>Open Settings</source>
         <translation type="unfinished">開啟設定</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2980"/>
+        <location filename="../src/SettingsController.cpp" line="3008"/>
         <source>Toggle Fullscreen</source>
         <translation type="unfinished">切換全螢幕</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2981"/>
+        <location filename="../src/SettingsController.cpp" line="3009"/>
         <source>Quit wfview</source>
         <translation type="unfinished">退出wfview</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2982"/>
+        <location filename="../src/SettingsController.cpp" line="3010"/>
         <source>Close Window</source>
         <translation type="unfinished">關閉視窗</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2983"/>
+        <location filename="../src/SettingsController.cpp" line="3011"/>
         <source>Open Memories</source>
         <translation type="unfinished">開放記憶</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2984"/>
+        <location filename="../src/SettingsController.cpp" line="3012"/>
         <source>Open CW Sender</source>
         <translation type="unfinished">開放式CW發送器</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2985"/>
+        <location filename="../src/SettingsController.cpp" line="3013"/>
         <source>Pop Out Receiver</source>
         <translation type="unfinished">彈出式接收器</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2986"/>
+        <location filename="../src/SettingsController.cpp" line="3014"/>
         <source>Pop In Receiver</source>
         <translation type="unfinished">彈出式接收器</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2987"/>
+        <location filename="../src/SettingsController.cpp" line="3015"/>
         <source>Enter Frequency</source>
         <translation type="unfinished">輸入頻率</translation>
     </message>
     <message>
-        <location filename="../src/SettingsController.cpp" line="2990"/>
+        <location filename="../src/SettingsController.cpp" line="3018"/>
         <source>Macro %1: %2</source>
         <translation type="unfinished">宏%1 : %2</translation>
     </message>
@@ -6907,17 +7091,17 @@ If so, wfview will exit and you will need to start the program again.</source>
 <context>
     <name>icomServer</name>
     <message>
-        <location filename="../src/radio/icomserver.cpp" line="45"/>
+        <location filename="../src/radio/icomserver.cpp" line="55"/>
         <source>Could not use UDP port %1 (Control) on %2</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 （控制埠）</translation>
     </message>
     <message>
-        <location filename="../src/radio/icomserver.cpp" line="60"/>
+        <location filename="../src/radio/icomserver.cpp" line="70"/>
         <source>Could not use UDP port %1 (CI-V) on %2</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 (CI-V)</translation>
     </message>
     <message>
-        <location filename="../src/radio/icomserver.cpp" line="75"/>
+        <location filename="../src/radio/icomserver.cpp" line="85"/>
         <source>Could not use UDP port %1 (Audio) on %2</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 （音訊）</translation>
     </message>
@@ -6941,22 +7125,22 @@ If so, wfview will exit and you will need to start the program again.</source>
 <context>
     <name>yaesuServer</name>
     <message>
-        <location filename="../src/radio/yaesuserver.cpp" line="85"/>
+        <location filename="../src/radio/yaesuserver.cpp" line="100"/>
         <source>Could not use UDP port %1 (control) on %2: %3</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 （控制）： %3</translation>
     </message>
     <message>
-        <location filename="../src/radio/yaesuserver.cpp" line="91"/>
+        <location filename="../src/radio/yaesuserver.cpp" line="106"/>
         <source>Could not use UDP port %1 (CAT) on %2: %3</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 (CAT) : %3</translation>
     </message>
     <message>
-        <location filename="../src/radio/yaesuserver.cpp" line="97"/>
+        <location filename="../src/radio/yaesuserver.cpp" line="112"/>
         <source>Could not use UDP port %1 (audio) on %2: %3</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 （音訊）： %3</translation>
     </message>
     <message>
-        <location filename="../src/radio/yaesuserver.cpp" line="103"/>
+        <location filename="../src/radio/yaesuserver.cpp" line="118"/>
         <source>Could not use UDP port %1 (scope) on %2: %3</source>
         <translation type="unfinished">無法在%2上使用UDP連接埠%1 （作用域）： %3</translation>
     </message>
