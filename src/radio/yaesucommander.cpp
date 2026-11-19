@@ -1228,9 +1228,12 @@ void yaesuCommander::parseData(QByteArray data)
         }
 
         if (!rigCaps.commands.contains(func)) {
-            // Don't warn if we haven't received rigCaps yet
+            // Debug, not info: radios send auto-information the rig file doesn't
+            // list (the FT-710 broadcasts AS, OI and FT on front-panel changes),
+            // and the reply is simply ignored. It stays visible with --debug for
+            // anyone building a rig file.
             if (haveRigCaps)
-                qInfo(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
+                qDebug(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
             continue;
         } else {
             type = this->rigCaps.commands.find(func).value();
