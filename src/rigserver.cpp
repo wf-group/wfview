@@ -46,6 +46,11 @@ void rigServer::dropUnauthorizedClients()
 {
 }
 
+void rigServer::setCwKeyAvailable(bool available)
+{
+    cwKeyAvailable = available;
+}
+
 void rigServer::receiveRigCaps(rigCapabilities* caps)
 {
     if (caps == nullptr)

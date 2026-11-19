@@ -969,6 +969,29 @@ McpTools::McpTools(McpHost *host, const McpAppInfo &info, const std::atomic_bool
              {"contains", schemaString("Only entries whose hex or text contains this, for example \"FA;\" or \"fe fe\".")}},
             [this](const QJsonObject &a) { return toolTraffic(a); });
 
+    addTool("get_cw_keying",
+            "CW keying",
+            "Returns the timing of CW keyed on a serial key line (DTR or RTS): for each recent message, every key "
+            "edge with when it was due, how late the call to set the line started (lateMs) and how long that call "
+            "took (driverMs), with mean, 95th percentile and maximum. The time the line takes to change at the radio "
+            "after the call is not measured. Also returns CW keying events: key port opened or closed, messages "
+            "started, stopped and finished, and LAN key requests and key line states sent and received. Recorded "
+            "only while MCP runs.",
+            {{"messages", schemaInt("How many recent messages to return (default 3).", 1, 100)},
+             {"events", schemaInt("How many recent events to return (default 100).", 1, 500)}},
+            [this](const QJsonObject &a) { return toolCwKeying(a); });
+
+    addTool("get_internal_state",
+            "Internal state",
+            "Returns internal state that components publish while MCP runs, each with its age: the CW keyer "
+            "(port, line, sending, speed), how CW is routed (local key line, LAN station key line, or the radio's "
+            "CW command), the LAN server's CW key state, and for Yaesu radios the scope window (Center, Cursor or "
+            "Fixed, span and start), the scope status block (which values are fresh, so their polls are skipped, "
+            "and how many polls were skipped), a recent VFO report overriding the scope frames, and the CW memory "
+            "keyer (slot, text waiting, saved memory text).",
+            {{"name", schemaString("Only states whose name contains this text, for example \"yaesu\" or \"cw\".")}},
+            [this](const QJsonObject &a) { return toolInternalState(a); });
+
     addTool("set_audio_diagnostics",
             "Audio timing diagnostics",
             "Starts or stops audio timing diagnostics, which are off until started and stop by themselves after the "
@@ -1754,6 +1777,20 @@ McpToolResult McpTools::toolTraffic(const QJsonObject &args)
                                args.value("direction").toString(),
                                argInt(args, "limit", defaultTrafficLimit, 1, maxRowLimit),
                                args.value("contains").toString());
+    return r;
+}
+
+McpToolResult McpTools::toolCwKeying(const QJsonObject &args)
+{
+    McpToolResult r;
+    r.data = McpProbe::cwKeying(argInt(args, "messages", 3, 1, 100), argInt(args, "events", 100, 1, 500));
+    return r;
+}
+
+McpToolResult McpTools::toolInternalState(const QJsonObject &args)
+{
+    McpToolResult r;
+    r.data = McpProbe::internalState(args.value("name").toString());
     return r;
 }
 

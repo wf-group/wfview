@@ -514,8 +514,21 @@ enum yaesuMessageId : quint16 {
     R2C_ConnectReply = 0x184,
     R2C_Data = 0x185,
     R2C_CloseReply = 0x186,
-    R2C_HealthReply = 0x187
+    R2C_HealthReply = 0x187,
+    // wfview extension, not part of the SCU-LAN10 protocol: CW keyed on a
+    // serial control line at the station. Other servers ignore these.
+    C2R_CwKey = 0x1c0,
+    R2C_CwKeyState = 0x1c1
 };
+
+enum yaesuCwKeyOp : quint8
+{
+    CwKeyQuery = 0,
+    CwKeySend = 1,
+    CwKeyStop = 2
+};
+
+constexpr int yaesuCwKeyMaxText = 250;
 
 
 
@@ -642,6 +655,22 @@ struct yaesuResultFrame {
 typedef yaesuResultFrame yaesuR2C_DeviceOpenFrame;
 typedef yaesuResultFrame yaesuR2C_DeviceConnectFrame;
 
+
+struct yaesuC2R_CwKeyFrame {
+    yaesuFrameHeader hdr;
+    quint32 session;
+    quint8 op; // yaesuCwKeyOp
+    quint8 wpm;
+    quint8 dashRatio; // tenths
+    quint8 textLen;
+    char text[yaesuCwKeyMaxText];
+};
+
+struct yaesuR2C_CwKeyStateFrame
+{
+    yaesuFrameHeader hdr;
+    quint8 available;
+};
 
 struct yaesuR2C_HeartbeatFrame {
     yaesuFrameHeader hdr;

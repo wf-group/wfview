@@ -19,6 +19,7 @@
 #include "RigCreatorController.h"
 #include "SelectRadioController.h"
 #include "CWSenderController.h"
+#include "cwserialkeyer.h"
 
 #include "prefs.h"
 #include "rigctld.h"
@@ -97,6 +98,10 @@ public:
     Q_PROPERTY(QString modGainLabel READ modGainLabel NOTIFY modSourcesChanged)
     Q_PROPERTY(int modGainMin READ modGainMin NOTIFY modSourcesChanged)
     Q_PROPERTY(int modGainMax READ modGainMax NOTIFY modSourcesChanged)
+    // False in modes with no audio modulation (CW, RTTY), where the source level does nothing.
+    Q_PROPERTY(bool modGainActive READ modGainActive NOTIFY modSourcesChanged)
+    // True when the current source carries audio from wfview (USB or LAN) in an audio mode.
+    Q_PROPERTY(bool txAudioActive READ txAudioActive NOTIFY modSourcesChanged)
     Q_PROPERTY(int modSourceRevision READ modSourceRevision NOTIFY modSourcesChanged)
     Q_PROPERTY(int ritFrequency READ ritFrequency WRITE setRitFrequency NOTIFY ritFrequencyChanged)
     Q_PROPERTY(bool transmitting READ transmitting WRITE setTransmit NOTIFY transmittingChanged)
@@ -207,7 +212,7 @@ public:
 
     Q_INVOKABLE void showCWSender()
     {
-        if (!rigCaps || !rigCaps->hasTransmit || !rigCaps->commands.contains(funcSendCW))
+        if (!canSendCw())
             return;
         m_cwSender->setVisible(true);
     }
@@ -218,7 +223,10 @@ public:
     void setConnStatus(connectionStatus_t c) {
         if (c != connStatus) {
             if (c == connDisconnected)
+            {
                 resetTxAudioOwnership();
+                setRemoteCwKey(false);
+            }
             connStatus =c;
             emit connStatusChanged();
             updateAudioRouteState();
@@ -238,6 +246,14 @@ public:
     int micGain() const { return m_micGain; }
     QString modGainLabel() const { return m_modGainLabel; }
     int modGainMin() const { return m_modGainMin; }
+    bool modGainActive() const
+    {
+        return m_modGainActive;
+    }
+    bool txAudioActive() const
+    {
+        return m_txAudioActive;
+    }
     int modGainMax() const { return m_modGainMax; }
     int modSourceRevision() const { return m_modSourceRevision; }
     int ritFrequency() const { return m_ritFrequency; }
@@ -505,6 +521,15 @@ private:
     friend class McpHostWfview;
 #endif
     void buildUiSpecs();
+    // CW can be sent with the radio's CW command or by keying a serial line.
+    bool canSendCw() const;
+    void setupCwKeyer();
+    void applyCwKeySettings();
+    void stopCwKeyer();
+    void updateCwKeying();
+    // For MCP diagnostics: how CW from the CW Sender is keyed now.
+    void publishCwRouting();
+    void setRemoteCwKey(bool available);
     void setRadioStatusText(const QString& text);
     void setFooterMessageText(const QString& text);
     void setRigModelName(const QString& modelName);
@@ -708,6 +733,9 @@ private:
     QString m_modGainLabel = "Mic";
     int m_modGainMin = 0;
     int m_modGainMax = 255;
+    bool m_modGainActive = true;
+    bool m_txAudioActive = true;
+    rigMode_t m_currentModeKind = modeUnknown;
     int m_modSourceRevision = 0;
     rigInput m_currentModSrc[4];
     int m_ritFrequency = 0;
@@ -804,6 +832,10 @@ private:
     std::unique_ptr<SettingsController> m_settings;
     std::unique_ptr<SelectRadioController> m_selRad;
     std::unique_ptr<CWSenderController> m_cwSender;
+    CwSerialKeyer *m_cwKeyer = nullptr;
+    QThread *m_cwKeyerThread = nullptr;
+    bool m_cwKeyReady = false; // a key line on this computer
+    bool m_cwRemoteKeyReady = false; // a key line at the station we are a client of
 
     ThemeBridge m_theme;
 

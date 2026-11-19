@@ -281,6 +281,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
         prefs->cwMacroList = m_cwSender->getMacroText();
         m_settings->markDirty();
     });
+    setupCwKeyer();
     setManufacturer(prefs->manufacturer);
     qDebug(logGui()) << "Theme text color:" << m_theme.text().name();
 
@@ -2102,6 +2103,162 @@ void MainController::colChanged(prefColItems items)
 
 }
 
+bool MainController::canSendCw() const
+{
+    return rigCaps && rigCaps->hasTransmit
+        && (m_cwKeyReady || m_cwRemoteKeyReady || rigCaps->commands.contains(funcSendCW));
+}
+
+void MainController::setupCwKeyer()
+{
+    m_cwKeyerThread = new QThread(this);
+    m_cwKeyerThread->setObjectName("cwKeyer()");
+    m_cwKeyer = new CwSerialKeyer();
+    m_cwKeyer->moveToThread(m_cwKeyerThread);
+    connect(m_cwKeyerThread, &QThread::finished, m_cwKeyer, &QObject::deleteLater);
+
+    // A key line on this computer is used first, then one at the station.
+    connect(m_cwSender.get(),
+            &CWSenderController::keyText,
+            this,
+            [this](const QString &text)
+            {
+                if (m_cwKeyReady)
+                {
+                    // A LAN client may have left the shared keyer at its own speed.
+                    const int wpm = m_cwSender->wpm();
+                    const double ratio = m_cwSender->dashRatio();
+                    QMetaObject::invokeMethod(m_cwKeyer,
+                                              [keyer = m_cwKeyer, text, wpm, ratio]()
+                                              {
+                                                  keyer->setSpeed(wpm);
+                                                  keyer->setRatio(ratio);
+                                                  keyer->send(text);
+                                              });
+                }
+                else if (m_cwRemoteKeyReady && rig)
+                {
+                    const int wpm = m_cwSender->wpm();
+                    const int ratio = qRound(m_cwSender->dashRatio() * 10);
+                    QMetaObject::invokeMethod(
+                        rig, [r = rig, text, wpm, ratio]() { r->sendRemoteCwKey(CwKeySend, text, wpm, ratio); });
+                }
+            });
+    connect(m_cwSender.get(),
+            &CWSenderController::keyStop,
+            this,
+            [this]()
+            {
+                if (m_cwKeyReady)
+                    QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::stop);
+                else if (m_cwRemoteKeyReady && rig)
+                    QMetaObject::invokeMethod(rig, [r = rig]() { r->sendRemoteCwKey(CwKeyStop, QString(), 0, 0); });
+            });
+    connect(m_cwSender.get(),
+            &CWSenderController::wpmChanged,
+            this,
+            [this]()
+            {
+                if (!m_cwKeyer)
+                    return;
+                const int wpm = m_cwSender->wpm();
+                QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, wpm]() { keyer->setSpeed(wpm); });
+            });
+    connect(m_cwSender.get(),
+            &CWSenderController::dashRatioChanged,
+            this,
+            [this]()
+            {
+                if (!m_cwKeyer)
+                    return;
+                const double ratio = m_cwSender->dashRatio();
+                QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, ratio]() { keyer->setRatio(ratio); });
+            });
+
+    connect(m_cwKeyer,
+            &CwSerialKeyer::readyChanged,
+            this,
+            [this](bool ready)
+            {
+                m_cwKeyReady = ready;
+                if (server)
+                    QMetaObject::invokeMethod(server, [s = server, ready]() { s->setCwKeyAvailable(ready); });
+                updateCwKeying();
+            });
+    connect(m_cwKeyer,
+            &CwSerialKeyer::portError,
+            this,
+            [this](const QString &message)
+            {
+                m_footerErrorText = tr("ERROR: %1").arg(message);
+                setFooterMessageText(m_footerErrorText);
+                m_footerErrorTimer.start(20000);
+            });
+    connect(m_settings.get(), &SettingsController::cwKeyChanged, this, &MainController::applyCwKeySettings);
+
+    m_cwKeyerThread->start();
+    applyCwKeySettings();
+}
+
+void MainController::publishCwRouting()
+{
+    MCP_STATE(QStringLiteral("cwRouting"),
+              (QJsonObject{{"localKeyLine", m_cwKeyReady},
+                           {"stationKeyLine", m_cwRemoteKeyReady},
+                           {"radioCwCommand", rigCaps != nullptr && rigCaps->commands.contains(funcSendCW)},
+                           {"route", m_cwKeyReady         ? QStringLiteral("local key line")
+                                     : m_cwRemoteKeyReady ? QStringLiteral("station key line")
+                                     : (rigCaps != nullptr && rigCaps->commands.contains(funcSendCW))
+                                         ? QStringLiteral("radio CW command")
+                                         : QStringLiteral("none")},
+                           {"canSendCw", canSendCw()}}));
+}
+
+void MainController::updateCwKeying()
+{
+    m_cwSender->setSerialKeying(m_cwKeyReady || m_cwRemoteKeyReady);
+    publishCwRouting();
+
+    // The CW button follows canSendCW. The rest of the map is built with the rig.
+    QVariantMap controls = uiSpecs.value("mainControls").toMap();
+    if (controls.isEmpty())
+        return;
+    controls["canSendCW"] = canSendCw();
+    uiSpecs["mainControls"] = controls;
+    emit uiSpecsChanged();
+}
+
+void MainController::setRemoteCwKey(bool available)
+{
+    if (m_cwRemoteKeyReady == available)
+        return;
+    m_cwRemoteKeyReady = available;
+    updateCwKeying();
+}
+
+void MainController::applyCwKeySettings()
+{
+    if (!m_cwKeyer || !prefs)
+        return;
+
+    const QString port = prefs->cwKeyPort;
+    const int line = prefs->cwKeyLine;
+    QMetaObject::invokeMethod(m_cwKeyer, [keyer = m_cwKeyer, port, line]() { keyer->configure(port, line); });
+}
+
+void MainController::stopCwKeyer()
+{
+    if (!m_cwKeyerThread)
+        return;
+
+    // Closing the port keys up and releases both control lines.
+    QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::close, Qt::BlockingQueuedConnection);
+    m_cwKeyerThread->quit();
+    m_cwKeyerThread->wait();
+    m_cwKeyerThread = nullptr;
+    m_cwKeyer = nullptr;
+}
+
 void MainController::buildUiSpecs()
 {
     // Must only be called if we already have a valid rigCaps
@@ -2136,6 +2293,7 @@ void MainController::buildUiSpecs()
         return spec;
     };
 
+    publishCwRouting();
     uiSpecs["mainControls"] = QVariantMap{
         {"canTransmit", rigCaps->hasTransmit && rigCaps->commands.contains(funcTransceiverStatus)},
         {"canTune", rigCaps->commands.contains(funcTunerStatus)},
@@ -2148,7 +2306,7 @@ void MainController::buildUiSpecs()
         {"canEqualMainSub", rigCaps->commands.contains(funcVFOEqualMS)},
         {"canCompressor", rigCaps->hasTransmit && rigCaps->commands.contains(funcCompressor)},
         {"canVox", rigCaps->hasTransmit && rigCaps->commands.contains(funcVox)},
-        {"canSendCW", rigCaps->hasTransmit && rigCaps->commands.contains(funcSendCW)},
+        {"canSendCW", canSendCw()},
         {"canMemories", rigCaps->commands.contains(funcMemoryContents)},
         {"canRepeater", rigCaps->commands.contains(funcSplitStatus)
                         || rigCaps->commands.contains(funcToneSquelchType)
@@ -3476,6 +3634,7 @@ void MainController::shutdown()
     if (shuttingDown) return;
     shuttingDown = true;
 
+    stopCwKeyer();
     stopUsbAudioBridge();
 
 #if defined(USB_CONTROLLER)
@@ -3761,6 +3920,35 @@ void MainController::setupRadioServer()
     connect(rig, &rigCommander::haveScopeDataForServer, server, &rigServer::receiveScopeData);
     connect(server, &rigServer::haveDataFromServer, rig, &rigCommander::dataFromServer);
 
+    // CW keyed for a network client on this computer's key line.
+    connect(server,
+            &rigServer::cwKeyRequest,
+            this,
+            [this, generation](QByteArray guid, int op, QString text, int wpm, double ratio)
+            {
+                Q_UNUSED(guid) // wfview serves one radio
+                if (generation != m_serverGeneration || !m_cwKeyer || !m_cwKeyReady)
+                    return;
+                QMetaObject::invokeMethod(m_cwKeyer,
+                                          [keyer = m_cwKeyer, op, text, wpm, ratio]()
+                                          {
+                                              if (op == CwKeyStop)
+                                              {
+                                                  keyer->stop();
+                                                  return;
+                                              }
+                                              if (wpm > 0)
+                                                  keyer->setSpeed(wpm);
+                                              if (ratio > 0.0)
+                                                  keyer->setRatio(ratio);
+                                              keyer->send(text);
+                                          });
+            });
+    {
+        const bool keyReady = m_cwKeyReady;
+        QMetaObject::invokeMethod(server, [s = server, keyReady]() { s->setCwKeyAvailable(keyReady); });
+    }
+
     connect(server, &rigServer::listening, this, [this, generation](bool ok, QString error) {
         if (generation != m_serverGeneration)
             return;
@@ -3839,6 +4027,9 @@ void MainController::stopRadioServer()
     // Anything the old server still has queued for us is ignored.
     ++m_serverGeneration;
     stopServerHostAudio();
+    // CW being keyed for a client would otherwise carry on with nobody to stop it.
+    if (m_cwKeyer)
+        QMetaObject::invokeMethod(m_cwKeyer, &CwSerialKeyer::stop);
 
     serverThread->quit();
     serverThread->wait();
@@ -4863,6 +5054,7 @@ void MainController::startRigConnection()
             }
         });
         connect(rig, &rigCommander::stopsidetone, m_cwSender.get(), &CWSenderController::handleStopSidetone);
+        connect(rig, &rigCommander::haveRemoteCwKey, this, &MainController::setRemoteCwKey);
 
         /*
         connect(this, SIGNAL(setPTTType(pttType_t)), rig, SLOT(setPTTType(pttType_t)));
@@ -5242,8 +5434,41 @@ void MainController::updateCurrentModSource(bool requestLevel)
         changed = true;
     }
 
-    if (requestLevel && levelCommand.cmd != funcNone)
-        queue->add(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    // CW and RTTY (FSK) transmit no audio, so the source level and TX audio do nothing.
+    // An unknown source is treated as carrying wfview's audio, so nothing is hidden wrongly.
+    const bool audioMode = m_currentModeKind != modeCW && m_currentModeKind != modeCW_R && m_currentModeKind != modeRTTY
+        && m_currentModeKind != modeRTTY_R;
+    bool computerAudio = false;
+    switch (input.type)
+    {
+    case inputUSB:
+    case inputLAN:
+    case inputMICUSB:
+    case inputACCUSB:
+    case inputMICUSBACC:
+    case inputUnknown:
+        computerAudio = true;
+        break;
+    default:
+        break;
+    }
+    const bool txAudio = audioMode && computerAudio;
+    if (m_modGainActive != audioMode || m_txAudioActive != txAudio)
+    {
+        m_modGainActive = audioMode;
+        m_txAudioActive = txAudio;
+        changed = true;
+    }
+
+    // Radios such as the FT-710 reject the level read in CW and RTTY, so it is only polled
+    // once the mode is known to carry audio, and the poll is removed in other modes.
+    if (levelCommand.cmd != funcNone)
+    {
+        if (!audioMode)
+            queue->del(levelCommand.cmd, currentReceiver);
+        else if (requestLevel && m_currentModeKind != modeUnknown)
+            queue->addUnique(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    }
 
     if (changed)
         emit modSourcesChanged();
@@ -5341,6 +5566,15 @@ void MainController::getInitialRigState()
         queue->add(priorityImmediate,queueItem(funcIdMeter,QVariant::fromValue(uchar(1)),false,0));
         queue->add(priorityImmediate,queueItem(funcVdMeter,QVariant::fromValue(uchar(1)),false,0));
         queue->add(priorityImmediate,queueItem(funcSWRMeter,QVariant::fromValue(uchar(1)),false,0));
+    }
+
+    // Read the radio's CW keyer memories once, as a starting point for empty CW Sender macros.
+    // Sending a memory number with no text reads that memory; it never changes it.
+    if (rigCaps->commands.contains(funcMemoryKeyer))
+    {
+        const funcType keyer = rigCaps->commands.value(funcMemoryKeyer);
+        for (int slot = keyer.minVal; slot <= keyer.maxVal; ++slot)
+            queue->add(priorityLow, queueItem(funcMemoryKeyer, QVariant::fromValue<uchar>(uchar(slot)), false, 0));
     }
 
     configureOptionalMeter(2, prefs->meter2Type);
@@ -5896,6 +6130,12 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->receiveMode(m,vfo);
         if (val.receiver == currentReceiver && vfo == 0) {
             m_cwSender->handleCurrentModeUpdate(m.mk);
+            if (m.mk != modeUnknown && m.mk != m_currentModeKind)
+            {
+                m_currentModeKind = m.mk;
+                // The level can differ per mode (the FT-710 keeps one mic gain per mode).
+                updateCurrentModSource(true);
+            }
             // Notify the ANR engine so it can swap in the saved noise profile
             // for this mode (or save the current one before switching away).
             if (rxProc && !m.name.isEmpty())
@@ -5976,8 +6216,14 @@ void MainController::receiveValueFromQueue(cacheItem val)
     case funcSplitMemory:
         emit memorySplitReceived(val.value.value<memorySplitType>());
         break;
-    case funcMemoryClear:
     case funcMemoryKeyer:
+    {
+        const QVariantMap memory = val.value.toMap();
+        if (m_cwSender)
+            m_cwSender->receiveRadioMemory(memory.value("slot").toInt(), memory.value("text").toString());
+        break;
+    }
+    case funcMemoryClear:
     case funcMemoryToVFO:
     case funcMemoryWrite:
         break;
@@ -6046,7 +6292,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setPbtInner(val.value.value<ushort>(),false);
         break;
     case funcIFShift:
-        receivers[val.receiver]->setIfShift(val.value.value<ushort>(),false);
+        // Signed on radios with a negative range, which arrive in a ushort.
+        receivers[val.receiver]->setIfShift(short(val.value.value<ushort>()), false);
         break;
         /*
     connect(this->rig, &rigCommander::haveDashRatio,
@@ -6342,7 +6589,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
     }
     case funcFilterWidth:
-        receivers[val.receiver]->setPassbandWidth(val.value.value<ushort>());
+        // The width the radio reports; shown by the filter width slider and the passband.
+        receivers[val.receiver]->setFilterWidth(val.value.value<ushort>(), false);
         break;
 
     case funcAFMute:

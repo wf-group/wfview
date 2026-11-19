@@ -7,7 +7,42 @@
 #include "mcphooks.h"
 #include "commhandler.h"
 
+#include <QDebug>
+#include <algorithm>
+#include <QJsonObject>
+#include <QJsonArray>
+#include "yaesuvalues.h"
+
+namespace
+{
+// A ?; reply is reported with the commands sent this long before it.
+constexpr qint64 rejectedCommandWindowMs = 500;
+constexpr int maxRecentCommands = 16;
+// Scope frame byte holding the scope display mode: 0 = Center, 1 = Cursor, 2 = Fixed.
+constexpr int scopeWindowModeByte = 52;
+// How long a VFO-A report from the radio is taken as newer than the scope frames.
+constexpr qint64 vfoReportNewerMs = 1000;
+}
+
+namespace
+{
+constexpr int rmMeterDigits = 3;
+// CF000 sets and reports the RX and TX clarifier together: CF000<rx><tx>000;
+const QByteArray clarifierStatusCommand = QByteArrayLiteral("CF000");
+
+// The FT-710 rejects RF power above 25 W in AM and AM-N.
+constexpr ushort maxAmPower = 25;
+}
+
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
+
+namespace
+{
+// APF level codes (CO03) run 00-50, -250..+250 Hz.
+constexpr int yaesuApfMax = 50;
+// A poll is skipped while the scope status block confirmed its value within this time.
+constexpr qint64 statusFreshLimitMs = 2000;
+}
 
 // This file parses data from the radio and also forms commands to the radio.
 
@@ -140,6 +175,50 @@ void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
 
     // Run setup common to all rig type
     commonSetup();
+}
+
+// In Cursor and Fixed scope modes the display does not centre on the VFO: it
+// starts at a frequency the radio keeps per band, read with FD001 / FD002. It is
+// read again when the mode or span changes, when the VFO leaves the window (the
+// Cursor window then moves), and every second for band changes. Until it is known,
+// the centred axis is kept.
+void yaesuCommander::updateScopeWindow(const QByteArray &data,
+                                       double vfoMHz,
+                                       const centerSpanData &cs,
+                                       scopeData &scope)
+{
+    if (!rigCaps.commands.contains(funcScopeFixedEdgeFreq) || data.size() <= scopeWindowModeByte)
+        return;
+
+    const quint8 windowMode = quint8(data.at(scopeWindowModeByte));
+    if (windowMode != scopeWindowMode)
+        qInfo(logRig()) << "Scope window mode" << windowMode << "(0 = Center, 1 = Cursor, 2 = Fixed)";
+    if (windowMode != 1 && windowMode != 2)
+    {
+        scopeWindowMode = windowMode;
+        scopeWindowKnown = false;
+        return;
+    }
+
+    const double spanMHz = cs.freq / 1000000.0;
+    if (windowMode != scopeWindowMode || cs.reg != scopeWindowSpan)
+        scopeWindowKnown = false;
+    scopeWindowMode = windowMode;
+    scopeWindowSpan = cs.reg;
+
+    const bool vfoOutside = scopeWindowKnown && yaesuVfoOutsideScopeWindow(vfoMHz, scopeWindowStartMHz, spanMHz);
+    if (yaesuScopeWindowReadDue(scopeWindowKnown, vfoOutside,
+                                scopeWindowAsked.isValid() ? scopeWindowAsked.elapsed() : -1))
+    {
+        sendToRig(rigCaps.commands.value(funcScopeFixedEdgeFreq).data + char('0' + windowMode) + ';');
+        scopeWindowAsked.start();
+    }
+
+    if (scopeWindowKnown)
+    {
+        scope.startFreq = scopeWindowStartMHz;
+        scope.endFreq = scopeWindowStartMHz + spanMHz;
+    }
 }
 
 void yaesuCommander::haveScopeData(QByteArray in)
@@ -285,10 +364,27 @@ void yaesuCommander::haveScopeData(QByteArray in)
 
     scopeData scope;
     scope.data = QByteArray((char*)d->wf1,sizeof(d->wf1));
+    // The first point is not spectrum (on the FT-710 it reads about twice the noise
+    // floor in every frame), so it is drawn with its neighbour's value.
+    if (scope.data.size() > 1)
+        scope.data[0] = scope.data.at(1);
     scope.valid=true;
     scope.receiver=0;
     scope.startFreq=fa.MHzDouble-((cs.freq/2)/1000000.0);
     scope.endFreq=fa.MHzDouble+((cs.freq/2)/1000000.0);
+    updateScopeWindow(data, fa.MHzDouble, cs, scope);
+    // The radio reports a new VFO-A (Auto Information) before a scope frame carries it. While such a
+    // report is recent, it is newer than the frame's value: the Center axis centres on it, as the radio's
+    // own display does, and the frame's older value is not stored over it.
+    const bool vfoReportNewer = rigCaps.scopeStatusBlock
+        && yaesuVfoReportNewer(vfoReportClock.isValid() ? vfoReportClock.elapsed() : -1, vfoReportHz, fa.Hz,
+                               vfoReportNewerMs);
+    if (vfoReportNewer && scopeWindowMode == 0)
+    {
+        const double centreMHz = vfoReportHz / 1000000.0;
+        scope.startFreq = centreMHz - ((cs.freq / 2) / 1000000.0);
+        scope.endFreq = centreMHz + ((cs.freq / 2) / 1000000.0);
+    }
     scope.mode = mode;
     scope.oor = false;
     scope.fixedEdge = 1;
@@ -296,16 +392,109 @@ void yaesuCommander::haveScopeData(QByteArray in)
     queue->receiveValue(funcScopeWaveData,QVariant::fromValue<scopeData>(scope),0);
 
     if (rigCaps.commands.contains(funcFreq)) {
-        queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcFreq, QVariant::fromValue<freqt>(fa), 0);
         queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fb),1);
     } else {
-        queue->receiveValue(funcSelectedFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcSelectedFreq, QVariant::fromValue<freqt>(fa), 0);
         queue->receiveValue(funcUnselectedFreq,QVariant::fromValue<freqt>(fb),0);
     }
 
+    if (rigCaps.scopeStatusBlock)
+    {
+        QHash<funcs, QVariant> confirmed;
+        const QHash<funcs, QVariant> changed = statusConfirm.update(yaesuStatusBlockValues(data), &confirmed);
+        if (!statusClock.isValid())
+        {
+            statusClock.start();
+        }
+        const qint64 now = statusClock.elapsed();
+        // The VFO frequencies and the main mode, decoded from this frame above, are current as well.
+        for (const funcs f : {funcFreq, funcSelectedFreq, funcUnselectedFreq, funcSelectedMode, funcMode})
+        {
+            if (rigCaps.commands.contains(f))
+                statusFreshMs.insert(f, now);
+        }
+        for (auto it = confirmed.constBegin(); it != confirmed.constEnd(); ++it)
+        {
+            if (rigCaps.commands.contains(it.key()))
+            {
+                statusFreshMs.insert(it.key(), now);
+            }
+        }
+        for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
+        {
+            if (rigCaps.commands.contains(it.key()))
+            {
+                queue->receiveValue(it.key(), it.value(), 0);
+            }
+        }
+    }
+
     emit setScopePoll(quint64(specTime+wfTime+10));
+    publishScopeState(vfoReportNewer);
 
 
+}
+
+bool yaesuCommander::statusFresh(funcs func) const
+{
+    const auto it = statusFreshMs.constFind(func);
+    return it != statusFreshMs.constEnd() && statusClock.isValid()
+        && statusClock.elapsed() - it.value() < statusFreshLimitMs;
+}
+
+void yaesuCommander::publishScopeState(bool vfoReportNewer)
+{
+    Q_UNUSED(vfoReportNewer)
+#ifdef WFVIEW_MCP
+    if (!McpProbe::enabled())
+        return;
+    static const char *const windowModes[] = {"Center", "Cursor", "Fixed"};
+    MCP_STATE(QStringLiteral("yaesu.scopeWindow"),
+              (QJsonObject{{"mode", scopeWindowMode < 3 ? QString::fromLatin1(windowModes[scopeWindowMode])
+                                                        : QString::number(scopeWindowMode)},
+                           {"spanRegister", int(scopeWindowSpan)},
+                           {"startKnown", scopeWindowKnown},
+                           {"startMHz", scopeWindowStartMHz},
+                           {"lastReadAgoMs", scopeWindowAsked.isValid() ? double(scopeWindowAsked.elapsed()) : -1.0}}));
+    MCP_STATE(QStringLiteral("yaesu.vfoReport"),
+              (QJsonObject{{"hz", double(vfoReportHz)},
+                           {"ageMs", vfoReportClock.isValid() ? double(vfoReportClock.elapsed()) : -1.0},
+                           {"newerThanFrameMs", double(vfoReportNewerMs)},
+                           {"overridingScopeFrame", vfoReportNewer}}));
+    if (rigCaps.scopeStatusBlock)
+    {
+        QJsonArray fresh;
+        for (auto it = statusFreshMs.constBegin(); it != statusFreshMs.constEnd(); ++it)
+        {
+            if (statusFresh(it.key()))
+                fresh.append(funcString[it.key()]);
+        }
+        QJsonObject skipped;
+        for (auto it = statusPollsSkipped.constBegin(); it != statusPollsSkipped.constEnd(); ++it)
+            skipped.insert(funcString[it.key()], double(it.value()));
+        MCP_STATE(QStringLiteral("yaesu.statusBlock"),
+                  (QJsonObject{{"freshLimitMs", double(statusFreshLimitMs)},
+                               {"fresh", fresh},
+                               {"pollsSkipped", skipped}}));
+    }
+#endif
+}
+
+void yaesuCommander::publishCwMemoryState()
+{
+    MCP_STATE(QStringLiteral("yaesu.cwMemoryKeyer"),
+              (QJsonObject{{"slot", int(rigCaps.cwMemorySlot)},
+                           {"inUse", cwMemoryInUse},
+                           {"playing", cwMemoryPlaying},
+                           {"readingSavedText", cwMemorySaving},
+                           {"textWaiting", QString::fromLatin1(cwMemoryPending)},
+                           {"savedText", QString::fromLatin1(cwMemorySaved)},
+                           {"nextChunkInMs", cwMemoryTimer != nullptr && cwMemoryTimer->isActive()
+                                                 ? cwMemoryTimer->remainingTime()
+                                                 : -1}}));
 }
 
 void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
@@ -379,6 +568,8 @@ void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 ri
     connect(control, &yaesuUdpControl::initCat, cat, &yaesuUdpCat::init);
     connect(cat, SIGNAL(haveCatDataFromRig(QByteArray)), this, SLOT(receiveCatDataFromRig(QByteArray)));
     connect(this, SIGNAL(sendDataToRig(QByteArray)),cat,SLOT(sendCatDataToRig(QByteArray)));
+    connect(this, &yaesuCommander::sendCwKeyToStation, cat, &yaesuUdpCat::sendCwKey);
+    connect(cat, &yaesuUdpCat::haveCwKeyState, this, &rigCommander::haveRemoteCwKey);
 
     audio = new yaesuUdpAudio(localIP,remoteIP,prefs.audioLANPort,rxSetup,txSetup,false);
     audioThread = new QThread(this);
@@ -696,11 +887,24 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         }
         break;
     }
+    case funcRepeaterTone:
+    {
+        const uchar mode = uchar(d.mid(0, 1).toUShort(&ok));
+        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
+        break;
+    }
     case funcRitStatus:
+        // The client's TX clarifier is kept when the command is sent on.
+        if (type.data == clarifierStatusCommand)
+            clarifierTx = d.size() > 1 && d.at(1) == '1';
+        value.setValue(d.mid(0, 1).toUShort(&ok) != 0);
+        break;
     case funcMonitor:
+        // ML0 answers with three digits, 000 for off and 001 for on.
+        value.setValue(d.toUShort(&ok) != 0);
+        break;
     case funcCompressor:
     case funcVox:
-    case funcRepeaterTone:
     case funcRepeaterTSQL:
     case funcScopeOnOff:
     case funcScopeHold:
@@ -722,6 +926,9 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         value.setValue(QVariant::fromValue<short>(val));
         break;
     }
+    case funcCwPitch:
+        value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok))));
+        break;
     case funcAGCTimeConstant:
     case funcMemorySelect:
     case funcRfGain:
@@ -741,7 +948,6 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
     case funcFilterShape:
     case funcRoofingFilter:
     case funcScopeSpeed:
-    case funcCwPitch:
     case funcAfGain:
     case funcBreakIn:
         value.setValue<uchar>(d.mid(0, type.bytes).toUShort(&ok));
@@ -787,6 +993,12 @@ void yaesuCommander::receiveRawExternalCommand(QByteArray data, uchar receiver)
 void yaesuCommander::dataFromServer(QByteArray data)
 {
     receiveRawExternalCommand(data, 0);
+}
+
+void yaesuCommander::sendRemoteCwKey(int op, QString text, int wpm, int dashRatio)
+{
+    if (cat != nullptr)
+        emit sendCwKeyToStation(op, text, wpm, dashRatio);
 }
 
 void yaesuCommander::dataForRig(QByteArray d)
@@ -967,6 +1179,10 @@ void yaesuCommander::parseData(QByteArray data)
     for (auto &d: commands) {        
         if (d.isEmpty())
             continue;
+        // Each reply is matched on its own. A reply the rig file doesn't know (for example an
+        // auto-information frame) must not be decoded as the command before it.
+        func = funcNone;
+        type = funcType();
         uchar receiver = 0; // Used for Dual/RX
         cmdFull = d; // save the complete cmd for debug later.
 
@@ -983,9 +1199,12 @@ void yaesuCommander::parseData(QByteArray data)
         }
 
         if (!rigCaps.commands.contains(func)) {
-            // Don't warn if we haven't received rigCaps yet
+            // Debug, not info: radios send auto-information the rig file doesn't
+            // list (the FT-710 broadcasts AS, OI and FT on front-panel changes),
+            // and the reply is simply ignored. It stays visible with --debug for
+            // anyone building a rig file.
             if (haveRigCaps)
-                qInfo(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
+                qDebug(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
             continue;
         } else {
             type = this->rigCaps.commands.find(func).value();
@@ -1033,6 +1252,11 @@ void yaesuCommander::parseData(QByteArray data)
             {
                 f.MHzDouble = f.Hz/1000000.0;
                 value.setValue(f);
+                if (receiver == 0 && func != funcUnselectedFreq)
+                {
+                    vfoReportHz = f.Hz;
+                    vfoReportClock.start();
+                }
             }
             break;
         }
@@ -1111,13 +1335,26 @@ void yaesuCommander::parseData(QByteArray data)
         case funcPBTInner:
         case funcPBTOuter:
             break;
+        case funcScopeFixedEdgeFreq:
+            // FD00n + the display start in Hz, for the Cursor (1) or Fixed (2) scope mode.
+            if (d.size() >= 10 && d.at(0) == char('0' + scopeWindowMode))
+            {
+                bool ok = false;
+                const qint64 hz = d.mid(1, 9).toLongLong(&ok);
+                if (ok)
+                {
+                    scopeWindowStartMHz = hz / 1000000.0;
+                    scopeWindowKnown = true;
+                }
+            }
+            break;
         case funcFilterWidth: {
             // We need to work out which mode first:
             uchar v = uchar(d.toShort());
             auto m = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,receiver).value.value<modeInfo>();
             for (const auto& w: rigCaps.widths)
             {
-                if ((w.bands >> m.reg) & 0x01)
+                if (w.modes.contains(m.mk))
                 {
                     if (v == w.num)
                     {
@@ -1131,19 +1368,70 @@ void yaesuCommander::parseData(QByteArray data)
         case funcMeterType:
             // We don't use this but it saves getting a log message.
             break;
-        case funcRitStatus:
         case funcMonitor:
+            // ML0 answers with three digits, 000 for off and 001 for on.
+            value.setValue<bool>(d.toUShort() != 0);
+            break;
+        // funcCompressor is the PR0 speech processor: its reply P2 is 0 = off,
+        // 1 = on, measured on the FT-710 (over 200+ polls, in CW and USB). Both
+        // CAT manuals say 1 = off / 2 = on, but the radio does not behave that
+        // way, so the boolean decode below (digit != 0) is correct for it. Don't
+        // "fix" it to match the manual. (The value 2 never appears on PR0; it may
+        // belong to the PL level field the manual text sits next to.)
         case funcCompressor:
         case funcVox:
-        case funcRepeaterTone:
+        case funcAutoNotch:
         case funcRepeaterTSQL:
         case funcScopeOnOff:
         case funcScopeHold:
         case funcOverflowStatus:
-        case funcSMeterSqlStatus:
         case funcSplitStatus:
         case funcTransceiverStatus:
+        case funcLockFunction:
             value.setValue<bool>(d.mid(0,1).toUShort());
+            break;
+        case funcSMeterSqlStatus:
+            // RI0 answer: squelch open is the last of seven flags.
+            if (d.size() >= 7)
+                value.setValue<bool>(d.at(6) == '1');
+            break;
+        case funcManualNotch:
+        case funcAPFType:
+            // On/off is the last digit (BP00 00n, CO02 000n).
+            value.setValue<bool>(d.right(1).toUShort());
+            break;
+        case funcNotchFilter:
+            value.setValue<ushort>(d.toUShort());
+            break;
+        case funcAPFLevel:
+            value.setValue<ushort>(ushort((qBound(0, d.toInt(), yaesuApfMax) * 255 + yaesuApfMax / 2) / yaesuApfMax));
+            break;
+        case funcIFShift:
+        {
+            // 0, then a sign and four digits. Negative shifts travel in a ushort.
+            int hz = 0;
+            if (yaesuParseIfShift(d.mid(1), &hz))
+                value.setValue<ushort>(ushort(short(hz)));
+            break;
+        }
+        case funcAutoInformation:
+            aiModeEnabled = d.mid(0, 1).toUShort() != 0;
+            value.setValue<uchar>(aiModeEnabled ? 1 : 0);
+            break;
+        case funcScopeRef:
+        {
+            // Sign and nn.n dB, carried in tenths of a dB.
+            int level = 0;
+            if (yaesuParseScopeRef(d, &level))
+                value.setValue(level);
+            break;
+        }
+        case funcBreakInDelay:
+            value.setValue<ushort>(ushort(yaesuDelayCodeToMs(d.mid(0, type.bytes).toInt())));
+            break;
+        case funcVOXDelay:
+            // Tenths of a second, rounded.
+            value.setValue<uchar>(uchar((yaesuDelayCodeToMs(d.mid(0, type.bytes).toInt()) + 50) / 100));
             break;
         case funcAfGain:
             value.setValue<uchar>(d.toUShort());
@@ -1154,32 +1442,43 @@ void yaesuCommander::parseData(QByteArray data)
         // These are numbers, as they might contain other info, only extract type.bytes len of data.
         case funcTunerStatus:
         {
-            // AC P1 P2 P3; P1 is always 0 per FT-710 CAT spec.
-            // P2: 0=bypass, 1=standard ATU, 2=ATAS motorised antenna tuner.
-            // P3: 0=not tuning, 1=tuning (standard ATU), 3=tuning (ATAS).
+            // AC P1 P2 P3. Measured on the FT-710: 000 = off, 001 = ATU on.
+            // The radio reports 001 for a standard ATU engaged, so the manual's
+            // "P2 = ATU type, P3 = tuning" digit layout looks wrong for this
+            // radio; the 010/011/020/023 values below come from the manual and
+            // are NOT confirmed on hardware. An unrecognised value is logged, not
+            // dropped: leaving it unset froze the Tuner/ATU Status cache (the
+            // 001 on-state never reached the GUI) until 001 was handled here.
             uchar s = d.mid(0, type.bytes).toUShort();
             switch(s)  {
             case 0:
                 // 000: ATU bypass/off
                 value.setValue<uchar>(0);
                 break;
+            case 1:
+                // 001: standard ATU on (measured on the FT-710)
+                value.setValue<uchar>(1);
+                break;
             case 10:
-                // 010: standard ATU on, not tuning
+                // 010: standard ATU on, not tuning (from the manual, unconfirmed)
                 value.setValue<uchar>(1);
                 break;
             case 11:
-                // 011: standard ATU on, tuning in progress
+                // 011: standard ATU on, tuning in progress (manual, unconfirmed)
                 value.setValue<uchar>(2);
                 break;
             case 20:
-                // 020: ATAS motorised ATU on, not tuning
+                // 020: ATAS motorised ATU on, not tuning (manual, unconfirmed)
                 qDebug(logRig()) << "ATAS-style motorised ATU detected (P2=2)";
                 value.setValue<uchar>(1);
                 break;
             case 23:
-                // 023: ATAS motorised ATU on, tuning in progress
+                // 023: ATAS motorised ATU on, tuning in progress (manual, unconfirmed)
                 qDebug(logRig()) << "ATAS-style motorised ATU detected, tuning (P2=2, P3=3)";
                 value.setValue<uchar>(2);
+                break;
+            default:
+                qDebug(logRig()) << "Unrecognised Tuner/ATU Status (AC) reply value" << s;
                 break;
             }
             break;
@@ -1206,7 +1505,6 @@ void yaesuCommander::parseData(QByteArray data)
         case funcSquelch:
         case funcMonitorGain:
         case funcKeySpeed:
-        case funcScopeRef:
         case funcScopeEdge:
         case funcAttenuator:
         case funcPreamp:
@@ -1217,7 +1515,8 @@ void yaesuCommander::parseData(QByteArray data)
         case funcFilterShape:
         case funcRoofingFilter:
         case funcScopeSpeed:
-        case funcCwPitch:
+        case funcScanning:
+        case funcVoiceTX:
             value.setValue<uchar>(d.mid(0,type.bytes).toUShort());
             break;
         case funcVFOAInformation:
@@ -1242,9 +1541,35 @@ void yaesuCommander::parseData(QByteArray data)
         case funcRitFreq:
             value.setValue<short>(d.toShort());
             break;
+        case funcRepeaterTone:
+        {
+            const uchar mode = uchar(d.mid(0, 1).toUShort());
+            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
+        }
+            break;
+        case funcCwPitch:
+            value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt())));
+            break;
+        case funcRitStatus:
+            // Trailing zeros have been removed, so a missing second digit means TX clarifier off.
+            if (type.data == clarifierStatusCommand)
+                clarifierTx = d.size() > 1 && d.at(1) == '1';
+            value.setValue<bool>(d.mid(0, 1).toUShort());
+            break;
+        case funcNBLevel:
+        case funcNRLevel:
+        case funcVoxGain:
+        case funcAntiVoxGain:
+            value.setValue<ushort>(d.left(type.bytes).toUShort());
+            break;
         case funcCompressorLevel:
-            // We only want the second value.
-            value.setValue<uchar>(d.mid(type.bytes,type.bytes).toUShort());
+            // Some rigs answer with two values and we want the second; the FT-710 answers with one.
+            if (d.size() >= type.bytes * 2)
+                value.setValue<uchar>(d.mid(type.bytes, type.bytes).toUShort());
+            else
+                value.setValue<uchar>(d.left(type.bytes).toUShort());
+            if (value.value<uchar>() > 0)
+                lastCompressorLevel = value.value<uchar>();
             break;
         case funcScopeSpan:
             for (auto &s: rigCaps.scopeCenterSpans)
@@ -1258,24 +1583,46 @@ void yaesuCommander::parseData(QByteArray data)
         case funcSMeter:
             value.setValue(getMeterCal(meterS,d.toUShort()));
             break;
+        // The RM meters answer with three digits followed by padding (RMnvvv000).
         case funcPowerMeter:
-            value.setValue(getMeterCal(meterPower,d.toUShort()));
+            value.setValue(getMeterCal(meterPower, d.left(rmMeterDigits).toUShort()));
             break;
         case funcSWRMeter:
-            value.setValue(getMeterCal(meterSWR,d.toUShort()));
+            value.setValue(getMeterCal(meterSWR, d.left(rmMeterDigits).toUShort()));
             break;
         case funcALCMeter:
-            value.setValue(getMeterCal(meterALC,d.toUShort()));
+            value.setValue(getMeterCal(meterALC, d.left(rmMeterDigits).toUShort()));
             break;
         case funcCompMeter:
-            value.setValue(getMeterCal(meterComp,d.toUShort()));
+            value.setValue(getMeterCal(meterComp, d.left(rmMeterDigits).toUShort()));
             break;
         case funcVdMeter:
-            value.setValue(getMeterCal(meterVoltage,d.toUShort()));
+            value.setValue(getMeterCal(meterVoltage, d.left(rmMeterDigits).toUShort()));
             break;
         case funcIdMeter:
-            value.setValue(getMeterCal(meterCurrent,d.toUShort()));
+            value.setValue(getMeterCal(meterCurrent, d.left(rmMeterDigits).toUShort()));
             break;
+        case funcMemoryKeyer:
+        {
+            // KMn<text>; is keyer memory n. An empty memory answers KM; with no number.
+            // The text ends at the keyer end mark '}', which the radio may store with it.
+            if (cwMemorySaving)
+            {
+                // The read sent before the first memory write: keep the text as stored.
+                cwMemorySaving = false;
+                if (!d.isEmpty() && d.at(0) == char('0' + rigCaps.cwMemorySlot))
+                    cwMemorySaved = d.mid(1);
+                publishCwMemoryState();
+            }
+            if (d.isEmpty() || d.at(0) < '1' || d.at(0) > '9')
+                break;
+            QString text = QString::fromLatin1(d.mid(1));
+            const int end = text.indexOf(QLatin1Char('}'));
+            if (end >= 0)
+                text.truncate(end);
+            value.setValue(QVariantMap {{"slot", d.at(0) - '0'}, {"text", text.trimmed()}});
+            break;
+        }
         case funcMemoryContents:
         // Contains the contents of the rig memory
         {
@@ -1361,9 +1708,20 @@ void yaesuCommander::parseData(QByteArray data)
             value.setValue(uchar(d.at(0)));
             break;
         case funcFA:
-            qInfo(logRig()) << "Rig error, last command sent:" << funcString[lastCommand.func] << "(min:" << lastCommand.minValue << "max:" <<
-                lastCommand.maxValue << "bytes:" << lastCommand.bytes <<  ") data:" << lastCommand.data;
+        {
+            // ?; names no command, and with auto information on it can arrive after later
+            // commands were sent, so report every command sent shortly before it.
+            QByteArrayList recent;
+            const qint64 now = commandClock.isValid() ? commandClock.elapsed() : 0;
+            for (const auto &c : std::as_const(recentCommands))
+            {
+                if (now - c.ms <= rejectedCommandWindowMs)
+                    recent.append(c.data);
+            }
+            qWarning(logRig()).noquote() << "Rig rejected a command (?;). Sent in the last"
+                                         << rejectedCommandWindowMs << "ms:" << recent.join(' ');
             break;
+        }
         default:
             qWarning(logRig()).noquote() << "Unhandled command received from rig:" << funcString[func] << "value:" << d.mid(0,10);
             break;
@@ -1611,9 +1969,45 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
     }
 
 
+    if (func == funcRFPower && value.isValid()) {
+        const modeInfo mi = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,
+                                            receiver).value.value<modeInfo>();
+        if ((mi.mk == modeAM || mi.mk == modeAMN) && value.value<ushort>() > maxAmPower) {
+            qInfo(logRig()) << "RF power" << value.value<ushort>() << "is above the AM limit, sending" << maxAmPower;
+            value = QVariant::fromValue<ushort>(maxAmPower);
+        }
+    }
+
+    if (func == funcRepeaterTone && value.isValid() && rigCaps.toneSquelchIsOne) {
+        const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
+        value.setValue<uchar>(yaesuSwapToneMode(mode));
+    }
+
+    // On the FT-710, turning the speech processor on sets its level to 50 and
+    // turning it off sets it to 0, so send the user's last level after turning it on.
+    if (func == funcCompressorLevel && value.isValid() && value.value<uchar>() > 0)
+        lastCompressorLevel = value.value<uchar>();
+    if (func == funcCompressor && value.isValid() && value.toBool() && lastCompressorLevel > 0)
+        queue->add(priorityImmediate,
+                   queueItem(funcCompressorLevel, QVariant::fromValue<ushort>(lastCompressorLevel), false, receiver));
+
     //qInfo() << "requested command:" << funcString[func];
 
+    // The scope status block already keeps this value current, so don't poll for it. Sets always go out.
+    if (!value.isValid() && rigCaps.scopeStatusBlock && statusFresh(func))
+    {
+#ifdef WFVIEW_MCP
+        ++statusPollsSkipped[func];
+#endif
+        return;
+    }
+
     funcType cmd = getCommand(func,payload,val,receiver);
+
+    // Memory to VFO is an action that arrives with no value, which would otherwise be sent as a read.
+    // Its rig file entry is readable, as on Icom rigs, so that the queue passes it on.
+    if (func == funcMemoryToVFO && !value.isValid())
+        value.setValue<uchar>(0);
 
     if (cmd.cmd != funcNone) {
         if (value.isValid())
@@ -1645,7 +2039,48 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 qInfo() << "Setting scope type to:" << value.toInt() << "for connection type:" << connType;
             }
 
-            if (!strcmp(value.typeName(),"centerSpanData"))
+            if (func == funcCWAutoTune || func == funcMemoryToVFO)
+            {
+                // An action: the rig file string is the whole command.
+            }
+            else if (func == funcBreakInDelay || func == funcVOXDelay)
+            {
+                // wfview carries break-in delay in ms and VOX delay in tenths of a second,
+                // as on the TS-890S and Icom rigs. The radio takes a 00-33 code.
+                const int ms = func == funcVOXDelay ? value.toInt() * 100 : value.toInt();
+                payload.append(
+                    QString::number(yaesuDelayMsToCode(ms)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (func == funcIFShift)
+            {
+                // A negative shift arrives in a ushort. The radio takes 0, a sign and four digits.
+                payload.append("0");
+                payload.append(yaesuFormatIfShift(short(value.toInt())));
+            }
+            else if (func == funcAutoInformation)
+            {
+                // wfview asks for 2, the Kenwood value; Yaesu only has off and on.
+                aiModeEnabled = value.toInt() != 0;
+                payload.append(aiModeEnabled ? "1" : "0");
+            }
+            else if (func == funcScopeRef)
+            {
+                // Tenths of a dB, sent as a sign and nn.n.
+                payload.append(yaesuFormatScopeRef(value.toInt()));
+            }
+            else if (func == funcAPFLevel)
+            {
+                // wfview carries APF level as 0-255, as on Icom rigs; the radio takes 00-50.
+                const int level = qBound(0, (value.toInt() * yaesuApfMax + 127) / 255, yaesuApfMax);
+                payload.append(QString::number(level).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (func == funcNotchFilter)
+            {
+                // Decimal; the uchar case below would send it in hex.
+                const int freq = qBound(cmd.minVal, value.toInt(), cmd.maxVal);
+                payload.append(QString::number(freq).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+            }
+            else if (!strcmp(value.typeName(), "centerSpanData"))
             {
                 centerSpanData d = value.value<centerSpanData>();
                 if (cmd.padr)
@@ -1679,17 +2114,13 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                             textData[c] = 0x3F; // "?"
                         }
                     }
+                    // Yaesu has no free-text CW command: the text is stored in keyer
+                    // memory 1 with KM and played with KY (the rig file's Send CW command).
                     if (textData.isEmpty())
-                    {
-                        emit stopsidetone();
-                        payload.append(QString("0").leftJustified(cmd.bytes, QChar(' ')).toLatin1());
-                    } else {
-                        emit sidetone(QString(textData));
-                        payload.append(" ");
-                        payload.append(textData.leftJustified(cmd.bytes, QChar(' ').toLatin1()));
-                        qDebug(logRig()) << "CW output::" << textData ;
-                    }
-                    qDebug(logRig()) << "Sending CW: payload:" << payload.toStdString().c_str();
+                        stopCwMemory();
+                    else
+                        sendCwMemory(textData.toUpper());
+                    return;
                 }
             }
             else if(!strcmp(value.typeName(),"freqt"))
@@ -1699,7 +2130,15 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             else if(!strcmp(value.typeName(),"bool") || !strcmp(value.typeName(),"uchar") || !strcmp(value.typeName(),"int"))
             {
                 // This is a simple number
-                if(func==funcTunerStatus) {
+                if (func == funcRitStatus && cmd.data == clarifierStatusCommand)
+                {
+                    // Keep the TX clarifier as the radio last reported it.
+                    payload.append(value.toBool() ? '1' : '0');
+                    payload.append(clarifierTx ? '1' : '0');
+                    payload.append("000");
+                }
+                else if (func == funcTunerStatus)
+                {
                     // AC P1 P2 P3; P1 is always 0 per FT-710 CAT spec.
                     switch(value.value<uchar>()) {
                     case 0:
@@ -1764,14 +2203,20 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
             }
             else if(!strcmp(value.typeName(),"ushort") )
             {
-                if (func == funcFilterWidth)
+                if (func == funcCwPitch)
+                {
+                    const int hz = qBound(int(cmd.minVal), int(value.value<ushort>()), int(cmd.maxVal));
+                    payload.append(
+                        QString::number(yaesuCwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+                }
+                else if (func == funcFilterWidth)
                 {
                     // We need to work out which mode first:
                     ushort width=value.value<ushort>();
                     auto m = queue->getCache(rigCaps.commands.contains(funcSelectedMode)?funcSelectedMode:funcMode,receiver).value.value<modeInfo>();
                     for (const auto& w: rigCaps.widths)
                     {
-                        if ((w.bands >> m.reg) & 0x01 )
+                        if (w.modes.contains(m.mk))
                         {
                             if (w.hz >= width) {
                                 payload.append(QString::number(w.num).rightJustified(cmd.bytes, QChar('0')).toLatin1());
@@ -2062,12 +2507,133 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
         emit sendDataToRig(payload);
 
+        if (!commandClock.isValid())
+            commandClock.start();
+        recentCommands.append(sentCommand {commandClock.elapsed(), payload});
+        while (recentCommands.size() > maxRecentCommands)
+            recentCommands.removeFirst();
+
         lastCommand.func = func;
         lastCommand.data = payload;
         lastCommand.minValue = cmd.minVal;
         lastCommand.maxValue = cmd.maxVal;
         lastCommand.bytes = cmd.bytes;
     }
+}
+
+namespace
+{
+// The FT-710 keeps up to 50 characters in a keyer memory, but with all 50 used
+// its end mark is written past the memory, so at most 49 are sent at once.
+constexpr int cwMemoryMaxChars = 49;
+// The radio's keyer weight is not read, so its default dash ratio is assumed.
+constexpr double cwDefaultDashRatio = 3.0;
+// Extra time before the next memory is sent, so playback has certainly ended.
+constexpr int cwMemoryMarginMs = 300;
+constexpr int cwDefaultWpm = 20;
+}
+
+// The radio plays one keyer memory at a time and reports nothing when it ends, so
+// text that arrives while a memory is playing waits until that playback should be over.
+// Each KM write goes to the radio's EEPROM, and KY0n sets that memory's CW MEMORY menu item to TEXT.
+// The memory is set by CwMemorySlot in the rig file.
+QByteArray yaesuCommander::memoryKeyerCommand() const
+{
+    return rigCaps.commands.contains(funcMemoryKeyer) ? rigCaps.commands.value(funcMemoryKeyer).data
+                                                      : QByteArrayLiteral("KM");
+}
+
+void yaesuCommander::sendCwMemory(const QByteArray &text)
+{
+    if (!cwMemoryInUse)
+    {
+        // Read the memory first, so it can be put back when sending ends.
+        cwMemoryInUse = true;
+        cwMemorySaving = true;
+        cwMemorySaved.clear();
+        sendToRig(memoryKeyerCommand() + char('0' + rigCaps.cwMemorySlot) + ';');
+    }
+    cwMemoryPending.append(text);
+    if (!cwMemoryPlaying)
+        playNextCwMemory();
+    publishCwMemoryState();
+}
+
+void yaesuCommander::playNextCwMemory()
+{
+    if (cwMemoryPending.isEmpty())
+    {
+        cwMemoryPlaying = false;
+        restoreCwMemory();
+        return;
+    }
+
+    // When text is split, end the memory at a space so the pause between
+    // memories falls between words.
+    const QByteArray chunk = cwMemoryPending.left(yaesuCwMemoryChunkLength(cwMemoryPending, cwMemoryMaxChars));
+    cwMemoryPending.remove(0, chunk.size());
+
+    const QByteArray store = memoryKeyerCommand();
+    const QByteArray play = rigCaps.commands.value(funcSendCW).data;
+    emit sidetone(QString::fromLatin1(chunk));
+    const char slot = char('0' + rigCaps.cwMemorySlot);
+    sendToRig(store + slot + chunk + ";");
+    sendToRig(play + '0' + slot + ';');
+    qDebug(logRig()) << "CW sent through keyer memory:" << chunk;
+
+    int wpm = queue->getCache(funcKeySpeed, 0).value.toInt();
+    if (wpm < 4)
+        wpm = cwDefaultWpm;
+    if (cwMemoryTimer == nullptr)
+    {
+        cwMemoryTimer = new QTimer(this);
+        cwMemoryTimer->setSingleShot(true);
+        connect(cwMemoryTimer, &QTimer::timeout, this, &yaesuCommander::playNextCwMemory);
+    }
+    cwMemoryPlaying = true;
+    cwMemoryTimer->start(yaesuCwKeyingMs(chunk, wpm, cwDefaultDashRatio) + cwMemoryMarginMs);
+    MCP_CW_EVENT(QStringLiteral("yaesu memory keyer"), QStringLiteral("memory played"),
+                 (QJsonObject{{"slot", int(rigCaps.cwMemorySlot)},
+                              {"text", QString::fromLatin1(chunk)},
+                              {"wpm", wpm},
+                              {"expectedMs", cwMemoryTimer->interval()}}));
+    publishCwMemoryState();
+}
+
+void yaesuCommander::stopCwMemory()
+{
+    cwMemoryPending.clear();
+    cwMemoryPlaying = false;
+    if (cwMemoryTimer != nullptr)
+        cwMemoryTimer->stop();
+    emit stopsidetone();
+    sendToRig(rigCaps.commands.value(funcSendCW).data + "00;");
+    restoreCwMemory();
+}
+
+// Writes back what the memory held before sending. A memory that was empty
+// keeps the last text, as KM cannot write an empty memory.
+void yaesuCommander::restoreCwMemory()
+{
+    if (!cwMemoryInUse)
+        return;
+    cwMemoryInUse = false;
+    cwMemorySaving = false;
+    if (!cwMemorySaved.isEmpty())
+        sendToRig(memoryKeyerCommand() + char('0' + rigCaps.cwMemorySlot) + cwMemorySaved + ';');
+    cwMemorySaved.clear();
+    publishCwMemoryState();
+}
+
+void yaesuCommander::sendToRig(const QByteArray &data)
+{
+    qDebug(logRigTraffic()).noquote() << "Send to rig: " << data.toStdString().c_str();
+    emit sendDataToRig(data);
+    if (!commandClock.isValid())
+        commandClock.start();
+    recentCommands.append(sentCommand {commandClock.elapsed(), data});
+    while (recentCommands.size() > maxRecentCommands)
+        recentCommands.removeFirst();
 }
 
 void yaesuCommander::serialPortError(QSerialPort::SerialPortError err)

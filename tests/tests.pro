@@ -8,6 +8,8 @@ include(../version.pri)
 CONFIG -= app_bundle
 
 DEFINES += OUTSIDE_SPEEX
+# Rig files checked by tst_yaesustatusblock.cpp and tst_yaesurigfiles.cpp.
+DEFINES += WFVIEW_RIGS_DIR=\\\"$$PWD/../rigs\\\"
 DEFINES += RANDOM_PREFIX=wf
 DEFINES += EIGEN_MPL2_ONLY
 DEFINES += EIGEN_DONT_VECTORIZE
@@ -36,6 +38,7 @@ SOURCES += \
     $$PWD/tst_cachingqueue.cpp \
     $$PWD/tst_cluster.cpp \
     $$PWD/tst_controllercontroller.cpp \
+    $$PWD/tst_cwmorse.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_icomudpbase.cpp \
     $$PWD/tst_iaxclientsession.cpp \
@@ -47,6 +50,10 @@ SOURCES += \
     $$PWD/tst_rigctld.cpp \
     $$PWD/tst_rigprotocols.cpp \
     $$PWD/tst_txaudiopacer.cpp \
+    $$PWD/tst_yaesustatusblock.cpp \
+    $$PWD/tst_yaesuvalues.cpp \
+    $$PWD/tst_yaesurigfiles.cpp \
+    $$PWD/tst_yaesucwkey.cpp \
     $$PWD/../src/audio/txaudiopacer.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \
@@ -58,7 +65,10 @@ SOURCES += \
     $$PWD/../src/radiotransportframe.cpp \
     $$PWD/../src/rigctlcompat.cpp \
     $$PWD/../src/cachingqueue.cpp \
-    $$PWD/../src/rigctld.cpp
+    $$PWD/../src/cwmorse.cpp \
+    $$PWD/../src/rigctld.cpp \
+    $$PWD/../src/radio/yaesustatusblock.cpp \
+    $$PWD/../src/radio/yaesuvalues.cpp
 
 HEADERS += \
     $$PWD/../include/cluster.h \
@@ -74,5 +84,8 @@ HEADERS += \
     $$PWD/../include/rigctlcompat.h \
     $$PWD/../include/rigctld.h \
     $$PWD/../include/cachingqueue.h \
+    $$PWD/../include/cwmorse.h \
     $$PWD/../include/txaudiopacer.h \
-    $$PWD/../include/usbcontroller.h
+    $$PWD/../include/usbcontroller.h \
+    $$PWD/../include/yaesustatusblock.h \
+    $$PWD/../include/yaesuvalues.h

@@ -2419,7 +2419,7 @@ ApplicationWindow {
                                     from: MainController.modGainMin
                                     to: MainController.modGainMax
                                     value: MainController.micGain
-                                    enabled: spec.available ?? false
+                                    enabled: (spec.available ?? false) && MainController.modGainActive
                                     orientation: Qt.Vertical
                                     Layout.preferredHeight: win.mainControlSliderHeight
                                     onMoved: MainController.micGain = Math.round(value)
@@ -2435,10 +2435,14 @@ ApplicationWindow {
                                     enabled: visible
                                     value: visible ? MainController.txAudioLevel : 0
                                     label: qsTr("TX audio")
-                                    active: micGainSlider.enabled
+                                    active: micGainSlider.enabled && MainController.txAudioActive
                                 }
                             }
-                            Label { text: MainController.modGainLabel; horizontalAlignment: Text.AlignHCenter }
+                            Label {
+                                text: MainController.modGainLabel
+                                horizontalAlignment: Text.AlignHCenter
+                                enabled: MainController.modGainActive
+                            }
                         }
                     }
                 }
@@ -2592,6 +2596,8 @@ ApplicationWindow {
                                 // Not checkable so the binding survives a click and follows the radio.
                                 checkable: false
                                 checked: MainController.splitEnabled
+                                // Some styles don't draw checked on a button that isn't checkable.
+                                highlighted: MainController.splitEnabled
                                 enabled: mainControlSpecs.canSplit ?? false
                                 visible: (mainControlSpecs.canSplit ?? false) && scopeAndOtherControlsFlow.hasReceiverScopeControls
                                 onClicked: MainController.splitEnabled = !MainController.splitEnabled

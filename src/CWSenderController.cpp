@@ -1,5 +1,8 @@
 #include "CWSenderController.h"
 #include "logcategories.h"
+#include "cwmorse.h"
+
+#include <deque>
 
 namespace
 {
@@ -8,6 +11,8 @@ constexpr int defaultPitchMin = 300;
 constexpr int defaultPitchMax = 900;
 // How long to wait for the radio to confirm each CW decoder step.
 constexpr int cwDecodeStepTimeoutMs = 1500;
+// Longest message accepted when keying a serial line, which has no radio-side limit.
+constexpr int serialKeyingMaxChars = 250;
 }
 
 CWSenderController::CWSenderController(QObject* parent)
@@ -45,14 +50,28 @@ CWSenderController::CWSenderController(QObject* parent)
     m_cwDecodeTimer.setInterval(cwDecodeStepTimeoutMs);
     connect(&m_cwDecodeTimer, &QTimer::timeout, this, &CWSenderController::cwDecodeStepTimeout);
 
+    // When the estimated send time is up, clear the "Sending CW" label (only if
+    // it's still showing that, so it never clobbers another message).
+    m_sendStatusTimer.setSingleShot(true);
+    connect(&m_sendStatusTimer, &QTimer::timeout, this, [this]() {
+        if (m_statusMessage == QStringLiteral("Sending CW"))
+            setStatusMessage(QString());
+    });
+
     m_queue = cachingQueue::getInstance();
     if (m_queue) {
         connect(this, &CWSenderController::sendCW, m_queue, [=](const QString &cwMessage) {
-            m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(cwMessage)));
+            if (m_serialKeying)
+                emit keyText(cwMessage);
+            else
+                m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(cwMessage)));
         });
 
         connect(this, &CWSenderController::stopCW, m_queue, [=]() {
-            m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(QString())));
+            if (m_serialKeying)
+                emit keyStop();
+            else
+                m_queue->add(priorityImmediate, queueItem(funcSendCW, QVariant::fromValue<QString>(QString())));
         });
 
         connect(this, &CWSenderController::setBreakInModeSignal, m_queue, [=](const quint8 &bmode) {
@@ -83,11 +102,7 @@ CWSenderController::CWSenderController(QObject* parent)
 void CWSenderController::receiveRigCaps(rigCapabilities* caps)
 {
     m_rigCaps = caps;
-    const bool supported = m_rigCaps && m_rigCaps->commands.contains(funcSendCW);
-    if (m_canSendCW != supported) {
-        m_canSendCW = supported;
-        emit canSendCWChanged();
-    }
+    updateSendCapability();
 
     // The pitch range comes from the rig file, in Hz.
     int pitchMin = defaultPitchMin;
@@ -104,17 +119,6 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
         m_pitchMax = pitchMax;
         emit pitchRangeChanged();
     }
-
-    const int chars = supported ? m_rigCaps->commands.find(funcSendCW).value().bytes : 0;
-    if (m_maxChars != chars) {
-        m_maxChars = chars;
-        emit maxCharsChanged();
-    }
-
-    if (!supported)
-        setStatusMessage("CW sending is not supported by the current radio.");
-    else if (m_statusMessage == "CW sending is not supported by the current radio.")
-        setStatusMessage(QString());
 
     // CW decoder. The decoder needs a CW Decode Enable command; CW Decode Display is
     // only stepped through when the rig file says the decoder depends on it.
@@ -142,6 +146,44 @@ void CWSenderController::receiveRigCaps(rigCapabilities* caps)
 
     if (m_visible)
         queryCwDecodeState();
+}
+
+void CWSenderController::setSerialKeying(bool available)
+{
+    if (m_serialKeying == available)
+        return;
+
+    m_serialKeying = available;
+    updateSendCapability();
+}
+
+// A serial key line, when there is one, is used in preference to the radio's
+// CW command, and makes CW available on radios that have no such command.
+void CWSenderController::updateSendCapability()
+{
+    const bool hasCommand = m_rigCaps && m_rigCaps->commands.contains(funcSendCW);
+    const bool supported = hasCommand || (m_serialKeying && m_rigCaps && m_rigCaps->hasTransmit);
+    if (m_canSendCW != supported)
+    {
+        m_canSendCW = supported;
+        emit canSendCWChanged();
+    }
+
+    int chars = 0;
+    if (supported && m_serialKeying)
+        chars = serialKeyingMaxChars;
+    else if (supported)
+        chars = m_rigCaps->commands.find(funcSendCW).value().bytes;
+    if (m_maxChars != chars)
+    {
+        m_maxChars = chars;
+        emit maxCharsChanged();
+    }
+
+    if (!supported)
+        setStatusMessage("CW sending is not supported by the current radio.");
+    else if (m_statusMessage == "CW sending is not supported by the current radio.")
+        setStatusMessage(QString());
 }
 
 CWSenderController::~CWSenderController()
@@ -388,13 +430,32 @@ void CWSenderController::sendText(const QString& text)
     setStatusMessage("Sending CW");
     emit sendCW(text);
     handleSidetoneText(text);
+
+    // Extend the label's lifetime by this message's estimated duration (plus a
+    // margin), so sending more text before the previous finished keeps it up.
+    const int remaining = m_sendStatusTimer.isActive() ? m_sendStatusTimer.remainingTime() : 0;
+    m_sendStatusTimer.start(remaining + estimateCwMs(text) + 500);
 }
 
 void CWSenderController::stopSending()
 {
+    m_sendStatusTimer.stop();
     emit stopCW();
     handleStopSidetone();
     setStatusMessage("Stopping CW transmission.");
+}
+
+// Rough time the radio needs to key `text` at the current speed and ratio, used
+// only to time out the "Sending CW" label; the actual keying is done elsewhere.
+int CWSenderController::estimateCwMs(const QString &text) const
+{
+    std::deque<CwElement> elements;
+    for (const QChar ch : text)
+        appendCwElements(ch, m_dashRatio, elements);
+    double dits = 0.0;
+    for (const CwElement &e : elements)
+        dits += e.dits;
+    return int(dits * cwDitSecondsAtOneWpm * 1000.0 / std::max(1, m_wpm));
 }
 
 void CWSenderController::runMacro(int macroNumber)
@@ -459,6 +520,17 @@ void CWSenderController::textChanged(const QString& text)
             }
         }
     }
+}
+
+void CWSenderController::receiveRadioMemory(int slot, const QString &text)
+{
+    if (slot < 1 || slot > 10 || text.isEmpty() || !m_macroText[slot].isEmpty())
+        return;
+
+    qInfo(logCW()) << "Using radio keyer memory" << slot << "for empty macro" << slot << ":" << text;
+    m_macroText[slot] = text.toUpper().left(60);
+    emit macroButtonTextChanged(slot, getMacroButtonText(slot));
+    emit keyerSettingsChanged();
 }
 
 void CWSenderController::appendReceiveText(const QString& text)

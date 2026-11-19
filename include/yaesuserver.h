@@ -42,6 +42,7 @@ public slots:
 	void dataForServer(QByteArray);
 	void receiveScopeData(QByteArray);
 	void receiveAudioData(const audioPacket &data);
+    void setCwKeyAvailable(bool available);
 
 private:
 
@@ -64,6 +65,10 @@ private:
 		QDateTime	timeConnected;
 		QDateTime lastHeard;
         bool isStreaming = false;
+        // Set once the client sends a C2R_CwKey, so the server only ever sends
+        // the R2C_CwKeyState extension to a peer that asked for it (not OEM
+        // SCU-LAN10 software, which never sends C2R_CwKey).
+        bool cwKeyAware = false;
         quint16 txBufferLen;
         quint16 audioSeq = 1;
         quint8 guid[GUIDLEN];
@@ -112,6 +117,11 @@ private:
     QByteArray encodeFrame(const void* data, qsizetype len) const;
     void sendResult(QUdpSocket* socket, const QHostAddress& address, quint16 port, yaesuDeviceId device, yaesuMessageId message, quint32 result);
     void sendHealth(QUdpSocket* socket, const QHostAddress& address, quint16 port, yaesuDeviceId device);
+    void processCwKey(const QByteArray &decoded, const PendingDatagram &datagram);
+    void sendCwKeyState(const CLIENT *client, const QHostAddress &address, quint16 port);
+    bool userMayTransmit(const CLIENT *client) const;
+    void stopCwKey(const char *reason);
+    void checkCwKeyClient();
 
     QUdpSocket* controlSocket = nullptr;
     QUdpSocket* catSocket = nullptr;
@@ -123,6 +133,11 @@ private:
     LoginFailures overflowLoginFailures;
     QTimer* wdTimer = nullptr;
     quint16 txCatPacketId = 0;
+    // For MCP diagnostics; does nothing unless built with CONFIG+=mcp.
+    void publishCwKeyState();
+    quint32 cwKeySession = 0; // client whose CW is being keyed, 0 for none
+    QByteArray cwKeyGuid; // radio that client is using
+    QTimer *cwKeyTimer = nullptr; // stops keying when that client goes quiet
 };
 
 
