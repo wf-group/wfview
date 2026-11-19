@@ -126,6 +126,9 @@ private:
     bool scopeWindowKnown = false;
     double scopeWindowStartMHz = 0.0;
     QElapsedTimer scopeWindowAsked;
+    // The last VFO-A the radio reported itself (Auto Information or a reply), newer than the scope frames.
+    quint64 vfoReportHz = 0;
+    QElapsedTimer vfoReportClock;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
 
