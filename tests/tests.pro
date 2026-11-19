@@ -8,7 +8,7 @@ include(../version.pri)
 CONFIG -= app_bundle
 
 DEFINES += OUTSIDE_SPEEX
-# Rig files checked by tst_yaesustatusblock.cpp.
+# Rig files checked by tst_yaesustatusblock.cpp and tst_yaesurigfiles.cpp.
 DEFINES += WFVIEW_RIGS_DIR=\\\"$$PWD/../rigs\\\"
 DEFINES += RANDOM_PREFIX=wf
 DEFINES += EIGEN_MPL2_ONLY
@@ -52,6 +52,8 @@ SOURCES += \
     $$PWD/tst_txaudiopacer.cpp \
     $$PWD/tst_yaesustatusblock.cpp \
     $$PWD/tst_yaesuvalues.cpp \
+    $$PWD/tst_yaesurigfiles.cpp \
+    $$PWD/tst_yaesucwkey.cpp \
     $$PWD/../src/audio/txaudiopacer.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \

@@ -19,6 +19,8 @@ int runRigProtocolTests(int argc, char **argv);
 int runTxAudioPacerTests(int argc, char **argv);
 int runYaesuValuesTests(int argc, char **argv);
 int runYaesuStatusBlockTests(int argc, char **argv);
+int runYaesuRigFilesTests(int argc, char **argv);
+int runYaesuCwKeyTests(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -43,5 +45,7 @@ int main(int argc, char **argv)
     status |= runTxAudioPacerTests(argc, argv);
     status |= runYaesuValuesTests(argc, argv);
     status |= runYaesuStatusBlockTests(argc, argv);
+    status |= runYaesuRigFilesTests(argc, argv);
+    status |= runYaesuCwKeyTests(argc, argv);
     return status;
 }
