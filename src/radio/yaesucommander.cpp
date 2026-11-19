@@ -1732,7 +1732,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
         lastCompressorLevel = value.value<uchar>();
     if (func == funcCompressor && value.isValid() && value.toBool() && lastCompressorLevel > 0)
         queue->add(priorityImmediate,
-                   queueItem(funcCompressorLevel, QVariant::fromValue<uchar>(lastCompressorLevel), false, receiver));
+                   queueItem(funcCompressorLevel, QVariant::fromValue<ushort>(lastCompressorLevel), false, receiver));
 
     //qInfo() << "requested command:" << funcString[func];
 
