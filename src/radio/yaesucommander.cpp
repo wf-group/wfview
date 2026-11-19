@@ -9,6 +9,8 @@
 
 #include <QDebug>
 #include <algorithm>
+#include <QJsonObject>
+#include <QJsonArray>
 #include "yaesuvalues.h"
 #include "cwmorse.h"
 
@@ -460,6 +462,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
     }
 
     emit setScopePoll(quint64(specTime+wfTime+10));
+    publishScopeState(vfoReportNewer);
 
 
 }
@@ -469,6 +472,58 @@ bool yaesuCommander::statusFresh(funcs func) const
     const auto it = statusFreshMs.constFind(func);
     return it != statusFreshMs.constEnd() && statusClock.isValid()
         && statusClock.elapsed() - it.value() < statusFreshLimitMs;
+}
+
+void yaesuCommander::publishScopeState(bool vfoReportNewer)
+{
+    Q_UNUSED(vfoReportNewer)
+#ifdef WFVIEW_MCP
+    if (!McpProbe::enabled())
+        return;
+    static const char *const windowModes[] = {"Center", "Cursor", "Fixed"};
+    MCP_STATE(QStringLiteral("yaesu.scopeWindow"),
+              (QJsonObject{{"mode", scopeWindowMode < 3 ? QString::fromLatin1(windowModes[scopeWindowMode])
+                                                        : QString::number(scopeWindowMode)},
+                           {"spanRegister", int(scopeWindowSpan)},
+                           {"startKnown", scopeWindowKnown},
+                           {"startMHz", scopeWindowStartMHz},
+                           {"lastReadAgoMs", scopeWindowAsked.isValid() ? double(scopeWindowAsked.elapsed()) : -1.0}}));
+    MCP_STATE(QStringLiteral("yaesu.vfoReport"),
+              (QJsonObject{{"hz", double(vfoReportHz)},
+                           {"ageMs", vfoReportClock.isValid() ? double(vfoReportClock.elapsed()) : -1.0},
+                           {"newerThanFrameMs", double(vfoReportNewerMs)},
+                           {"overridingScopeFrame", vfoReportNewer}}));
+    if (rigCaps.scopeStatusBlock)
+    {
+        QJsonArray fresh;
+        for (auto it = statusFreshMs.constBegin(); it != statusFreshMs.constEnd(); ++it)
+        {
+            if (statusFresh(it.key()))
+                fresh.append(funcString[it.key()]);
+        }
+        QJsonObject skipped;
+        for (auto it = statusPollsSkipped.constBegin(); it != statusPollsSkipped.constEnd(); ++it)
+            skipped.insert(funcString[it.key()], double(it.value()));
+        MCP_STATE(QStringLiteral("yaesu.statusBlock"),
+                  (QJsonObject{{"freshLimitMs", double(statusFreshLimitMs)},
+                               {"fresh", fresh},
+                               {"pollsSkipped", skipped}}));
+    }
+#endif
+}
+
+void yaesuCommander::publishCwMemoryState()
+{
+    MCP_STATE(QStringLiteral("yaesu.cwMemoryKeyer"),
+              (QJsonObject{{"slot", int(rigCaps.cwMemorySlot)},
+                           {"inUse", cwMemoryInUse},
+                           {"playing", cwMemoryPlaying},
+                           {"readingSavedText", cwMemorySaving},
+                           {"textWaiting", QString::fromLatin1(cwMemoryPending)},
+                           {"savedText", QString::fromLatin1(cwMemorySaved)},
+                           {"nextChunkInMs", cwMemoryTimer != nullptr && cwMemoryTimer->isActive()
+                                                 ? cwMemoryTimer->remainingTime()
+                                                 : -1}}));
 }
 
 void yaesuCommander::networkCommSetup(QHash<quint16,rigInfo> rigList, quint16 rigCivAddr, udpPreferences prefs, audioSetup rxSetup, audioSetup txSetup, QString vsp, bool vspUseQueue, quint16 tcpPort)
@@ -1566,6 +1621,7 @@ void yaesuCommander::parseData(QByteArray data)
                 cwMemorySaving = false;
                 if (!d.isEmpty() && d.at(0) == char('0' + rigCaps.cwMemorySlot))
                     cwMemorySaved = d.mid(1);
+                publishCwMemoryState();
             }
             if (d.isEmpty() || d.at(0) < '1' || d.at(0) > '9')
                 break;
@@ -1949,6 +2005,9 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
     // The scope status block already keeps this value current, so don't poll for it. Sets always go out.
     if (!value.isValid() && rigCaps.scopeStatusBlock && statusFresh(func))
     {
+#ifdef WFVIEW_MCP
+        ++statusPollsSkipped[func];
+#endif
         return;
     }
 
@@ -2506,6 +2565,7 @@ void yaesuCommander::sendCwMemory(const QByteArray &text)
     cwMemoryPending.append(text);
     if (!cwMemoryPlaying)
         playNextCwMemory();
+    publishCwMemoryState();
 }
 
 void yaesuCommander::playNextCwMemory()
@@ -2554,6 +2614,12 @@ void yaesuCommander::playNextCwMemory()
     }
     cwMemoryPlaying = true;
     cwMemoryTimer->start(int(dits * cwDitSecondsAtOneWpm * 1000 / wpm) + cwMemoryMarginMs);
+    MCP_CW_EVENT(QStringLiteral("yaesu memory keyer"), QStringLiteral("memory played"),
+                 (QJsonObject{{"slot", int(rigCaps.cwMemorySlot)},
+                              {"text", QString::fromLatin1(chunk)},
+                              {"wpm", wpm},
+                              {"expectedMs", cwMemoryTimer->interval()}}));
+    publishCwMemoryState();
 }
 
 void yaesuCommander::stopCwMemory()
@@ -2578,6 +2644,7 @@ void yaesuCommander::restoreCwMemory()
     if (!cwMemorySaved.isEmpty())
         sendToRig(memoryKeyerCommand() + char('0' + rigCaps.cwMemorySlot) + cwMemorySaved + ';');
     cwMemorySaved.clear();
+    publishCwMemoryState();
 }
 
 void yaesuCommander::sendToRig(const QByteArray &data)

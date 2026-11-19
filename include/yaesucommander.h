@@ -138,6 +138,12 @@ private:
     QHash<funcs, qint64> statusFreshMs;
     QElapsedTimer statusClock;
     bool statusFresh(funcs func) const;
+#ifdef WFVIEW_MCP
+    QHash<funcs, quint64> statusPollsSkipped; // for MCP diagnostics
+#endif
+    // For MCP diagnostics; do nothing unless built with CONFIG+=mcp.
+    void publishScopeState(bool vfoReportNewer);
+    void publishCwMemoryState();
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

@@ -129,6 +129,8 @@ private:
     LoginFailures overflowLoginFailures;
     QTimer* wdTimer = nullptr;
     quint16 txCatPacketId = 0;
+    // For MCP diagnostics; does nothing unless built with CONFIG+=mcp.
+    void publishCwKeyState();
     quint32 cwKeySession = 0; // client whose CW is being keyed, 0 for none
     QByteArray cwKeyGuid; // radio that client is using
     QTimer *cwKeyTimer = nullptr; // stops keying when that client goes quiet

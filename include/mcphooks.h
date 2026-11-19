@@ -35,6 +35,31 @@
 // ignored, so these can sit on paths shared with audio.
 #define MCP_NETWORK_TX(source, data) McpProbe::networkTraffic((source), true, (data))
 #define MCP_NETWORK_RX(source, data) McpProbe::networkTraffic((source), false, (data))
+// CW key line edges from the serial keyer, on the keyer's message clock (ns):
+// when the edge was due, and when the driver call to set the line started and
+// returned. Recorded only while MCP runs.
+#define MCP_CW_KEY_EDGE(down, dueNs, startNs, endNs)                                                                  \
+    do                                                                                                                \
+    {                                                                                                                 \
+        if (McpProbe::enabled())                                                                                      \
+            McpProbe::cwKeyEdge((down), (dueNs), (startNs), (endNs));                                                 \
+    } while (0)
+// CW keying events (keyer start and stop, LAN key requests and states). The
+// detail expression is only evaluated while MCP runs.
+#define MCP_CW_EVENT(source, what, detail)                                                                            \
+    do                                                                                                                \
+    {                                                                                                                 \
+        if (McpProbe::enabled())                                                                                      \
+            McpProbe::cwEvent((source), (what), (detail));                                                            \
+    } while (0)
+// Internal state a component publishes under a name, read with get_internal_state.
+// The state expression is only evaluated while MCP runs.
+#define MCP_STATE(name, state)                                                                                        \
+    do                                                                                                                \
+    {                                                                                                                 \
+        if (McpProbe::enabled())                                                                                      \
+            McpProbe::publishState((name), (state));                                                                  \
+    } while (0)
 
 #else
 
@@ -47,5 +72,8 @@
 #define MCP_NETWORK_TX(source, data) ((void)0)
 #define MCP_NETWORK_RX(source, data) ((void)0)
 #define MCP_AUDIO_DIAG(statement) ((void)0)
+#define MCP_CW_KEY_EDGE(down, dueNs, startNs, endNs) ((void)0)
+#define MCP_CW_EVENT(source, what, detail) ((void)0)
+#define MCP_STATE(name, state) ((void)0)
 
 #endif

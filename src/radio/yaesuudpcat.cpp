@@ -2,6 +2,8 @@
 #include "logcategories.h"
 #include "mcphooks.h"
 
+#include <QJsonObject>
+
 #include <cstddef>
 
 yaesuUdpCat::yaesuUdpCat(QHostAddress local, QHostAddress remote, quint16 port)
@@ -35,6 +37,8 @@ void yaesuUdpCat::incomingUdp(void* buf, size_t bufLen)
         {
             const auto *r = static_cast<const yaesuR2C_CwKeyStateFrame *>(buf);
             qInfo(logUdp()) << "Station CW key line" << (r->available ? "available" : "not available");
+            MCP_CW_EVENT(QStringLiteral("lan client"), QStringLiteral("key state received"),
+                         (QJsonObject{{"available", r->available != 0}}));
             emit haveCwKeyState(r->available != 0);
         }
         break;
@@ -102,6 +106,13 @@ void yaesuUdpCat::sendCwKey(int op, QString text, int wpm, int dashRatio)
     memcpy(f.text, data.constData(), data.size());
     const qsizetype len = qsizetype(offsetof(yaesuC2R_CwKeyFrame, text)) + data.size();
     f.hdr.len = quint16(len - sizeof(f.hdr));
+    MCP_CW_EVENT(QStringLiteral("lan client"), QStringLiteral("key request sent"),
+                 (QJsonObject{{"op", op == CwKeyQuery ? QStringLiteral("query")
+                                     : op == CwKeySend ? QStringLiteral("send")
+                                                       : QStringLiteral("stop")},
+                              {"chars", int(data.size())},
+                              {"wpm", wpm},
+                              {"dashRatio", dashRatio / 10.0}}));
     outgoing((quint8 *)&f, len);
 }
 

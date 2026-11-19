@@ -527,6 +527,8 @@ private:
     void applyCwKeySettings();
     void stopCwKeyer();
     void updateCwKeying();
+    // For MCP diagnostics: how CW from the CW Sender is keyed now.
+    void publishCwRouting();
     void setRemoteCwKey(bool available);
     void setRadioStatusText(const QString& text);
     void setFooterMessageText(const QString& text);

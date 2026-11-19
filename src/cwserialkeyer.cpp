@@ -2,6 +2,7 @@
 
 #include "commhandler.h"
 #include "logcategories.h"
+#include "mcphooks.h"
 
 #include <algorithm>
 
@@ -41,6 +42,8 @@ void CwSerialKeyer::configure(const QString &portName, int line)
         delete m_port;
         m_port = nullptr;
         emit portError(tr("Could not open CW key port %1. %2").arg(portName, reason));
+        MCP_CW_EVENT(QStringLiteral("keyer"), QStringLiteral("key port open failed"),
+                     (QJsonObject{{"port", portName}, {"reason", reason}}));
         return;
     }
     // Some serial drivers assert both lines when a port is opened.
@@ -50,6 +53,8 @@ void CwSerialKeyer::configure(const QString &portName, int line)
 
     qInfo(logCW()) << "CW key port" << portName << "open, keying on" << (m_line == keyLineRTS ? "RTS" : "DTR");
     emit readyChanged(true);
+    publishEvent(QStringLiteral("key port opened"), {});
+    publishState();
 }
 
 void CwSerialKeyer::close()
@@ -58,6 +63,7 @@ void CwSerialKeyer::close()
     if (!m_port)
         return;
 
+    publishEvent(QStringLiteral("key port closed"), {});
     m_port->disconnect(this);
     m_port->setDataTerminalReady(false);
     m_port->setRequestToSend(false);
@@ -65,6 +71,7 @@ void CwSerialKeyer::close()
     delete m_port;
     m_port = nullptr;
     emit readyChanged(false);
+    publishState();
 }
 
 void CwSerialKeyer::send(const QString &text)
@@ -81,26 +88,34 @@ void CwSerialKeyer::send(const QString &text)
     m_sending = true;
     m_deadlineNs = 0;
     m_clock.start();
+    publishEvent(QStringLiteral("message started"),
+                 QJsonObject{{"chars", int(m_pending.size())}, {"wpm", m_wpm}, {"dashRatio", m_ratio}});
     nextElement();
+    publishState();
 }
 
 void CwSerialKeyer::stop()
 {
+    if (m_sending)
+        publishEvent(QStringLiteral("message stopped"), QJsonObject{{"charsDiscarded", int(m_pending.size())}});
     m_timer->stop();
     m_pending.clear();
     m_elements.clear();
     m_sending = false;
     setKey(false);
+    publishState();
 }
 
 void CwSerialKeyer::setSpeed(int wpm)
 {
     m_wpm = std::max(1, wpm);
+    publishState();
 }
 
 void CwSerialKeyer::setRatio(double ratio)
 {
     m_ratio = std::max(1.0, ratio);
+    publishState();
 }
 
 void CwSerialKeyer::nextElement()
@@ -110,7 +125,11 @@ void CwSerialKeyer::nextElement()
         if (m_pending.isEmpty())
         {
             m_sending = false;
-            setKey(false);
+            keyEdge(false, m_deadlineNs);
+            publishEvent(QStringLiteral("message finished"),
+                         QJsonObject{{"lengthMs", double(m_deadlineNs) / nsPerMs},
+                                     {"actualMs", double(m_clock.nsecsElapsed()) / nsPerMs}});
+            publishState();
             return;
         }
         appendCwElements(m_pending.front(), m_ratio, m_elements);
@@ -119,7 +138,7 @@ void CwSerialKeyer::nextElement()
 
     const CwElement element = m_elements.front();
     m_elements.pop_front();
-    setKey(element.keyDown);
+    keyEdge(element.keyDown, m_deadlineNs);
 
     // Each element ends at a time measured from the start of the message, so
     // a late timer does not make the rest of the message late as well.
@@ -137,6 +156,38 @@ void CwSerialKeyer::setKey(bool down)
         m_port->setRequestToSend(down);
     else
         m_port->setDataTerminalReady(down);
+}
+
+void CwSerialKeyer::keyEdge(bool down, qint64 dueNs)
+{
+#ifdef WFVIEW_MCP
+    const qint64 startNs = m_clock.nsecsElapsed();
+    setKey(down);
+    MCP_CW_KEY_EDGE(down, dueNs, startNs, m_clock.nsecsElapsed());
+#else
+    Q_UNUSED(dueNs)
+    setKey(down);
+#endif
+}
+
+void CwSerialKeyer::publishState()
+{
+    MCP_STATE(QStringLiteral("cwKeyer"),
+              (QJsonObject{{"port", m_port ? m_port->portName() : QString()},
+                           {"open", m_port != nullptr},
+                           {"line", m_line == keyLineRTS ? QStringLiteral("RTS") : QStringLiteral("DTR")},
+                           {"sending", m_sending},
+                           {"charsWaiting", int(m_pending.size())},
+                           {"wpm", m_wpm},
+                           {"dashRatio", m_ratio}}));
+}
+
+void CwSerialKeyer::publishEvent(const QString &what, const QJsonObject &detail)
+{
+    Q_UNUSED(what)
+    Q_UNUSED(detail)
+    MCP_CW_EVENT(QStringLiteral("keyer") + (m_port ? QStringLiteral(" ") + m_port->portName() : QString()), what,
+                 detail);
 }
 
 void CwSerialKeyer::handlePortError(QSerialPort::SerialPortError error)

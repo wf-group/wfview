@@ -3,6 +3,7 @@
 #include "cwmorse.h"
 
 #include <QElapsedTimer>
+#include <QJsonObject>
 #include <QObject>
 #include <QSerialPort>
 #include <QString>
@@ -51,6 +52,11 @@ signals:
 private:
     void nextElement();
     void setKey(bool down);
+    // Sets the line for a scheduled edge, due at dueNs on m_clock.
+    void keyEdge(bool down, qint64 dueNs);
+    // For MCP diagnostics; compiled only with CONFIG+=mcp.
+    void publishState();
+    void publishEvent(const QString &what, const QJsonObject &detail);
     void handlePortError(QSerialPort::SerialPortError error);
 
     QSerialPort *m_port = nullptr;

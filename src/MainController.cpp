@@ -2200,9 +2200,24 @@ void MainController::setupCwKeyer()
     applyCwKeySettings();
 }
 
+void MainController::publishCwRouting()
+{
+    MCP_STATE(QStringLiteral("cwRouting"),
+              (QJsonObject{{"localKeyLine", m_cwKeyReady},
+                           {"stationKeyLine", m_cwRemoteKeyReady},
+                           {"radioCwCommand", rigCaps != nullptr && rigCaps->commands.contains(funcSendCW)},
+                           {"route", m_cwKeyReady         ? QStringLiteral("local key line")
+                                     : m_cwRemoteKeyReady ? QStringLiteral("station key line")
+                                     : (rigCaps != nullptr && rigCaps->commands.contains(funcSendCW))
+                                         ? QStringLiteral("radio CW command")
+                                         : QStringLiteral("none")},
+                           {"canSendCw", canSendCw()}}));
+}
+
 void MainController::updateCwKeying()
 {
     m_cwSender->setSerialKeying(m_cwKeyReady || m_cwRemoteKeyReady);
+    publishCwRouting();
 
     // The CW button follows canSendCW. The rest of the map is built with the rig.
     QVariantMap controls = uiSpecs.value("mainControls").toMap();
@@ -2278,6 +2293,7 @@ void MainController::buildUiSpecs()
         return spec;
     };
 
+    publishCwRouting();
     uiSpecs["mainControls"] = QVariantMap{
         {"canTransmit", rigCaps->hasTransmit && rigCaps->commands.contains(funcTransceiverStatus)},
         {"canTune", rigCaps->commands.contains(funcTunerStatus)},
