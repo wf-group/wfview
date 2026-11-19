@@ -1197,6 +1197,12 @@ void yaesuCommander::parseData(QByteArray data)
             // ML0 answers with three digits, 000 for off and 001 for on.
             value.setValue<bool>(d.toUShort() != 0);
             break;
+        // funcCompressor is the PR0 speech processor: its reply P2 is 0 = off,
+        // 1 = on, measured on the FT-710 (over 200+ polls, in CW and USB). Both
+        // CAT manuals say 1 = off / 2 = on, but the radio does not behave that
+        // way, so the boolean decode below (digit != 0) is correct for it. Don't
+        // "fix" it to match the manual. (The value 2 never appears on PR0; it may
+        // belong to the PL level field the manual text sits next to.)
         case funcCompressor:
         case funcVox:
         case funcAutoNotch:
@@ -1218,32 +1224,43 @@ void yaesuCommander::parseData(QByteArray data)
         // These are numbers, as they might contain other info, only extract type.bytes len of data.
         case funcTunerStatus:
         {
-            // AC P1 P2 P3; P1 is always 0 per FT-710 CAT spec.
-            // P2: 0=bypass, 1=standard ATU, 2=ATAS motorised antenna tuner.
-            // P3: 0=not tuning, 1=tuning (standard ATU), 3=tuning (ATAS).
+            // AC P1 P2 P3. Measured on the FT-710: 000 = off, 001 = ATU on.
+            // The radio reports 001 for a standard ATU engaged, so the manual's
+            // "P2 = ATU type, P3 = tuning" digit layout looks wrong for this
+            // radio; the 010/011/020/023 values below come from the manual and
+            // are NOT confirmed on hardware. An unrecognised value is logged, not
+            // dropped: leaving it unset froze the Tuner/ATU Status cache (the
+            // 001 on-state never reached the GUI) until 001 was handled here.
             uchar s = d.mid(0, type.bytes).toUShort();
             switch(s)  {
             case 0:
                 // 000: ATU bypass/off
                 value.setValue<uchar>(0);
                 break;
+            case 1:
+                // 001: standard ATU on (measured on the FT-710)
+                value.setValue<uchar>(1);
+                break;
             case 10:
-                // 010: standard ATU on, not tuning
+                // 010: standard ATU on, not tuning (from the manual, unconfirmed)
                 value.setValue<uchar>(1);
                 break;
             case 11:
-                // 011: standard ATU on, tuning in progress
+                // 011: standard ATU on, tuning in progress (manual, unconfirmed)
                 value.setValue<uchar>(2);
                 break;
             case 20:
-                // 020: ATAS motorised ATU on, not tuning
+                // 020: ATAS motorised ATU on, not tuning (manual, unconfirmed)
                 qDebug(logRig()) << "ATAS-style motorised ATU detected (P2=2)";
                 value.setValue<uchar>(1);
                 break;
             case 23:
-                // 023: ATAS motorised ATU on, tuning in progress
+                // 023: ATAS motorised ATU on, tuning in progress (manual, unconfirmed)
                 qDebug(logRig()) << "ATAS-style motorised ATU detected, tuning (P2=2, P3=3)";
                 value.setValue<uchar>(2);
+                break;
+            default:
+                qDebug(logRig()) << "Unrecognised Tuner/ATU Status (AC) reply value" << s;
                 break;
             }
             break;
