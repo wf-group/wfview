@@ -1,8 +1,11 @@
 #include "yaesuvalues.h"
 
+#include "cwmorse.h"
+
 #include <QString>
 #include <algorithm>
 #include <cstdlib>
+#include <deque>
 
 namespace
 {
@@ -98,4 +101,72 @@ bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb)
         return false;
     *tenthsDb = whole * 10 + (text.at(0) == '-' ? -tenths : tenths);
     return true;
+}
+
+namespace
+{
+constexpr int cwPitchBaseHz = 300;
+constexpr int cwPitchStepHz = 10;
+constexpr qint64 scopeWindowReadEveryMs = 1000;
+constexpr qint64 scopeWindowReadMinGapMs = 200;
+} // namespace
+
+int yaesuCwPitchHzFromSteps(int steps)
+{
+    return cwPitchBaseHz + steps * cwPitchStepHz;
+}
+
+int yaesuCwPitchStepsFromHz(int hz)
+{
+    return (hz - cwPitchBaseHz + cwPitchStepHz / 2) / cwPitchStepHz;
+}
+
+quint8 yaesuSwapToneMode(quint8 mode)
+{
+    if (mode == 1)
+        return 2;
+    if (mode == 2)
+        return 1;
+    return mode;
+}
+
+int yaesuCwMemoryChunkLength(const QByteArray &pending, int maxChars)
+{
+    int length = std::min<int>(pending.size(), maxChars);
+    if (length < pending.size())
+    {
+        const int space = pending.lastIndexOf(' ', length - 1);
+        if (space > 0)
+            length = space + 1;
+    }
+    return length;
+}
+
+int yaesuCwKeyingMs(const QByteArray &text, int wpm, double dashRatio)
+{
+    std::deque<CwElement> elements;
+    for (const char ch : text)
+        appendCwElements(QChar::fromLatin1(ch), dashRatio, elements);
+    double dits = 0;
+    for (const CwElement &e : elements)
+        dits += e.dits;
+    return int(dits * cwDitSecondsAtOneWpm * 1000 / wpm);
+}
+
+bool yaesuVfoOutsideScopeWindow(double vfoMHz, double startMHz, double spanMHz)
+{
+    return vfoMHz < startMHz || vfoMHz > startMHz + spanMHz;
+}
+
+bool yaesuScopeWindowReadDue(bool startKnown, bool vfoOutside, qint64 sinceLastReadMs)
+{
+    if (sinceLastReadMs < 0)
+        return true;
+    const bool wanted = !startKnown || vfoOutside || sinceLastReadMs > scopeWindowReadEveryMs;
+    return wanted && sinceLastReadMs > scopeWindowReadMinGapMs;
+}
+
+bool yaesuVfoReportNewer(qint64 reportAgeMs, quint64 reportHz, quint64 frameHz, qint64 limitMs)
+{
+    return reportAgeMs >= 0 && reportAgeMs < limitMs && reportHz != frameHz;
 }

@@ -12,7 +12,6 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "yaesuvalues.h"
-#include "cwmorse.h"
 
 namespace
 {
@@ -30,35 +29,9 @@ namespace
 constexpr int rmMeterDigits = 3;
 // CF000 sets and reports the RX and TX clarifier together: CF000<rx><tx>000;
 const QByteArray clarifierStatusCommand = QByteArrayLiteral("CF000");
-// KP sets the CW pitch in 10 Hz steps from 300 Hz.
-constexpr int cwPitchBaseHz = 300;
-constexpr int cwPitchStepHz = 10;
-
-ushort cwPitchHzFromSteps(int steps)
-{
-    return ushort(cwPitchBaseHz + steps * cwPitchStepHz);
-}
-
-int cwPitchStepsFromHz(int hz)
-{
-    return (hz - cwPitchBaseHz + cwPitchStepHz / 2) / cwPitchStepHz;
-}
 
 // The FT-710 rejects RF power above 25 W in AM and AM-N.
 constexpr ushort maxAmPower = 25;
-
-// wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
-// TS-890). The FT-710's CT uses 1 = CTCSS encode and decode (tone squelch) and
-// 2 = CTCSS encode only (tone); rigs like it set ToneSquelchIsOne in the rig
-// file. Other values are the same both ways.
-uchar swapYaesuToneMode(uchar mode)
-{
-    if (mode == 1)
-        return 2;
-    if (mode == 2)
-        return 1;
-    return mode;
-}
 }
 
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
@@ -233,15 +206,12 @@ void yaesuCommander::updateScopeWindow(const QByteArray &data,
     scopeWindowMode = windowMode;
     scopeWindowSpan = cs.reg;
 
-    const bool vfoOutside
-        = scopeWindowKnown && (vfoMHz < scopeWindowStartMHz || vfoMHz > scopeWindowStartMHz + spanMHz);
-    if (!scopeWindowKnown || vfoOutside || !scopeWindowAsked.isValid() || scopeWindowAsked.elapsed() > 1000)
+    const bool vfoOutside = scopeWindowKnown && yaesuVfoOutsideScopeWindow(vfoMHz, scopeWindowStartMHz, spanMHz);
+    if (yaesuScopeWindowReadDue(scopeWindowKnown, vfoOutside,
+                                scopeWindowAsked.isValid() ? scopeWindowAsked.elapsed() : -1))
     {
-        if (!scopeWindowAsked.isValid() || scopeWindowAsked.elapsed() > 200)
-        {
-            sendToRig(rigCaps.commands.value(funcScopeFixedEdgeFreq).data + char('0' + windowMode) + ';');
-            scopeWindowAsked.start();
-        }
+        sendToRig(rigCaps.commands.value(funcScopeFixedEdgeFreq).data + char('0' + windowMode) + ';');
+        scopeWindowAsked.start();
     }
 
     if (scopeWindowKnown)
@@ -406,8 +376,9 @@ void yaesuCommander::haveScopeData(QByteArray in)
     // The radio reports a new VFO-A (Auto Information) before a scope frame carries it. While such a
     // report is recent, it is newer than the frame's value: the Center axis centres on it, as the radio's
     // own display does, and the frame's older value is not stored over it.
-    const bool vfoReportNewer = rigCaps.scopeStatusBlock && vfoReportClock.isValid()
-        && vfoReportClock.elapsed() < vfoReportNewerMs && vfoReportHz != fa.Hz;
+    const bool vfoReportNewer = rigCaps.scopeStatusBlock
+        && yaesuVfoReportNewer(vfoReportClock.isValid() ? vfoReportClock.elapsed() : -1, vfoReportHz, fa.Hz,
+                               vfoReportNewerMs);
     if (vfoReportNewer && scopeWindowMode == 0)
     {
         const double centreMHz = vfoReportHz / 1000000.0;
@@ -919,7 +890,7 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
     case funcRepeaterTone:
     {
         const uchar mode = uchar(d.mid(0, 1).toUShort(&ok));
-        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
+        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
         break;
     }
     case funcRitStatus:
@@ -956,7 +927,7 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         break;
     }
     case funcCwPitch:
-        value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok)));
+        value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok))));
         break;
     case funcAGCTimeConstant:
     case funcMemorySelect:
@@ -1556,11 +1527,11 @@ void yaesuCommander::parseData(QByteArray data)
         case funcRepeaterTone:
         {
             const uchar mode = uchar(d.mid(0, 1).toUShort());
-            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
+            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
         }
             break;
         case funcCwPitch:
-            value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt()));
+            value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt())));
             break;
         case funcRitStatus:
             // Trailing zeros have been removed, so a missing second digit means TX clarifier off.
@@ -1992,7 +1963,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
     if (func == funcRepeaterTone && value.isValid() && rigCaps.toneSquelchIsOne) {
         const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
-        value.setValue<uchar>(swapYaesuToneMode(mode));
+        value.setValue<uchar>(yaesuSwapToneMode(mode));
     }
 
     // On the FT-710, turning the speech processor on sets its level to 50 and
@@ -2219,7 +2190,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 {
                     const int hz = qBound(int(cmd.minVal), int(value.value<ushort>()), int(cmd.maxVal));
                     payload.append(
-                        QString::number(cwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+                        QString::number(yaesuCwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
                 }
                 else if (func == funcFilterWidth)
                 {
@@ -2582,14 +2553,7 @@ void yaesuCommander::playNextCwMemory()
 
     // When text is split, end the memory at a space so the pause between
     // memories falls between words.
-    int length = std::min<int>(cwMemoryPending.size(), cwMemoryMaxChars);
-    if (length < cwMemoryPending.size())
-    {
-        const int space = cwMemoryPending.lastIndexOf(' ', length - 1);
-        if (space > 0)
-            length = space + 1;
-    }
-    const QByteArray chunk = cwMemoryPending.left(length);
+    const QByteArray chunk = cwMemoryPending.left(yaesuCwMemoryChunkLength(cwMemoryPending, cwMemoryMaxChars));
     cwMemoryPending.remove(0, chunk.size());
 
     const QByteArray store = memoryKeyerCommand();
@@ -2603,12 +2567,6 @@ void yaesuCommander::playNextCwMemory()
     int wpm = queue->getCache(funcKeySpeed, 0).value.toInt();
     if (wpm < 4)
         wpm = cwDefaultWpm;
-    std::deque<CwElement> elements;
-    for (const char ch : chunk)
-        appendCwElements(QChar::fromLatin1(ch), cwDefaultDashRatio, elements);
-    double dits = 0;
-    for (const CwElement &e : elements)
-        dits += e.dits;
     if (cwMemoryTimer == nullptr)
     {
         cwMemoryTimer = new QTimer(this);
@@ -2616,7 +2574,7 @@ void yaesuCommander::playNextCwMemory()
         connect(cwMemoryTimer, &QTimer::timeout, this, &yaesuCommander::playNextCwMemory);
     }
     cwMemoryPlaying = true;
-    cwMemoryTimer->start(int(dits * cwDitSecondsAtOneWpm * 1000 / wpm) + cwMemoryMarginMs);
+    cwMemoryTimer->start(yaesuCwKeyingMs(chunk, wpm, cwDefaultDashRatio) + cwMemoryMarginMs);
     MCP_CW_EVENT(QStringLiteral("yaesu memory keyer"), QStringLiteral("memory played"),
                  (QJsonObject{{"slot", int(rigCaps.cwMemorySlot)},
                               {"text", QString::fromLatin1(chunk)},
