@@ -1973,20 +1973,28 @@ ApplicationWindow {
                 }
             }
 
-            Item {
+            // Scrolls when the window is too short for all the panels, so they don't overlap.
+            ScrollView {
+                id: rhsScroll
                 Layout.preferredWidth: 160
                 Layout.minimumWidth: 140
                 Layout.maximumWidth: 180
                 Layout.fillHeight: true
+                clip: true
+                contentWidth: availableWidth
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
                 ColumnLayout {
                     id: rhs
-                    anchors.fill: parent;
+                    width: rhsScroll.availableWidth
                     spacing: 8
+
+                    // Room for the first panel's title, which is drawn above the panel.
+                    Item { Layout.preferredHeight: 4 }
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 372
+                        Layout.preferredHeight: 424
                         title: qsTr("Features")
                         ColumnLayout {
                             anchors.fill: parent
@@ -2009,6 +2017,16 @@ ApplicationWindow {
                                                    + "When VFO B is selected, wfview then sends tuning to the Unselected Freq command "
                                                    + "and shows its replies as the active frequency.\n"
                                                    + "Leave off when the radio's frequency commands follow the active VFO (for example Icom 0x25).")
+                            }
+                            CheckBox {
+                                text: qsTr("Tone squelch is 1")
+                                checked: (rig.settings["Rig/ToneSquelchIsOne"] ?? false)
+                                onToggled: rig.settings["Rig/ToneSquelchIsOne"] = checked
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("Enable when the radio's tone mode uses 1 for tone squelch (encode and decode) and 2 for tone "
+                                                   + "(encode only), for example the Yaesu FT-710.\n"
+                                                   + "wfview uses 1 for tone and 2 for tone squelch, and swaps them for these radios.")
                             }
                             CheckBox {
                                 id: slowPollOnTx
@@ -2068,7 +2086,7 @@ ApplicationWindow {
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 220
+                        Layout.preferredHeight: 250
                         title: qsTr("Spectrum")
                         GridLayout {
                             anchors.fill: parent
@@ -2081,12 +2099,24 @@ ApplicationWindow {
                             Label { text: qsTr("Amp Max") }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumAmpMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumAmpMax"] = text }
                             Label { text: qsTr("Len Max") }  TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumLenMax"] ?? "0";     onEditingFinished: rig.settings["Rig/SpectrumLenMax"] = text }
                             Label { text: qsTr("dB per DN") } TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SpectrumDbPerDN"] ?? "0.5";  onEditingFinished: rig.settings["Rig/SpectrumDbPerDN"] = text }
+                            CheckBox {
+                                Layout.columnSpan: 2
+                                text: qsTr("Scope status block")
+                                checked: (rig.settings["Rig/ScopeStatusBlock"] ?? false)
+                                onToggled: rig.settings["Rig/ScopeStatusBlock"] = checked
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("Enable when each scope frame from the radio also carries its frequencies, mode and other "
+                                                   + "settings, for example the Yaesu FT-710.\n"
+                                                   + "wfview then takes those values from the frames and doesn't poll for them while frames "
+                                                   + "arrive. Polling resumes by itself when they stop.")
+                            }
                         }
                     }
 
                     SettingsPanel {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 170
+                        Layout.preferredHeight: 204
                         title: qsTr("Memories")
                         GridLayout {
                             anchors.fill: parent
@@ -2097,6 +2127,27 @@ ApplicationWindow {
                             Label { text: qsTr("Mem") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/Memories"] ?? "0";    onEditingFinished: rig.settings["Rig/Memories"] = text }
                             Label { text: qsTr("Sat") }   TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/SatMemories"] ?? "0"; onEditingFinished: rig.settings["Rig/SatMemories"] = text }
                             Label { text: qsTr("Start") } TextField { Layout.preferredWidth: 80; text: rig.settings["Rig/MemStart"] ?? "0";    onEditingFinished: rig.settings["Rig/MemStart"] = text }
+                            Label {
+                                text: qsTr("CW Mem")
+                                ToolTip.visible: cwMemoryHover.hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: cwMemorySlot.ToolTip.text
+                                HoverHandler { id: cwMemoryHover }
+                            }
+                            SpinBox {
+                                id: cwMemorySlot
+                                Layout.preferredWidth: 90
+                                from: 1
+                                to: 5
+                                editable: true
+                                value: Number(rig.settings["Rig/CwMemorySlot"] ?? 1)
+                                onValueModified: rig.settings["Rig/CwMemorySlot"] = value
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("The keyer memory (1-5) that CW Sender text goes through, on radios that send CW text by "
+                                                   + "playing a keyer memory (Yaesu KM / KY).\n"
+                                                   + "What the memory held is put back when sending ends.")
+                            }
                         }
                     }
 

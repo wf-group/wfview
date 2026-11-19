@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cwmorse.h"
+
 #include <QMutex>
 #include <QString>
 
@@ -32,18 +34,11 @@ public:
     void mixInto(float* samples, int frames, int channels, float sampleRate);
 
 private:
-    struct Element
-    {
-        bool keyDown;
-        double dits;
-    };
-
     bool startNextElement();
-    void queueCharacter(QChar ch);
 
     QMutex m_mutex;
     QString m_pending;              // characters not yet keyed
-    std::deque<Element> m_elements; // elements of the character being keyed
+    std::deque<CwElement> m_elements; // elements of the character being keyed
     double m_remaining = 0.0;       // seconds left in the current element
     bool m_keyDown = false;
     double m_envelope = 0.0;

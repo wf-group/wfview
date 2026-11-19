@@ -2,6 +2,10 @@
 #include "logcategories.h"
 #include "mcphooks.h"
 
+#include <QJsonObject>
+
+#include <cstddef>
+
 yaesuUdpCat::yaesuUdpCat(QHostAddress local, QHostAddress remote, quint16 port)
 {
     remotePort = port;
@@ -24,6 +28,19 @@ void yaesuUdpCat::incomingUdp(void* buf, size_t bufLen)
         // Confirmed that we are connected.
         qInfo(logUdp()) << "Got Cat Connect reply";
         state = yaesuCatPending;
+        // Ask whether the station can key CW on a serial line. A server
+        // without the wfview extension does not reply.
+        sendCwKey(CwKeyQuery, QString(), 0, 0);
+        break;
+    case R2C_CwKeyState:
+        if (bufLen >= sizeof(yaesuR2C_CwKeyStateFrame))
+        {
+            const auto *r = static_cast<const yaesuR2C_CwKeyStateFrame *>(buf);
+            qInfo(logUdp()) << "Station CW key line" << (r->available ? "available" : "not available");
+            MCP_CW_EVENT(QStringLiteral("lan client"), QStringLiteral("key state received"),
+                         (QJsonObject{{"available", r->available != 0}}));
+            emit haveCwKeyState(r->available != 0);
+        }
         break;
     case R2C_Data:
     {
@@ -73,6 +90,31 @@ void yaesuUdpCat::sendCatDataToRig(QByteArray d)
     }
 }
 
+
+void yaesuUdpCat::sendCwKey(int op, QString text, int wpm, int dashRatio)
+{
+    yaesuC2R_CwKeyFrame f;
+    memset(&f, 0, sizeof(f));
+    const QByteArray data = text.toLatin1().left(yaesuCwKeyMaxText);
+    f.hdr.device = UsbCat;
+    f.hdr.msgtype = C2R_CwKey;
+    f.session = session;
+    f.op = quint8(op);
+    f.wpm = quint8(qBound(0, wpm, 255));
+    f.dashRatio = quint8(qBound(0, dashRatio, 255));
+    f.textLen = quint8(data.size());
+    memcpy(f.text, data.constData(), data.size());
+    const qsizetype len = qsizetype(offsetof(yaesuC2R_CwKeyFrame, text)) + data.size();
+    f.hdr.len = quint16(len - sizeof(f.hdr));
+    MCP_CW_EVENT(QStringLiteral("lan client"), QStringLiteral("key request sent"),
+                 (QJsonObject{{"op", op == CwKeyQuery ? QStringLiteral("query")
+                                     : op == CwKeySend ? QStringLiteral("send")
+                                                       : QStringLiteral("stop")},
+                              {"chars", int(data.size())},
+                              {"wpm", wpm},
+                              {"dashRatio", dashRatio / 10.0}}));
+    outgoing((quint8 *)&f, len);
+}
 
 void yaesuUdpCat::sendHeartbeat()
 {

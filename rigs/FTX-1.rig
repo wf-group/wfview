@@ -1,5 +1,5 @@
 [General]
-Version=2.11
+Version=2.12
 
 [Rig]
 Manufacturer=2
@@ -106,10 +106,10 @@ Commands\8\GetCommand=true
 Commands\8\SetCommand=true
 Commands\8\Admin=false
 Commands\9\Type=Auto Notch
-Commands\9\String=BC
+Commands\9\String=BC0
 Commands\9\Min=0
 Commands\9\Max=1
-Commands\9\Bytes=2
+Commands\9\Bytes=1
 Commands\9\PadRight=false
 Commands\9\Command29=false
 Commands\9\GetCommand=true
@@ -367,8 +367,8 @@ Commands\34\SetCommand=false
 Commands\34\Admin=false
 Commands\35\Type=CW Pitch
 Commands\35\String=KP
-Commands\35\Min=0
-Commands\35\Max=75
+Commands\35\Min=300
+Commands\35\Max=1050
 Commands\35\Bytes=2
 Commands\35\PadRight=false
 Commands\35\Command29=false

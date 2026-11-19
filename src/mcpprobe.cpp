@@ -9,10 +9,12 @@
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QJsonArray>
+#include <QMap>
 #include <QMutex>
 #include <QThread>
 #include <QVector>
 
+#include <algorithm>
 #include <array>
 #include <deque>
 #include <limits>
@@ -32,6 +34,8 @@ constexpr int maxRadioTraffic = 5000;
 constexpr int maxNetworkTraffic = 2000;
 constexpr int maxTrafficBytes = 1024;
 constexpr int maxCaptureSeconds = 900;
+constexpr int maxCwEdges = 4000;
+constexpr int maxCwEvents = 500;
 
 // Icom LAN keepalives, left out so they do not flood the capture.
 constexpr int icomPingSize = 0x15;
@@ -44,6 +48,30 @@ struct TrafficEntry
     QString source;
     QByteArray data; // first maxTrafficBytes only
     int size;
+};
+
+struct CwEdge
+{
+    qint64 msecsSinceEpoch;
+    bool down;
+    qint64 dueNs;   // on the keyer's message clock; 0 starts a message
+    qint64 startNs;
+    qint64 endNs;
+};
+
+struct CwEvent
+{
+    qint64 msecsSinceEpoch;
+    QString source;
+    QString what;
+    QJsonObject detail;
+};
+
+struct PublishedState
+{
+    qint64 msecsSinceEpoch;
+    qint64 probeMs;
+    QJsonObject state;
 };
 
 struct LogEntry
@@ -118,6 +146,14 @@ struct Probe
     // Spectrum command bytes from the rig file, used to skip scope data.
     QVector<QByteArray> scopeSignatures;
     bool civFraming = false;
+
+    QMutex cwMutex;
+    std::deque<CwEdge> cwEdges;
+    std::deque<CwEvent> cwEvents;
+    quint64 cwEdgesRecorded = 0;
+
+    QMutex stateMutex;
+    QMap<QString, PublishedState> states;
 
     QMutex capsMutex;
     bool haveCaps = false;
@@ -868,4 +904,139 @@ McpProbe::traffic(const QString &kind, const QString &direction, int limit, cons
     result["returnedEntries"] = matched;
     result["entries"] = entries;
     return result;
+}
+
+void McpProbe::cwKeyEdge(bool down, qint64 dueNs, qint64 startNs, qint64 endNs)
+{
+    Probe &p = probe();
+    QMutexLocker locker(&p.cwMutex);
+    p.cwEdges.push_back({QDateTime::currentMSecsSinceEpoch(), down, dueNs, startNs, endNs});
+    while (p.cwEdges.size() > size_t(maxCwEdges))
+        p.cwEdges.pop_front();
+    ++p.cwEdgesRecorded;
+}
+
+void McpProbe::cwEvent(const QString &source, const QString &what, const QJsonObject &detail)
+{
+    Probe &p = probe();
+    QMutexLocker locker(&p.cwMutex);
+    p.cwEvents.push_back({QDateTime::currentMSecsSinceEpoch(), source, what, detail});
+    while (p.cwEvents.size() > size_t(maxCwEvents))
+        p.cwEvents.pop_front();
+}
+
+void McpProbe::publishState(const QString &name, const QJsonObject &state)
+{
+    Probe &p = probe();
+    QMutexLocker locker(&p.stateMutex);
+    p.states.insert(name, {QDateTime::currentMSecsSinceEpoch(), nowMs(), state});
+}
+
+namespace
+{
+QString isoTime(qint64 msecsSinceEpoch)
+{
+    return QDateTime::fromMSecsSinceEpoch(msecsSinceEpoch).toString(Qt::ISODateWithMs);
+}
+
+double nsToMs(qint64 ns)
+{
+    return double(ns) / 1e6;
+}
+} // namespace
+
+QJsonObject McpProbe::cwKeying(int messages, int events)
+{
+    Probe &p = probe();
+    std::deque<CwEdge> edges;
+    std::deque<CwEvent> cwEvents;
+    quint64 recorded = 0;
+    {
+        QMutexLocker locker(&p.cwMutex);
+        edges = p.cwEdges;
+        cwEvents = p.cwEvents;
+        recorded = p.cwEdgesRecorded;
+    }
+
+    // Split the edges into messages: each message starts with an edge due at 0.
+    QVector<QVector<CwEdge>> groups;
+    for (const CwEdge &e : edges)
+    {
+        if (groups.isEmpty() || e.dueNs == 0)
+            groups.append(QVector<CwEdge>());
+        groups.last().append(e);
+    }
+
+    QJsonArray messageArray;
+    const int first = std::max(0, int(groups.size()) - messages);
+    for (int g = first; g < groups.size(); ++g)
+    {
+        const QVector<CwEdge> &m = groups.at(g);
+        // Lateness: when the driver call started, after the edge was due.
+        // Driver time: how long setting the line took.
+        double lateSum = 0, lateMax = 0, driverSum = 0, driverMax = 0;
+        QVector<double> lates;
+        QJsonArray edgeArray;
+        for (const CwEdge &e : m)
+        {
+            const double late = nsToMs(e.startNs - e.dueNs);
+            const double driver = nsToMs(e.endNs - e.startNs);
+            lates.append(late);
+            lateSum += late;
+            lateMax = std::max(lateMax, late);
+            driverSum += driver;
+            driverMax = std::max(driverMax, driver);
+            edgeArray.append(QJsonObject{{"down", e.down},
+                                         {"dueMs", nsToMs(e.dueNs)},
+                                         {"lateMs", late},
+                                         {"driverMs", driver}});
+        }
+        std::sort(lates.begin(), lates.end());
+        const double p95 = lates.isEmpty() ? 0 : lates.at(std::min<int>(lates.size() - 1, int(lates.size() * 0.95)));
+        const int n = std::max<int>(1, m.size());
+        messageArray.append(QJsonObject{{"start", isoTime(m.first().msecsSinceEpoch)},
+                                        {"edges", m.size()},
+                                        {"lengthMs", nsToMs(m.last().dueNs)},
+                                        {"lateMeanMs", lateSum / n},
+                                        {"lateP95Ms", p95},
+                                        {"lateMaxMs", lateMax},
+                                        {"driverMeanMs", driverSum / n},
+                                        {"driverMaxMs", driverMax},
+                                        {"edgeList", edgeArray}});
+    }
+
+    QJsonArray eventArray;
+    const int firstEvent = std::max(0, int(cwEvents.size()) - events);
+    for (int i = firstEvent; i < int(cwEvents.size()); ++i)
+    {
+        const CwEvent &e = cwEvents.at(size_t(i));
+        eventArray.append(QJsonObject{{"time", isoTime(e.msecsSinceEpoch)},
+                                      {"source", e.source},
+                                      {"what", e.what},
+                                      {"detail", e.detail}});
+    }
+
+    return QJsonObject{{"edgesRecorded", double(recorded)},
+                       {"edgesHeld", int(edges.size())},
+                       {"messagesHeld", int(groups.size())},
+                       {"messages", messageArray},
+                       {"events", eventArray}};
+}
+
+QJsonObject McpProbe::internalState(const QString &filter)
+{
+    Probe &p = probe();
+    QMutexLocker locker(&p.stateMutex);
+    const qint64 now = nowMs();
+    QJsonObject out;
+    for (auto it = p.states.constBegin(); it != p.states.constEnd(); ++it)
+    {
+        if (!filter.isEmpty() && !it.key().contains(filter, Qt::CaseInsensitive))
+            continue;
+        out.insert(it.key(),
+                   QJsonObject{{"published", isoTime(it.value().msecsSinceEpoch)},
+                               {"ageMs", double(now - it.value().probeMs)},
+                               {"state", it.value().state}});
+    }
+    return QJsonObject{{"states", out}};
 }

@@ -2,14 +2,21 @@
 
 #include "yaesuserver.h"
 
+#include <QJsonObject>
 #include <QRandomGenerator>
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <utility>
 
 #include "logcategories.h"
+#include "mcphooks.h"
 
 namespace {
+// Clients send a health check every second.
+constexpr int cwKeyCheckMs = 500;
+constexpr int cwKeyClientSilenceMs = 3000;
+
 quint8 codecForYaesuAudio(yaesuAudioFormat format, quint8 channels)
 {
     switch (format) {
@@ -126,6 +133,9 @@ void yaesuServer::init()
     wdTimer = new QTimer(this);
     connect(wdTimer, &QTimer::timeout, this, &yaesuServer::watchdog);
     wdTimer->start(5000);
+
+    cwKeyTimer = new QTimer(this);
+    connect(cwKeyTimer, &QTimer::timeout, this, &yaesuServer::checkCwKeyClient);
     emit listening(true, QString());
 }
 
@@ -529,6 +539,9 @@ void yaesuServer::processCat(const PendingDatagram& datagram)
     case C2R_HealthCheck:
         sendHealth(catSocket, datagram.address, datagram.port, UsbCat);
         break;
+    case C2R_CwKey:
+        processCwKey(decoded, datagram);
+        break;
     default:
         qDebug(logRigServer()) << "Yaesu CAT ignored message" << header->msgtype << "device" << header->device;
         break;
@@ -787,6 +800,8 @@ void yaesuServer::removeClient(quint32 session, const char* reason)
         return;
 
     qInfo(logRigServer()) << "Yaesu server session" << session << "from" << client->ipAddress.toString() << reason;
+    if (session == cwKeySession)
+        stopCwKey(reason);
     releaseAudioForClient(client);
     if (client->authenticated)
         emit userLoggedOut(client->user, client->ipAddress.toString());
@@ -921,6 +936,139 @@ QByteArray yaesuServer::encodeFrame(const void* data, qsizetype len) const
         frame->encodedData[i] = encKey ^ ib ^ raw[i];
     }
     return encoded;
+}
+
+void yaesuServer::setCwKeyAvailable(bool available)
+{
+    if (cwKeyAvailable == available)
+        return;
+
+    rigServer::setCwKeyAvailable(available);
+    publishCwKeyState();
+    for (const CLIENT *client : std::as_const(clients))
+    {
+        if (client->catPort != 0)
+            sendCwKeyState(client, client->ipAddress, client->catPort);
+    }
+}
+
+bool yaesuServer::userMayTransmit(const CLIENT *client) const
+{
+    const SERVERUSER *user = findLoginUser(client->user);
+    return user != nullptr && user->userType != serverUserNoTx;
+}
+
+void yaesuServer::processCwKey(const QByteArray &decoded, const PendingDatagram &datagram)
+{
+    const int headerSize = int(offsetof(yaesuC2R_CwKeyFrame, text));
+    if (decoded.size() < headerSize)
+        return;
+
+    const auto *frame = reinterpret_cast<const yaesuC2R_CwKeyFrame *>(decoded.constData());
+    // Only the address that logged in may use its session.
+    CLIENT *client = clientForSession(frame->session, datagram.address);
+    if (client == nullptr)
+        return;
+    client->catPort = datagram.port;
+    MCP_CW_EVENT(QStringLiteral("lan server"), QStringLiteral("key request received"),
+                 (QJsonObject{{"op", frame->op == CwKeyQuery  ? QStringLiteral("query")
+                                     : frame->op == CwKeySend ? QStringLiteral("send")
+                                                              : QStringLiteral("stop")},
+                              {"user", client->user},
+                              {"address", datagram.address.toString()},
+                              {"chars", int(frame->textLen)},
+                              {"wpm", int(frame->wpm)},
+                              {"dashRatio", frame->dashRatio / 10.0}}));
+
+    if (frame->op == CwKeyQuery)
+    {
+        sendCwKeyState(client, datagram.address, datagram.port);
+        return;
+    }
+
+    if (!cwKeyAvailable || !userMayTransmit(client))
+    {
+        qInfo(logRigServer()) << "Yaesu server refused CW keying for" << client->user;
+        MCP_CW_EVENT(QStringLiteral("lan server"), QStringLiteral("key request refused"),
+                     (QJsonObject{{"user", client->user},
+                                  {"keyLineAvailable", cwKeyAvailable},
+                                  {"userMayTransmit", userMayTransmit(client)}}));
+        sendCwKeyState(client, datagram.address, datagram.port);
+        return;
+    }
+
+    if (frame->op == CwKeyStop)
+    {
+        stopCwKey("stopped by client");
+        return;
+    }
+
+    if (frame->op != CwKeySend)
+        return;
+
+    cwKeySession = frame->session;
+    cwKeyGuid = QByteArray(reinterpret_cast<const char *>(client->guid), GUIDLEN);
+    cwKeyTimer->start(cwKeyCheckMs);
+    publishCwKeyState();
+
+    // The text length is bounded by the field and by what was received.
+    const int textLen = std::min({int(frame->textLen), yaesuCwKeyMaxText, int(decoded.size()) - headerSize});
+    const QString text = QString::fromLatin1(frame->text, textLen);
+    emit cwKeyRequest(cwKeyGuid, CwKeySend, text, frame->wpm, frame->dashRatio / 10.0);
+}
+
+// A user who may not transmit is told there is no key line.
+// The station keys the line itself, so a client whose link drops cannot stop
+// it. Keying stops when that client has not been heard from for a few seconds.
+void yaesuServer::checkCwKeyClient()
+{
+    const CLIENT *client = clients.value(cwKeySession, nullptr);
+    if (client == nullptr)
+    {
+        stopCwKey("client gone");
+        return;
+    }
+    if (client->lastHeard.msecsTo(QDateTime::currentDateTime()) > cwKeyClientSilenceMs)
+        stopCwKey("client not heard from");
+}
+
+void yaesuServer::stopCwKey(const char *reason)
+{
+    if (cwKeySession == 0)
+        return;
+    qInfo(logRigServer()) << "Yaesu server CW keying for session" << cwKeySession << "ended:" << reason;
+    MCP_CW_EVENT(QStringLiteral("lan server"), QStringLiteral("keying ended"),
+                 (QJsonObject{{"session", double(cwKeySession)}, {"reason", QString::fromLatin1(reason)}}));
+    cwKeySession = 0;
+    cwKeyTimer->stop();
+    publishCwKeyState();
+    emit cwKeyRequest(cwKeyGuid, CwKeyStop, QString(), 0, 0.0);
+}
+
+void yaesuServer::sendCwKeyState(const CLIENT *client, const QHostAddress &address, quint16 port)
+{
+    yaesuR2C_CwKeyStateFrame reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.hdr.device = UsbCat;
+    reply.hdr.msgtype = R2C_CwKeyState;
+    reply.hdr.len = sizeof(reply) - sizeof(reply.hdr);
+    reply.available = (cwKeyAvailable && userMayTransmit(client)) ? 1 : 0;
+    MCP_CW_EVENT(QStringLiteral("lan server"), QStringLiteral("key state sent"),
+                 (QJsonObject{{"user", client->user},
+                              {"address", address.toString()},
+                              {"available", reply.available != 0}}));
+    sendCatFrame(address, port, &reply, sizeof(reply));
+}
+
+void yaesuServer::publishCwKeyState()
+{
+    MCP_STATE(QStringLiteral("lanServer.cwKey"),
+              (QJsonObject{{"keyLineAvailable", cwKeyAvailable},
+                           {"keyingSession", double(cwKeySession)},
+                           {"keyingClient", clients.contains(cwKeySession) && clients.value(cwKeySession) != nullptr
+                                                ? clients.value(cwKeySession)->user
+                                                : QString()},
+                           {"clientSilenceLimitMs", cwKeyClientSilenceMs}}));
 }
 
 void yaesuServer::sendResult(QUdpSocket* socket, const QHostAddress& address, quint16 port, yaesuDeviceId device, yaesuMessageId message, quint32 result)

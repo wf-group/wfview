@@ -137,6 +137,13 @@ servermain::~servermain()
 {
     for (RIGCONFIG* radio : serverConfig.rigs)
     {
+        if (radio->cwKeyerThread != Q_NULLPTR)
+        {
+            // Closing the port keys up and releases both control lines.
+            QMetaObject::invokeMethod(radio->cwKeyer, &CwSerialKeyer::close, Qt::BlockingQueuedConnection);
+            radio->cwKeyerThread->quit();
+            radio->cwKeyerThread->wait();
+        }
         if (radio->rigThread != Q_NULLPTR)
         {
             radio->rigThread->quit();
@@ -453,6 +460,13 @@ void servermain::setServerToPrefs()
         serverThread->wait();
         serverThread = Q_NULLPTR;
         server = Q_NULLPTR;
+
+        // CW being keyed for a client of the old server would carry on with nobody to stop it.
+        for (RIGCONFIG *radio : serverConfig.rigs)
+        {
+            if (radio->cwKeyer != Q_NULLPTR)
+                QMetaObject::invokeMethod(radio->cwKeyer, &CwSerialKeyer::stop);
+        }
     }
 
     serverThread = new QThread(this);
@@ -553,9 +567,81 @@ void servermain::setServerToPrefs()
         }
     }, Qt::QueuedConnection);
 
+    setupCwKeyers();
+    connect(
+        server,
+        &rigServer::cwKeyRequest,
+        this,
+        [this](QByteArray guid, int op, QString text, int wpm, double ratio)
+        {
+            for (RIGCONFIG *radio : serverConfig.rigs)
+            {
+                const bool guidMatches = guid.size() == GUIDLEN && !memcmp(guid.constData(), radio->guid, GUIDLEN);
+                if (radio->cwKeyer == Q_NULLPTR || !(guidMatches || serverConfig.rigs.size() == 1))
+                    continue;
+                QMetaObject::invokeMethod(radio->cwKeyer,
+                                          [keyer = radio->cwKeyer, op, text, wpm, ratio]()
+                                          {
+                                              if (op == CwKeyStop)
+                                              {
+                                                  keyer->stop();
+                                                  return;
+                                              }
+                                              if (wpm > 0)
+                                                  keyer->setSpeed(wpm);
+                                              if (ratio > 0.0)
+                                                  keyer->setRatio(ratio);
+                                              keyer->send(text);
+                                          });
+            }
+        },
+        Qt::QueuedConnection);
+    updateServerCwKey();
+
     serverThread->start();
 
     emit initServer();
+}
+
+// One keyer per radio that has a CW key port, each on its own thread.
+void servermain::setupCwKeyers()
+{
+    for (RIGCONFIG *radio : serverConfig.rigs)
+    {
+        if (radio->cwKeyer != Q_NULLPTR || radio->cwKeyPort.isEmpty())
+            continue;
+
+        radio->cwKeyerThread = new QThread(this);
+        radio->cwKeyerThread->setObjectName("cwKeyer()");
+        radio->cwKeyer = new CwSerialKeyer();
+        radio->cwKeyer->moveToThread(radio->cwKeyerThread);
+        connect(radio->cwKeyerThread, &QThread::finished, radio->cwKeyer, &QObject::deleteLater);
+        connect(radio->cwKeyer,
+                &CwSerialKeyer::readyChanged,
+                this,
+                [this, radio](bool ready)
+                {
+                    radio->cwKeyReady = ready;
+                    updateServerCwKey();
+                });
+        radio->cwKeyerThread->start();
+
+        const QString port = radio->cwKeyPort;
+        const int line = radio->cwKeyLine;
+        QMetaObject::invokeMethod(radio->cwKeyer,
+                                  [keyer = radio->cwKeyer, port, line]() { keyer->configure(port, line); });
+    }
+}
+
+void servermain::updateServerCwKey()
+{
+    if (server == Q_NULLPTR)
+        return;
+
+    bool ready = false;
+    for (const RIGCONFIG *radio : serverConfig.rigs)
+        ready = ready || radio->cwKeyReady;
+    QMetaObject::invokeMethod(server, [s = server, ready]() { s->setCwKeyAvailable(ready); });
 }
 
 void servermain::ensureNativeServerRxAudio(RIGCONFIG *radio, quint8 codec, quint32 sampleRate)
@@ -1135,6 +1221,8 @@ void servermain::loadSettings()
         if ((bool)settings->value("ForceRTSasPTT", false).toBool())
             tempPrefs->pttType = pttRTS;
         tempPrefs->serialPort = settings->value("SerialPortRadio", defPrefs.serialPortRadio).toString();
+        tempPrefs->cwKeyPort = settings->value("CwKeyPort", QString()).toString();
+        tempPrefs->cwKeyLine = settings->value("CwKeyLine", 0).toInt();
         tempPrefs->rigName = settings->value("RigName", "<NONE>").toString();
         tempPrefs->baudRate = (quint32)settings->value("SerialPortBaud", defPrefs.serialPortBaud).toInt();
         tempPrefs->rxAudioSetup.name = settings->value("AudioInput", "default").toString();
