@@ -2,6 +2,8 @@
 #define YAESUCOMMANDER_H
 #include "rigcommander.h"
 #include "rtpaudio.h"
+#include <QElapsedTimer>
+#include <QList>
 #include <QSerialPort>
 #include <ft4222handler.h>
 
@@ -9,6 +11,7 @@
 #include "yaesuudpcat.h"
 #include "yaesuudpaudio.h"
 #include "yaesuudpscope.h"
+#include "yaesustatusblock.h"
 
 #define audioLevelBufferSize (4)
 
@@ -51,6 +54,7 @@ public slots:
     void receiveBaudRate(quint32 baudrate) override;
     void receiveTxAudioData(const audioPacket &packet) override;
     void dataFromServer(QByteArray data) override;
+    void sendRemoteCwKey(int op, QString text, int wpm, int dashRatio) override;
 
     void receiveCatDataFromRig(QByteArray in);
     void receiveScopeDataFromRig(QByteArray in);
@@ -78,6 +82,7 @@ signals:
     void initScope();
     void setScopePoll(quint64 poll);
     void sendDataToRig(QByteArray d);
+    void sendCwKeyToStation(int op, QString text, int wpm, int dashRatio);
 
 private:
     void commonSetup();
@@ -91,6 +96,54 @@ private:
     bool portConnected=false;
     bool isTransmitting = false;
     QByteArray lastSentCommand;
+    // Commands sent recently, for the log when the radio answers ?;, which names no command.
+    struct sentCommand
+    {
+        qint64 ms;
+        QByteArray data;
+    };
+    QList<sentCommand> recentCommands;
+    QElapsedTimer commandClock;
+
+    // CW sent through the radio's keyer memory: text waiting for the current playback to end.
+    void sendCwMemory(const QByteArray &text);
+    void playNextCwMemory();
+    void stopCwMemory();
+    void restoreCwMemory();
+    void updateScopeWindow(const QByteArray &data, double vfoMHz, const centerSpanData &cs, scopeData &scope);
+    QByteArray memoryKeyerCommand() const;
+    void sendToRig(const QByteArray &data);
+    QByteArray cwMemoryPending;
+    QTimer *cwMemoryTimer = nullptr;
+    bool cwMemoryPlaying = false;
+    // What the memory held before text was sent through it, written back when sending ends.
+    bool cwMemoryInUse = false;
+    bool cwMemorySaving = false;
+    QByteArray cwMemorySaved;
+    // The scope's display start in Cursor and Fixed modes, read with FD001 / FD002.
+    quint8 scopeWindowMode = 0; // 0 = Center, 1 = Cursor, 2 = Fixed, from the status block
+    quint8 scopeWindowSpan = 0xff;
+    bool scopeWindowKnown = false;
+    double scopeWindowStartMHz = 0.0;
+    QElapsedTimer scopeWindowAsked;
+    // The last VFO-A the radio reported itself (Auto Information or a reply), newer than the scope frames.
+    quint64 vfoReportHz = 0;
+    QElapsedTimer vfoReportClock;
+    uchar lastCompressorLevel = 0; // last non-zero speech processor level
+    bool clarifierTx = false; // TX clarifier as last reported by CF000
+
+    // Values from the scope frame's status block (rigCaps.scopeStatusBlock). A poll for one of them is
+    // skipped while the block has confirmed it recently, so polling resumes by itself if the frames stop.
+    YaesuStatusConfirm statusConfirm;
+    QHash<funcs, qint64> statusFreshMs;
+    QElapsedTimer statusClock;
+    bool statusFresh(funcs func) const;
+#ifdef WFVIEW_MCP
+    QHash<funcs, quint64> statusPollsSkipped; // for MCP diagnostics
+#endif
+    // For MCP diagnostics; do nothing unless built with CONFIG+=mcp.
+    void publishScopeState(bool vfoReportNewer);
+    void publishCwMemoryState();
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

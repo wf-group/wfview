@@ -205,6 +205,8 @@ SOURCES += \
     src/radio/kenwoodcommander.cpp \
     src/radio/kenwoodserver.cpp \
     src/radio/yaesucommander.cpp \
+    src/radio/yaesustatusblock.cpp \
+    src/radio/yaesuvalues.cpp \
     src/radio/yaesuserver.cpp \
     src/radio/yaesuudpaudio.cpp \
     src/radio/yaesuudpbase.cpp \
@@ -219,6 +221,8 @@ SOURCES += \
     src/servermain.cpp \
     src/serverwizard.cpp \
     src/commhandler.cpp \
+    src/cwmorse.cpp \
+    src/cwserialkeyer.cpp \
     src/radiotransportframe.cpp \
     src/rigcommander.cpp \
     src/rigidentities.cpp \
@@ -254,6 +258,8 @@ HEADERS  += \
     include/audiohandlertcioutput.h \
     include/cachingqueue.h \
     include/commhandler.h \
+    include/cwmorse.h \
+    include/cwserialkeyer.h \
     include/directradiotransport.h \
     include/ft4222handler.h \
     include/kenwoodcommander.h \
@@ -286,6 +292,8 @@ HEADERS  += \
     include/icomudphandler.h \
     include/kenwoodserver.h \
     include/yaesucommander.h \
+    include/yaesustatusblock.h \
+    include/yaesuvalues.h \
     include/yaesuserver.h \
     include/yaesuudpaudio.h \
     include/yaesuudpbase.h \

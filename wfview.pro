@@ -316,6 +316,8 @@ SOURCES += \
     src/cluster.cpp \
     src/commhandler.cpp \
     src/audio/cwsidetonegenerator.cpp \
+    src/cwmorse.cpp \
+    src/cwserialkeyer.cpp \
     src/database.cpp \
     src/directradiotransport.cpp \
     src/freqctrlquick.cpp \
@@ -339,6 +341,8 @@ SOURCES += \
     src/radio/kenwoodcommander.cpp \
     src/radio/kenwoodserver.cpp \
     src/radio/yaesucommander.cpp \
+    src/radio/yaesustatusblock.cpp \
+    src/radio/yaesuvalues.cpp \
     src/radio/yaesuserver.cpp \
     src/radio/yaesuudpaudio.cpp \
     src/radio/yaesuudpbase.cpp \
@@ -402,6 +406,8 @@ HEADERS  += \
     include/cluster.h \
     include/colorprefs.h \
     include/commhandler.h \
+    include/cwmorse.h \
+    include/cwserialkeyer.h \
     include/cwsidetonegenerator.h \
     include/database.h \
     include/directradiotransport.h \
@@ -445,6 +451,8 @@ HEADERS  += \
     include/usbcontroller.h \
     include/wfviewtypes.h \
     include/yaesucommander.h \
+    include/yaesustatusblock.h \
+    include/yaesuvalues.h \
     include/yaesuserver.h \
     include/yaesuudpaudio.h \
     include/yaesuudpbase.h \

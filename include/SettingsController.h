@@ -916,6 +916,7 @@ signals:
     void udpChanged(prefUDPItems items);
     void serverChanged(prefServerItems items);
     void audioProcChanged();
+    void cwKeyChanged();
 
     void optionChanged(const QString& key, const QVariant& value);
     void dirtyChanged();

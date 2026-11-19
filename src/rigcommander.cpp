@@ -47,6 +47,20 @@ static quint8 rigModeRegister(const QVariant &value, manufacturersType_t manufac
     return static_cast<quint8>(text.toUInt());
 }
 
+// The bit for a mode register in a width table's Bands mask. Yaesu registers are
+// stored as their ASCII hex digit ('2' for USB, 'A' for DATA-FM), so the digit's value is the bit.
+static int rigModeRegisterBit(quint8 reg, manufacturersType_t manufacturer)
+{
+    if (manufacturer == manufYaesu)
+    {
+        if (reg >= '0' && reg <= '9')
+            return reg - '0';
+        if (reg >= 'A' && reg <= 'F')
+            return reg - 'A' + 10;
+    }
+    return reg;
+}
+
 rigCommander::rigCommander(QObject* parent) : QObject(parent)
 {
     qInfo(logRig()) << "creating instance of rigCommander()";
@@ -159,6 +173,14 @@ void rigCommander::setCIVAddr(quint16 civAddr)
     Q_UNUSED(civAddr)
 
     qWarning(logRig()) << "setCIVAddr() not implemented by rig type";
+}
+
+void rigCommander::sendRemoteCwKey(int op, QString text, int wpm, int dashRatio)
+{
+    Q_UNUSED(op)
+    Q_UNUSED(text)
+    Q_UNUSED(wpm)
+    Q_UNUSED(dashRatio)
 }
 
 void rigCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
@@ -332,6 +354,8 @@ void rigCommander::determineRigCaps()
     rigCaps.spectDbPerDN = settings->value("SpectrumDbPerDN",0.5).toDouble();
 
     rigCaps.hasSpectrum = settings->value("HasSpectrum",false).toBool();
+    rigCaps.scopeStatusBlock = settings->value("ScopeStatusBlock", false).toBool();
+    rigCaps.cwMemorySlot = static_cast<quint8>(qBound(1, settings->value("CwMemorySlot", 1).toInt(), 5));
     rigCaps.hasLan = settings->value("HasLAN",false).toBool();
     rigCaps.hasEthernet = settings->value("HasEthernet",false).toBool();
     rigCaps.hasWiFi = settings->value("HasWiFi",false).toBool();
@@ -340,6 +364,7 @@ void rigCommander::determineRigCaps()
     rigCaps.hasDD = settings->value("HasDD",false).toBool();
     rigCaps.hasDV = settings->value("HasDV",false).toBool();
     rigCaps.hasTransmit = settings->value("HasTransmit",false).toBool();
+    rigCaps.toneSquelchIsOne = settings->value("ToneSquelchIsOne", false).toBool();
     rigCaps.hasFDcomms = settings->value("HasFDComms",false).toBool();
     rigCaps.hasCommand29 = settings->value("HasCommand29",false).toBool();
     rigCaps.absoluteVFOFreq = settings->value("AbsoluteVFOFreq",false).toBool();
@@ -774,9 +799,16 @@ void rigCommander::determineRigCaps()
         for (int c = 0; c < numWidths; c++)
         {
             settings->setArrayIndex(c);
-            rigCaps.widths.push_back(widthsType(settings->value("Bands", 0).toString().toUShort(nullptr,16),
-                                                static_cast<uchar>(settings->value("Num", 0).toString().toUShort()),
-                                                settings->value("Hz", 0).toString().toUShort()));
+            widthsType w(settings->value("Bands", 0).toString().toUShort(nullptr, 16),
+                         static_cast<uchar>(settings->value("Num", 0).toString().toUShort()),
+                         settings->value("Hz", 0).toString().toUShort());
+            for (const modeInfo &m : rigCaps.modes)
+            {
+                const int bit = rigModeRegisterBit(m.reg, rigCaps.manufacturer);
+                if (bit < 16 && ((w.bands >> bit) & 0x01))
+                    w.modes.append(m.mk);
+            }
+            rigCaps.widths.push_back(w);
         }
         std::sort(rigCaps.widths.begin(), rigCaps.widths.end(),
                   [](const widthsType &a, const widthsType &b) {

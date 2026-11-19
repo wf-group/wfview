@@ -2604,6 +2604,60 @@ ApplicationWindow {
                             }
                         }
 
+                        GroupBox {
+                            id: cwKeyGroup
+                            title: qsTr("CW Keying")
+                            Layout.fillWidth: true
+
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: 8
+                                Label { text: qsTr("Key Port") }
+                                ComboBox {
+                                    id: cwKeyPortCombo
+                                    Layout.preferredWidth: 180
+                                    Layout.maximumWidth: 180
+                                    Accessible.name: "CW Key Port Combo"
+                                    readonly property var spec: controller ? controller.uiSpecs["CwKeyPorts"] : null
+                                    model: serialPortModel(spec, controller ? controller.options["Keyer.KeyPort"] : "")
+                                    textRole: spec ? spec.textRole : "text"
+                                    valueRole: spec ? spec.valueRole : "value"
+                                    currentIndex: (controller && controller.options)
+                                                  ? indexFromValue(cwKeyPortCombo, controller.options["Keyer.KeyPort"])
+                                                  : -1
+                                    onActivated: selectDeviceOption(cwKeyPortCombo, "Keyer.KeyPort")
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: qsTr("Serial port that keys CW on a control line, for radios that accept a CW key on DTR or RTS.\n"
+                                                       + "This is not the radio's CAT port. The CW Sender then keys this port instead of sending text to the radio.")
+                                }
+                                Button {
+                                    text: qsTr("Rescan")
+                                    onClicked: if (controller) controller.rescanSerialPorts()
+                                    Accessible.name: "Rescan serial ports for CW keying"
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: qsTr("Look for serial ports again, for example after plugging in the radio.")
+                                }
+                                Label { text: qsTr("Key Line") }
+                                ComboBox {
+                                    id: cwKeyLineCombo
+                                    Accessible.name: "CW Key Line Combo"
+                                    model: [
+                                        { text: qsTr("DTR"), value: 0 },
+                                        { text: qsTr("RTS"), value: 1 }
+                                    ]
+                                    textRole: "text"
+                                    valueRole: "value"
+                                    currentIndex: (controller && controller.options)
+                                                  ? indexFromValue(cwKeyLineCombo, controller.options["Keyer.KeyLine"])
+                                                  : -1
+                                    onActivated: if (controller) controller.setOption("Keyer.KeyLine", currentValue)
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: qsTr("Must match the radio's own setting. The other line is held off, as radios commonly use it for PTT.")
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
+                        }
+
                         Item { Layout.fillHeight: true }
                     }
                 }

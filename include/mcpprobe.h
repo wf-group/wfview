@@ -61,6 +61,12 @@ public:
             recordNetwork(source, toRadio, data);
     }
 
+    // CW keying hooks (see mcphooks.h), any thread.
+    static void cwKeyEdge(bool down, qint64 dueNs, qint64 startNs, qint64 endNs);
+    static void cwEvent(const QString &source, const QString &what, const QJsonObject &detail);
+    // Replaces the state published under this name.
+    static void publishState(const QString &name, const QJsonObject &state);
+
     // Capture control and readers, called from the MCP thread.
     static void startCapture(int seconds, bool includeScope, bool clear);
     // Makes sure a capture runs for at least the given time, keeping what
@@ -78,6 +84,10 @@ public:
     static QJsonObject logLines(int maxLines, QtMsgType minType, const QString &category, const QString &contains);
     static QJsonObject audioLevels();
     static QJsonObject networkStatusJson();
+    // Key line edges with their timing, grouped by message, and CW events.
+    static QJsonObject cwKeying(int messages, int events);
+    // Published internal state; names containing filter only, when given.
+    static QJsonObject internalState(const QString &filter);
     // The last capabilities a radio reported; current is false once that
     // radio has disconnected.
     static bool rigCapsSnapshot(rigCapabilities *out, qint64 *ageMs, bool *current);

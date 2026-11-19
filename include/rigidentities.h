@@ -283,6 +283,7 @@ struct widthsType {
     ushort bands;
     uchar num;
     ushort hz;
+    QList<rigMode_t> modes; // The modes in bands, set when the rig file is loaded
 };
 
 //model_kind determineRadioModel(quint8 rigID);
@@ -308,6 +309,10 @@ struct rigCapabilities {
     QVector<rigInput> inputs;
 
     bool hasSpectrum=true;
+    // The scope frame carries the radio status block (FT-710); its values are decoded and their polls skipped.
+    bool scopeStatusBlock = false;
+    // The keyer memory (1-5) that CW text is sent through, on radios that only key CW from a memory.
+    quint8 cwMemorySlot = 1;
     quint8 spectSeqMax;
     quint16 spectAmpMax;
     quint16 spectLenMax;
@@ -327,6 +332,9 @@ struct rigCapabilities {
     bool hasRepeaterModes = false;
 
     bool hasTransmit;
+    // The radio's tone mode uses 1 for tone squelch and 2 for tone (Yaesu FT-710 CT),
+    // the reverse of wfview's 1 = tone, 2 = tone squelch.
+    bool toneSquelchIsOne = false;
     bool hasPTTCommand;
     bool hasAttenuator;
     bool hasPreamp;

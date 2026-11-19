@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 
 int runControllerControllerTests(int argc, char **argv);
+int runCwMorseTests(int argc, char **argv);
 int runAudioRoutingTests(int argc, char **argv);
 int runCachingQueueTests(int argc, char **argv);
 int runClusterTests(int argc, char **argv);
@@ -16,6 +17,10 @@ int runRigCtlCompatTests(int argc, char **argv);
 int runRigCtlDTests(int argc, char **argv);
 int runRigProtocolTests(int argc, char **argv);
 int runTxAudioPacerTests(int argc, char **argv);
+int runYaesuValuesTests(int argc, char **argv);
+int runYaesuStatusBlockTests(int argc, char **argv);
+int runYaesuRigFilesTests(int argc, char **argv);
+int runYaesuCwKeyTests(int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -26,6 +31,7 @@ int main(int argc, char **argv)
     status |= runCachingQueueTests(argc, argv);
     status |= runControllerControllerTests(argc, argv);
     status |= runClusterTests(argc, argv);
+    status |= runCwMorseTests(argc, argv);
     status |= runIaxClientSessionTests(argc, argv);
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
     status |= runIcomUdpBaseTests(argc, argv);
@@ -37,5 +43,9 @@ int main(int argc, char **argv)
     status |= runRigCtlDTests(argc, argv);
     status |= runRigProtocolTests(argc, argv);
     status |= runTxAudioPacerTests(argc, argv);
+    status |= runYaesuValuesTests(argc, argv);
+    status |= runYaesuStatusBlockTests(argc, argv);
+    status |= runYaesuRigFilesTests(argc, argv);
+    status |= runYaesuCwKeyTests(argc, argv);
     return status;
 }

@@ -44,6 +44,8 @@ public:
 public slots:
     void incomingUdp(void* buf, size_t bufLen);
     void sendCatDataToRig(QByteArray d);
+    // op is a yaesuCwKeyOp; dashRatio is in tenths.
+    void sendCwKey(int op, QString text, int wpm, int dashRatio);
 
 private slots:
     void sendHeartbeat();
@@ -52,6 +54,7 @@ signals:
     void haveCatDataFromRig(QByteArray d);
     void haveNetworkError(errorType);
     void initAudio();
+    void haveCwKeyState(bool available);
 
 private:
     void sendConnect();
