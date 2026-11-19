@@ -1727,8 +1727,8 @@ void yaesuCommander::parseData(QByteArray data)
                 if (now - c.ms <= rejectedCommandWindowMs)
                     recent.append(c.data);
             }
-            qInfo(logRig()).noquote() << "Rig rejected a command (?;). Sent in the last" << rejectedCommandWindowMs
-                                      << "ms:" << recent.join(' ');
+            qWarning(logRig()).noquote() << "Rig rejected a command (?;). Sent in the last"
+                                         << rejectedCommandWindowMs << "ms:" << recent.join(' ');
             break;
         }
         default:

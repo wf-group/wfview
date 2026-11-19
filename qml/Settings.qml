@@ -2634,6 +2634,8 @@ ApplicationWindow {
                                     text: qsTr("Rescan")
                                     onClicked: if (controller) controller.rescanSerialPorts()
                                     Accessible.name: "Rescan serial ports for CW keying"
+                                    ToolTip.visible: hovered
+                                    ToolTip.text: qsTr("Look for serial ports again, for example after plugging in the radio.")
                                 }
                                 Label { text: qsTr("Key Line") }
                                 ComboBox {
