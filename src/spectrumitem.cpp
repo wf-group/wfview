@@ -1340,14 +1340,16 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
         root->appendChildNode(root->background);
         root->appendChildNode(root->gridLines);
+        // Passband and PBT go under the spectrum so an opaque passband colour
+        // cannot hide the live trace.
+        root->appendChildNode(root->passband);
+        root->appendChildNode(root->pbt);
         root->appendChildNode(root->peaksFill);
         root->appendChildNode(root->peaksGradient);
         root->appendChildNode(root->peaksLine);
         root->appendChildNode(root->fillNode);
         root->appendChildNode(root->gradientFill);
         root->appendChildNode(root->spectrumLine);
-        root->appendChildNode(root->passband);
-        root->appendChildNode(root->pbt);
         root->appendChildNode(root->frequencyLine);
         root->appendChildNode(root->txLine);
         root->appendChildNode(root->bandShapes);
