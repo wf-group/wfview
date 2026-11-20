@@ -80,9 +80,7 @@ ApplicationWindow {
         id: heightReleaseTimer
         interval: 300
         onTriggered: {
-            mainGroup.targetHeight = Qt.binding(function() {
-                return Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
-            })
+            mainGroup.targetHeight = Qt.binding(function() { return mainGroup.fullHeight })
         }
     }
 
@@ -134,8 +132,8 @@ ApplicationWindow {
 
     minimumWidth:  radioConnected ? 360 : mainLayout.implicitWidth + contentHorizontalPadding * 2
     //minimumHeight: mainLayout.implicitHeight+30
+    // mainGroup's height already includes its padding (see mainGroup.fullHeight)
     minimumHeight: mainLayout.implicitHeight + 8
-                   + mainGroup.padding * 2
                    + scopeVFOGroup.padding * 2
                    + mainLayout.spacing * 2
     onMinimumWidthChanged: {
@@ -2080,7 +2078,11 @@ ApplicationWindow {
         Frame {
             id: mainGroup
             Layout.fillWidth: true
-            property real targetHeight: Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
+            // The Frame's height includes its padding; without it the tallest
+            // contents were clipped by 2 * padding and ran into the border.
+            readonly property real fullHeight: Math.max(leftControlsColumn.implicitHeight, mainControlsFlow.implicitHeight)
+                                               + topPadding + bottomPadding
+            property real targetHeight: fullHeight
             Layout.preferredHeight: targetHeight
             clip: true
             padding: 3
