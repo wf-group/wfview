@@ -125,12 +125,21 @@ void cachingQueue::run()
             if (!haveImmediate)
                 immediateStreak = 0;
 
-            const QString warning = checkHealth(healthClock.elapsed());
+            const qint64 now = healthClock.elapsed();
+            const qint64 startupReadsMs = checkStartupReads(now);
+            bool warningDebugOnly = false;
+            const QString warning = checkHealth(now, &warningDebugOnly);
 
-            if (haveItem || !warning.isEmpty()) {
+            if (haveItem || !warning.isEmpty() || startupReadsMs >= 0) {
                 locker.unlock();
-                if (!warning.isEmpty())
-                    qWarning(logRig()) << qPrintable(warning);
+                if (startupReadsMs >= 0)
+                    qDebug(logRig()) << "Startup reads finished after" << startupReadsMs << "ms";
+                if (!warning.isEmpty()) {
+                    if (warningDebugOnly)
+                        qDebug(logRig()) << qPrintable(warning);
+                    else
+                        qWarning(logRig()) << qPrintable(warning);
+                }
                 if (haveItem && !aborted) {
                     if (!item.rawData.isEmpty())
                         emit haveRawCommand(item.rawData, item.receiver);
@@ -219,7 +228,26 @@ queuePriority cachingQueue::rotationSlot(quint16 counter) const
     return priorityImmediate;
 }
 
-QString cachingQueue::checkHealth(qint64 now)
+qint64 cachingQueue::checkStartupReads(qint64 now)
+{
+    // Mutex MUST be locked by the calling function.
+    // The startup reads are over once the immediate list, having filled, is
+    // empty again. "Seen" stops a tick that lands between beginStartupReads()
+    // and the first add from ending it early. The time limit stops it from
+    // hiding a real backlog for long if the list never empties.
+    if (!startupReads)
+        return -1;
+    const bool immediateWaiting = queue.contains(priorityImmediate);
+    if (immediateWaiting)
+        startupReadsSeen = true;
+    if ((startupReadsSeen && !immediateWaiting) || now - startupReadsBeganMs > startupReadsMaxMs) {
+        startupReads = false;
+        return now - startupReadsBeganMs;   // logged by the caller once unlocked
+    }
+    return -1;
+}
+
+QString cachingQueue::checkHealth(qint64 now, bool *debugOnly)
 {
     // Mutex MUST be locked by the calling function.
     // A watchdog only: it logs (rate limited) and counts, it never drops commands.
@@ -237,7 +265,15 @@ QString cachingQueue::checkHealth(qint64 now)
     // The lowest priority only gets a slot every 23 ticks, so allow for slow intervals.
     const qint64 stallLimitMs = qMax(routineStallWarnMs, 30 * queueInterval);
     const qint64 stalledMs = now - lastRoutineMs;
-    if (immediate <= immediateWarnDepth && stalledMs <= stallLimitMs)
+    const bool stalled = stalledMs > stallLimitMs;
+    if (immediate <= immediateWarnDepth && !stalled)
+        return QString();
+
+    // While the connect-time reads drain, a deep immediate list is expected:
+    // log it once at debug level and leave the warning timer and count alone.
+    // A stall in routine polling is still a warning.
+    const bool startupBacklog = startupReads && !stalled;
+    if (startupBacklog && startupDebugLogged)
         return QString();
 
     // Name the commands filling the immediate list, to show where they come from.
@@ -252,12 +288,19 @@ QString cachingQueue::checkHealth(qint64 now)
     for (int i = 0; i < top.size() && i < 3; ++i)
         names << QStringLiteral("%1 x%2").arg(top[i].second < funcLastFunc ? funcString[top[i].second] : QStringLiteral("?")).arg(top[i].first);
 
-    lastWarnMs = now;
-    ++warningCount;
+    if (startupBacklog) {
+        startupDebugLogged = true;
+        if (debugOnly)
+            *debugOnly = true;
+    } else {
+        lastWarnMs = now;
+        ++warningCount;
+    }
     return QStringLiteral("Command queue backlog: %1 immediate commands waiting (%2), %3 in total; "
-                          "last routine command sent %4 ms ago")
+                          "last routine command sent %4 ms ago%5")
         .arg(immediate).arg(names.isEmpty() ? QStringLiteral("none") : names.join(QStringLiteral(", ")))
-        .arg(queue.size()).arg(routineWaiting ? stalledMs : 0);
+        .arg(queue.size()).arg(routineWaiting ? stalledMs : 0)
+        .arg(startupBacklog ? QStringLiteral(" (startup reads)") : QString());
 }
 
 bool cachingQueue::readRemapped(funcs cmd) const
@@ -542,6 +585,16 @@ void cachingQueue::clear()
 {
     QMutexLocker locker(&mutex);
     queue.clear();
+    startupReads = false;
+}
+
+void cachingQueue::beginStartupReads()
+{
+    QMutexLocker locker(&mutex);
+    startupReads = true;
+    startupReadsSeen = false;
+    startupDebugLogged = false;
+    startupReadsBeganMs = healthClock.isValid() ? healthClock.elapsed() : 0;
 }
 
 void cachingQueue::setRigCaps(rigCapabilities* caps)

@@ -5416,6 +5416,9 @@ void MainController::getInitialRigState()
     // computers will glitch occasionally.
 
     queue->clear();
+    // Each periodic below also queues an immediate first read, so the
+    // immediate list runs deep until they drain; that is expected here.
+    queue->beginStartupReads();
 
     foreach (auto cap, rigCaps->periodic) {
         if (!cap.modes.isEmpty()) {

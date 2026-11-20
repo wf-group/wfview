@@ -23,6 +23,7 @@ private slots:
     void getCacheLimitsRefreshRate();
     void routinePollingSurvivesImmediateFlood();
     void warnsAboutBacklog();
+    void startupReadsBacklogIsQuiet();
     void transmitPollIntervalRules();
 
 private:
@@ -220,6 +221,33 @@ void CachingQueueTest::warnsAboutBacklog()
     QTRY_VERIFY_WITH_TIMEOUT(queue->getStats().warnings >= 1, 3000);
     stopQueue();
     QVERIFY(queue->getStats().immediateHighWater >= 80);
+}
+
+void CachingQueueTest::startupReadsBacklogIsQuiet()
+{
+    // The connect-time burst is expected: a deep immediate list while it drains
+    // is not counted as a backlog warning.
+    queue->beginStartupReads();
+    for (int i = 0; i < 80; ++i)
+        queue->add(priorityImmediate, queueItem(funcAfGain, QVariant::fromValue<uchar>(uchar(i)), false, 0));
+    queue->add(priorityHighest, funcSMeter, true, 0);
+
+    queue->interval(300); // slow enough that the list stays deep for several checks
+    QTRY_VERIFY_WITH_TIMEOUT(queue->getStats().immediateHighWater >= 80, 3000);
+    QTest::qWait(700);
+    QCOMPARE(queue->getStats().warnings, quint64(0));
+
+    // Once the burst has drained, a later backlog warns as usual.
+    queue->interval(5);
+    QTRY_COMPARE_WITH_TIMEOUT(queue->getStats().immediateWaiting, 0, 5000);
+    QCOMPARE(queue->getStats().warnings, quint64(0));
+
+    queue->interval(1000);
+    QTest::ignoreMessage(QtWarningMsg, QRegularExpression("Command queue backlog: \\d+ immediate commands waiting"));
+    for (int i = 0; i < 80; ++i)
+        queue->add(priorityImmediate, queueItem(funcAfGain, QVariant::fromValue<uchar>(uchar(i)), false, 0));
+    QTRY_VERIFY_WITH_TIMEOUT(queue->getStats().warnings >= 1, 3000);
+    stopQueue();
 }
 
 void CachingQueueTest::transmitPollIntervalRules()

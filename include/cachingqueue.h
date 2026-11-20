@@ -142,10 +142,15 @@ private:
     static constexpr int immediateWarnDepth = 50;
     static constexpr qint64 routineStallWarnMs = 3000;
     static constexpr qint64 warnRepeatMs = 10000;
+    // The startup reads are never treated as a backlog for longer than this.
+    static constexpr qint64 startupReadsMaxMs = 10000;
 
     bool readRemapped(funcs cmd) const;
     queuePriority rotationSlot(quint16 counter) const;
-    QString checkHealth(qint64 now); // mutex must be held; returns a warning or ""
+    qint64 checkStartupReads(qint64 now); // mutex must be held; ms the startup reads took when they end, else -1
+    // mutex must be held; returns a warning or "", and sets debugOnly when it is
+    // only the expected startup backlog
+    QString checkHealth(qint64 now, bool *debugOnly);
     bool readWaiting(queuePriority prio, funcs func, uchar receiver) const; // mutex must be held
 
     int immediateStreak = 0;
@@ -159,6 +164,11 @@ private:
     quint64 refreshesSkippedCount = 0; // mutex
     quint64 fairnessTurnCount = 0;   // mutex
     quint64 warningCount = 0;        // mutex
+    // Startup reads (see beginStartupReads()); all mutex.
+    bool startupReads = false;       // the connect-time burst is still draining
+    bool startupReadsSeen = false;   // immediate commands have been seen since it began
+    bool startupDebugLogged = false; // the backlog has been logged once for this burst
+    qint64 startupReadsBeganMs = 0;
     std::atomic<quint64> unreadableRejectedCount{0};
     std::atomic_bool unreadableLogged[funcLastFunc] = {};
 
@@ -198,6 +208,9 @@ public:
     // For radio code that finds the radio cannot read func.
     queuePriority delReads(funcs func, uchar receiver=0);
     void clear();
+    // Call before queuing the connect-time reads. Until they have drained, a deep
+    // immediate list is expected and is logged at debug level, not as a warning.
+    void beginStartupReads();
     void clearCache();
 
     void interval(qint64 val);
