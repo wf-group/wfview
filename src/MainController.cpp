@@ -1222,9 +1222,12 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
 
     const funcType type = rigCaps->commands.value(func);
     const QVariant current = queue->getCache(func, rx).value;
-    int valueType = current.isValid() ? current.userType()
-                                      : ((isMacroLevelFunc(func) || type.maxVal > 255) ? int(QMetaType::UShort)
-                                                                                         : int(QMetaType::UChar));
+    // Levels are always sent as ushort, like the UI sliders do. The cached
+    // value can't be used for these: Icom replies are cached as uchar, and a
+    // uchar is encoded as two BCD digits, which fails above 99 (about 38%).
+    int valueType = isMacroLevelFunc(func) ? int(QMetaType::UShort)
+                  : current.isValid() ? current.userType()
+                  : (type.maxVal > 255 ? int(QMetaType::UShort) : int(QMetaType::UChar));
 
     if (valueType == QMetaType::QString) {
         queue->add(priorityImmediate, queueItem(func, QVariant::fromValue<QString>(param), false, rx));
