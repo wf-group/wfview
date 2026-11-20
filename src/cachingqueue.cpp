@@ -195,7 +195,7 @@ void cachingQueue::interval(qint64 val)
     // Wake the thread so a shorter interval applies now (see run()).
     waiting.wakeAll();
     emit intervalUpdated(val);
-    qInfo() << "Changing queue interval to" << val << "ms";
+    qDebug() << "Changing queue interval to" << val << "ms";
 }
 
 queuePriority cachingQueue::rotationSlot(quint16 counter) const

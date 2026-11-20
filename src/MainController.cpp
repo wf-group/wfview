@@ -1883,7 +1883,7 @@ void MainController::applyTransmitPolling(bool transmitting)
                                                rigCaps->slowPollOnTx, rigCaps->slowPollOnTxFactor);
     if (queue->interval() != wanted) {
         queue->interval(wanted);
-        qInfo(logRig()) << (transmitting ? "Transmitting: polling slowed to" : "Receiving: polling back to")
+        qDebug(logRig()) << (transmitting ? "Transmitting: polling slowed to" : "Receiving: polling back to")
                         << wanted << "ms";
     }
 }
