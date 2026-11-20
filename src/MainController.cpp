@@ -1305,6 +1305,14 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     }
 
     queue->add(priorityImmediate, queueItem(func, value, false, rx));
+
+    // The radio doesn't report level changes, so the UI would otherwise wait
+    // for the next poll (several seconds) before its slider moved. Apply the
+    // new value to the UI now, the same way a poll reply would; these cases
+    // in receiveValueFromQueue() only update the UI and don't send anything.
+    if (isMacroLevelFunc(func))
+        receiveValueFromQueue(cacheItem(func, value, rx));
+
     return true;
 }
 
