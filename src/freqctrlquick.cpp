@@ -714,6 +714,11 @@ void FreqCtrlQuick::paint(QPainter *p)
         m_Pixmap.setDevicePixelRatio(dpr);
         m_Pixmap.fill(m_BkColor);
         m_UpdateAll = true;
+        // The new pixmap is blank, so every digit has to be drawn again.
+        // This happens when the window moves to a screen with a different
+        // scale factor, where geometryChange() is not called.
+        for (int i = m_DigStart; i < m_NumDigits; i++)
+            m_DigitInfo[i].modified = true;
     }
 
     // Draw into the offscreen pixmap as before
