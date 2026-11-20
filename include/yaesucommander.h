@@ -2,6 +2,8 @@
 #define YAESUCOMMANDER_H
 #include "rigcommander.h"
 #include "rtpaudio.h"
+#include <QElapsedTimer>
+#include <QList>
 #include <QSerialPort>
 #include <ft4222handler.h>
 
@@ -91,6 +93,16 @@ private:
     bool portConnected=false;
     bool isTransmitting = false;
     QByteArray lastSentCommand;
+    // Commands sent recently, for the log when the radio answers ?;, which names no command.
+    struct sentCommand
+    {
+        qint64 ms;
+        QByteArray data;
+    };
+    QList<sentCommand> recentCommands;
+    QElapsedTimer commandClock;
+    uchar lastCompressorLevel = 0; // last non-zero speech processor level
+    bool clarifierTx = false; // TX clarifier as last reported by CF000
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

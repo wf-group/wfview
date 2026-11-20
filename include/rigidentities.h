@@ -327,6 +327,9 @@ struct rigCapabilities {
     bool hasRepeaterModes = false;
 
     bool hasTransmit;
+    // The radio's tone mode uses 1 for tone squelch and 2 for tone (Yaesu FT-710 CT),
+    // the reverse of wfview's 1 = tone, 2 = tone squelch.
+    bool toneSquelchIsOne = false;
     bool hasPTTCommand;
     bool hasAttenuator;
     bool hasPreamp;
