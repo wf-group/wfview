@@ -41,7 +41,7 @@ public:
 
 public slots:
     void setText(const QString &t) {
-        qInfo() << "Clipboard set:" << t;
+        qDebug() << "Clipboard set:" << t;
 
         if (auto cb = QGuiApplication::clipboard()) {
             if (cb->text() == t) return;

@@ -407,6 +407,7 @@ signals:
 private:
     void buildUiSpecs();
     void updatePassband();
+    void requestScopeEdge();
     void updatePbt();
     void suppressPbtOverlay(int milliseconds = 300);
     void updatePassbandModeParameters(const modeInfo &m);
@@ -442,6 +443,7 @@ private:
     uchar scopeMode=0xff;
     centerSpanData scopeSpan = centerSpanData();
     uchar scopeEdge=1;
+    int scopeEdgeReadBand=-1;   // band the fixed edge was last read for; -1 before the first read
     modeInfo mode = modeInfo();
     modeInfo unselectedMode = modeInfo();
     uchar filterShape = 0xff;

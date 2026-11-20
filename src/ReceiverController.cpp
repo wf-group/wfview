@@ -1387,7 +1387,25 @@ void ReceiverController::setFrequencyA(quint64 f, bool u)
                 }
             }
         }
+
+        // The radio keeps its fixed-edge selection per frequency range, so a new
+        // band can bring a different edge. This is checked here rather than on
+        // bandChanged, which a band button press does not emit and general
+        // coverage emits on every frequency update.
+        if (int(band.band) != scopeEdgeReadBand) {
+            scopeEdgeReadBand = int(band.band);
+            requestScopeEdge();
+        }
     }
+}
+
+void ReceiverController::requestScopeEdge()
+{
+    // A one-off read; the rig file's periodic entry keeps it current after that.
+    if (rigCaps == nullptr || !rigCaps->hasSpectrum || !rigCaps->commands.contains(funcScopeEdge))
+        return;
+    vfoCommandType t = queue->getVfoCommand(vfoA,receiver,false);
+    queue->add(priorityImmediate,queueItem(funcScopeEdge,false,t.receiver));
 }
 
 void ReceiverController::setFrequencyB(quint64 f, bool u)
@@ -1962,7 +1980,7 @@ void ReceiverController::setBandIndicators(bool show, QString region, std::vecto
 void ReceiverController::setBand(availableBands b, bool u)
 {
     // Always trigger setBand as BSR may have changed.
-    qInfo() << "Got new band:" << b << "in region" << region;
+    qDebug() << "Got new band:" << b << "in region" << region;
     auto it = std::find_if(rigCaps->bands.begin(), rigCaps->bands.end(),
                            [&](const bandType &bt) {
                                return bt.band == b && (bt.region == region  || bt.region.isEmpty());
@@ -2001,7 +2019,7 @@ void ReceiverController::receiveBSR(bandStackType& b)
 
     if (b.band == bsr.band && awaitingBSR) {
         // We are awaiting a new BSR
-        qInfo(logRig()) << __func__ << "BSR received into" << receiver << "Freq:" << bsr.freq.Hz << ", mode: " << bsr.mode << ", filter: " << bsr.filter << ", data mode: " << bsr.data;
+        qDebug(logRig()) << __func__ << "BSR received into" << receiver << "Freq:" << bsr.freq.Hz << ", mode: " << bsr.mode << ", filter: " << bsr.filter << ", data mode: " << bsr.data;
         awaitingBSR = false;
         bsr = b;
         vfoCommandType t = queue->getVfoCommand(vfoMain,receiver,true);

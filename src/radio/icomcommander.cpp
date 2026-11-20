@@ -2206,7 +2206,7 @@ void icomCommander::parseCommand()
         if (!value.isValid()) {
             qWarning(logRig()) << "Unknown BSR received, check rig file:" << payloadIn.toHex(' ');
         } else {
-            qInfo(logRig()) << "BSR received:" << payloadIn.toHex(' ');
+            qDebug(logRig()) << "BSR received:" << payloadIn.toHex(' ');
         }
         break;
     }
@@ -3991,7 +3991,7 @@ void icomCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
                     }
                 }
-                qInfo(logRig()) << "Sending BSR, Band Code:" << bsr.band << "Register Code:" << bsr.reg << "(Sent:" << payload.toHex(' ') << ")";
+                qDebug(logRig()) << "Sending BSR, Band Code:" << bsr.band << "Register Code:" << bsr.reg << "(Sent:" << payload.toHex(' ') << ")";
             }
             else if (!strcmp(value.typeName(),"datekind"))
             {
