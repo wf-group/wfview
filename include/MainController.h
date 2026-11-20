@@ -117,6 +117,8 @@ public:
     Q_PROPERTY(bool dualScope READ dualScope WRITE setDualScope NOTIFY dualScopeChanged)
     Q_PROPERTY(bool dualWatch READ dualWatch WRITE setDualWatch NOTIFY dualWatchChanged)
     Q_PROPERTY(bool splitEnabled READ splitEnabled WRITE setSplitEnabled NOTIFY splitEnabledChanged)
+    // Transmit frequency in Hz while split is on, 0 otherwise or when it is not known yet.
+    Q_PROPERTY(quint64 splitTxFrequency READ splitTxFrequency NOTIFY splitTxFrequencyChanged)
     Q_PROPERTY(bool compressorEnabled READ compressorEnabled WRITE setCompressorEnabled NOTIFY compressorEnabledChanged)
     Q_PROPERTY(bool voxEnabled READ voxEnabled WRITE setVoxEnabled NOTIFY voxEnabledChanged)
     Q_PROPERTY(double optionalMeter2Level READ optionalMeter2Level NOTIFY optionalMetersChanged)
@@ -266,6 +268,10 @@ public:
     bool dualScope() const { return m_dualScope; }
     bool dualWatch() const { return m_dualWatch; }
     bool splitEnabled() const { return m_splitEnabled; }
+    quint64 splitTxFrequency() const
+    {
+        return m_splitTxFrequency;
+    }
     bool compressorEnabled() const { return m_compressorEnabled; }
     bool voxEnabled() const { return m_voxEnabled; }
     double optionalMeter2Level() const { return m_optionalMeter2Level; }
@@ -455,6 +461,7 @@ signals:
     void dualScopeChanged();
     void dualWatchChanged();
     void splitEnabledChanged();
+    void splitTxFrequencyChanged();
     void compressorEnabledChanged();
     void voxEnabledChanged();
     void optionalMetersChanged();
@@ -619,6 +626,13 @@ private:
     void updateRepeaterToneMode(rptAccessTxRx_t mode);
     int combinedToneModeMax() const;
     void updateRepeaterOffset(freqt offset);
+    // Where the split transmit frequency lives: the sub receiver on radios with one VFO per
+    // receiver (IC-7610), otherwise the main receiver's VFO B.
+    void splitTxTarget(uchar &receiver, vfo_t &vfo) const;
+    // The command that sets the split transmit frequency; false if this radio can't be sent one.
+    bool splitTxCommand(vfoCommandType &cmd) const;
+    quint64 splitTargetFrequency() const;
+    void updateSplitTxFrequency();
 
 
     QString windowTitle = "wfview";
@@ -746,6 +760,10 @@ private:
     bool m_dualScope = false;
     bool m_dualWatch = false;
     bool m_splitEnabled = false;
+    // Frequency of the VFO split transmits on, whether or not split is on (0 if not known).
+    quint64 m_splitTargetHz = 0;
+    // m_splitTargetHz while split is on, otherwise 0.
+    quint64 m_splitTxFrequency = 0;
     bool m_compressorEnabled = false;
     bool m_voxEnabled = false;
     duplexMode_t m_repeaterDuplexMode = dmSplitOff;

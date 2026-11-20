@@ -352,8 +352,9 @@ Control {
                     ceiling: controller ? controller.plotCeiling : 160
                     colors: controller ? controller.colors : null
                     center: controller ? controller.frequencyA : null
-                    // With split on, the other VFO is the transmit frequency.
-                    txFrequency: (controller && MainController.splitEnabled) ? controller.frequencyB : 0
+                    // With split on, mark the transmit frequency on the main scope: the second VFO, or
+                    // the sub receiver on dual-receiver radios, whose own scope already centres on it.
+                    txFrequency: (controller && controller.receiverIndex === 0) ? MainController.splitTxFrequency : 0
                     bands: controller && controller.activeBands
                     underlayMode: MainController.settings ? Number(MainController.settings.options["Interface.UnderlayMode"]) : 2
                     peakDecay: MainController.settings ? Number(MainController.settings.options["Interface.PeakDecay"]) : 50
@@ -605,7 +606,7 @@ Control {
                                         checkable: false
                                         checked: controller ? controller.splitEnabled : false
                                         // Some styles don't draw checked on a button that isn't checkable.
-                                        highlighted: MainController.splitEnabled
+                                        highlighted: controller ? controller.splitEnabled : false
                                         visible: controller && (controller.uiFlags & ReceiverController.ShowSplitButton) !== 0
                                         onClicked: if (controller) controller.setSplitEnabled(!controller.splitEnabled)
                                     }

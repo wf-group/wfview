@@ -76,6 +76,9 @@ private:
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);
     void recordNetworkCommand(const QByteArray& command);
     void updateNetworkTiming(const QByteArray& command);
+    // Centre-mode scope range, worked out from the VFOs because the range reply has no centre.
+    void setCenteredScopeRange(uchar receiver);
+    void setTransmitting(bool transmitting, uchar receiver);
     bool parseMemory(QByteArray data, QVector<memParserFormat>* memParser, memoryType* mem);
 
     mutable QMutex serialMutex;
@@ -122,6 +125,8 @@ private:
     QElapsedTimer ritLastStep;
     static constexpr int ritResyncHoldoffMs = 500;
     ushort scopeSplit=0;
+    // True while currentScope's range comes from setCenteredScopeRange rather than from the radio.
+    bool scopeRangeFromVfo = false;
 
     networkStatus status;
     QHash<QByteArray, QDateTime> pendingNetworkCommands;

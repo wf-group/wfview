@@ -1,5 +1,5 @@
 [General]
-Version=3.0
+Version=3.01
 
 [Rig]
 Manufacturer=1
@@ -22,6 +22,7 @@ HasCommand29=false
 CWDecodeRequiresDisplay=true
 AbsoluteVFOFreq=true
 SlowPollOnTx=true
+ScopeCenterFollowsTx=true
 SlowPollOnTxFactor=10
 TxAudioBufferMs=300
 MemGroups=0
