@@ -52,7 +52,11 @@ Window {
          : meterStyle === 2 ? "#cdbe9b"
          : meterStyle >= 3 ? "#e2a046"
          : windowColor
+    // Explicit flags replace the default decorations, so the title bar has to
+    // be requested here or the window cannot be dragged.
     flags: Qt.Window | Qt.WindowStaysOnTopHint
+           | Qt.WindowTitleHint | Qt.WindowSystemMenuHint
+           | Qt.WindowCloseButtonHint
 
     onShownCountChanged: width = Math.max(minimumWidth, Math.round(shownCount * height * faceAspect))
 
