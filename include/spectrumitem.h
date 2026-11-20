@@ -35,6 +35,7 @@ public:
     QSGGeometryNode *peaksGradient = nullptr;
     QSGGeometryNode *spectrumLine = nullptr;
     QSGGeometryNode *frequencyLine = nullptr;
+    QSGGeometryNode *txLine = nullptr;
     QSGGeometryNode *passband = nullptr;
     QSGGeometryNode *pbt = nullptr;
     QSGSimpleTextureNode *axisNode = nullptr;
@@ -70,6 +71,9 @@ class SpectrumItem : public QQuickItem
     Q_PROPERTY(bool zeroDbAtBottom READ getZeroDbAtBottom WRITE setZeroDbAtBottom NOTIFY scaleChanged)
 
     Q_PROPERTY(quint64 center READ getCenter WRITE setCenter NOTIFY centerChanged)
+    // Transmit frequency in Hz, drawn as its own line when it differs from the receive
+    // frequency (split). 0 draws no TX line.
+    Q_PROPERTY(quint64 txFrequency READ getTxFrequency WRITE setTxFrequency NOTIFY txFrequencyChanged)
 
     Q_PROPERTY(double passbandLow  READ getPassbandLow  WRITE setPassbandLow  NOTIFY passbandChanged)
     Q_PROPERTY(double passbandHigh READ getPassbandHigh WRITE setPassbandHigh NOTIFY passbandChanged)
@@ -109,6 +113,11 @@ public:
     bool getZeroDbAtBottom() const { return zeroDbAtBottom; }
     double getCenter() const { return quint64(center * 100000.0); }
     void setCenter(quint64 x);
+    quint64 getTxFrequency() const
+    {
+        return quint64(txFrequency * 1000000.0);
+    }
+    void setTxFrequency(quint64 x);
     double getPassbandLow()  const { return passbandLow; }
     double getPassbandHigh() const { return passbandHigh; }
     double getPbtLow() const { return pbtLow; }
@@ -156,6 +165,7 @@ signals:
     void freqRangeChanged();
     void scaleChanged();
     void centerChanged();
+    void txFrequencyChanged();
     void passbandChanged();
     void pbtChanged();
     void peakDecayChanged();
@@ -223,6 +233,7 @@ private:
     bool zeroDbAtBottom = false;   // 0 dB at DN 0, otherwise 0 dB at ampMax
 
     double center = 0.0;     // 0..1
+    double txFrequency = 0.0; // MHz, 0 for none
     double passbandLow  = 0.0;
     double passbandHigh = 0.0;
     double pbtLow = 0.0;

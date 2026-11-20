@@ -435,8 +435,8 @@ private:
     qreal scrollWheelOffsetAccumulated = 0.0;
 
 
-    quint64 frequencyA;
-    quint64 frequencyB;
+    quint64 frequencyA = 0;
+    quint64 frequencyB = 0;
     bool active=false;
     QString title = "Main";
     uchar scopeMode=0xff;

@@ -330,6 +330,10 @@ struct rigCapabilities {
     // The radio's tone mode uses 1 for tone squelch and 2 for tone (Yaesu FT-710 CT),
     // the reverse of wfview's 1 = tone, 2 = tone squelch.
     bool toneSquelchIsOne = false;
+    // In centre mode with split on, the radio centres its transmit spectrum on the transmit
+    // frequency (TS-890S), so a scope axis that wfview works out must follow the TX VFO while
+    // transmitting. Radios whose scope data carries its own range (Icom) don't need this.
+    bool scopeCenterFollowsTx = false;
     bool hasPTTCommand;
     bool hasAttenuator;
     bool hasPreamp;

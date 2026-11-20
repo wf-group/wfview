@@ -253,25 +253,47 @@ ApplicationWindow {
                     }
                     Button {
                         text: qsTr("+")
-                        onClicked: MainController.setRepeaterSplitFromOffsetKHz(splitOffsetEdit.text, true, autoEnableSplit.checked)
+                        onClicked: {
+                            MainController.setRepeaterSplitFromOffsetKHz(splitOffsetEdit.text, true, autoEnableSplit.checked)
+                            splitTxEdit.showRadio()
+                        }
                     }
                     Button {
                         text: qsTr("-")
-                        onClicked: MainController.setRepeaterSplitFromOffsetKHz(splitOffsetEdit.text, false, autoEnableSplit.checked)
+                        onClicked: {
+                            MainController.setRepeaterSplitFromOffsetKHz(splitOffsetEdit.text, false, autoEnableSplit.checked)
+                            splitTxEdit.showRadio()
+                        }
                     }
                     Item { Layout.fillWidth: true }
 
                     Label { text: qsTr("TX MHz") }
                     TextField {
                         id: splitTxEdit
+                        // Shows the radio's split transmit frequency, but not while it is being edited.
+                        readonly property string radioText: rptState.txFrequencyMHz || ""
+                        onRadioTextChanged: if (!activeFocus) text = radioText
+                        Component.onCompleted: text = radioText
+                        // After a set, follow the radio again so its answer is shown.
+                        function showRadio() {
+                            focus = false
+                            text = radioText
+                        }
+                        placeholderText: qsTr("waiting")
                         inputMethodHints: Qt.ImhFormattedNumbersOnly
                         selectByMouse: true
                         Layout.fillWidth: true
-                        onAccepted: MainController.setRepeaterSplitTxFrequencyMHz(text, autoEnableSplit.checked)
+                        onAccepted: {
+                            MainController.setRepeaterSplitTxFrequencyMHz(text, autoEnableSplit.checked)
+                            showRadio()
+                        }
                     }
                     Button {
                         text: qsTr("Set TX")
-                        onClicked: MainController.setRepeaterSplitTxFrequencyMHz(splitTxEdit.text, autoEnableSplit.checked)
+                        onClicked: {
+                            MainController.setRepeaterSplitTxFrequencyMHz(splitTxEdit.text, autoEnableSplit.checked)
+                            splitTxEdit.showRadio()
+                        }
                     }
                     Item { Layout.fillWidth: true }
                     Item { Layout.fillWidth: true }

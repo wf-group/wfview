@@ -678,6 +678,40 @@ void kenwoodCommander::handleNewData(const QByteArray& data)
     }
 }
 
+void kenwoodCommander::setCenteredScopeRange(uchar receiver)
+{
+    double span = 0.0;
+    const uchar spanReg = queue->getCache(funcScopeSpan, receiver).value.value<centerSpanData>().reg;
+    for (const auto &s : rigCaps.scopeCenterSpans)
+    {
+        if (s.reg == spanReg)
+            span = double(s.freq) / 1000000.0;
+    }
+
+    vfo_t vfo = queue->getCache(funcSelectVFO, receiver).value.value<vfo_t>();
+    // Radios such as the TS-890S centre the transmit spectrum on the transmit frequency, which in split
+    // is the other VFO. Back on receive, or with split off, the range follows the receive VFO again.
+    if (rigCaps.scopeCenterFollowsTx && isTransmitting && queue->getCache(funcSplitStatus, receiver).value.toBool())
+        vfo = (vfo == vfoA) ? vfoB : vfoA;
+
+    const double freq
+        = queue->getCache(vfo == vfoA ? funcSelectedFreq : funcUnselectedFreq, receiver).value.value<freqt>().MHzDouble;
+    currentScope.startFreq = freq - (span / 2);
+    currentScope.endFreq = freq + (span / 2);
+    scopeRangeFromVfo = true;
+}
+
+void kenwoodCommander::setTransmitting(bool transmitting, uchar receiver)
+{
+    if (isTransmitting == transmitting)
+        return;
+    isTransmitting = transmitting;
+
+    // Move the range now rather than at the next range poll, which is slowed while transmitting.
+    if (rigCaps.scopeCenterFollowsTx && scopeRangeFromVfo)
+        setCenteredScopeRange(receiver);
+}
+
 void kenwoodCommander::recordNetworkCommand(const QByteArray& command)
 {
     if (!usingNativeLAN || command.isEmpty())
@@ -925,18 +959,18 @@ void kenwoodCommander::parseData(QByteArray data)
 
             // This is PTT status
             value.setValue(bool(d.at(26) - NUMTOASCII));
-            isTransmitting = value.toBool();
+            setTransmitting(value.toBool(), receiver);
             break;
         }
         case funcSetTransmit:
             func = funcTransceiverStatus;
             value.setValue(bool(true));
-            isTransmitting = true;
+            setTransmitting(true, receiver);
             break;
         case funcSetReceive:
             func = funcTransceiverStatus;
             value.setValue(bool(false));
-            isTransmitting = false;
+            setTransmitting(false, receiver);
             break;
         case funcIFShift:
         case funcPBTInner:
@@ -1207,22 +1241,10 @@ void kenwoodCommander::parseData(QByteArray data)
             currentScope.receiver = 0;
             if (queue->getCache(funcScopeMode,receiver).value.value<uchar>() == 0x0)
             {
-
                 // We are in center mode so the scope range doesn't tell us anything!
-
-                double span = 0.0;
-                for (const auto &s: rigCaps.scopeCenterSpans)
-                {
-                    if (s.reg == queue->getCache(funcScopeSpan,receiver).value.value<centerSpanData>().reg)
-                    {
-                        span = double(s.freq) / 1000000.0 ;
-                    }
-                }
-                vfo_t vfo = queue->getCache(funcSelectVFO,receiver).value.value<vfo_t>();
-                double freq = queue->getCache(vfo==vfoA?funcSelectedFreq:funcUnselectedFreq,receiver).value.value<freqt>().MHzDouble;
-                currentScope.startFreq=double(freq - (span/2));
-                currentScope.endFreq=double(freq + (span/2));
+                setCenteredScopeRange(receiver);
             } else {
+                scopeRangeFromVfo = false;
                 currentScope.startFreq = double(d.mid(start,8).toULongLong())/1000000.0;
                 currentScope.endFreq = double(d.mid(start+8,8).toULongLong())/1000000.0;
             }
@@ -1258,6 +1280,8 @@ void kenwoodCommander::parseData(QByteArray data)
                 currentScope.data.clear();
                 if (func == funcScopeInfo)
                 {
+                    // The LAN scope header carries the radio's own range.
+                    scopeRangeFromVfo = false;
                     currentScope.valid=false;
                     currentScope.receiver = 0;
                     currentScope.mode=uchar(d.at(2) - NUMTOASCII);

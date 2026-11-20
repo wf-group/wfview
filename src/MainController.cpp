@@ -265,6 +265,7 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     // Audio handlers report device failures from their own threads.
     connect(audioDeviceNotifier::instance(), &audioDeviceNotifier::deviceProblem,
             this, &MainController::handleAudioDeviceProblem, Qt::QueuedConnection);
+    connect(this, &MainController::splitEnabledChanged, this, &MainController::updateSplitTxFrequency);
     m_cwSender->loadSettings(prefs->cwCutNumbers,
                              prefs->cwSendImmediate,
                              prefs->cwSidetoneEnabled,
@@ -2508,6 +2509,7 @@ QVariantMap MainController::repeaterState() const
     state["mainFrequencyMHz"] = m_repeaterHaveMainFrequency
                                     ? QString::number(m_repeaterMainFrequency.Hz / double(1000000), 'f', 6)
                                     : QString();
+    state["txFrequencyMHz"] = m_splitTargetHz ? QString::number(m_splitTargetHz / double(1000000), 'f', 6) : QString();
     state["quickSplit"] = m_repeaterQuickSplit;
     state["warnNotFm"] = m_repeaterWarnNotFm;
 
@@ -2737,14 +2739,16 @@ void MainController::setRepeaterSplitFromOffsetKHz(const QString& khz, bool plus
     tx.VFO = inactiveVFO;
     m_repeaterLastSplitPlus = plus;
 
+    vfoCommandType cmd;
+    if (!splitTxCommand(cmd)) {
+        setFooterMessageText(tr("The split transmit frequency can't be set on this radio from here"));
+        return;
+    }
+
     if (autoEnableSplit)
         setRepeaterDuplex(int(dmSplitOn));
 
-    const uchar targetReceiver = uchar(rigCaps->numReceiver > 1);
-    const vfo_t txVfo = rigCaps->numVFO > 1 ? vfoB : vfoSub;
-    const auto cmd = queue->getVfoCommand(txVfo, targetReceiver, true);
-    if (cmd.freqFunc != funcNone)
-        queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
+    queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
 }
 
 void MainController::setRepeaterSplitTxFrequencyMHz(const QString& mhz, bool autoEnableSplit)
@@ -2762,14 +2766,78 @@ void MainController::setRepeaterSplitTxFrequencyMHz(const QString& mhz, bool aut
     tx.MHzDouble = tx.Hz / double(1000000);
     tx.VFO = inactiveVFO;
 
+    vfoCommandType cmd;
+    if (!splitTxCommand(cmd)) {
+        setFooterMessageText(tr("The split transmit frequency can't be set on this radio from here"));
+        return;
+    }
+
     if (autoEnableSplit)
         setRepeaterDuplex(int(dmSplitOn));
 
-    const uchar targetReceiver = uchar(rigCaps->numReceiver > 1);
-    const vfo_t txVfo = rigCaps->numVFO > 1 ? vfoB : vfoSub;
-    const auto cmd = queue->getVfoCommand(txVfo, targetReceiver, true);
-    if (cmd.freqFunc != funcNone)
-        queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
+    queue->add(priorityImmediate, queueItem(cmd.freqFunc, QVariant::fromValue(tx), false, cmd.receiver));
+}
+
+void MainController::splitTxTarget(uchar &receiver, vfo_t &vfo) const
+{
+    // Radios with two VFOs per receiver split within the main receiver, VFO A receiving and VFO B
+    // transmitting (IC-7300; IC-9700 and IC-9100 on one band, the sub receiver free for another).
+    // Radios with one VFO per receiver transmit on the sub receiver (IC-7610).
+    const bool twoVfos = rigCaps && rigCaps->numVFO > 1;
+    vfo = twoVfos ? vfoB : vfoSub;
+    receiver = uchar(!twoVfos && rigCaps && rigCaps->numReceiver > 1);
+}
+
+bool MainController::splitTxCommand(vfoCommandType &cmd) const
+{
+    if (!rigCaps || !queue)
+        return false;
+
+    uchar rx = 0;
+    vfo_t vfo = vfoB;
+    splitTxTarget(rx, vfo);
+    cmd = queue->getVfoCommand(vfo, rx, true);
+    if (cmd.freqFunc == funcNone)
+        return false;
+
+    // Without command 29, VFO B is reached only through the selected/unselected frequency commands.
+    // Any other command would retune the receive VFO instead (IC-9100).
+    if (vfo == vfoB && !rigCaps->hasCommand29)
+        return cmd.freqFunc == funcSelectedFreq || cmd.freqFunc == funcUnselectedFreq;
+    return true;
+}
+
+quint64 MainController::splitTargetFrequency() const
+{
+    if (!rigCaps)
+        return 0;
+
+    uchar rx = 0;
+    vfo_t vfo = vfoB;
+    splitTxTarget(rx, vfo);
+    if (rx >= receivers.size() || !receivers[rx])
+        return 0;
+    // A second receiver with one VFO transmits on that VFO (the sub band on an IC-7610).
+    if (vfo == vfoSub && rx > 0)
+        return receivers[rx]->getFrequencyA();
+    return receivers[rx]->getFrequencyB();
+}
+
+void MainController::updateSplitTxFrequency()
+{
+    const quint64 target = splitTargetFrequency();
+    if (m_splitTargetHz != target)
+    {
+        m_splitTargetHz = target;
+        emit repeaterStateChanged();
+    }
+
+    const quint64 tx = m_splitEnabled ? target : 0;
+    if (m_splitTxFrequency != tx)
+    {
+        m_splitTxFrequency = tx;
+        emit splitTxFrequencyChanged();
+    }
 }
 
 void MainController::setRepeaterQuickSplit(bool enabled)
@@ -4667,6 +4735,7 @@ void MainController::disconnectRig()
         r->deleteLater();
     }
     receivers.clear();
+    updateSplitTxFrequency();
     detached.clear();
     currentReceiver = 0;
     emit currentReceiverChanged();
@@ -5163,6 +5232,7 @@ void MainController::receivePortError(errorType err)
         r->deleteLater();
     }
     receivers.clear();
+    updateSplitTxFrequency();
     detached.clear();
     currentReceiver = 0;
     emit currentReceiverChanged();
@@ -5242,8 +5312,41 @@ void MainController::updateCurrentModSource(bool requestLevel)
         changed = true;
     }
 
-    if (requestLevel && levelCommand.cmd != funcNone)
-        queue->add(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    // CW and RTTY (FSK) transmit no audio, so the source level and TX audio do nothing.
+    // An unknown source is treated as carrying wfview's audio, so nothing is hidden wrongly.
+    const bool audioMode = m_currentModeKind != modeCW && m_currentModeKind != modeCW_R && m_currentModeKind != modeRTTY
+        && m_currentModeKind != modeRTTY_R;
+    bool computerAudio = false;
+    switch (input.type)
+    {
+    case inputUSB:
+    case inputLAN:
+    case inputMICUSB:
+    case inputACCUSB:
+    case inputMICUSBACC:
+    case inputUnknown:
+        computerAudio = true;
+        break;
+    default:
+        break;
+    }
+    const bool txAudio = audioMode && computerAudio;
+    if (m_modGainActive != audioMode || m_txAudioActive != txAudio)
+    {
+        m_modGainActive = audioMode;
+        m_txAudioActive = txAudio;
+        changed = true;
+    }
+
+    // Radios such as the FT-710 reject the level read in CW and RTTY, so it is only polled
+    // once the mode is known to carry audio, and the poll is removed in other modes.
+    if (levelCommand.cmd != funcNone)
+    {
+        if (!audioMode)
+            queue->del(levelCommand.cmd, currentReceiver);
+        else if (requestLevel && m_currentModeKind != modeUnknown)
+            queue->addUnique(priorityMedium, levelCommand.cmd, true, currentReceiver);
+    }
 
     if (changed)
         emit modSourcesChanged();
@@ -5448,6 +5551,7 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
         if (r) r->deleteLater();
     }
     receivers.clear();
+    updateSplitTxFrequency();
     detached.clear();
     currentReceiver = 0;
     emit currentReceiverChanged();
@@ -5501,6 +5605,8 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             connect(rc, &ReceiverController::dataModeChanged, this, [this, i]() {
                 handleDataModeChanged(i);
             });
+            connect(rc, &ReceiverController::frequencyAChanged, this, &MainController::updateSplitTxFrequency);
+            connect(rc, &ReceiverController::frequencyBChanged, this, &MainController::updateSplitTxFrequency);
             connect(rc, &ReceiverController::scopeUpdated, this, [this, i](const scopeData &scope) {
                 if (!cluster || !scope.valid || scope.endFreq <= scope.startFreq)
                     return;
@@ -5896,6 +6002,12 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->receiveMode(m,vfo);
         if (val.receiver == currentReceiver && vfo == 0) {
             m_cwSender->handleCurrentModeUpdate(m.mk);
+            if (m.mk != modeUnknown && m.mk != m_currentModeKind)
+            {
+                m_currentModeKind = m.mk;
+                // The level can differ per mode (the FT-710 keeps one mic gain per mode).
+                updateCurrentModSource(true);
+            }
             // Notify the ANR engine so it can swap in the saved noise profile
             // for this mode (or save the current one before switching away).
             if (rxProc && !m.name.isEmpty())
@@ -6046,7 +6158,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setPbtInner(val.value.value<ushort>(),false);
         break;
     case funcIFShift:
-        receivers[val.receiver]->setIfShift(val.value.value<ushort>(),false);
+        // Signed on radios with a negative range, which arrive in a ushort.
+        receivers[val.receiver]->setIfShift(short(val.value.value<ushort>()), false);
         break;
         /*
     connect(this->rig, &rigCommander::haveDashRatio,

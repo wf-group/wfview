@@ -2011,6 +2011,17 @@ ApplicationWindow {
                                                    + "Leave off when the radio's frequency commands follow the active VFO (for example Icom 0x25).")
                             }
                             CheckBox {
+                                text: qsTr("Scope centre follows TX")
+                                checked: (rig.settings["Rig/ScopeCenterFollowsTx"] ?? false)
+                                onToggled: rig.settings["Rig/ScopeCenterFollowsTx"] = checked
+                                ToolTip.visible: hovered
+                                ToolTip.delay: 500
+                                ToolTip.text: qsTr("Enable when the radio's scope, in centre mode with split on, centres on the transmit "
+                                                   + "frequency while transmitting (for example the TS-890S).\n"
+                                                   + "wfview then centres the frequency scale on the transmit VFO during transmit. "
+                                                   + "Only used when wfview works out the scope range itself (Kenwood over USB).")
+                            }
+                            CheckBox {
                                 id: slowPollOnTx
                                 text: qsTr("Slow polling on TX")
                                 checked: (rig.settings["Rig/SlowPollOnTx"] ?? false)

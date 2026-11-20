@@ -341,6 +341,7 @@ void rigCommander::determineRigCaps()
     rigCaps.hasDV = settings->value("HasDV",false).toBool();
     rigCaps.hasTransmit = settings->value("HasTransmit",false).toBool();
     rigCaps.toneSquelchIsOne = settings->value("ToneSquelchIsOne", false).toBool();
+    rigCaps.scopeCenterFollowsTx = settings->value("ScopeCenterFollowsTx", false).toBool();
     rigCaps.hasFDcomms = settings->value("HasFDComms",false).toBool();
     rigCaps.hasCommand29 = settings->value("HasCommand29",false).toBool();
     rigCaps.absoluteVFOFreq = settings->value("AbsoluteVFOFreq",false).toBool();
