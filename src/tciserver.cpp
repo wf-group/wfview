@@ -286,13 +286,12 @@ void tciServer::sendInitialState(QWebSocket *socket)
     sendTciText(QStringLiteral("vfo_limits:%1,%2;").arg(start).arg(end));
     sendTciText(QStringLiteral("if_limits:-19531,19531;"));
 
-    const bool hasDataModes = rigCaps->commands.contains(funcDataModeWithFilter) ||
-                              rigCaps->commands.contains(funcDataMode);
+    const bool hasDataModes = hasDataToggle();
     QString mods = "modulations_list:";
     for (modeInfo &mi: rigCaps->modes)
     {
 
-        mods+=mi.name.toUpper();
+        mods+=tciMode(mi).toUpper();
         mods+=",";
         if (hasDataModes && (mi.reg == modeUSB || mi.reg == modeLSB))
         {
@@ -1028,9 +1027,9 @@ void tciServer::receiveCache(cacheItem item)
 QString tciServer::tciMode(modeInfo m) const
 {
     QString ret="";
-    if (m.mk == modeUSB && m.data && m.data != 0xff)
+    if ((m.mk == modeUSB && m.data && m.data != 0xff) || m.mk == modeUSB_D)
         ret="digu";
-    else if (m.mk == modeLSB && m.data && m.data != 0xff)
+    else if ((m.mk == modeLSB && m.data && m.data != 0xff) || m.mk == modeLSB_D)
         ret="digl";
     else if (m.mk == modeFM)
         ret="nfm";
@@ -1039,27 +1038,57 @@ QString tciServer::tciMode(modeInfo m) const
     return ret;
 }
 
+// The radio has a DATA setting on top of USB / LSB.
+bool tciServer::hasDataToggle() const
+{
+    return rigCaps && (rigCaps->commands.contains(funcDataModeWithFilter) ||
+                       rigCaps->commands.contains(funcDataMode));
+}
+
+// The radio has data modes of their own, such as USB-D or DATA-U.
+bool tciServer::hasSeparateDataModes() const
+{
+    if (!rigCaps)
+        return false;
+    for (const modeInfo &m : rigCaps->modes)
+        if (m.mk == modeUSB_D || m.mk == modeLSB_D)
+            return true;
+    return false;
+}
+
 modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver) const
 {
     modeInfo requested;
     const modeInfo current = cacheMode(modeFunc, receiver);
     const QString requestedMode = mode.toLower();
-    const bool hasDataModes = rigCaps->commands.contains(funcDataModeWithFilter) ||
-                              rigCaps->commands.contains(funcDataMode);
+    // DIGU / DIGL: a DATA toggle on USB / LSB (Icom, TS-590SG), or a mode of its own
+    // (USB-D / LSB-D on the TS-890S, DATA-U / DATA-L on Yaesu).
+    const bool dataToggle = hasDataToggle();
+    const bool separateData = !dataToggle && hasSeparateDataModes();
 
     for (const modeInfo &candidate: rigCaps->modes) {
-        if (requestedMode == QLatin1String("digl") && candidate.mk == modeLSB) {
-            if (!hasDataModes)
-                return requested;
-            requested = candidate;
-            requested.data = 1;
-            break;
-        } else if (requestedMode == QLatin1String("digu") && candidate.mk == modeUSB) {
-            if (!hasDataModes)
-                return requested;
-            requested = candidate;
-            requested.data = 1;
-            break;
+        if (requestedMode == QLatin1String("digl")) {
+            if (dataToggle && candidate.mk == modeLSB) {
+                requested = candidate;
+                requested.data = 1;
+                break;
+            }
+            if (separateData && candidate.mk == modeLSB_D) {
+                requested = candidate;
+                requested.data = initialDataModeForRig(rigCaps);
+                break;
+            }
+        } else if (requestedMode == QLatin1String("digu")) {
+            if (dataToggle && candidate.mk == modeUSB) {
+                requested = candidate;
+                requested.data = 1;
+                break;
+            }
+            if (separateData && candidate.mk == modeUSB_D) {
+                requested = candidate;
+                requested.data = initialDataModeForRig(rigCaps);
+                break;
+            }
         } else if ((requestedMode == QLatin1String("nfm") && candidate.mk == modeFM) ||
                    requestedMode == candidate.name.toLower()) {
             requested = candidate;

@@ -100,6 +100,8 @@ enum rigMode_t {
     modeDATAFMN,        //26
     modeC4FMDN,         //27
     modeC4FMVW,         //28
+    // Kenwood specific modes
+    modeAM_D,           //29
     modeUnknown=0xff
 };
 

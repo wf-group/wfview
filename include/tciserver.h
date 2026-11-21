@@ -163,6 +163,8 @@ private:
     bool loggedFirstRxAudioFrame = false;
     rigCapabilities* rigCaps = nullptr;
     QString tciMode(modeInfo m) const;
+    bool hasDataToggle() const;
+    bool hasSeparateDataModes() const;
     modeInfo rigMode(const QString &mode, funcs modeFunc, uchar receiver) const;
     int dBmConversion = 73;
     // Latest TX meter readings, kept from receiveCache() so tx_sensors can be

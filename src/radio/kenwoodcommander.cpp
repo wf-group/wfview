@@ -11,6 +11,22 @@
 
 // This file parses data from the radio and also forms commands to the radio.
 
+namespace {
+// Operating mode (OM) values are one hex digit: the TS-890S uses A-F for PSK, PSK-R
+// and the data modes LSB-D, USB-D, FM-D and AM-D. The rig file gives them in decimal.
+uchar kenwoodModeRegister(QChar digit)
+{
+    bool ok = false;
+    const uint reg = QString(digit).toUInt(&ok, 16);
+    return ok ? uchar(reg) : uchar(0xff);
+}
+
+QByteArray kenwoodModeDigit(uchar reg)
+{
+    return QByteArray::number(reg & 0x0f, 16).toUpper();
+}
+}
+
 kenwoodCommander::kenwoodCommander(rigCommander* parent) : rigCommander(parent)
 {
 
@@ -442,7 +458,7 @@ bool kenwoodCommander::queueParsedExternalCommand(funcs func, const funcType &ty
     case funcSelectedMode:
     {
         if (!d.isEmpty()) {
-            const uchar reg = uchar(d.at(0) - NUMTOASCII);
+            const uchar reg = kenwoodModeRegister(QChar(d.at(0)));
             for (auto &m : rigCaps.modes) {
                 if (m.reg == reg) {
                     value.setValue(m);
@@ -871,7 +887,7 @@ void kenwoodCommander::parseData(QByteArray data)
             modeInfo mi = queue->getCache(func,receiver).value.value<modeInfo>();
             for (auto& m: rigCaps.modes)
             {
-                if (m.reg == uchar(d.at(0) - NUMTOASCII))
+                if (!d.isEmpty() && m.reg == kenwoodModeRegister(QChar(d.at(0))))
                 {
                     if (mi.reg != m.reg)
                     {
@@ -982,7 +998,7 @@ void kenwoodCommander::parseData(QByteArray data)
             short width=0;
             uchar v = d.toShort();
             auto m = queue->getCache(funcSelectedMode,receiver).value.value<modeInfo>();
-            if (m.mk == modeLSB || m.mk == modeUSB)
+            if (m.mk == modeLSB || m.mk == modeUSB || m.mk == modeLSB_D || m.mk == modeUSB_D)
             {
                 if (v == 0)
                     width = 50;
@@ -1425,11 +1441,11 @@ bool kenwoodCommander::parseMemory(QByteArray d,QVector<memParserFormat>* memPar
             mem->frequencyB.Hz =data.left(parse.len).toLongLong();
             break;
         case 'g':
-            mem->mode=data.left(parse.len).toInt();
+            mem->mode=data.left(parse.len).toInt(nullptr, 16); // OM digit, can be A-F
             if (mem->mode == 0) mem->mode = 1;
             break;
         case 'G':
-            mem->modeB=data.left(parse.len).toInt();
+            mem->modeB=data.left(parse.len).toInt(nullptr, 16);
             if (mem->modeB == 0) mem->modeB = mem->mode;
             break;
         case 'h':
@@ -1721,7 +1737,7 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                     ushort width=value.value<ushort>();
                     char val = 0;
                     auto m = queue->getCache(funcSelectedMode,receiver).value.value<modeInfo>();
-                    if (m.mk == modeLSB || m.mk == modeUSB)
+                    if (m.mk == modeLSB || m.mk == modeUSB || m.mk == modeLSB_D || m.mk == modeUSB_D)
                     {
                         if (width < 60)
                             val = 0;
@@ -1796,7 +1812,7 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                 if (cmd.cmd == funcSelectedMode)
                 {
                     modeInfo m = value.value<modeInfo>();
-                    payload.append(QString("%0").arg(m.reg).toLatin1());
+                    payload.append(kenwoodModeDigit(m.reg));
                     if (m.data != 0xff && m.mk != modeCW &&  value.value<modeInfo>().mk != modeCW_R)
                         queue->add(priorityImmediate,queueItem(funcDataMode,value,false,receiver));
                     if (m.filter != 0xff)
@@ -1886,10 +1902,10 @@ void kenwoodCommander::receiveCommand(funcs func, QVariant value, uchar receiver
                         payload.append(QString::number(mem.frequencyB.Hz).rightJustified(parse.len, QChar('0'),true).toLatin1());
                         break;
                     case 'g':
-                        payload.append(QString::number(mem.mode).rightJustified(parse.len, QChar('0'),true).toLatin1());
+                        payload.append(QString::number(mem.mode, 16).toUpper().rightJustified(parse.len, QChar('0'),true).toLatin1());
                         break;
                     case 'G':
-                        payload.append(QString::number(mem.modeB).rightJustified(parse.len, QChar('0'),true).toLatin1());
+                        payload.append(QString::number(mem.modeB, 16).toUpper().rightJustified(parse.len, QChar('0'),true).toLatin1());
                         break;
                     case 'h':
                         payload.append(QString::number(mem.filter).rightJustified(parse.len, QChar('0'),true).toLatin1());
