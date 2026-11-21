@@ -541,6 +541,7 @@ private:
     void releaseRigCapsBeforeRigDeletion();
     funcType inputLevelCommand(inputTypes input) const;
     uchar currentDataMode() const;
+    uchar commandReceiver(funcs func, uchar rx) const;
     void receiveModInput(const rigInput& input, int dataMode);
     void processModLevel(inputTypes input, int level);
     void updateCurrentModSource(bool requestLevel);

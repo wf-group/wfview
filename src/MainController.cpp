@@ -1215,12 +1215,11 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     }
 
     const funcType type = rigCaps->commands.value(func);
-    // On command29 radios, commands without a 0x29 form (RF power, mic gain,
-    // compressor, ...) apply to the whole radio and are cached on receiver 0,
-    // as the UI sliders send them. Using the selected receiver here made the
-    // cache lookup miss with Sub selected, which queued a read whose old-value
-    // reply arrived after the set and bounced the slider.
-    const uchar valueRx = (rigCaps->hasCommand29 && !type.cmd29) ? 0 : rx;
+    // Whole-radio commands (RF power, mic gain, ...) use receiver 0; see
+    // commandReceiver(). Using the selected receiver made the cache lookup
+    // miss with Sub selected, which queued a read whose old-value reply
+    // arrived after the set and bounced the slider.
+    const uchar valueRx = commandReceiver(func, rx);
 
     // Commands that take no value (or a read) are sent on their own.
     if (param.isEmpty()) {
@@ -1317,11 +1316,8 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     // for the next poll (several seconds) before its slider moved. Apply the
     // new value to the UI now, the same way a poll reply would; these cases
     // in receiveValueFromQueue() only update the UI and don't send anything.
-    // The selected receiver is passed (not valueRx): whole-radio levels either
-    // ignore the receiver (RF power) or apply only to the selected one (mic
-    // and monitor gain).
     if (isMacroLevelFunc(func))
-        receiveValueFromQueue(cacheItem(func, value, rx));
+        receiveValueFromQueue(cacheItem(func, value, valueRx));
 
     return true;
 }
@@ -1672,6 +1668,19 @@ uchar MainController::currentDataMode() const
         return qMin(receivers[currentReceiver]->getDataMode(), uchar(3));
 
     return 0;
+}
+
+// The receiver a command is sent, polled and cached on. On command29 radios
+// (IC-7610 and others), commands without a 0x29 form (RF power, mic gain,
+// monitor gain, compressor, drive, ...) apply to the whole radio, and their
+// replies are always parsed as receiver 0, so they must use receiver 0 even
+// while Sub is selected. Everything else uses rx.
+uchar MainController::commandReceiver(funcs func, uchar rx) const
+{
+    if (rigCaps && rigCaps->hasCommand29 && rigCaps->commands.contains(func) &&
+        !rigCaps->commands.value(func).cmd29)
+        return 0;
+    return rx;
 }
 
 QVariantList MainController::modSourceOptions(int dataMode) const
@@ -2431,7 +2440,8 @@ void MainController::setMonitorGain(int value)
     }
 
     if (rigCaps && rigCaps->commands.contains(funcMonitorGain)) {
-        queue->addUnique(priorityImmediate, queueItem(funcMonitorGain, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+        queue->addUnique(priorityImmediate, queueItem(funcMonitorGain, QVariant::fromValue<ushort>(ushort(value)), false,
+                                                      commandReceiver(funcMonitorGain, currentReceiver)));
     }
 }
 
@@ -2459,7 +2469,8 @@ void MainController::setMicGain(int value)
     }
 
     if (cmd.cmd != funcNone) {
-        queue->addUnique(priorityImmediate, queueItem(cmd.cmd, QVariant::fromValue<ushort>(ushort(value)), false, currentReceiver));
+        queue->addUnique(priorityImmediate, queueItem(cmd.cmd, QVariant::fromValue<ushort>(ushort(value)), false,
+                                                      commandReceiver(cmd.cmd, currentReceiver)));
     }
 }
 
@@ -5456,10 +5467,12 @@ void MainController::updateCurrentModSource(bool requestLevel)
     // once the mode is known to carry audio, and the poll is removed in other modes.
     if (levelCommand.cmd != funcNone)
     {
+        // Whole-radio levels are polled on receiver 0 so there is one poll, not one per receiver.
+        const uchar levelRx = commandReceiver(levelCommand.cmd, currentReceiver);
         if (!audioMode)
-            queue->del(levelCommand.cmd, currentReceiver);
+            queue->del(levelCommand.cmd, levelRx);
         else if (requestLevel && m_currentModeKind != modeUnknown)
-            queue->addUnique(priorityMedium, levelCommand.cmd, true, currentReceiver);
+            queue->addUnique(priorityMedium, levelCommand.cmd, true, levelRx);
     }
 
     if (changed)
@@ -6303,7 +6316,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         break;
 
     case funcMicGain:
-        if (val.receiver == currentReceiver) {
+        // Whole-radio on command29 radios: replies arrive on receiver 0 even with Sub selected.
+        if (val.receiver == commandReceiver(funcMicGain, currentReceiver)) {
             const int value = val.value.value<ushort>();
             if (m_micGain != value) {
                 m_micGain = value;
@@ -6321,7 +6335,8 @@ void MainController::receiveValueFromQueue(cacheItem val)
         receivers[val.receiver]->setAfGain(val.value.value<ushort>(),false);
         break;
     case funcMonitorGain:
-        if (val.receiver == currentReceiver) {
+        // Whole-radio on command29 radios: replies arrive on receiver 0 even with Sub selected.
+        if (val.receiver == commandReceiver(funcMonitorGain, currentReceiver)) {
             const int value = val.value.value<ushort>();
             if (m_monitorGain != value) {
                 m_monitorGain = value;
