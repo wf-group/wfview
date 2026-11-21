@@ -202,6 +202,22 @@ struct QtMsgHandlerGuard {
 };
 #endif
 
+#ifndef BUILD_WFSERVER
+// Lists the translations compiled into the :/translations resource,
+// e.g. "cs, cs_CZ, de, en, ...", for the --help text.
+static QString availableTranslations()
+{
+    const QString prefix = QStringLiteral("wfview_");
+    const QString suffix = QStringLiteral(".qm");
+    QStringList codes;
+    const QStringList files = QDir(QStringLiteral(":/translations"))
+                                  .entryList(QStringList() << prefix + "*" + suffix, QDir::Files, QDir::Name);
+    for (const QString& file : files)
+        codes << file.mid(prefix.size(), file.size() - prefix.size() - suffix.size());
+    return codes.isEmpty() ? QStringLiteral("(none compiled in)") : codes.join(QStringLiteral(", "));
+}
+#endif
+
 #ifdef BUILD_WFSERVER
 // Smart pointer to log file
 QScopedPointer<QFile>   m_logFile;
@@ -981,6 +997,9 @@ int main(int argc, char *argv[])
                                      ",\n--use-mcp, --mcp-port PORT, --mcp-bind ADDRESS, --mcp-token TOKEN, --mcp-allow-write"
 #ifndef BUILD_WFSERVER
                                      ",\n--no-autoconnect, --no-auto (do not connect to the radio at startup; open Settings instead)"
+                                     ",\n--language, --locale CODE (interface language, e.g. de or es_MX; overrides WFVIEW_LANGUAGE"
+                                     " and the system language)"
+                                     "\n    Available languages: %1"
 #endif
 #ifdef BUILD_WFSERVER
                                      ",\n--setup (interactive config wizard; modify or replace settings)"
@@ -988,7 +1007,11 @@ int main(int argc, char *argv[])
                                      ",\n--service install|install-system|remove|start|stop|status|run"
 #endif
 #endif
-                                     "\n"); // TODO...
+                                     "\n") // TODO...
+#ifndef BUILD_WFSERVER
+                                     .arg(availableTranslations())
+#endif
+                                     ;
 #ifdef BUILD_WFSERVER
     const QString version = QString("wfserver version: %1 (Git:%2 on %3 at %4 by %5@%6)\nOperating System: %7 (%8)\nBuild Qt Version %9. Current Qt Version: %10\n")
         .arg(QString(WFVIEW_VERSION))
