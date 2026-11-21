@@ -1680,6 +1680,26 @@ int MainController::modSourceReg(int dataMode) const
     return m_settings->getPrefs()->inputSource[dataMode].reg;
 }
 
+// TCI DIGU / DIGL DATA level choices: DATA1..DATAn for a radio with more than one,
+// all three before a radio is connected so the saved choice still shows.
+QVariantList MainController::tciDataModeOptions() const
+{
+    QVariantList values;
+    const int levels = rigCaps ? dataModeLevels(rigCaps) : 3;
+    for (int level = 1; level <= qMax(levels, 1); ++level)
+        values.append(QVariantMap{{"text", tr("DATA%1").arg(level)}, {"value", level}});
+    return values;
+}
+
+// 0 before a radio is connected, 1 for a radio with no choice to make (one DATA
+// level, data modes of its own such as USB-D, or no data mode), else the levels.
+int MainController::tciDataModeLevels() const
+{
+    if (!rigCaps)
+        return 0;
+    return qMax(dataModeLevels(rigCaps), 1);
+}
+
 bool MainController::modSourceSupported(int dataMode) const
 {
     const funcs func = modSourceCommand(dataMode);
@@ -3654,9 +3674,13 @@ void MainController::lanChanged(SettingsController::prefLanItems items)
         }
     }
 
-    if (items.testFlag(prefLanItem::l_tciPort)) {
+    if (items.testFlag(prefLanItem::l_tciPort) || items.testFlag(prefLanItem::l_enableTCI)) {
         stopTciServer();
         setupTciServer();
+    }
+
+    if (items.testFlag(prefLanItem::l_tciDataMode) && tci) {
+        QMetaObject::invokeMethod(tci, "setDataModeLevel", Qt::QueuedConnection, Q_ARG(quint8, prefs->tciDataMode));
     }
 
     if (items.testFlag(prefLanItem::l_enableRigCtlD) || items.testFlag(prefLanItem::l_rigCtlPort)) {
@@ -3724,7 +3748,7 @@ void MainController::setupTciServer()
     if (!prefs)
         return;
 
-    if (prefs->tciPort == 0) {
+    if (!prefs->enableTCI || prefs->tciPort == 0) {
         stopTciServer();
         prefs->rxSetup.tci = nullptr;
         prefs->txSetup.tci = nullptr;
@@ -3747,6 +3771,7 @@ void MainController::setupTciServer()
     connect(tciThread, &QThread::finished, tci, &QObject::deleteLater);
     tciThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(tci, "init", Qt::QueuedConnection, Q_ARG(quint16, prefs->tciPort));
+    QMetaObject::invokeMethod(tci, "setDataModeLevel", Qt::QueuedConnection, Q_ARG(quint8, prefs->tciDataMode));
 
     setupTciRxBridge();
     updateAudioRouteState();
@@ -6743,7 +6768,7 @@ void MainController::setDefPrefs()
     defprefs->autoPowerOn=true;
 
     defprefs->tcpPort = 0;
-    defprefs->tciPort = 50001;
+    defprefs->tciPort = 40001;
     defprefs->clusterUdpEnable = false;
     defprefs->clusterTcpEnable = false;
     defprefs->waterfallFormat = 0;

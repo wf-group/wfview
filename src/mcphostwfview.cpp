@@ -168,7 +168,8 @@ QJsonObject McpHostWfview::connectionInfo()
     d["rigctld"] = QJsonObject{{"enabled", p->enableRigCtlD},
                                {"port", int(p->rigCtlPort)},
                                {"listening", rigCtl && rigCtl->isListening()}};
-    d["tci"] = QJsonObject{{"port", int(p->tciPort)}, {"running", m_mc->tci != nullptr}};
+    d["tci"] = QJsonObject{{"enabled", p->enableTCI}, {"port", int(p->tciPort)},
+                          {"dataMode", int(p->tciDataMode)}, {"running", m_mc->tci != nullptr}};
     d["virtualSerialTcpPort"] = int(p->tcpPort);
 
     d["cluster"] = QJsonObject{{"udpEnabled", p->clusterUdpEnable},

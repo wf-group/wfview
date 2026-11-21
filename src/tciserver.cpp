@@ -286,7 +286,7 @@ void tciServer::sendInitialState(QWebSocket *socket)
     sendTciText(QStringLiteral("vfo_limits:%1,%2;").arg(start).arg(end));
     sendTciText(QStringLiteral("if_limits:-19531,19531;"));
 
-    const bool hasDataModes = hasDataToggle();
+    const bool hasDataModes = hasDataModeToggle(rigCaps);
     QString mods = "modulations_list:";
     for (modeInfo &mi: rigCaps->modes)
     {
@@ -1038,22 +1038,9 @@ QString tciServer::tciMode(modeInfo m) const
     return ret;
 }
 
-// The radio has a DATA setting on top of USB / LSB.
-bool tciServer::hasDataToggle() const
+void tciServer::setDataModeLevel(quint8 level)
 {
-    return rigCaps && (rigCaps->commands.contains(funcDataModeWithFilter) ||
-                       rigCaps->commands.contains(funcDataMode));
-}
-
-// The radio has data modes of their own, such as USB-D or DATA-U.
-bool tciServer::hasSeparateDataModes() const
-{
-    if (!rigCaps)
-        return false;
-    for (const modeInfo &m : rigCaps->modes)
-        if (m.mk == modeUSB_D || m.mk == modeLSB_D)
-            return true;
-    return false;
+    dataModeLevel = qBound<quint8>(1, level, 3);
 }
 
 modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver) const
@@ -1063,14 +1050,20 @@ modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver)
     const QString requestedMode = mode.toLower();
     // DIGU / DIGL: a DATA toggle on USB / LSB (Icom, TS-590SG), or a mode of its own
     // (USB-D / LSB-D on the TS-890S, DATA-U / DATA-L on Yaesu).
-    const bool dataToggle = hasDataToggle();
-    const bool separateData = !dataToggle && hasSeparateDataModes();
+    const bool dataToggle = hasDataModeToggle(rigCaps);
+    const bool separateData = !dataToggle && hasSeparateDataModes(rigCaps);
+    // Already in a data mode: keep its DATA level. Otherwise use the one chosen in
+    // Settings, or DATA1 if this radio does not have that many.
+    const int levels = dataModeLevels(rigCaps);
+    uchar dataLevel = dataModeLevel <= levels ? dataModeLevel : 1;
+    if (current.data >= 1 && current.data <= levels)
+        dataLevel = current.data;
 
     for (const modeInfo &candidate: rigCaps->modes) {
         if (requestedMode == QLatin1String("digl")) {
             if (dataToggle && candidate.mk == modeLSB) {
                 requested = candidate;
-                requested.data = 1;
+                requested.data = dataLevel;
                 break;
             }
             if (separateData && candidate.mk == modeLSB_D) {
@@ -1081,7 +1074,7 @@ modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver)
         } else if (requestedMode == QLatin1String("digu")) {
             if (dataToggle && candidate.mk == modeUSB) {
                 requested = candidate;
-                requested.data = 1;
+                requested.data = dataLevel;
                 break;
             }
             if (separateData && candidate.mk == modeUSB_D) {
@@ -1099,9 +1092,6 @@ modeInfo tciServer::rigMode(const QString &mode, funcs modeFunc, uchar receiver)
 
     if (requested.mk == modeUnknown)
         return requested;
-
-    if (current.mk == requested.mk && current.data != 0xff)
-        requested.data = requested.data ? 1 : 0;
 
     if (current.filter != 0xff)
         requested.filter = current.filter;

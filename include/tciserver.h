@@ -103,6 +103,7 @@ public slots:
     void receiveTCIAudio(audioPacket audio);
     void receiveRigCaps(rigCapabilities* caps);
     void init(quint16 port);
+    void setDataModeLevel(quint8 level);
 
 
 private slots:
@@ -163,8 +164,7 @@ private:
     bool loggedFirstRxAudioFrame = false;
     rigCapabilities* rigCaps = nullptr;
     QString tciMode(modeInfo m) const;
-    bool hasDataToggle() const;
-    bool hasSeparateDataModes() const;
+    quint8 dataModeLevel = 1; // DATA level DIGU / DIGL selects (1-3)
     modeInfo rigMode(const QString &mode, funcs modeFunc, uchar receiver) const;
     int dBmConversion = 73;
     // Latest TX meter readings, kept from receiveCache() so tx_sensors can be

@@ -1346,6 +1346,11 @@ void SettingsController::load()
 
     prefs.tcpPort = settings->value("TCPServerPort", defPrefs.tcpPort).toInt();
     prefs.tciPort = settings->value("TCIServerPort", defPrefs.tciPort).toInt();
+    // Port 0 used to switch TCI off; settings from before EnableTCI keep that meaning.
+    prefs.enableTCI = settings->value("EnableTCI", prefs.tciPort != 0).toBool();
+    if (prefs.tciPort == 0)
+        prefs.tciPort = defPrefs.tciPort;
+    prefs.tciDataMode = quint8(qBound(1, settings->value("TCIDataMode", defPrefs.tciDataMode).toInt(), 3));
 
     prefs.waterfallFormat = settings->value("WaterfallFormat", defPrefs.waterfallFormat).toInt();
 
@@ -2016,7 +2021,9 @@ void SettingsController::save()
     settings->setValue("RigCtlPort", prefs.rigCtlPort);
     settings->setValue("RigCtlIntegerFreqs", prefs.rigCtlIntegerFreqs);
     settings->setValue("TCPServerPort", prefs.tcpPort);
+    settings->setValue("EnableTCI", prefs.enableTCI);
     settings->setValue("TCIServerPort", prefs.tciPort);
+    settings->setValue("TCIDataMode", prefs.tciDataMode);
     settings->setValue("IPAddress", udpPrefs.ipAddress);
     settings->setValue("ControlLANPort", udpPrefs.controlLANPort);
     settings->setValue("SerialLANPort", udpPrefs.serialLANPort);
@@ -2520,7 +2527,7 @@ void SettingsController::setDefPrefs()
     defPrefs.autoPowerOn=true;
 
     defPrefs.tcpPort = 0;
-    defPrefs.tciPort = 50001;
+    defPrefs.tciPort = 40001;
     defPrefs.wfShareEnabled = false;
     defPrefs.wfShareDirectMode = false;
     defPrefs.wfShareHost = QStringLiteral("pbx.wfshare.org");
@@ -3605,8 +3612,14 @@ void SettingsController::buildBindings()
     WF_U16("LAN.TCPPort", prefs.tcpPort,
            [this](){ emit lanChanged(prefLanItems(prefLanItem::l_tcpPort)); });
 
+    WF_BOOL("LAN.EnableTCI", prefs.enableTCI,
+            [this](){ emit lanChanged(prefLanItems(prefLanItem::l_enableTCI)); });
+
     WF_U16("LAN.TCIPort", prefs.tciPort,
            [this](){ emit lanChanged(prefLanItems(prefLanItem::l_tciPort)); });
+
+    WF_U8("LAN.TCIDataMode", prefs.tciDataMode,
+          [this](){ emit lanChanged(prefLanItems(prefLanItem::l_tciDataMode)); });
 
     WF_U8("LAN.WaterfallFormat", prefs.waterfallFormat,
           [this](){ emit lanChanged(prefLanItems(prefLanItem::l_waterfallFormat)); });

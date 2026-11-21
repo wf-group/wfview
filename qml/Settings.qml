@@ -3090,16 +3090,64 @@ ApplicationWindow {
 
                         RowLayout {
                             spacing: 8
-                            Label { text: qsTr("TCI Server Port") }
+                            CheckBox {
+                                id: tciEnableCheck
+                                text: qsTr("Enable TCI Server")
+                                checked: optBool("LAN.EnableTCI", true)
+                                onClicked: if (controller) controller.setOption("LAN.EnableTCI", checked)
+                                ToolTip.visible: hovered
+                                ToolTip.text: qsTr("Run a TCI server so programs such as digital mode software can control the radio and exchange audio with wfview.")
+                            }
+                            Label { text: qsTr("Port"); enabled: tciEnableCheck.checked }
                             TextField {
                                 id: tciServerPortTxt
+                                enabled: tciEnableCheck.checked
                                 text: controller ? String(controller.options["LAN.TCIPort"]) : ""
                                 Layout.preferredWidth: 80
                                 inputMethodHints: Qt.ImhDigitsOnly
-                                validator: IntValidator { bottom: 0; top: 65535 }
-                                onEditingFinished: commitIntegerOption("LAN.TCIPort", tciServerPortTxt, 0, 65535)
+                                validator: IntValidator { bottom: 1; top: 65535 }
+                                onEditingFinished: commitIntegerOption("LAN.TCIPort", tciServerPortTxt, 1, 65535)
                             }
-                            Label { text: qsTr("Enter port for TCI server, 0 = disabled") }
+                            Label {
+                                id: tciDataModeLabel
+                                text: qsTr("DIGU / DIGL data mode")
+                                enabled: tciDataModeCombo.enabled
+                            }
+                            Item {
+                                // The combo is disabled until a radio with a choice is connected, and a
+                                // disabled control shows no tooltip, so the hover area is a sibling on top.
+                                implicitWidth: tciDataModeCombo.implicitWidth
+                                implicitHeight: tciDataModeCombo.implicitHeight
+                                Layout.preferredWidth: 110
+                                ComboBox {
+                                    id: tciDataModeCombo
+                                    anchors.fill: parent
+                                    Accessible.name: tciDataModeLabel.text
+                                    // modSourceRevision changes when a radio's capabilities arrive.
+                                    readonly property int levels: MainController.modSourceRevision >= 0 && window.connStatus === 2
+                                                                  ? MainController.tciDataModeLevels() : 0
+                                    enabled: tciEnableCheck.checked && levels > 1
+                                    textRole: "text"
+                                    valueRole: "value"
+                                    model: MainController.modSourceRevision >= 0 && window.connStatus >= 0
+                                           ? MainController.tciDataModeOptions() : []
+                                    currentIndex: count > 0 && controller && controller.options
+                                                  ? Math.max(0, indexFromValue(tciDataModeCombo, controller.options["LAN.TCIDataMode"])) : -1
+                                    onActivated: if (controller) controller.setOption("LAN.TCIDataMode", currentValue)
+                                }
+                                MouseArea {
+                                    id: tciDataModeHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    acceptedButtons: Qt.NoButton
+                                }
+                                ToolTip.visible: tciDataModeHover.containsMouse
+                                ToolTip.text: tciDataModeCombo.levels === 0
+                                              ? qsTr("The DATA mode used when a TCI program asks for DIGU or DIGL. Once connected to a radio, choose from the data modes it has; the choice is then saved for future use.")
+                                              : tciDataModeCombo.levels === 1
+                                                ? qsTr("This radio only has one data mode")
+                                                : qsTr("The DATA mode used when a TCI program asks for DIGU or DIGL. A radio already in a data mode stays in it.")
+                            }
                             Item { Layout.fillWidth: true }
                         }
 

@@ -426,6 +426,41 @@ inline uchar initialDataModeForRig(const rigCapabilities* caps)
     return 0xff;
 }
 
+// The radio has a DATA setting on top of USB / LSB (rather than data modes of their
+// own, such as USB-D or DATA-U). Icoms without the 1A 06 command set it in 26 00.
+inline bool hasDataModeToggle(const rigCapabilities* caps)
+{
+    if (!caps)
+        return false;
+    if (caps->commands.contains(funcDataModeWithFilter) || caps->commands.contains(funcDataMode))
+        return true;
+    return caps->manufacturer == manufIcom && caps->commands.contains(funcSelectedMode) &&
+           caps->commands.contains(funcDATA1Mod);
+}
+
+// The number of DATA levels (DATA1-DATA3) the radio's toggle has, 0 if it has none.
+inline int dataModeLevels(const rigCapabilities* caps)
+{
+    if (!hasDataModeToggle(caps))
+        return 0;
+    if (caps->commands.contains(funcDATA3Mod))
+        return 3;
+    if (caps->commands.contains(funcDATA2Mod))
+        return 2;
+    return 1;
+}
+
+// The radio has data modes of their own, such as USB-D or DATA-U.
+inline bool hasSeparateDataModes(const rigCapabilities* caps)
+{
+    if (!caps)
+        return false;
+    for (const modeInfo &m : caps->modes)
+        if (m.mk == modeUSB_D || m.mk == modeLSB_D)
+            return true;
+    return false;
+}
+
 Q_DECLARE_METATYPE(manufacturersType_t)
 Q_DECLARE_METATYPE(connectionType_t)
 Q_DECLARE_METATYPE(udpPreferences)

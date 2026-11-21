@@ -195,6 +195,8 @@ enum prefLanItem {
     l_tciPort = 1 << 4,
     l_waterfallFormat = 1 << 5,
     l_rigCtlIntegerFreqs = 1 << 6,
+    l_enableTCI = 1 << 7,
+    l_tciDataMode = 1 << 8,
     l_all = ~0
 };
 
@@ -407,7 +409,10 @@ struct preferences {
     quint16 rigCtlPort;
     bool rigCtlIntegerFreqs = false;
     quint16 tcpPort;
-    quint16 tciPort=50001;
+    bool enableTCI = true;
+    quint16 tciPort=40001; // ExpertSDR's default TCI port
+    // DATA level (1-3) TCI DIGU / DIGL selects on a radio with a DATA toggle.
+    quint8 tciDataMode = 1;
     quint8 waterfallFormat;
 
     // Experimental wfshare remote transport:

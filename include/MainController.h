@@ -343,6 +343,8 @@ public:
     Q_INVOKABLE QVariantList modSourceOptions(int dataMode) const;
     Q_INVOKABLE int modSourceReg(int dataMode) const;
     Q_INVOKABLE bool modSourceSupported(int dataMode) const;
+    Q_INVOKABLE QVariantList tciDataModeOptions() const;
+    Q_INVOKABLE int tciDataModeLevels() const;
     Q_INVOKABLE void setModSource(int dataMode, int reg);
     Q_INVOKABLE QVariantList repeaterToneOptions() const;
     Q_INVOKABLE QVariantList repeaterDtcsOptions() const;
