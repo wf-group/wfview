@@ -656,6 +656,8 @@ private:
     QString m_rigModelName;
     QString m_clusterOutputText;
     qsizetype m_clusterOutputLines = 0;
+    // Batches cluster output so a busy cluster does not re-lay out the text view for every read.
+    QTimer m_clusterOutputTimer;
     int m_clusterStatus = dxClusterClient::tcpNotConnected;
     QVector<ReceiverController*> receivers;
     QVector<bool> detached;

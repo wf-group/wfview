@@ -69,6 +69,8 @@ public:
     static constexpr int tcpConnectTimeoutMs = 60000;
     static constexpr int spotLifetimeMin = 10;
     static constexpr int spotLifetimeMax = 999;
+    // TCP spots arriving within this time are sent on together.
+    static constexpr int spotUpdateIntervalMs = 1000;
 
 signals:
     void addSpot(spotData* spot);
@@ -98,13 +100,16 @@ public slots:
     void setUdpLifetime(int seconds) { udpLifetime = seconds; }
     void tcpCleanup();
     void freqRange(quint8 receiver, double low, double high);
+    // Sends every receiver its spots again, for a newly created receiver.
+    void resendSpots();
     void enableSkimmerSpots(bool enable);
     void shutdown();
 
 private:
     void sendTcpData(QString data);
     bool databaseOpen();
-    void updateSpots();
+    void updateSpots(bool force = false);
+    void scheduleSpotUpdate();
     void storeSpot(spotData* spot);
     void openTcp();
     void closeTcp(bool sayBye);
@@ -137,6 +142,7 @@ private:
     bool authenticated=false;
     QTimer* tcpCleanupTimer=nullptr;
     QTimer* tcpConnectTimer=nullptr;
+    QTimer* spotUpdateTimer=nullptr;
 #ifdef USESQL
     QSqlDatabase db;
 #endif
@@ -145,6 +151,7 @@ private:
     double lowSubFreq;
     double highSubFreq;
     QMap<uchar,rangeValues> freqRanges;
+    QMap<uchar,QList<spotData>> sentSpots; // last list sent to each receiver
     QMap<QString,spotData*> allSpots;
     bool skimmerSpots = false;
     bool shuttingDown = false;

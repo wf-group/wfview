@@ -531,6 +531,7 @@ void SpectrumItem::setMaxSpotRows(int rows)
         return;
 
     maxSpotRows = rows;
+    ++spotsVersion;
     emit spotsChanged();
     update();
 }
@@ -550,6 +551,7 @@ void SpectrumItem::setSpotFadePercent(int percent)
         return;
 
     spotFadePercent = percent;
+    ++spotsVersion;
     emit spotsChanged();
     update();
 }
@@ -557,6 +559,7 @@ void SpectrumItem::setSpotFadePercent(int percent)
 void SpectrumItem::setSpots(const QVector<spotData> &newSpots)
 {
     spots = newSpots;
+    ++spotsVersion;
     emit spotsChanged();
     update();
 }
@@ -567,6 +570,7 @@ void SpectrumItem::clearSpots()
         return;
 
     spots.clear();
+    ++spotsVersion;
     emit spotsChanged();
     update();
 }
@@ -1799,9 +1803,13 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
     // --- CLUSTER SPOTS (DX spots at top of spectrum) ---
 
-    spotLayouts.clear();
-    if (!spots.isEmpty() && endFreq > startFreq &&
-        width() > 0 && height() > 0 && window()) {
+    // The overlay is only redrawn when its inputs change, not for every sweep.
+    if (spots.isEmpty() || endFreq <= startFreq || width() <= 0 || height() <= 0 || !window()) {
+        spotLayouts.clear();
+        delete root->spotTexture;
+        root->spotTexture = nullptr;
+        root->spotKey.clear();
+    } else {
 
         const float itemWidth  = float(width());
         const float itemHeight = float(height());
@@ -1825,7 +1833,27 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         const int leaderHeight = 9;
         const int overlayHeight = marginTop + rows * rowHeight + leaderHeight;
 
-        if (overlayHeight > 0) {
+        // Fading spots change once a second, so the overlay is redrawn each
+        // second while any spot can fade.
+        bool canFade = false;
+        for (const spotData &s : std::as_const(spots)) {
+            if (!s.current && s.timeout > 0) {
+                canFade = true;
+                break;
+            }
+        }
+        const qint64 fadeSecond = canFade ? QDateTime::currentSecsSinceEpoch() : 0;
+        const QString key = QStringLiteral("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10")
+                                .arg(spotsVersion)
+                                .arg(startFreq, 0, 'g', 17).arg(endFreq, 0, 'g', 17)
+                                .arg(double(itemWidth)).arg(double(plotHeight)).arg(rows)
+                                .arg(colors.clusterSpots.name(QColor::HexArgb))
+                                .arg(colors.plotBackground.name(QColor::HexArgb))
+                                .arg(colors.clusterSpotLine.name(QColor::HexArgb))
+                                .arg(fadeSecond);
+
+        if (overlayHeight > 0 && key != root->spotKey) {
+            spotLayouts.clear();
 
             QImage overlay(int(itemWidth), overlayHeight,
                            QImage::Format_ARGB32_Premultiplied);
@@ -1992,12 +2020,19 @@ QSGNode *SpectrumItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
             painter.end();
 
-            auto *spotNode = new QSGSimpleTextureNode;
+            // The previous frame's node using the old texture has already been deleted.
             QSGTexture *tex = window()->createTextureFromImage(overlay);
-            spotNode->setTexture(tex);
-            spotNode->setOwnsTexture(true);
-            spotNode->setRect(0, 0, itemWidth, overlayHeight);
+            delete root->spotTexture;
+            root->spotTexture = tex;
+            root->spotKey = key;
+            root->spotOverlayHeight = overlayHeight;
+        }
 
+        if (root->spotTexture != nullptr) {
+            auto *spotNode = new QSGSimpleTextureNode;
+            spotNode->setTexture(root->spotTexture);
+            spotNode->setOwnsTexture(false);
+            spotNode->setRect(0, 0, itemWidth, root->spotOverlayHeight);
             dyn->appendChildNode(spotNode);
         }
     }

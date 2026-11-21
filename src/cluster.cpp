@@ -4,6 +4,28 @@
 #include <utility>
 
 
+namespace {
+
+bool sameSpot(const spotData &a, const spotData &b)
+{
+    return a.dxcall == b.dxcall && a.frequency == b.frequency && a.spottercall == b.spottercall
+        && a.timestamp == b.timestamp && a.mode == b.mode && a.comment == b.comment
+        && a.timeout == b.timeout && a.current == b.current;
+}
+
+bool sameSpots(const QList<spotData> &a, const QList<spotData> &b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (qsizetype i = 0; i < a.size(); ++i) {
+        if (!sameSpot(a.at(i), b.at(i)))
+            return false;
+    }
+    return true;
+}
+
+} // namespace
+
 dxClusterClient::dxClusterClient(QObject* parent):
     QObject(parent)
 {
@@ -385,7 +407,8 @@ void dxClusterClient::tcpDataReceived()
             if (skimmerSpots)
                 enableSkimmerSpots(true);
         }
-        updateSpots();
+        // A busy cluster sends many spots a second; send them on in batches.
+        scheduleSpotUpdate();
     } else if (!authenticated) {
         if (data.contains("login:", Qt::CaseInsensitive) || data.contains("call:", Qt::CaseInsensitive) || data.contains("callsign:", Qt::CaseInsensitive)) {
             sendTcpData(QString("%1\n").arg(tcpUserName));
@@ -471,6 +494,11 @@ void dxClusterClient::tcpDisconnected() {
 
 void dxClusterClient::freqRange(quint8 receiver, double low, double high)
 {
+    // This is called for every scope sweep, mostly with the same range.
+    const auto current = freqRanges.constFind(receiver);
+    if (current != freqRanges.constEnd() && current->low == low && current->high == high)
+        return;
+
     freqRanges[receiver] = {low,high};
     if (receiver) {
         lowSubFreq = low;
@@ -482,10 +510,33 @@ void dxClusterClient::freqRange(quint8 receiver, double low, double high)
     updateSpots();
 }
 
-void dxClusterClient::updateSpots()
+void dxClusterClient::resendSpots()
 {
+    updateSpots(true);
+}
+
+void dxClusterClient::scheduleSpotUpdate()
+{
+    if (spotUpdateTimer == nullptr) {
+        spotUpdateTimer = new QTimer(this);
+        spotUpdateTimer->setSingleShot(true);
+        spotUpdateTimer->setInterval(spotUpdateIntervalMs);
+        connect(spotUpdateTimer, &QTimer::timeout, this, [this]() { updateSpots(); });
+    }
+    if (!spotUpdateTimer->isActive())
+        spotUpdateTimer->start();
+}
+
+// Sends each receiver the spots within its range, unless that list has not
+// changed since it was last sent and force is false.
+void dxClusterClient::updateSpots(bool force)
+{
+    if (spotUpdateTimer != nullptr)
+        spotUpdateTimer->stop();
+
     QList<spotData> spots;
 #ifdef USESQL
+    Q_UNUSED(force)
     // Set the required frequency range.
     QString queryText = QString("SELECT * FROM spots WHERE frequency > %1 AND frequency < %2").arg(lowFreq).arg(highFreq);
     //QString queryText = QString("SELECT * FROM spots");
@@ -514,7 +565,11 @@ void dxClusterClient::updateSpots()
             }
             ++mainSpot;
         }
-        emit sendSpots(range.key(),spots);
+        const auto sent = sentSpots.constFind(range.key());
+        if (force || sent == sentSpots.constEnd() || !sameSpots(*sent, spots)) {
+            sentSpots[range.key()] = spots;
+            emit sendSpots(range.key(),spots);
+        }
         //qDebug(logCluster()) << "Sending" << spots.size() << "DX spots to receiver" << range.key();
         ++range;
     }

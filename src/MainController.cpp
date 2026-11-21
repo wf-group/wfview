@@ -310,6 +310,9 @@ MainController::MainController(QString settingsFile, QString logFileName, bool d
     connect(&m_pttTimeoutTimer, &QTimer::timeout, this, &MainController::handlePttTimeout);
     m_unkeyWaiter = new txUnkeyWaiter(this);
     connect(m_unkeyWaiter, &txUnkeyWaiter::ready, this, &MainController::sendUnkey);
+    m_clusterOutputTimer.setSingleShot(true);
+    m_clusterOutputTimer.setInterval(500);
+    connect(&m_clusterOutputTimer, &QTimer::timeout, this, &MainController::clusterOutputTextChanged);
     m_footerErrorTimer.setSingleShot(true);
     connect(&m_footerErrorTimer, &QTimer::timeout, this, [this]() {
         // Only clear the error if nothing newer has replaced it.
@@ -4364,6 +4367,7 @@ void MainController::clearClusterOutput()
 
     m_clusterOutputText.clear();
     m_clusterOutputLines = 0;
+    m_clusterOutputTimer.stop();
     emit clusterOutputTextChanged();
 }
 
@@ -4491,7 +4495,8 @@ void MainController::appendClusterOutput(const QString& text)
         m_clusterOutputText.remove(0, cut + 1);
         m_clusterOutputLines = maxLines;
     }
-    emit clusterOutputTextChanged();
+    if (!m_clusterOutputTimer.isActive())
+        m_clusterOutputTimer.start();
 }
 
 void MainController::receiveClusterStatus(int status)
@@ -5636,6 +5641,10 @@ void MainController::receiveRigCaps(rigCapabilities* caps)
             });
             connect(rc, &ReceiverController::frequencyAChanged, this, &MainController::updateSplitTxFrequency);
             connect(rc, &ReceiverController::frequencyBChanged, this, &MainController::updateSplitTxFrequency);
+            // The cluster only sends spots when they change, so a new receiver
+            // asks for the current ones.
+            if (cluster)
+                QMetaObject::invokeMethod(cluster, "resendSpots", Qt::QueuedConnection);
             connect(rc, &ReceiverController::scopeUpdated, this, [this, i](const scopeData &scope) {
                 if (!cluster || !scope.valid || scope.endFreq <= scope.startFreq)
                     return;

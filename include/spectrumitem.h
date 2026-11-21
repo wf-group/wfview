@@ -43,6 +43,9 @@ public:
     QSGSimpleTextureNode *gridLabels = nullptr;
     QSGTexture *gridLabelTexture = nullptr;
     QString gridLabelKey;   // inputs used to build gridLabelTexture
+    QSGTexture *spotTexture = nullptr;
+    QString spotKey;        // inputs used to build spotTexture
+    int spotOverlayHeight = 0;
     QSGGeometryNode *bandShapes = nullptr;
 
     QSGNode *dynamicRoot = nullptr;   // everything else (axis, bands, spots, overlays)
@@ -53,6 +56,8 @@ public:
         axisTexture = nullptr;
         delete gridLabelTexture;
         gridLabelTexture = nullptr;
+        delete spotTexture;
+        spotTexture = nullptr;
     }
 };
 
@@ -210,6 +215,7 @@ private:
     QVector<quint16> peaks;
     QVector<spotData> spots;
     QVector<SpotLayout> spotLayouts;
+    quint64 spotsVersion = 0; // changes whenever the spot overlay must be redrawn
     QVector<bandType> bands;
 
     int maxSpotRows = 6;
