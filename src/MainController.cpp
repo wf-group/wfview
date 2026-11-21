@@ -1214,14 +1214,21 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
         return true;
     }
 
+    const funcType type = rigCaps->commands.value(func);
+    // On command29 radios, commands without a 0x29 form (RF power, mic gain,
+    // compressor, ...) apply to the whole radio and are cached on receiver 0,
+    // as the UI sliders send them. Using the selected receiver here made the
+    // cache lookup miss with Sub selected, which queued a read whose old-value
+    // reply arrived after the set and bounced the slider.
+    const uchar valueRx = (rigCaps->hasCommand29 && !type.cmd29) ? 0 : rx;
+
     // Commands that take no value (or a read) are sent on their own.
     if (param.isEmpty()) {
-        queue->add(priorityImmediate, func, false, rx);
+        queue->add(priorityImmediate, func, false, valueRx);
         return true;
     }
 
-    const funcType type = rigCaps->commands.value(func);
-    const QVariant current = queue->getCache(func, rx).value;
+    const QVariant current = queue->getCache(func, valueRx).value;
     // Levels are always sent as ushort, like the UI sliders do. The cached
     // value can't be used for these: Icom replies are cached as uchar, and a
     // uchar is encoded as two BCD digits, which fails above 99 (about 38%).
@@ -1230,7 +1237,7 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
                   : (type.maxVal > 255 ? int(QMetaType::UShort) : int(QMetaType::UChar));
 
     if (valueType == QMetaType::QString) {
-        queue->add(priorityImmediate, queueItem(func, QVariant::fromValue<QString>(param), false, rx));
+        queue->add(priorityImmediate, queueItem(func, QVariant::fromValue<QString>(param), false, valueRx));
         return true;
     }
 
@@ -1241,7 +1248,7 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
             *error = tr("use on or off");
             return false;
         }
-        queue->add(priorityImmediate, queueItem(func, QVariant::fromValue<bool>(boolValue), false, rx));
+        queue->add(priorityImmediate, queueItem(func, QVariant::fromValue<bool>(boolValue), false, valueRx));
         return true;
     }
 
@@ -1304,12 +1311,15 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
         return false;
     }
 
-    queue->add(priorityImmediate, queueItem(func, value, false, rx));
+    queue->add(priorityImmediate, queueItem(func, value, false, valueRx));
 
     // The radio doesn't report level changes, so the UI would otherwise wait
     // for the next poll (several seconds) before its slider moved. Apply the
     // new value to the UI now, the same way a poll reply would; these cases
     // in receiveValueFromQueue() only update the UI and don't send anything.
+    // The selected receiver is passed (not valueRx): whole-radio levels either
+    // ignore the receiver (RF power) or apply only to the selected one (mic
+    // and monitor gain).
     if (isMacroLevelFunc(func))
         receiveValueFromQueue(cacheItem(func, value, rx));
 
