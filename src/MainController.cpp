@@ -6,6 +6,7 @@
 #include "iaxclientsession.h"
 #include "icomserver.h"
 #include "kenwoodserver.h"
+#include "lancodecs.h"
 #include "yaesuserver.h"
 #include "logcategories.h"
 #include <QCoreApplication>
@@ -5562,7 +5563,7 @@ void MainController::getInitialRigState()
 
     if (rigCaps->commands.contains(funcVOIP))
     {
-        queue->add(priorityHigh,queueItem(funcVOIP,QVariant::fromValue<uchar>(prefs->rxSetup.codec==0x80?2:1),false,0));
+        queue->add(priorityHigh,queueItem(funcVOIP,QVariant::fromValue<uchar>(kenwoodVoipModeForCodec(prefs->rxSetup.codec)),false,0));
     }
 
 }

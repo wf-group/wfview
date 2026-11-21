@@ -183,6 +183,61 @@ ApplicationWindow {
         ToolTip.text: contentItem.truncated ? hint + "\n" + displayText : hint
     }
 
+    // LAN audio codec selector. SettingsController::lanCodecOptions() lists
+    // the manufacturer's own codecs, a separator, then the codecs only a
+    // wfview server offers. The separator cannot be chosen; stepping onto it
+    // with the keyboard moves on to the next codec.
+    component CodecComboBox : ComboBox {
+        id: codecCombo
+
+        property string optionKey: ""
+        property int manufacturer: 0
+        property bool tx: false
+
+        function boundIndex() {
+            return (controller && controller.options)
+                    ? indexFromValue(codecCombo, controller.options[codecCombo.optionKey])
+                    : -1
+        }
+
+        textRole: "text"
+        valueRole: "value"
+        implicitContentWidthPolicy: ComboBox.WidestText
+        model: controller ? controller.lanCodecOptions(manufacturer, tx) : []
+        currentIndex: boundIndex()
+
+        delegate: ItemDelegate {
+            required property var modelData
+            required property int index
+
+            width: ListView.view ? ListView.view.width : implicitWidth
+            text: modelData.text
+            enabled: !modelData.separator
+            font.italic: modelData.separator
+            highlighted: codecCombo.highlightedIndex === index
+        }
+
+        onActivated: function(index) {
+            if (!controller)
+                return
+
+            let target = index
+            const entry = model[index]
+            if (entry && entry.separator) {
+                const previous = boundIndex()
+                target = index + (index > previous ? 1 : -1)
+                if (target < 0 || target >= count)
+                    target = previous
+            }
+            if (target >= 0)
+                controller.setOption(optionKey, valueAt(target))
+            currentIndex = Qt.binding(boundIndex)
+        }
+
+        ToolTip.visible: hovered && !popup.visible
+        ToolTip.text: qsTr("Select the codec for the TX/RX audio here. If you're running your own server with wfview or wfserver, there are some additional selections below.")
+    }
+
     // Model for the serial port ComboBox, built like audioDeviceModel(). A
     // configured port that is not enumerated but does exist (for example a
     // /dev/serial/by-id link) is listed by name, without "(not found)".
@@ -1422,48 +1477,29 @@ ApplicationWindow {
                                 RowLayout {
                                     spacing: 8
 
-                                    Label { text: qsTr("RX Codec") }
-                                    ComboBox {
+                                    // Kenwood sets RX and TX audio with one command, so it
+                                    // has a single codec that applies to both.
+                                    Label {
+                                        text: manufacturerCombo.currentValue === 1 ? qsTr("Codec") : qsTr("RX Codec")
+                                    }
+                                    CodecComboBox {
                                         id: audioRXCodecCombo
-                                        enabled: manufacturerCombo.currentValue !== 1
-                                        textRole: "text"
-                                        valueRole: "value"
-                                        model: [
-                                            { text: qsTr("LPCM 1ch 16bit"), value: 4 },
-                                            { text: qsTr("PCM 1ch 8bit"), value: 2 },
-                                            { text: qsTr("uLaw 1ch 8bit"), value: 1 },
-                                            { text: qsTr("LPCM 2ch 16bit"), value: 16 },
-                                            { text: qsTr("uLaw 2ch 8bit"), value: 32 },
-                                            { text: qsTr("PCM 2ch 8bit"), value: 8 },
-                                            { text: qsTr("Opus 1ch"), value: 64 },
-                                            { text: qsTr("Opus 2ch"), value: 65 },
-                                            { text: qsTr("ADPCM 1ch"), value: 128 }
-                                        ]
-                                        currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(audioRXCodecCombo,controller.options["UDP.RxCodec"])
-                                                      : -1
-                                        onActivated: controller.setOption("UDP.RxCodec",currentValue)
+                                        optionKey: "UDP.RxCodec"
+                                        manufacturer: manufacturerCombo.currentValue ?? 0
+                                        tx: false
                                         Accessible.name: "Receive Audio Codec Selector"
                                     }
 
-                                    Label { text: qsTr("TX Codec") }
-                                    ComboBox {
+                                    Label {
+                                        text: qsTr("TX Codec")
+                                        visible: manufacturerCombo.currentValue !== 1
+                                    }
+                                    CodecComboBox {
                                         id: audioTXCodecCombo
-                                        enabled: manufacturerCombo.currentValue !== 1
-                                        textRole: "text"
-                                        valueRole: "value"
-                                        model: [
-                                            { text: qsTr("LPCM 1ch 16bit"), value: 4 },
-                                            { text: qsTr("PCM 1ch 8bit"), value: 2 },
-                                            { text: qsTr("uLaw 1ch 8bit"), value: 1 },
-                                            { text: qsTr("Opus 1ch"), value: 64 },
-                                            { text: qsTr("ADPCM 1ch"), value: 128 }
-                                        ]
-                                        currentIndex: (controller && controller.options)
-                                                      ? indexFromValue(audioTXCodecCombo,controller.options["UDP.TxCodec"])
-                                                      : -1
-
-                                        onActivated: controller.setOption("UDP.TxCodec",currentValue)
+                                        visible: manufacturerCombo.currentValue !== 1
+                                        optionKey: "UDP.TxCodec"
+                                        manufacturer: manufacturerCombo.currentValue ?? 0
+                                        tx: true
                                         Accessible.name: "Transmit Audio Codec Selector"
                                     }
 

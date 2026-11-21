@@ -1,4 +1,5 @@
 #include "SettingsController.h"
+#include "lancodecs.h"
 #include "logcategories.h"
 #include "waterfallitem.h" // To get the theme
 #include <QDir>
@@ -1397,6 +1398,16 @@ void SettingsController::load()
     prefs.txSetup.resampleQuality = prefs.rxSetup.resampleQuality;
     prefs.txSetup.type = prefs.audioSystem;
     qInfo(logGui()) << "Got Audio Input from Settings: " << prefs.txSetup.name;
+
+    // Settings saved before the codec menus were filtered can hold a codec
+    // the selected manufacturer cannot carry.
+    if (lanSanitizeCodecs(prefs.manufacturer, &prefs.rxSetup.codec, &prefs.txSetup.codec))
+        qInfo(logGui()) << "Saved LAN codecs are not available for this manufacturer, now RX"
+                        << prefs.rxSetup.codec << "TX" << prefs.txSetup.codec;
+    if (prefs.manufacturer == manufKenwood) {
+        prefs.rxSetup.sampleRate = kenwoodLanSampleRate;
+        prefs.txSetup.sampleRate = kenwoodLanSampleRate;
+    }
 
     prefs.usbRxSetup.isinput = true;
     prefs.usbRxSetup.role = audioDeviceRole::RadioUsbInput;
@@ -3332,11 +3343,9 @@ void SettingsController::applyManufacturerDefaults()
     case manufKenwood:
         updatePort(QStringLiteral("UDP.ControlLANPort"), udpPrefs.controlLANPort, 60000, prefUDPItem::u_controlLANPort);
         updatePort(QStringLiteral("UDP.AudioLANPort"), udpPrefs.audioLANPort, 60001, prefUDPItem::u_audioLANPort);
-        updateAudioInt(QStringLiteral("UDP.SampleRate"), prefs.rxSetup.sampleRate, 16000, prefUDPItem::u_sampleRate);
-        if (prefs.txSetup.sampleRate != 16000)
-            prefs.txSetup.sampleRate = 16000;
-        updateAudioInt(QStringLiteral("UDP.RxCodec"), prefs.rxSetup.codec, 4, prefUDPItem::u_rxCodec);
-        updateAudioInt(QStringLiteral("UDP.TxCodec"), prefs.txSetup.codec, 4, prefUDPItem::u_txCodec);
+        updateAudioInt(QStringLiteral("UDP.SampleRate"), prefs.rxSetup.sampleRate, kenwoodLanSampleRate, prefUDPItem::u_sampleRate);
+        if (prefs.txSetup.sampleRate != kenwoodLanSampleRate)
+            prefs.txSetup.sampleRate = kenwoodLanSampleRate;
         break;
     case manufYaesu:
         updatePort(QStringLiteral("UDP.ControlLANPort"), udpPrefs.controlLANPort, 50000, prefUDPItem::u_controlLANPort);
@@ -3350,6 +3359,55 @@ void SettingsController::applyManufacturerDefaults()
 
     if (udpItems)
         emit udpChanged(udpItems);
+
+    enforceLanCodecs();
+}
+
+void SettingsController::enforceLanCodecs()
+{
+    quint8 rxCodec = prefs.rxSetup.codec;
+    quint8 txCodec = prefs.txSetup.codec;
+    if (!lanSanitizeCodecs(prefs.manufacturer, &rxCodec, &txCodec))
+        return;
+
+    prefUDPItems udpItems;
+    if (prefs.rxSetup.codec != rxCodec) {
+        qInfo(logSystem()) << "RX codec" << prefs.rxSetup.codec << "is not available for this manufacturer, using" << rxCodec;
+        prefs.rxSetup.codec = rxCodec;
+        updateOptionInMap(QStringLiteral("UDP.RxCodec"), uint(rxCodec));
+        udpItems |= prefUDPItem::u_rxCodec;
+    }
+    if (prefs.txSetup.codec != txCodec) {
+        qInfo(logSystem()) << "TX codec" << prefs.txSetup.codec << "is not available for this manufacturer, using" << txCodec;
+        prefs.txSetup.codec = txCodec;
+        updateOptionInMap(QStringLiteral("UDP.TxCodec"), uint(txCodec));
+        udpItems |= prefUDPItem::u_txCodec;
+    }
+    markDirty();
+    emit udpChanged(udpItems);
+}
+
+QVariantList SettingsController::lanCodecOptions(int manufacturer, bool tx) const
+{
+    QVariantList options;
+    bool separatorAdded = false;
+    const QList<lanCodecInfo> codecs = lanCodecs(manufacturersType_t(manufacturer), tx);
+    for (const lanCodecInfo &info : codecs) {
+        if (!info.oem && !separatorAdded) {
+            options.append(QVariantMap{
+                { QStringLiteral("text"), tr("— wfview server —") },
+                { QStringLiteral("value"), -1 },
+                { QStringLiteral("separator"), true },
+            });
+            separatorAdded = true;
+        }
+        options.append(QVariantMap{
+            { QStringLiteral("text"), tr(info.label) },
+            { QStringLiteral("value"), int(info.codec) },
+            { QStringLiteral("separator"), false },
+        });
+    }
+    return options;
 }
 
 
@@ -3414,6 +3472,8 @@ void SettingsController::setOption(const QString& key, const QVariant& value)
 
     if (key == QStringLiteral("Radio.Manufacturer"))
         applyManufacturerDefaults();
+    else if (key == QStringLiteral("UDP.RxCodec") || key == QStringLiteral("UDP.TxCodec"))
+        enforceLanCodecs();
 
     // Notify other subsystems (your notify lambda)
     emitGroupChange(it.value());

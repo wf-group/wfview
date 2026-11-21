@@ -8,6 +8,7 @@ int runClusterTests(int argc, char **argv);
 int runIaxClientSessionTests(int argc, char **argv);
 int runIcomScopeFrameAssemblerTests(int argc, char **argv);
 int runIcomUdpBaseTests(int argc, char **argv);
+int runLanCodecsTests(int argc, char **argv);
 int runModSourceTests(int argc, char **argv);
 int runPeriodicModeTests(int argc, char **argv);
 int runPingDelayTrackerTests(int argc, char **argv);
@@ -30,6 +31,7 @@ int main(int argc, char **argv)
     status |= runIaxClientSessionTests(argc, argv);
     status |= runIcomScopeFrameAssemblerTests(argc, argv);
     status |= runIcomUdpBaseTests(argc, argv);
+    status |= runLanCodecsTests(argc, argv);
     status |= runModSourceTests(argc, argv);
     status |= runPeriodicModeTests(argc, argv);
     status |= runPingDelayTrackerTests(argc, argv);

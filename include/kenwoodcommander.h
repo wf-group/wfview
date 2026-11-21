@@ -71,6 +71,7 @@ private:
     void commonSetup();
     void startRtpAudio(bool localInputEnabled);
     void stopRtpAudio();
+    void voipRejected();
     void processExternalCommands(const QList<QByteArray> &commands);
     bool queueParsedExternalCommand(funcs func, const funcType &type, const QByteArray &payload, uchar receiver, const QByteArray &rawCommand);
     funcType getCommand(funcs func, QByteArray &payload, int value, uchar receiver=0);

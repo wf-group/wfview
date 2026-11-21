@@ -877,6 +877,9 @@ public:
     Q_INVOKABLE void setMacroShowButton(int id, bool show);
     Q_INVOKABLE QString sanitizeMacroName(const QString& name) const;
     Q_INVOKABLE QVariantList serverListenAddressOptions() const;
+    // LAN audio codec menu entries for a manufacturer: {text, value, separator}.
+    // The OEM codecs come first, then a separator and the wfview server codecs.
+    Q_INVOKABLE QVariantList lanCodecOptions(int manufacturer, bool tx) const;
     Q_INVOKABLE void saveLocalAFGain(int gain);
     Q_INVOKABLE QVariantMap restoredMainWindowGeometry() const;
     Q_INVOKABLE void saveMainWindowGeometry(int x, int y, int width, int height, bool maximized);
@@ -947,6 +950,7 @@ private:
     void refreshAudioDevices();
     bool resolveAudioDevice(audioSetup& setup, const QString& type);
     void applyManufacturerDefaults();
+    void enforceLanCodecs();
     void loadRadioProfiles();
     void saveRadioProfiles();
     QVariantMap currentRadioProfileValues() const;

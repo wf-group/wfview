@@ -38,6 +38,7 @@ SOURCES += \
     $$PWD/tst_controllercontroller.cpp \
     $$PWD/tst_icomscopeframeassembler.cpp \
     $$PWD/tst_icomudpbase.cpp \
+    $$PWD/tst_lancodecs.cpp \
     $$PWD/tst_iaxclientsession.cpp \
     $$PWD/tst_modsource.cpp \
     $$PWD/tst_periodicmode.cpp \
@@ -55,6 +56,7 @@ SOURCES += \
     $$PWD/../src/iaxclientsession.cpp \
     $$PWD/../src/radio/icomscopeframeassembler.cpp \
     $$PWD/../src/radio/icomudpbase.cpp \
+    $$PWD/../src/radio/lancodecs.cpp \
     $$PWD/../src/logcategories.cpp \
     $$PWD/../src/radiotransportframe.cpp \
     $$PWD/../src/rigctlcompat.cpp \
@@ -69,6 +71,7 @@ HEADERS += \
     $$PWD/../include/iaxclientsession.h \
     $$PWD/../include/icomscopeframeassembler.h \
     $$PWD/../include/icomudpbase.h \
+    $$PWD/../include/lancodecs.h \
     $$PWD/../include/logcategories.h \
     $$PWD/../include/pingdelaytracker.h \
     $$PWD/../include/radiotransport.h \

@@ -203,6 +203,7 @@ SOURCES += \
     src/radio/icomudpcivdata.cpp \
     src/radio/icomudphandler.cpp \
     src/radio/kenwoodcommander.cpp \
+    src/radio/lancodecs.cpp \
     src/radio/kenwoodserver.cpp \
     src/radio/yaesucommander.cpp \
     src/radio/yaesuvalues.cpp \
@@ -258,6 +259,7 @@ HEADERS  += \
     include/directradiotransport.h \
     include/ft4222handler.h \
     include/kenwoodcommander.h \
+    include/lancodecs.h \
     include/radiotransport.h \
     include/rigcommander.h \
     include/icomcommander.h \

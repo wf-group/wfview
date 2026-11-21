@@ -2,6 +2,7 @@
 #include <QDebug>
 
 #include "rigidentities.h"
+#include "lancodecs.h"
 #include "logcategories.h"
 #include "printhex.h"
 #include "mcphooks.h"
@@ -155,6 +156,23 @@ void kenwoodCommander::startRtpAudio(bool localInputEnabled)
     QObject::connect(rtp, SIGNAL(haveInLevels(quint16, quint16, quint16, quint16, bool, bool)), this, SLOT(getTxLevels(quint16, quint16, quint16, quint16, bool, bool)));
     rtpThread->start(QThread::TimeCriticalPriority);
     emit initRtpAudio();
+}
+
+// A Kenwood radio rejects ##VP3 (Opus), which only a wfview server offers.
+// Fall back to LPCM 16 bit like the Icom client does.
+void kenwoodCommander::voipRejected()
+{
+    if (kenwoodVoipModeForCodec(rxSetup.codec) != kenwoodVoipModeForCodec(lanCodecOpus1ch))
+        return;
+
+    qWarning(logRig()) << "Radio rejected Opus audio, using LPCM 16bit";
+    emit havePortError(errorType(prefs.ipAddress, QStringLiteral("Opus codec not supported, forcing LPCM16")));
+
+    rxSetup.codec = lanCodecPcm16Bit1ch;
+    txSetup.codec = lanCodecPcm16Bit1ch;
+    stopRtpAudio();
+    startRtpAudio(false);
+    receiveCommand(funcVOIP, QVariant::fromValue<uchar>(kenwoodVoipModeForCodec(rxSetup.codec)), 0);
 }
 
 void kenwoodCommander::stopRtpAudio()
@@ -1354,6 +1372,8 @@ void kenwoodCommander::parseData(QByteArray data)
         case funcFA:
             qInfo(logRig()) << "Rig error, last command sent:" << funcString[lastCommand.func] << "(min:" << lastCommand.minValue << "max:" <<
                 lastCommand.maxValue << "bytes:" << lastCommand.bytes <<  ") data:" << lastCommand.data;
+            if (lastCommand.func == funcVOIP && usingNativeLAN)
+                voipRejected();
             break;
         default:
             qWarning(logRig()).noquote() << "Unhandled command received from rig:" << funcString[func] << "value:" << d.mid(0,10);
