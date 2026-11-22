@@ -4,6 +4,7 @@
 #include "rtpaudio.h"
 #include <QElapsedTimer>
 #include <QList>
+#include <QTimer>
 #include <QSerialPort>
 #include <ft4222handler.h>
 
@@ -11,6 +12,7 @@
 #include "yaesuudpcat.h"
 #include "yaesuudpaudio.h"
 #include "yaesuudpscope.h"
+#include "yaesustatusblock.h"
 
 #define audioLevelBufferSize (4)
 
@@ -103,6 +105,27 @@ private:
     QElapsedTimer commandClock;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
+
+    // Scope frames that carry the radio's status block (rigCaps.scopeStatusBlock).
+    void updateScopeWindow(const QByteArray &data, double vfoMHz, const centerSpanData &cs, scopeData &scope);
+    funcs scopeWindowRead() const;
+    void syncScopeWindowPoll();
+    void checkScopeFrames();
+    bool scopeFramesLive() const;
+    // The scope's display start in Cursor and Fixed modes, read with the rig file's Scope Range
+    // (Cursor) and Scope Fixed Edge Freq (Fixed) commands.
+    quint8 scopeWindowMode = 0xff; // 0 = Center, 1 = Cursor, 2 = Fixed; 0xff while no frames arrive
+    quint8 scopeWindowSpan = 0xff;
+    bool scopeWindowKnown = false;
+    double scopeWindowStartMHz = 0.0;
+    QElapsedTimer scopeWindowAsked;
+    // The last VFO-A the radio reported itself (Auto Information or a reply), newer than the scope frames.
+    quint64 vfoReportHz = 0;
+    QElapsedTimer vfoReportClock;
+    // The status block's values, and when the last scope frame arrived.
+    YaesuStatusConfirm statusConfirm;
+    QElapsedTimer scopeFrameClock;
+    QTimer *scopeFrameTimer = nullptr;
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

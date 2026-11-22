@@ -13,6 +13,16 @@ namespace
 // A ?; reply is reported with the commands sent this long before it.
 constexpr qint64 rejectedCommandWindowMs = 500;
 constexpr int maxRecentCommands = 16;
+// Scope frame byte holding the scope display mode: 0 = Center, 1 = Cursor, 2 = Fixed.
+constexpr int scopeWindowModeByte = 52;
+// A one-off read of the scope window start is queued at most this often.
+constexpr qint64 scopeWindowReadGapMs = 200;
+// How long a VFO-A report from the radio is taken as newer than the scope frames.
+constexpr qint64 vfoReportNewerMs = 1000;
+// The scope frames have stopped when none arrived for this long.
+constexpr qint64 scopeFramesStoppedMs = 2000;
+// How often the scope window read is matched to the scope mode, and the frames checked.
+constexpr int scopeFrameCheckMs = 1000;
 }
 
 namespace
@@ -192,6 +202,105 @@ void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     commonSetup();
 }
 
+// The periodic read for the scope window start in the current scope mode, or funcNone.
+funcs yaesuCommander::scopeWindowRead() const
+{
+    const funcs read = scopeWindowMode == 1 ? funcScopeRange
+                     : scopeWindowMode == 2 ? funcScopeFixedEdgeFreq
+                                            : funcNone;
+    return rigCaps.commands.contains(read) ? read : funcNone;
+}
+
+// Keeps only the current scope mode's window read in the periodic queue, at the priority the
+// rig file gives it. Neither is polled in Center mode or while no scope frames arrive.
+void yaesuCommander::syncScopeWindowPoll()
+{
+    const funcs read = scopeWindowRead();
+    for (const funcs f : {funcScopeRange, funcScopeFixedEdgeFreq})
+    {
+        if (!rigCaps.commands.contains(f))
+            continue;
+        if (f != read)
+        {
+            queue->del(f, 0);
+            continue;
+        }
+        for (const periodicType &p : std::as_const(rigCaps.periodic))
+        {
+            if (p.func == f)
+                queue->addUnique(queuePriority(p.prioVal), f, true, 0);
+        }
+    }
+}
+
+// In Cursor and Fixed scope modes the display does not centre on the VFO: it starts at a
+// frequency the radio keeps per band. The periodic read keeps that current; a one-off read is
+// queued as well when it is not known (the mode or span changed) and when the VFO has left the
+// window (the Cursor window then moves). Until it is known, the centred axis is kept.
+void yaesuCommander::updateScopeWindow(const QByteArray &data,
+                                       double vfoMHz,
+                                       const centerSpanData &cs,
+                                       scopeData &scope)
+{
+    if (!rigCaps.scopeStatusBlock || data.size() <= scopeWindowModeByte)
+        return;
+
+    const quint8 windowMode = quint8(data.at(scopeWindowModeByte));
+    if (windowMode != scopeWindowMode)
+    {
+        qDebug(logRig()) << "Scope window mode" << windowMode << "(0 = Center, 1 = Cursor, 2 = Fixed)";
+        scopeWindowMode = windowMode;
+        scopeWindowKnown = false;
+        syncScopeWindowPoll();
+    }
+    if (cs.reg != scopeWindowSpan)
+    {
+        scopeWindowSpan = cs.reg;
+        scopeWindowKnown = false;
+    }
+
+    const funcs read = scopeWindowRead();
+    if (read == funcNone)
+        return;
+
+    const double spanMHz = cs.freq / 1000000.0;
+    const bool vfoOutside = scopeWindowKnown && yaesuVfoOutsideScopeWindow(vfoMHz, scopeWindowStartMHz, spanMHz);
+    if ((!scopeWindowKnown || vfoOutside)
+        && (!scopeWindowAsked.isValid() || scopeWindowAsked.elapsed() > scopeWindowReadGapMs))
+    {
+        queue->add(priorityImmediate, queueItem(read, false, 0));
+        scopeWindowAsked.start();
+    }
+
+    if (scopeWindowKnown)
+    {
+        scope.startFreq = scopeWindowStartMHz;
+        scope.endFreq = scopeWindowStartMHz + spanMHz;
+    }
+}
+
+bool yaesuCommander::scopeFramesLive() const
+{
+    return scopeFrameClock.isValid() && scopeFrameClock.elapsed() < scopeFramesStoppedMs;
+}
+
+// Runs every second. Keeps the scope window read in the queue matched to the scope mode, which
+// also covers a queue that was cleared and refilled (the startup reads), and stops the read when
+// the scope frames stop.
+void yaesuCommander::checkScopeFrames()
+{
+    if (queue == nullptr || !haveRigCaps)
+        return;
+
+    if (!scopeFramesLive() && scopeWindowMode != 0xff)
+    {
+        scopeWindowMode = 0xff;
+        scopeWindowKnown = false;
+        statusConfirm.reset();
+    }
+    syncScopeWindowPoll();
+}
+
 void yaesuCommander::haveScopeData(QByteArray in)
 {
     /*  in contains a valid yaesu data packet.
@@ -339,6 +448,19 @@ void yaesuCommander::haveScopeData(QByteArray in)
     scope.receiver=0;
     scope.startFreq=fa.MHzDouble-((cs.freq/2)/1000000.0);
     scope.endFreq=fa.MHzDouble+((cs.freq/2)/1000000.0);
+    updateScopeWindow(data, fa.MHzDouble, cs, scope);
+    // The radio reports a new VFO-A (Auto Information) before a scope frame carries it. While such a
+    // report is recent, it is newer than the frame's value: the Center axis centres on it, as the radio's
+    // own display does, and the frame's older value is not stored over it.
+    const bool vfoReportNewer = rigCaps.scopeStatusBlock
+        && yaesuVfoReportNewer(vfoReportClock.isValid() ? vfoReportClock.elapsed() : -1, vfoReportHz, fa.Hz,
+                               vfoReportNewerMs);
+    if (vfoReportNewer && scopeWindowMode == 0)
+    {
+        const double centreMHz = vfoReportHz / 1000000.0;
+        scope.startFreq = centreMHz - ((cs.freq / 2) / 1000000.0);
+        scope.endFreq = centreMHz + ((cs.freq / 2) / 1000000.0);
+    }
     scope.mode = mode;
     scope.oor = false;
     scope.fixedEdge = 1;
@@ -346,11 +468,32 @@ void yaesuCommander::haveScopeData(QByteArray in)
     queue->receiveValue(funcScopeWaveData,QVariant::fromValue<scopeData>(scope),0);
 
     if (rigCaps.commands.contains(funcFreq)) {
-        queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fa),0);
         queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fb),1);
     } else {
-        queue->receiveValue(funcSelectedFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcSelectedFreq,QVariant::fromValue<freqt>(fa),0);
         queue->receiveValue(funcUnselectedFreq,QVariant::fromValue<freqt>(fb),0);
+    }
+
+    if (rigCaps.scopeStatusBlock)
+    {
+        // The status block's values go to the cache like any reply from the radio. The periodic
+        // reads of the same values stay in the queue.
+        const QHash<funcs, QVariant> changed = statusConfirm.update(yaesuStatusBlockValues(data));
+        for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
+        {
+            if (rigCaps.commands.contains(it.key()))
+                queue->receiveValue(it.key(), it.value(), 0);
+        }
+        scopeFrameClock.start();
+        if (scopeFrameTimer == nullptr)
+        {
+            scopeFrameTimer = new QTimer(this);
+            connect(scopeFrameTimer, &QTimer::timeout, this, &yaesuCommander::checkScopeFrames);
+            scopeFrameTimer->start(scopeFrameCheckMs);
+        }
     }
 
     emit setScopePoll(quint64(specTime+wfTime+10));
@@ -1102,6 +1245,11 @@ void yaesuCommander::parseData(QByteArray data)
             {
                 f.MHzDouble = f.Hz/1000000.0;
                 value.setValue(f);
+                if (receiver == 0 && func != funcUnselectedFreq)
+                {
+                    vfoReportHz = f.Hz;
+                    vfoReportClock.start();
+                }
             }
             break;
         }
@@ -1180,6 +1328,20 @@ void yaesuCommander::parseData(QByteArray data)
         case funcPBTInner:
         case funcPBTOuter:
             break;
+        case funcScopeRange:
+        case funcScopeFixedEdgeFreq:
+        {
+            // The display start in Hz for the Cursor (Scope Range) or Fixed (Scope Fixed Edge Freq)
+            // scope mode. A reply for the mode the scope has since left is not used.
+            bool ok = false;
+            const qint64 hz = d.left(type.bytes).toLongLong(&ok);
+            if (ok && func == scopeWindowRead())
+            {
+                scopeWindowStartMHz = hz / 1000000.0;
+                scopeWindowKnown = true;
+            }
+            break;
+        }
         case funcFilterWidth: {
             // We need to work out which mode first:
             uchar v = uchar(d.toShort());

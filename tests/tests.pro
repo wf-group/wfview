@@ -8,6 +8,8 @@ include(../version.pri)
 CONFIG -= app_bundle
 
 DEFINES += OUTSIDE_SPEEX
+# Rig files checked by tst_yaesustatusblock.cpp.
+DEFINES += WFVIEW_RIGS_DIR=\\\"$$PWD/../rigs\\\"
 DEFINES += RANDOM_PREFIX=wf
 DEFINES += EIGEN_MPL2_ONLY
 DEFINES += EIGEN_DONT_VECTORIZE
@@ -49,6 +51,7 @@ SOURCES += \
     $$PWD/tst_rigprotocols.cpp \
     $$PWD/tst_txaudiopacer.cpp \
     $$PWD/tst_yaesuvalues.cpp \
+    $$PWD/tst_yaesustatusblock.cpp \
     $$PWD/../src/audio/txaudiopacer.cpp \
     $$PWD/../src/cluster.cpp \
     $$PWD/../src/ControllerController.cpp \
@@ -62,7 +65,8 @@ SOURCES += \
     $$PWD/../src/rigctlcompat.cpp \
     $$PWD/../src/cachingqueue.cpp \
     $$PWD/../src/rigctld.cpp \
-    $$PWD/../src/radio/yaesuvalues.cpp
+    $$PWD/../src/radio/yaesuvalues.cpp \
+    $$PWD/../src/radio/yaesustatusblock.cpp
 
 HEADERS += \
     $$PWD/../include/cluster.h \
@@ -81,4 +85,5 @@ HEADERS += \
     $$PWD/../include/cachingqueue.h \
     $$PWD/../include/txaudiopacer.h \
     $$PWD/../include/usbcontroller.h \
-    $$PWD/../include/yaesuvalues.h
+    $$PWD/../include/yaesuvalues.h \
+    $$PWD/../include/yaesustatusblock.h
