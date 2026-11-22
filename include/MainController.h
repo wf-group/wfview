@@ -538,6 +538,7 @@ private:
     int startDisconnectActions();
     void setClosingActionsText(const QString& text);
     void disconnectRig();
+    void releaseRigCapsBeforeRigDeletion();
     funcType inputLevelCommand(inputTypes input) const;
     uchar currentDataMode() const;
     void receiveModInput(const rigInput& input, int dataMode);
