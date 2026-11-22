@@ -1590,6 +1590,13 @@ Control {
                             function widthAt(v) {
                                 return stepped ? widths[Math.round(v)] : Math.round(v)
                             }
+
+                            AboveToolTip {
+                                text: filterWidthSlider.stepped
+                                      ? qsTr("IF filter width. Steps through the widths the radio offers in this mode.")
+                                      : qsTr("IF filter width, in Hz.")
+                                visible: filterWidthSlider.hovered || filterWidthSlider.pressed
+                            }
                         }
 
                         Label {
