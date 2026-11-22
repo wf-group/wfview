@@ -20,35 +20,8 @@ namespace
 constexpr int rmMeterDigits = 3;
 // CF000 sets and reports the RX and TX clarifier together: CF000<rx><tx>000;
 const QByteArray clarifierStatusCommand = QByteArrayLiteral("CF000");
-// KP sets the CW pitch in 10 Hz steps from 300 Hz.
-constexpr int cwPitchBaseHz = 300;
-constexpr int cwPitchStepHz = 10;
-
-ushort cwPitchHzFromSteps(int steps)
-{
-    return ushort(cwPitchBaseHz + steps * cwPitchStepHz);
-}
-
-int cwPitchStepsFromHz(int hz)
-{
-    return (hz - cwPitchBaseHz + cwPitchStepHz / 2) / cwPitchStepHz;
-}
-
 // The FT-710 rejects RF power above 25 W in AM and AM-N.
 constexpr ushort maxAmPower = 25;
-
-// wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
-// TS-890). The FT-710's CT uses 1 = CTCSS encode and decode (tone squelch) and
-// 2 = CTCSS encode only (tone); rigs like it set ToneSquelchIsOne in the rig
-// file. Other values are the same both ways.
-uchar swapYaesuToneMode(uchar mode)
-{
-    if (mode == 1)
-        return 2;
-    if (mode == 2)
-        return 1;
-    return mode;
-}
 }
 
 // Copyright 2017-2024 Elliott H. Liggett W6EL and Phil E. Taylor M0VSE
@@ -749,7 +722,7 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
     case funcRepeaterTone:
     {
         const uchar mode = uchar(d.mid(0, 1).toUShort(&ok));
-        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
+        value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
         break;
     }
     case funcRitStatus:
@@ -786,7 +759,7 @@ bool yaesuCommander::queueParsedExternalCommand(funcs func, const funcType &type
         break;
     }
     case funcCwPitch:
-        value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok)));
+        value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt(&ok))));
         break;
     case funcAGCTimeConstant:
     case funcMemorySelect:
@@ -1052,9 +1025,12 @@ void yaesuCommander::parseData(QByteArray data)
         }
 
         if (!rigCaps.commands.contains(func)) {
-            // Don't warn if we haven't received rigCaps yet
+            // Debug, not info: radios send auto-information the rig file doesn't
+            // list (the FT-710 broadcasts AS, OI and FT on front-panel changes),
+            // and the reply is simply ignored. It stays visible with --debug for
+            // anyone building a rig file.
             if (haveRigCaps)
-                qInfo(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
+                qDebug(logRig()) << "Unsupported command received from rig" << d << "Check rig file";
             continue;
         } else {
             type = this->rigCaps.commands.find(func).value();
@@ -1376,11 +1352,11 @@ void yaesuCommander::parseData(QByteArray data)
         case funcRepeaterTone:
         {
             const uchar mode = uchar(d.mid(0, 1).toUShort());
-            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? swapYaesuToneMode(mode) : mode);
+            value.setValue<uchar>(rigCaps.toneSquelchIsOne ? yaesuSwapToneMode(mode) : mode);
         }
             break;
         case funcCwPitch:
-            value.setValue<ushort>(cwPitchHzFromSteps(d.mid(0, type.bytes).toInt()));
+            value.setValue<ushort>(ushort(yaesuCwPitchHzFromSteps(d.mid(0, type.bytes).toInt())));
             break;
         case funcRitStatus:
             // Trailing zeros have been removed, so a missing second digit means TX clarifier off.
@@ -1529,8 +1505,8 @@ void yaesuCommander::parseData(QByteArray data)
                 if (now - c.ms <= rejectedCommandWindowMs)
                     recent.append(c.data);
             }
-            qInfo(logRig()).noquote() << "Rig rejected a command (?;). Sent in the last" << rejectedCommandWindowMs
-                                      << "ms:" << recent.join(' ');
+            qWarning(logRig()).noquote() << "Rig rejected a command (?;). Sent in the last"
+                                         << rejectedCommandWindowMs << "ms:" << recent.join(' ');
             break;
         }
         default:
@@ -1791,7 +1767,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
 
     if (func == funcRepeaterTone && value.isValid() && rigCaps.toneSquelchIsOne) {
         const uchar mode = !strcmp(value.typeName(), "bool") ? uchar(value.toBool()) : value.value<uchar>();
-        value.setValue<uchar>(swapYaesuToneMode(mode));
+        value.setValue<uchar>(yaesuSwapToneMode(mode));
     }
 
     // On the FT-710, turning the speech processor on sets its level to 50 and
@@ -2013,7 +1989,7 @@ void yaesuCommander::receiveCommand(funcs func, QVariant value, uchar receiver)
                 {
                     const int hz = qBound(int(cmd.minVal), int(value.value<ushort>()), int(cmd.maxVal));
                     payload.append(
-                        QString::number(cwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
+                        QString::number(yaesuCwPitchStepsFromHz(hz)).rightJustified(cmd.bytes, QChar('0')).toLatin1());
                 }
                 else if (func == funcFilterWidth)
                 {
