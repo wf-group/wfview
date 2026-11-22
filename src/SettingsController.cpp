@@ -4010,8 +4010,13 @@ void SettingsController::buildBindings()
     WF_BOOL("UDP.AdminLogin", udpPrefs.adminLogin,
             [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_adminLogin)); });
 
+    // One setting for both directions: loading copies it to TX too, so do the
+    // same on a change, or TX kept the old rate until wfview was restarted.
     WF_I32("UDP.SampleRate", prefs.rxSetup.sampleRate,
-           [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_sampleRate)); });
+           [this](){
+               prefs.txSetup.sampleRate = prefs.rxSetup.sampleRate;
+               emit udpChanged(prefUDPItems(prefUDPItem::u_sampleRate));
+           });
 
     WF_U16("UDP.RxLatency", prefs.rxSetup.latency,
            [this](){ emit udpChanged(prefUDPItems(prefUDPItem::u_rxLatency)); });
