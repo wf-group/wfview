@@ -104,36 +104,6 @@
     </clipPath>
     <filter
        style="color-interpolation-filters:sRGB"
-       inkscape:label="Electrize"
-       id="filter8799"
-       x="-0.041810416"
-       y="-0.051272776"
-       width="1.0836208"
-       height="1.1025456">
-      <feGaussianBlur
-         stdDeviation="1.37468"
-         result="blur"
-         id="feGaussianBlur8789" />
-      <feComponentTransfer
-         in="blur"
-         result="component"
-         id="feComponentTransfer8797">
-        <feFuncR
-           type="table"
-           tableValues="0 1 0 1 0 1 0 1 0 1"
-           id="feFuncR8791" />
-        <feFuncG
-           type="table"
-           tableValues="0 1 0 1 0 1 0 1 0 1"
-           id="feFuncG8793" />
-        <feFuncB
-           type="table"
-           tableValues="0 1 0 1 0 1 0 1 0 1"
-           id="feFuncB8795" />
-      </feComponentTransfer>
-    </filter>
-    <filter
-       style="color-interpolation-filters:sRGB"
        inkscape:label="Blur"
        id="filter9885"
        x="-0.00030414653"
