@@ -3296,6 +3296,9 @@ void MainController::setupUsbAudioBridge()
 {
     stopUsbAudioBridge();
 
+    // USB RX audio is encoded to rxSetup's codec and rate, as LAN audio is.
+    refreshTciRxBridge();
+
     const AudioRouteState route = currentAudioRoute();
     if (!prefs || route.rxSource != RadioRxAudioSource::LocalUsb)
         return;
@@ -4202,7 +4205,26 @@ void MainController::setupTciRxBridge()
             Qt::QueuedConnection);
     tciRxOutputThread->start(QThread::TimeCriticalPriority);
     QMetaObject::invokeMethod(tciRxOutputAudio, "init", Qt::QueuedConnection, Q_ARG(audioSetup, tciRx));
-    qInfo(logAudio()) << "TCI RX audio bridge enabled";
+    tciRxBridgeCodec = tciRx.codec;
+    tciRxBridgeRate = tciRx.sampleRate;
+    qInfo(logAudio()) << "TCI RX audio bridge enabled, codec" << tciRx.codec << "rate" << tciRx.sampleRate;
+}
+
+void MainController::refreshTciRxBridge()
+{
+    // The bridge decodes the radio's RX audio, so it must use the codec and
+    // rate the radio audio path is about to use. It is built when the TCI
+    // server starts; rebuild it only if those have changed since, which
+    // happens before a connection, while no audio is flowing.
+    if (!prefs || !tci)
+        return;
+    if (tciRxOutputAudio && tciRxBridgeCodec == prefs->rxSetup.codec &&
+        tciRxBridgeRate == prefs->rxSetup.sampleRate)
+        return;
+    qInfo(logAudio()) << "TCI RX audio bridge: radio audio changed from codec" << tciRxBridgeCodec
+                      << "rate" << tciRxBridgeRate << "to codec" << prefs->rxSetup.codec
+                      << "rate" << prefs->rxSetup.sampleRate;
+    setupTciRxBridge();
 }
 
 void MainController::stopTciRxBridge()
@@ -4828,6 +4850,9 @@ void MainController::openRigConnection()
 
     // Set a suitable queue interval to ensure polling happens quickly enough.
     queue->interval(prefs->wfShareEnabled ? wfShareCmdInterval_ms : cmdStartupInterval_ms);
+
+    // rxSetup is fixed for this connection from here on.
+    refreshTciRxBridge();
 
     if (prefs->wfShareEnabled)
     {
