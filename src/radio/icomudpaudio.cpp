@@ -36,8 +36,19 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
     connect(areYouThereTimer, &QTimer::timeout, this, std::bind(&icomUdpBase::sendControl, this, false, 0x03, 0));
     areYouThereTimer->start(AREYOUTHERE_PERIOD);
     if (enableTx) {
-        txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, 1364,
-                                   [this](const QByteArray &payload) { sendTxPacket(payload); }, this);
+        // Pace whole 20 ms frames, and send each one the way the radio frames
+        // its own audio (and wfview 2.x did): in one datagram if it fits, else
+        // as 1364-byte datagrams plus the remainder, back to back. At 48 kHz
+        // 16-bit mono that is 1364 + 556 bytes per 20 ms. Pacing 1364-byte
+        // packets every 14.2 ms instead broke the radio's 20 ms framing, and
+        // an IC-7610 then transmitted no modulation at all.
+        constexpr int maxTxPayload = 1364;
+        const int frameBytes20ms = int(txSetup.sampleRate / 50) * txAudioPacer::bytesPerFrame(txSetup.codec);
+        txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, qMax(frameBytes20ms, maxTxPayload),
+                                   [this](const QByteArray &payload) {
+                                       for (int len = 0; len < payload.size(); len += maxTxPayload)
+                                           sendTxPacket(payload.mid(len, maxTxPayload));
+                                   }, this);
         txPacer->setRadioClock(&rxClock);
     }
 }

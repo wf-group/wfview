@@ -174,13 +174,27 @@ bool audioConverter::convert(audioPacket audio)
         }
         else if (inCodec == ADPCM)
         {
-            scratchIn.resize((int)((audio.data.length()-4) * 4));
-            qint16* out = (qint16*)scratchIn.data();
-            quint8* in = (quint8*)audio.data.data();
-            int samples = adpcm_decode_block(out,in,audio.data.size(),1);
-            if (samples != scratchIn.size()/2) {
-                qInfo() << "Sample size mismatch, audio packet in:" << audio.data.length() << "out:" << scratchIn.length() << "samples:" <<samples;
+            // A mono block is a 4 byte header holding the first sample, then
+            // 8 samples for every 4 bytes. adpcm_decode_block() writes the
+            // header sample too, but does not count it in what it returns.
+            const int n = int(audio.data.size());
+            const int expected = n >= 4 ? 1 + 8 * ((n - 4) / 4) : 0;
+            scratchIn.resize(expected * int(sizeof(qint16)));
+            const int samples = expected > 0
+                ? adpcm_decode_block(reinterpret_cast<qint16*>(scratchIn.data()),
+                                     reinterpret_cast<const quint8*>(audio.data.constData()), size_t(n), 1)
+                : 0;
+            if (samples <= 0) {
+                // Not ADPCM, or corrupt: drop it rather than pass on a
+                // buffer the decoder did not fill.
+                if (!adpcmErrorLog.isValid() || adpcmErrorLog.elapsed() > 5000) {
+                    qWarning(logAudioConverter()) << "ADPCM decode failed," << n
+                                                  << "byte packet dropped (codec mismatch?)";
+                    adpcmErrorLog.restart();
+                }
+                return false;
             }
+            scratchIn.resize((samples + 1) * int(sizeof(qint16)));
             audio.data.swap(scratchIn); // Replace incoming data with converted.
         }
 

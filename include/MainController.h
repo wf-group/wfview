@@ -598,6 +598,7 @@ private:
     void ensureServerTxAudio(quint8 codec, quint32 sampleRate);
     void stopServerHostAudio();
     void setupTciRxBridge();
+    void refreshTciRxBridge();
     void stopTciRxBridge();
     void setupUsbAudioBridge();
     void stopUsbAudioBridge();
@@ -705,6 +706,9 @@ private:
     QThread* usbRxOutputThread = nullptr;
     audioHandlerBase* tciRxOutputAudio = nullptr;
     QThread* tciRxOutputThread = nullptr;
+    // The radio audio format the TCI RX bridge decodes, as it was built.
+    quint8 tciRxBridgeCodec = 0;
+    quint32 tciRxBridgeRate = 0;
     audioHandlerBase* usbTxInputAudio = nullptr;
     QThread* usbTxInputThread = nullptr;
     audioHandlerBase* usbRadioTxAudio = nullptr;
