@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QTime>
+#include <QElapsedTimer>
 #include <QMap>
 #include <QDebug>
 #include <QAudioFormat>
@@ -151,6 +152,7 @@ protected:
     codecType       inCodec;
     codecType       outCodec;
     void * adpcmContext = Q_NULLPTR;
+    QElapsedTimer adpcmErrorLog;
     QByteArray scratchIn;
     QByteArray scratchOut;
     Eigen::VectorXf scratchF;
