@@ -13,6 +13,8 @@ private slots:
     void ifShiftParse();
     void scopeRefFormat();
     void scopeRefParse();
+    void scopeWindowOutside();
+    void vfoReportNewerRules();
 };
 
 void YaesuValuesTest::delayCodesMatchTable()
@@ -88,6 +90,30 @@ void YaesuValuesTest::scopeRefParse()
     QCOMPARE(level, -300);
     QVERIFY(!yaesuParseScopeRef("+055", &level));
     QVERIFY(!yaesuParseScopeRef("05.50", &level));
+}
+
+void YaesuValuesTest::scopeWindowOutside()
+{
+    // Window 28.200-28.300 MHz.
+    QVERIFY(!yaesuVfoOutsideScopeWindow(28.250, 28.200, 0.100));
+    QVERIFY(!yaesuVfoOutsideScopeWindow(28.200, 28.200, 0.100));
+    QVERIFY(!yaesuVfoOutsideScopeWindow(28.300, 28.200, 0.100));
+    QVERIFY(yaesuVfoOutsideScopeWindow(28.199, 28.200, 0.100));
+    QVERIFY(yaesuVfoOutsideScopeWindow(28.301, 28.200, 0.100));
+}
+
+void YaesuValuesTest::vfoReportNewerRules()
+{
+    const qint64 limit = 1000;
+    // No report yet.
+    QVERIFY(!yaesuVfoReportNewer(-1, 28210000, 28200000, limit));
+    // A recent report that differs from the frame is newer.
+    QVERIFY(yaesuVfoReportNewer(30, 28210000, 28200000, limit));
+    QVERIFY(yaesuVfoReportNewer(999, 28210000, 28200000, limit));
+    // Once the frames carry the same frequency, they are current again.
+    QVERIFY(!yaesuVfoReportNewer(30, 28210000, 28210000, limit));
+    // An old report is not newer.
+    QVERIFY(!yaesuVfoReportNewer(1000, 28210000, 28200000, limit));
 }
 
 int runYaesuValuesTests(int argc, char **argv)
