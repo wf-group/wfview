@@ -283,6 +283,7 @@ struct widthsType {
     ushort bands;
     uchar num;
     ushort hz;
+    QList<rigMode_t> modes; // The modes in bands, set when the rig file is loaded
 };
 
 //model_kind determineRadioModel(quint8 rigID);

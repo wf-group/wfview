@@ -47,6 +47,20 @@ static quint8 rigModeRegister(const QVariant &value, manufacturersType_t manufac
     return static_cast<quint8>(text.toUInt());
 }
 
+// The bit for a mode register in a width table's Bands mask. Yaesu registers are
+// stored as their ASCII hex digit ('2' for USB, 'A' for DATA-FM), so the digit's value is the bit.
+static int rigModeRegisterBit(quint8 reg, manufacturersType_t manufacturer)
+{
+    if (manufacturer == manufYaesu)
+    {
+        if (reg >= '0' && reg <= '9')
+            return reg - '0';
+        if (reg >= 'A' && reg <= 'F')
+            return reg - 'A' + 10;
+    }
+    return reg;
+}
+
 rigCommander::rigCommander(QObject* parent) : QObject(parent)
 {
     qInfo(logRig()) << "creating instance of rigCommander()";
@@ -776,9 +790,16 @@ void rigCommander::determineRigCaps()
         for (int c = 0; c < numWidths; c++)
         {
             settings->setArrayIndex(c);
-            rigCaps.widths.push_back(widthsType(settings->value("Bands", 0).toString().toUShort(nullptr,16),
-                                                static_cast<uchar>(settings->value("Num", 0).toString().toUShort()),
-                                                settings->value("Hz", 0).toString().toUShort()));
+            widthsType w(settings->value("Bands", 0).toString().toUShort(nullptr, 16),
+                         static_cast<uchar>(settings->value("Num", 0).toString().toUShort()),
+                         settings->value("Hz", 0).toString().toUShort());
+            for (const modeInfo &m : rigCaps.modes)
+            {
+                const int bit = rigModeRegisterBit(m.reg, rigCaps.manufacturer);
+                if (bit < 16 && ((w.bands >> bit) & 0x01))
+                    w.modes.append(m.mk);
+            }
+            rigCaps.widths.push_back(w);
         }
         std::sort(rigCaps.widths.begin(), rigCaps.widths.end(),
                   [](const widthsType &a, const widthsType &b) {

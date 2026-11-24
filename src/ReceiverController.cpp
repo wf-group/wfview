@@ -103,6 +103,40 @@ bool ReceiverController::periodicCommandAllowedByMode(funcs func, uchar receiver
     return periodicCommandAllowedForMode(rigCaps->periodic, func, receiver, mode.name);
 }
 
+// A rig file width table lists the widths each mode accepts. Without a table,
+// the mode's range applies.
+void ReceiverController::updateFilterWidths()
+{
+    QVariantList widths;
+    int widthMin = 0;
+    int widthMax = 0;
+    if (rigCaps && !rigCaps->widths.empty())
+    {
+        for (const auto &w : rigCaps->widths)
+        {
+            if (w.modes.contains(mode.mk))
+                widths.append(int(w.hz));
+        }
+        if (!widths.isEmpty())
+        {
+            widthMin = widths.first().toInt();
+            widthMax = widths.last().toInt();
+        }
+    }
+    else if (mode.bwMin > 0 && mode.bwMax > mode.bwMin)
+    {
+        widthMin = mode.bwMin;
+        widthMax = mode.bwMax;
+    }
+
+    if (widths == filterWidths && widthMin == filterWidthMin && widthMax == filterWidthMax)
+        return;
+    filterWidths = widths;
+    filterWidthMin = widthMin;
+    filterWidthMax = widthMax;
+    emit filterWidthsChanged();
+}
+
 void ReceiverController::updateModeSensitiveUiSpecs()
 {
     bool changed = false;
@@ -774,6 +808,7 @@ void ReceiverController::receiveMode(modeInfo m, uchar vfo)
 
         mode = confirmed;
         updateModeSensitiveUiSpecs();
+        updateFilterWidths();
         if (modeValueChanged)
             emit modeChanged();
         if (filterValueChanged)
@@ -1263,9 +1298,9 @@ void ReceiverController::setIfShift(int v, bool u)
 
 void ReceiverController::setFilterWidth(int v, bool u)
 {
-    qInfo() << "*** FILTER WIDTH" << v << "user" <<u;
     if (filterWidth != v)
     {
+        qDebug(logSystem()) << "Filter width" << v << "Hz, user" << u;
         filterWidth = v;
         emit filterWidthChanged();
         setPassbandWidth(v);
@@ -1923,6 +1958,7 @@ void ReceiverController::receiveRigCaps(rigCapabilities* caps)
         setActive(true);
 
     buildUiSpecs();
+    updateFilterWidths();
 
     /*
         freqDisplayA = root->findChild<FreqCtrlQuick*>("leftFreq");
