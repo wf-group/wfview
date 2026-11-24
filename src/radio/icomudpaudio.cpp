@@ -42,7 +42,7 @@ icomUdpAudio::icomUdpAudio(QHostAddress local, QHostAddress ip, quint16 audioPor
         // 16-bit mono that is 1364 + 556 bytes per 20 ms. Pacing 1364-byte
         // packets every 14.2 ms instead broke the radio's 20 ms framing, and
         // an IC-7610 then transmitted no modulation at all.
-        constexpr int maxTxPayload = 1364;
+        static constexpr int maxTxPayload = 1364; // static: MSVC x86 will not use it in the lambda uncaptured
         const int frameBytes20ms = int(txSetup.sampleRate / 50) * txAudioPacer::bytesPerFrame(txSetup.codec);
         txPacer = new txAudioPacer(txSetup.codec, txSetup.sampleRate, qMax(frameBytes20ms, maxTxPayload),
                                    [this](const QByteArray &payload) {
