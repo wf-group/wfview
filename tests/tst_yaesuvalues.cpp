@@ -13,6 +13,8 @@ private slots:
     void ifShiftParse();
     void scopeRefFormat();
     void scopeRefParse();
+    void cwPitchStepsAndHz();
+    void toneModeSwap();
 };
 
 void YaesuValuesTest::delayCodesMatchTable()
@@ -88,6 +90,30 @@ void YaesuValuesTest::scopeRefParse()
     QCOMPARE(level, -300);
     QVERIFY(!yaesuParseScopeRef("+055", &level));
     QVERIFY(!yaesuParseScopeRef("05.50", &level));
+}
+
+void YaesuValuesTest::cwPitchStepsAndHz()
+{
+    // KP00 is 300 Hz and KP75 is 1050 Hz, in 10 Hz steps.
+    QCOMPARE(yaesuCwPitchHzFromSteps(0), 300);
+    QCOMPARE(yaesuCwPitchHzFromSteps(30), 600);
+    QCOMPARE(yaesuCwPitchHzFromSteps(75), 1050);
+    for (int steps = 0; steps <= 75; ++steps)
+        QCOMPARE(yaesuCwPitchStepsFromHz(yaesuCwPitchHzFromSteps(steps)), steps);
+    // Hz between steps rounds to the nearest step.
+    QCOMPARE(yaesuCwPitchStepsFromHz(604), 30);
+    QCOMPARE(yaesuCwPitchStepsFromHz(605), 31);
+}
+
+void YaesuValuesTest::toneModeSwap()
+{
+    QCOMPARE(yaesuSwapToneMode(0), quint8(0));
+    QCOMPARE(yaesuSwapToneMode(1), quint8(2));
+    QCOMPARE(yaesuSwapToneMode(2), quint8(1));
+    QCOMPARE(yaesuSwapToneMode(3), quint8(3));
+    QCOMPARE(yaesuSwapToneMode(4), quint8(4));
+    for (quint8 mode = 0; mode < 10; ++mode)
+        QCOMPARE(yaesuSwapToneMode(yaesuSwapToneMode(mode)), mode);
 }
 
 int runYaesuValuesTests(int argc, char **argv)

@@ -22,3 +22,14 @@ bool yaesuParseIfShift(const QByteArray &text, int *hz);
 QByteArray yaesuFormatScopeRef(int tenthsDb);
 // Parses the sign, digits and point; false if they are malformed.
 bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb);
+
+// CW pitch (KP): step numbers 00-75 mean 300-1050 Hz in 10 Hz steps.
+int yaesuCwPitchHzFromSteps(int steps);
+// The step nearest to hz (not clamped).
+int yaesuCwPitchStepsFromHz(int hz);
+
+// wfview's single tone command uses 1 = tone and 2 = tone squelch (as on the
+// TS-890). The FT-710's CT uses 1 = CTCSS encode and decode (tone squelch) and
+// 2 = CTCSS encode only (tone); rigs like it set ToneSquelchIsOne in the rig
+// file. This swaps 1 and 2; other values are the same both ways.
+quint8 yaesuSwapToneMode(quint8 mode);

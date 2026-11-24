@@ -99,3 +99,28 @@ bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb)
     *tenthsDb = whole * 10 + (text.at(0) == '-' ? -tenths : tenths);
     return true;
 }
+
+namespace
+{
+constexpr int cwPitchBaseHz = 300;
+constexpr int cwPitchStepHz = 10;
+} // namespace
+
+int yaesuCwPitchHzFromSteps(int steps)
+{
+    return cwPitchBaseHz + steps * cwPitchStepHz;
+}
+
+int yaesuCwPitchStepsFromHz(int hz)
+{
+    return (hz - cwPitchBaseHz + cwPitchStepHz / 2) / cwPitchStepHz;
+}
+
+quint8 yaesuSwapToneMode(quint8 mode)
+{
+    if (mode == 1)
+        return 2;
+    if (mode == 2)
+        return 1;
+    return mode;
+}
