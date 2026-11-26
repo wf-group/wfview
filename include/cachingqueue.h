@@ -176,7 +176,7 @@ private:
     std::atomic_bool aborted{false};
     qint64 queueInterval=-1; // Don't start the timer!
     
-    rigCapabilities* rigCaps = nullptr; // Must be NULL until a radio is connected
+    rigCapabilities* rigCaps = nullptr; // mutex; must be NULL until a radio is connected
     
     // Functions
     void run();
@@ -231,7 +231,7 @@ public:
     void setRigCaps(rigCapabilities* caps);
     queueStats getStats();
     void resetStats();
-    rigCapabilities* getRigCaps() { return rigCaps; }
+    rigCapabilities* getRigCaps() { QMutexLocker locker(&mutex); return rigCaps; }
     vfoCommandType getVfoCommand(vfo_t vfo, uchar rx, bool set=false);
     rigStateType getState() { QMutexLocker locker(&mutex); return rigState ;}
     // True when VFO B is active on a rig whose Selected/Unselected Freq commands are fixed to VFO A/B

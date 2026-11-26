@@ -321,6 +321,7 @@ bool cachingQueue::readRemapped(funcs cmd) const
 
 funcs cachingQueue::checkCommandAvailable(funcs cmd,bool set)
 {
+    QMutexLocker locker(&mutex);
     if (rigCaps == nullptr || cmd == funcNone || cmd == funcSelectVFO)
         return cmd;
 
@@ -416,8 +417,8 @@ vfoCommandType cachingQueue::getVfoCommand(vfo_t vfo,uchar rx, bool set)
     vfoCommandType cmd;
     cmd.receiver = rx;
     cmd.vfo = vfo;
+    QMutexLocker locker(&mutex);
     if (rigCaps != nullptr) {
-        QMutexLocker locker(&mutex);
 
         if (set) {
             cmd.modeFunc = ((rigCaps->commands.contains(funcMode)) ? funcMode: funcModeSet) ;
@@ -599,13 +600,17 @@ void cachingQueue::beginStartupReads()
 
 void cachingQueue::setRigCaps(rigCapabilities* caps)
 {
-    if (rigCaps != caps) {
+    {
+        QMutexLocker locker(&mutex);
+        if (rigCaps == caps)
+            return;
         rigCaps = caps;
-        // A new rig file may read what the old one could not.
-        for (auto &logged : unreadableLogged)
-            logged.store(false);
-        emit rigCapsUpdated(rigCaps);
     }
+    // A new rig file may read what the old one could not.
+    for (auto &logged : unreadableLogged)
+        logged.store(false);
+    // Emitted unlocked: direct-connected slots call back into the queue.
+    emit rigCapsUpdated(caps);
 }
 
 queueStats cachingQueue::getStats()

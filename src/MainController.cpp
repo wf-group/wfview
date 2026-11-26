@@ -4763,6 +4763,38 @@ void MainController::connectionHandler()
     emit connStatusChanged();
 }
 
+// Tells everything holding the rig's capabilities that they are going away,
+// before the rig (which owns them) is deleted. The rig's destructor does this
+// too, but from the rig thread: listeners on the main thread, such as each
+// rigctld client, only got it as a queued call that ran after the rig was
+// freed. A rigctld request handled in between (WSJT-X polls about once a
+// second) looked up a command in the freed capabilities and crashed.
+void MainController::releaseRigCapsBeforeRigDeletion()
+{
+    if (!queue || queue->getRigCaps() == nullptr)
+        return;
+
+    // Callers have already deleted the receivers and dropped their queued slot
+    // calls, so receiveRigCaps(nullptr) below finds none left.
+
+    // Emitted from this (main) thread: main-thread listeners - rigctld clients,
+    // this controller - drop the pointer now. The rig's own setRigCaps(nullptr)
+    // then changes nothing and is not emitted again.
+    queue->setRigCaps(nullptr);
+
+    // Listeners on their own threads get it queued; wait until each has
+    // processed it, so none can use the capabilities after the rig is deleted.
+    // Neither thread blocks on the main thread, so this cannot deadlock.
+    const auto flush = [](QObject *object) {
+        if (object && object->thread() != QThread::currentThread() && object->thread()->isRunning())
+            QMetaObject::invokeMethod(object, []() {}, Qt::BlockingQueuedConnection);
+    };
+    flush(tci);
+#if defined(USB_CONTROLLER)
+    flush(usbControllerDev);
+#endif
+}
+
 void MainController::disconnectRig()
 {
     setClosingActionsText(QString());
@@ -4794,6 +4826,8 @@ void MainController::disconnectRig()
     emit currentReceiverChanged();
     emit receiverCountChanged();
     emit detachedChanged();
+
+    releaseRigCapsBeforeRigDeletion();
 
     if (rig) {
         QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
@@ -5259,6 +5293,24 @@ void MainController::receivePortError(errorType err)
     resetTxAudioOwnership();
     stopRadioServer();
 
+    for (auto *r : std::as_const(receivers)) {
+        if (!r)
+            continue;
+        // Drop queued slot calls (e.g. setScopeData); they would run after the
+        // rig, and the rigCaps it owns, have been destroyed below.
+        QCoreApplication::removePostedEvents(r, QEvent::MetaCall);
+        r->deleteLater();
+    }
+    receivers.clear();
+    updateSplitTxFrequency();
+    detached.clear();
+    currentReceiver = 0;
+    emit currentReceiverChanged();
+    emit receiverCountChanged();
+    emit detachedChanged();
+
+    releaseRigCapsBeforeRigDeletion();
+
     if (rig) {
         QMetaObject::invokeMethod(rig, &rigCommander::closeComm,
                                   rig->thread() == QThread::currentThread()
@@ -5279,21 +5331,6 @@ void MainController::receivePortError(errorType err)
         m_cwSender->receiveRigCaps(nullptr);
         m_cwSender->receiveEnabled(false);
     }
-
-    for (auto *r : std::as_const(receivers)) {
-        if (!r)
-            continue;
-        // The rig and its rigCaps are gone; queued slot calls must not run.
-        QCoreApplication::removePostedEvents(r, QEvent::MetaCall);
-        r->deleteLater();
-    }
-    receivers.clear();
-    updateSplitTxFrequency();
-    detached.clear();
-    currentReceiver = 0;
-    emit currentReceiverChanged();
-    emit receiverCountChanged();
-    emit detachedChanged();
 
     if (m_memoriesModel) {
         m_memoriesModel->deleteLater();
