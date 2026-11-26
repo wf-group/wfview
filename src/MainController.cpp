@@ -4774,17 +4774,8 @@ void MainController::releaseRigCapsBeforeRigDeletion()
     if (!queue || queue->getRigCaps() == nullptr)
         return;
 
-<<<<<<< Updated upstream
-    // Receivers are deleted by receiveRigCaps(nullptr) below; drop their queued
-    // slot calls first so none runs after the rig has gone.
-    for (auto *r : std::as_const(receivers)) {
-        if (r)
-            QCoreApplication::removePostedEvents(r, QEvent::MetaCall);
-    }
-=======
     // Callers have already deleted the receivers and dropped their queued slot
     // calls, so receiveRigCaps(nullptr) below finds none left.
->>>>>>> Stashed changes
 
     // Emitted from this (main) thread: main-thread listeners - rigctld clients,
     // this controller - drop the pointer now. The rig's own setRigCaps(nullptr)
@@ -5302,8 +5293,6 @@ void MainController::receivePortError(errorType err)
     resetTxAudioOwnership();
     stopRadioServer();
 
-<<<<<<< Updated upstream
-=======
     for (auto *r : std::as_const(receivers)) {
         if (!r)
             continue;
@@ -5320,7 +5309,6 @@ void MainController::receivePortError(errorType err)
     emit receiverCountChanged();
     emit detachedChanged();
 
->>>>>>> Stashed changes
     releaseRigCapsBeforeRigDeletion();
 
     if (rig) {
