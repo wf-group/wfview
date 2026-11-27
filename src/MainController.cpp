@@ -1215,11 +1215,14 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     }
 
     const funcType type = rigCaps->commands.value(func);
-    // Whole-radio commands (RF power, mic gain, ...) use receiver 0; see
+    const bool level = isMacroLevelFunc(func);
+    // Whole-radio levels (RF power, mic gain, ...) use receiver 0; see
     // commandReceiver(). Using the selected receiver made the cache lookup
     // miss with Sub selected, which queued a read whose old-value reply
-    // arrived after the set and bounced the slider.
-    const uchar valueRx = commandReceiver(func, rx);
+    // arrived after the set and bounced the slider. Only levels are
+    // remapped: other commands without a 0x29 form, such as the scope
+    // commands, still carry the receiver in their payload.
+    const uchar valueRx = level ? commandReceiver(func, rx) : rx;
 
     // Commands that take no value (or a read) are sent on their own.
     if (param.isEmpty()) {
@@ -1227,11 +1230,15 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
         return true;
     }
 
-    const QVariant current = queue->getCache(func, valueRx).value;
     // Levels are always sent as ushort, like the UI sliders do. The cached
     // value can't be used for these: Icom replies are cached as uchar, and a
     // uchar is encoded as two BCD digits, which fails above 99 (about 38%).
-    int valueType = isMacroLevelFunc(func) ? int(QMetaType::UShort)
+    // Yaesu sends uchar values in hex, so those levels were wrong too.
+    // The cache isn't read for levels at all: a stale entry makes getCache()
+    // queue a read ahead of the set, and its old-value reply moves the
+    // slider back after the immediate UI update below.
+    const QVariant current = level ? QVariant() : queue->getCache(func, valueRx).value;
+    int valueType = level ? int(QMetaType::UShort)
                   : current.isValid() ? current.userType()
                   : (type.maxVal > 255 ? int(QMetaType::UShort) : int(QMetaType::UChar));
 
@@ -1252,7 +1259,7 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     }
 
     QString number = param;
-    const bool percent = number.endsWith(QLatin1Char('%')) || isMacroLevelFunc(func);
+    const bool percent = number.endsWith(QLatin1Char('%')) || level;
     if (number.endsWith(QLatin1Char('%')))
         number.chop(1);
     bool ok = false;
@@ -1316,7 +1323,7 @@ bool MainController::executeMacroRadioStep(funcs func, const QString& parameter,
     // for the next poll (several seconds) before its slider moved. Apply the
     // new value to the UI now, the same way a poll reply would; these cases
     // in receiveValueFromQueue() only update the UI and don't send anything.
-    if (isMacroLevelFunc(func))
+    if (level)
         receiveValueFromQueue(cacheItem(func, value, valueRx));
 
     return true;
@@ -1889,7 +1896,7 @@ void MainController::setModSource(int dataMode, int reg)
 
     const auto levelCommand = inputLevelCommand(it->type);
     if (levelCommand.cmd != funcNone)
-        queue->addUnique(priorityHigh, queueItem(levelCommand.cmd, true, currentReceiver));
+        queue->addUnique(priorityHigh, queueItem(levelCommand.cmd, true, commandReceiver(levelCommand.cmd, currentReceiver)));
 
     if (currentDataMode() == dataMode)
         updateCurrentModSource(true);
@@ -5388,7 +5395,7 @@ void MainController::receiveModInput(const rigInput& input, int dataMode)
 
     const auto oldLevelCommand = inputLevelCommand(pref->inputSource[dataMode].type);
     if (oldLevelCommand.cmd != funcNone)
-        queue->del(oldLevelCommand.cmd, currentReceiver);
+        queue->del(oldLevelCommand.cmd, commandReceiver(oldLevelCommand.cmd, currentReceiver));
 
     pref->inputSource[dataMode] = input;
     m_currentModSrc[dataMode] = input;
