@@ -6856,7 +6856,7 @@ void MainController::setDefPrefs()
     defprefs->compMeterReverse = false;
     defprefs->region = "1";
     defprefs->showBands = true;
-    defprefs->miniRxButtons = true;
+    defprefs->miniRxButtons = false;
     defprefs->showTuningDial = true;
     defprefs->wideRitSlider = false;
     defprefs->alwaysSaveOnExit = false;

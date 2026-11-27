@@ -2053,7 +2053,7 @@ ApplicationWindow {
                                     CheckBox {
                                         id: miniRxButtonsChk
                                         text: qsTr("Mini RX Buttons")
-                                        checked: optBool("Interface.MiniRxButtons", true)
+                                        checked: optBool("Interface.MiniRxButtons", false)
                                         onClicked: if (controller) controller.setOption("Interface.MiniRxButtons", checked)
                                         ToolTip.visible: hovered
                                         ToolTip.text: qsTr("Use compact menu buttons to open the Bands and RX Settings panels")

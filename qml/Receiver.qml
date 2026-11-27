@@ -18,7 +18,7 @@ Control {
     property bool restoringReceiverUiState: true
     property bool receiverFullScreen: false
     readonly property bool miniRxButtons: boolReceiverSettingValue(
-        MainController.settings ? MainController.settings.options["Interface.MiniRxButtons"] : undefined, true)
+        MainController.settings ? MainController.settings.options["Interface.MiniRxButtons"] : undefined, false)
     readonly property bool sMeterOnTop: boolReceiverSettingValue(
         MainController.settings ? MainController.settings.options["Interface.SMeterOnTop"] : undefined, false)
     // "Larger digits and primary meter": scales the frequency displays and the S/power meter.

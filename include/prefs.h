@@ -349,7 +349,7 @@ struct preferences {
     int frequencyUnits = 3;
     QString region;
     bool showBands;
-    bool miniRxButtons = true;
+    bool miniRxButtons = false;
     bool showTuningDial = true;
     bool wideRitSlider = false;  // horizontal RIT slider + spinbox in place of the RIT knob
     bool alwaysSaveOnExit = false; // save settings on exit without asking

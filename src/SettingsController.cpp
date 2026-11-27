@@ -2501,7 +2501,7 @@ void SettingsController::setDefPrefs()
     defPrefs.compMeterReverse = false;
     defPrefs.region = "1";
     defPrefs.showBands = true;
-    defPrefs.miniRxButtons = true;
+    defPrefs.miniRxButtons = false;
     defPrefs.showTuningDial = true;
     defPrefs.wideRitSlider = false;
     defPrefs.alwaysSaveOnExit = false;
