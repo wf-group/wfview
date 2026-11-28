@@ -23,10 +23,6 @@ QByteArray yaesuFormatScopeRef(int tenthsDb);
 // Parses the sign, digits and point; false if they are malformed.
 bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb);
 
-// Scope window in Cursor and Fixed modes: true when the VFO is outside the
-// window that starts at startMHz and is spanMHz wide.
-bool yaesuVfoOutsideScopeWindow(double vfoMHz, double startMHz, double spanMHz);
-
 // A VFO-A the radio reported itself (Auto Information or a reply) is newer than
 // a scope frame's VFO-A for limitMs after the report, when the two differ.
 // reportAgeMs is -1 when there has been no report.

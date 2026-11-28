@@ -13,7 +13,6 @@ private slots:
     void ifShiftParse();
     void scopeRefFormat();
     void scopeRefParse();
-    void scopeWindowOutside();
     void vfoReportNewerRules();
 };
 
@@ -90,16 +89,6 @@ void YaesuValuesTest::scopeRefParse()
     QCOMPARE(level, -300);
     QVERIFY(!yaesuParseScopeRef("+055", &level));
     QVERIFY(!yaesuParseScopeRef("05.50", &level));
-}
-
-void YaesuValuesTest::scopeWindowOutside()
-{
-    // Window 28.200-28.300 MHz.
-    QVERIFY(!yaesuVfoOutsideScopeWindow(28.250, 28.200, 0.100));
-    QVERIFY(!yaesuVfoOutsideScopeWindow(28.200, 28.200, 0.100));
-    QVERIFY(!yaesuVfoOutsideScopeWindow(28.300, 28.200, 0.100));
-    QVERIFY(yaesuVfoOutsideScopeWindow(28.199, 28.200, 0.100));
-    QVERIFY(yaesuVfoOutsideScopeWindow(28.301, 28.200, 0.100));
 }
 
 void YaesuValuesTest::vfoReportNewerRules()

@@ -16,6 +16,16 @@ constexpr int tuningFlagsByte = 111; // bit 2 dial lock, bit 4 NR on
 constexpr int keySpeedByte = 121; // WPM
 constexpr int minimumSize = keySpeedByte + 1;
 
+// The scope window, see yaesuScopeWindow.
+constexpr int scopeModeByte = 17;
+constexpr int scopeSpanByte = 32;
+constexpr quint8 scopeSpanMask = 0x0f;
+constexpr int scopeWindowModeByte = 52;
+constexpr int scopeWindowStartByte = 144;
+constexpr int scopeWindowMinimumSize = scopeWindowStartByte + 4;
+// The highest ScopeModes Num in FT-710.rig (Fixed (Normal)).
+constexpr quint8 lastScopeMode = 0x0a;
+
 // The CAT decoder scales APF level from the radio's 0-50 to wfview's 0-255.
 constexpr int apfMax = 50;
 
@@ -27,6 +37,11 @@ quint8 byteAt(const QByteArray &data, int i)
 quint16 u16At(const QByteArray &data, int i)
 {
     return quint16((byteAt(data, i) << 8) | byteAt(data, i + 1));
+}
+
+quint32 u32At(const QByteArray &data, int i)
+{
+    return (quint32(u16At(data, i)) << 16) | u16At(data, i + 2);
 }
 }
 
@@ -103,4 +118,68 @@ void YaesuStatusConfirm::reset()
 {
     m_previous.clear();
     m_reported.clear();
+}
+
+quint8 yaesuScopeModeWindowMode(quint8 scopeMode)
+{
+    // FT-710.rig ScopeModes: 00-02 3DSS Center, Cursor, Fixed; 03-05 Center; 06-08 Cursor; 09-0A Fixed.
+    if (scopeMode <= yaesuScopeWindow::fixed)
+    {
+        return scopeMode;
+    }
+    if (scopeMode <= lastScopeMode)
+    {
+        return quint8((scopeMode - 3) / 3);
+    }
+    return yaesuScopeWindow::unknown;
+}
+
+yaesuScopeWindow yaesuScopeWindowValues(const QByteArray &data)
+{
+    yaesuScopeWindow w;
+    if (data.size() < scopeWindowMinimumSize)
+    {
+        return w;
+    }
+    const quint8 mode = byteAt(data, scopeWindowModeByte);
+    if (mode == yaesuScopeWindow::unknown || mode != yaesuScopeModeWindowMode(byteAt(data, scopeModeByte)))
+    {
+        return w;
+    }
+    w.mode = mode;
+    w.spanReg = byteAt(data, scopeSpanByte) & scopeSpanMask;
+    w.startHz = u32At(data, scopeWindowStartByte);
+    return w;
+}
+
+bool yaesuScopeWindowEdges(const yaesuScopeWindow &window, quint32 spanHz, double *startMHz, double *endMHz)
+{
+    if ((window.mode != yaesuScopeWindow::cursor && window.mode != yaesuScopeWindow::fixed)
+        || window.startHz == 0 || spanHz == 0)
+    {
+        return false;
+    }
+    *startMHz = window.startHz / 1000000.0;
+    *endMHz = (quint64(window.startHz) + spanHz) / 1000000.0;
+    return true;
+}
+
+bool YaesuScopeWindowConfirm::update(const yaesuScopeWindow &window)
+{
+    const bool agrees = m_havePrevious && window == m_previous;
+    m_previous = window;
+    m_havePrevious = true;
+    if (!agrees || window == m_confirmed)
+    {
+        return false;
+    }
+    m_confirmed = window;
+    return true;
+}
+
+void YaesuScopeWindowConfirm::reset()
+{
+    m_previous = yaesuScopeWindow();
+    m_confirmed = yaesuScopeWindow();
+    m_havePrevious = false;
 }

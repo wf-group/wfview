@@ -100,11 +100,6 @@ bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb)
     return true;
 }
 
-bool yaesuVfoOutsideScopeWindow(double vfoMHz, double startMHz, double spanMHz)
-{
-    return vfoMHz < startMHz || vfoMHz > startMHz + spanMHz;
-}
-
 bool yaesuVfoReportNewer(qint64 reportAgeMs, quint64 reportHz, quint64 frameHz, qint64 limitMs)
 {
     return reportAgeMs >= 0 && reportAgeMs < limitMs && reportHz != frameHz;
