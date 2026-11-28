@@ -341,6 +341,7 @@ SOURCES += \
     src/radio/kenwoodserver.cpp \
     src/radio/yaesucommander.cpp \
     src/radio/yaesuvalues.cpp \
+    src/radio/yaesustatusblock.cpp \
     src/radio/yaesuserver.cpp \
     src/radio/yaesuudpaudio.cpp \
     src/radio/yaesuudpbase.cpp \
@@ -449,6 +450,7 @@ HEADERS  += \
     include/wfviewtypes.h \
     include/yaesucommander.h \
     include/yaesuvalues.h \
+    include/yaesustatusblock.h \
     include/yaesuserver.h \
     include/yaesuudpaudio.h \
     include/yaesuudpbase.h \

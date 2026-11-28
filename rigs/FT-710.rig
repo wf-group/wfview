@@ -1,5 +1,5 @@
 [General]
-Version=2.17
+Version=2.18
 
 [Rig]
 Manufacturer=2
@@ -13,6 +13,7 @@ SpectrumAmpMax=255
 SpectrumLenMax=850
 SpectrumDbPerDN=0.5
 HasSpectrum=true
+ScopeStatusBlock=true
 HasLAN=false
 HasEthernet=false
 HasWiFi=false

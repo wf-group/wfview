@@ -11,6 +11,7 @@
 #include "yaesuudpcat.h"
 #include "yaesuudpaudio.h"
 #include "yaesuudpscope.h"
+#include "yaesustatusblock.h"
 
 #define audioLevelBufferSize (4)
 
@@ -103,6 +104,17 @@ private:
     QElapsedTimer commandClock;
     uchar lastCompressorLevel = 0; // last non-zero speech processor level
     bool clarifierTx = false; // TX clarifier as last reported by CF000
+
+    // Scope frames that carry the radio's status block (rigCaps.scopeStatusBlock).
+    void updateScopeWindow(const QByteArray &data, scopeData &scope);
+    // The scope's display window in Cursor and Fixed modes, from the frames' status block.
+    YaesuScopeWindowConfirm scopeWindowConfirm;
+    // The last VFO-A the radio reported itself (Auto Information or a reply), newer than the scope frames.
+    quint64 vfoReportHz = 0;
+    QElapsedTimer vfoReportClock;
+    // The status block's values, and when the last scope frame arrived.
+    YaesuStatusConfirm statusConfirm;
+    QElapsedTimer scopeFrameClock;
 
     vspHandler* vspPort = nullptr;
     tcpServer* tcp = nullptr;

@@ -22,3 +22,8 @@ bool yaesuParseIfShift(const QByteArray &text, int *hz);
 QByteArray yaesuFormatScopeRef(int tenthsDb);
 // Parses the sign, digits and point; false if they are malformed.
 bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb);
+
+// A VFO-A the radio reported itself (Auto Information or a reply) is newer than
+// a scope frame's VFO-A for limitMs after the report, when the two differ.
+// reportAgeMs is -1 when there has been no report.
+bool yaesuVfoReportNewer(qint64 reportAgeMs, quint64 reportHz, quint64 frameHz, qint64 limitMs);

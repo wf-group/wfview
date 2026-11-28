@@ -99,3 +99,8 @@ bool yaesuParseScopeRef(const QByteArray &text, int *tenthsDb)
     *tenthsDb = whole * 10 + (text.at(0) == '-' ? -tenths : tenths);
     return true;
 }
+
+bool yaesuVfoReportNewer(qint64 reportAgeMs, quint64 reportHz, quint64 frameHz, qint64 limitMs)
+{
+    return reportAgeMs >= 0 && reportAgeMs < limitMs && reportHz != frameHz;
+}

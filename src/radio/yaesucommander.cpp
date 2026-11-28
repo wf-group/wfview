@@ -13,6 +13,11 @@ namespace
 // A ?; reply is reported with the commands sent this long before it.
 constexpr qint64 rejectedCommandWindowMs = 500;
 constexpr int maxRecentCommands = 16;
+// How long a VFO-A report from the radio is taken as newer than the scope frames.
+constexpr qint64 vfoReportNewerMs = 1000;
+// After a gap this long between scope frames (the scope was off), the frame before the gap is not
+// taken as agreeing with the next one.
+constexpr qint64 scopeFramesStoppedMs = 2000;
 }
 
 namespace
@@ -192,6 +197,49 @@ void yaesuCommander::serialCommSetup(QHash<quint16,rigInfo> rigList, quint16 rig
     commonSetup();
 }
 
+// In Cursor and Fixed scope modes the display does not centre on the VFO. Every frame's status
+// block carries the display's low edge, its span and the window mode (see yaesuScopeWindow), so
+// the axis comes from the frames and nothing is read from the radio for it. The window is used
+// once two consecutive frames agree on it; in Center mode, or until a Cursor or Fixed window is
+// confirmed, the caller's axis centred on the VFO is kept.
+void yaesuCommander::updateScopeWindow(const QByteArray &data, scopeData &scope)
+{
+    if (scopeFrameClock.isValid() && scopeFrameClock.elapsed() > scopeFramesStoppedMs)
+    {
+        statusConfirm.reset();
+        scopeWindowConfirm.reset();
+    }
+    scopeFrameClock.start();
+
+    const bool changed = scopeWindowConfirm.update(yaesuScopeWindowValues(data));
+    const yaesuScopeWindow &window = scopeWindowConfirm.window();
+
+    quint32 spanHz = 0;
+    for (const centerSpanData &s : rigCaps.scopeCenterSpans)
+    {
+        if (s.reg == window.spanReg)
+        {
+            spanHz = s.freq;
+            break;
+        }
+    }
+
+    double startMHz = 0.0;
+    double endMHz = 0.0;
+    const bool useWindow = yaesuScopeWindowEdges(window, spanHz, &startMHz, &endMHz);
+    if (changed)
+    {
+        qDebug(logRig()) << "Scope window mode" << int(window.mode) << "(0 = Center, 1 = Cursor, 2 = Fixed, 255 = unknown)"
+                         << "span" << int(window.spanReg) << spanHz << "Hz, start" << window.startHz << "Hz,"
+                         << (useWindow ? "used" : "axis centred on VFO");
+    }
+    if (useWindow)
+    {
+        scope.startFreq = startMHz;
+        scope.endFreq = endMHz;
+    }
+}
+
 void yaesuCommander::haveScopeData(QByteArray in)
 {
     /*  in contains a valid yaesu data packet.
@@ -203,10 +251,10 @@ void yaesuCommander::haveScopeData(QByteArray in)
         17          1          Scope Mode
         22          2          Changes on TX from 00 08 to 80 28
         27          1          Preamp first 2 bits/atten second 2 bits (0=Off, 1=AMP1, 2=AMP2) (0=OFF, 1=6 dB, 2=12dB 3=18dB)
-        32          1          Scope Span (00=1 kHz, 09=1 MHz)
+        32          1          Scope Span (00=1 kHz, 09=1 MHz); FT-710: low nibble only, high nibble set in Cursor/Fixed
         33          1          Scope Speed
         37          1          Changes on TX from 00 to 38 when in CW mode?
-        52          1          Changes on scope mode change? (00=center, 01=cursor, 02=fixed)
+        52          1          Scope window mode (00=center, 01=cursor, 02=fixed)
         60          1          Operating mode VFOA
         64          5          VFOA Frequency
         69          12         VFOA Stored name?
@@ -217,7 +265,7 @@ void yaesuCommander::haveScopeData(QByteArray in)
         132         4          VFOA Freq in Hex (BE) (00 D8 24 08 = 14.165 MHz)
         136         4          VFOA Freq in Hex (BE)
         140         4          VFOA Freq in Hex (BE)
-        144         4          Fixed scope start freq in Hex!
+        144         4          Scope display start freq in Hex (BE), Cursor and Fixed modes (see yaesuScopeWindow)
     */
     if (!haveRigCaps)
     {
@@ -252,6 +300,9 @@ void yaesuCommander::haveScopeData(QByteArray in)
     quint8 scopemode = QString::number(data.at(17), 16).toUpper().at(0).toLatin1();
     //quint8 mode = quint8(QString::number(data.at(60)).at(0).toLatin1()) + 1;
     quint8 span = quint8(data.mid(32,1).toHex().toUShort(nullptr,16));
+    // The FT-710 sets the high nibble in Cursor and Fixed modes (0x46, 0x88); the span is the low nibble.
+    if (rigCaps.scopeStatusBlock)
+        span &= 0x0f;
 
     quint8 modein = quint8(data.at(60));
     /* modes:
@@ -335,10 +386,28 @@ void yaesuCommander::haveScopeData(QByteArray in)
 
     scopeData scope;
     scope.data = QByteArray((char*)d->wf1,sizeof(d->wf1));
+    // On the FT-710 the first point is not spectrum (it reads about twice the noise floor in
+    // every frame), so it is drawn with its neighbour's value.
+    if (rigCaps.scopeStatusBlock && scope.data.size() > 1)
+        scope.data[0] = scope.data.at(1);
     scope.valid=true;
     scope.receiver=0;
     scope.startFreq=fa.MHzDouble-((cs.freq/2)/1000000.0);
     scope.endFreq=fa.MHzDouble+((cs.freq/2)/1000000.0);
+    if (rigCaps.scopeStatusBlock)
+        updateScopeWindow(data, scope);
+    // The radio reports a new VFO-A (Auto Information) before a scope frame carries it. While such a
+    // report is recent, it is newer than the frame's value: the Center axis centres on it, as the radio's
+    // own display does, and the frame's older value is not stored over it.
+    const bool vfoReportNewer = rigCaps.scopeStatusBlock
+        && yaesuVfoReportNewer(vfoReportClock.isValid() ? vfoReportClock.elapsed() : -1, vfoReportHz, fa.Hz,
+                               vfoReportNewerMs);
+    if (vfoReportNewer && scopeWindowConfirm.window().mode == yaesuScopeWindow::center)
+    {
+        const double centreMHz = vfoReportHz / 1000000.0;
+        scope.startFreq = centreMHz - ((cs.freq / 2) / 1000000.0);
+        scope.endFreq = centreMHz + ((cs.freq / 2) / 1000000.0);
+    }
     scope.mode = mode;
     scope.oor = false;
     scope.fixedEdge = 1;
@@ -346,11 +415,25 @@ void yaesuCommander::haveScopeData(QByteArray in)
     queue->receiveValue(funcScopeWaveData,QVariant::fromValue<scopeData>(scope),0);
 
     if (rigCaps.commands.contains(funcFreq)) {
-        queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fa),0);
         queue->receiveValue(funcFreq,QVariant::fromValue<freqt>(fb),1);
     } else {
-        queue->receiveValue(funcSelectedFreq,QVariant::fromValue<freqt>(fa),0);
+        if (!vfoReportNewer)
+            queue->receiveValue(funcSelectedFreq,QVariant::fromValue<freqt>(fa),0);
         queue->receiveValue(funcUnselectedFreq,QVariant::fromValue<freqt>(fb),0);
+    }
+
+    if (rigCaps.scopeStatusBlock)
+    {
+        // The status block's values go to the cache like any reply from the radio. The periodic
+        // reads of the same values stay in the queue.
+        const QHash<funcs, QVariant> changed = statusConfirm.update(yaesuStatusBlockValues(data));
+        for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
+        {
+            if (rigCaps.commands.contains(it.key()))
+                queue->receiveValue(it.key(), it.value(), 0);
+        }
     }
 
     emit setScopePoll(quint64(specTime+wfTime+10));
@@ -1102,6 +1185,11 @@ void yaesuCommander::parseData(QByteArray data)
             {
                 f.MHzDouble = f.Hz/1000000.0;
                 value.setValue(f);
+                if (receiver == 0 && func != funcUnselectedFreq)
+                {
+                    vfoReportHz = f.Hz;
+                    vfoReportClock.start();
+                }
             }
             break;
         }
